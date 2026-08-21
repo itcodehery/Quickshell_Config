@@ -1,0 +1,20 @@
+"Talk is cheap. Show me the code." - Linus Torvalds
+"Programs must be written for people to read, and only incidentally for machines to execute." - Harold Abelson
+"Any fool can write code that a computer can understand. Good programmers write code that humans can understand." - Martin Fowler
+"First, solve the problem. Then, write the code." - John Johnson
+"Simplicity is prerequisite for reliability." - Edsger W. Dijkstra
+"There are only two hard things in Computer Science: cache invalidation and naming things." - Phil Karlton
+"Measuring programming progress by lines of code is like measuring airplane building progress by weight." - Bill Gates
+"Where words fail, music speaks." - Hans Christian Andersen
+"Without music, life would be a mistake." - Friedrich Nietzsche
+"One good thing about music, when it hits you, you feel no pain." - Bob Marley
+"To play a wrong note is insignificant; to play without passion is inexcusable." - Ludwig van Beethoven
+"Music gives a soul to the universe, wings to the mind, flight to the imagination, and life to everything." - Plato
+"A computer would deserve to be called intelligent if it could deceive a human into believing that it was human." - Alan Turing
+"We can only see a short distance ahead, but we can see plenty there that needs to be done." - Alan Turing
+"If you want to find the secrets of the universe, think in terms of energy, frequency and vibration." - Nikola Tesla
+"Of all things, I liked books best." - Nikola Tesla
+"The function of good software is to make the complex appear to be simple." - Grady Booch
+"Music is the shorthand of emotion." - Leo Tolstoy
+"The computer was born to solve problems that did not exist before." - Bill Gates
+"Sometimes it is the people no one can imagine anything of who do the things no one can imagine." - Alan Turing

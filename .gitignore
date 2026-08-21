@@ -1,0 +1,17 @@
+# Qt/QML compiled files
+*.qmlc
+*.jsc
+*.qsb
+
+# Backup files
+*.bak
+*~
+*.orig
+
+# Temporary files
+*.swp
+*.tmp
+
+# OS generated files
+.DS_Store
+Thumbs.db

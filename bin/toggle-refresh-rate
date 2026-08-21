@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+FILE="$HOME/.config/hypr/monitors.conf"
+LUA_FILE="$HOME/.config/hypr/monitors.lua"
+
+if grep -q "^monitor=eDP-1,1920x1080@120" "$FILE"; then
+    # Currently 120, switch to 60
+    sed -i 's/^monitor=eDP-1,1920x1080@120/# monitor=eDP-1,1920x1080@120/' "$FILE"
+    sed -i 's/^# monitor=eDP-1,1920x1080@60/monitor=eDP-1,1920x1080@60/' "$FILE"
+elif grep -q "^monitor=eDP-1,1920x1080@60" "$FILE"; then
+    # Currently 60, switch to 48
+    sed -i 's/^monitor=eDP-1,1920x1080@60/# monitor=eDP-1,1920x1080@60/' "$FILE"
+    sed -i 's/^# monitor=eDP-1,1920x1080@48/monitor=eDP-1,1920x1080@48/' "$FILE"
+elif grep -q "^monitor=eDP-1,1920x1080@48" "$FILE"; then
+    # Currently 48, switch to 120
+    sed -i 's/^monitor=eDP-1,1920x1080@48/# monitor=eDP-1,1920x1080@48/' "$FILE"
+    sed -i 's/^# monitor=eDP-1,1920x1080@120/monitor=eDP-1,1920x1080@120/' "$FILE"
+else
+    # Default fallback, enable 60
+    sed -i 's/^monitor=eDP-1,1920x1080@120/# monitor=eDP-1,1920x1080@120/' "$FILE"
+    sed -i 's/^monitor=eDP-1,1920x1080@48/# monitor=eDP-1,1920x1080@48/' "$FILE"
+    sed -i 's/^# monitor=eDP-1,1920x1080@60/monitor=eDP-1,1920x1080@60/' "$FILE"
+fi
+
+if [ -f "$LUA_FILE" ]; then
+    if grep -q '^hl.monitor({ output = "", mode = "1920x1080@120"' "$LUA_FILE"; then
+        sed -i 's/^hl.monitor({ output = "", mode = "1920x1080@120"/-- hl.monitor({ output = "", mode = "1920x1080@120"/' "$LUA_FILE"
+        sed -i 's/^-- hl.monitor({ output = "", mode = "1920x1080@60"/hl.monitor({ output = "", mode = "1920x1080@60"/' "$LUA_FILE"
+    elif grep -q '^hl.monitor({ output = "", mode = "1920x1080@60"' "$LUA_FILE"; then
+        sed -i 's/^hl.monitor({ output = "", mode = "1920x1080@60"/-- hl.monitor({ output = "", mode = "1920x1080@60"/' "$LUA_FILE"
+        sed -i 's/^-- hl.monitor({ output = "", mode = "1920x1080@48"/hl.monitor({ output = "", mode = "1920x1080@48"/' "$LUA_FILE"
+    elif grep -q '^hl.monitor({ output = "", mode = "1920x1080@48"' "$LUA_FILE"; then
+        sed -i 's/^hl.monitor({ output = "", mode = "1920x1080@48"/-- hl.monitor({ output = "", mode = "1920x1080@48"/' "$LUA_FILE"
+        sed -i 's/^-- hl.monitor({ output = "", mode = "1920x1080@120"/hl.monitor({ output = "", mode = "1920x1080@120"/' "$LUA_FILE"
+    else
+        sed -i 's/^hl.monitor({ output = "", mode = "1920x1080@120"/-- hl.monitor({ output = "", mode = "1920x1080@120"/' "$LUA_FILE"
+        sed -i 's/^hl.monitor({ output = "", mode = "1920x1080@48"/-- hl.monitor({ output = "", mode = "1920x1080@48"/' "$LUA_FILE"
+        sed -i 's/^-- hl.monitor({ output = "", mode = "1920x1080@60"/hl.monitor({ output = "", mode = "1920x1080@60"/' "$LUA_FILE"
+    fi
+fi
+
+hyprctl reload
