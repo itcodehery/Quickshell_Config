@@ -152,7 +152,7 @@ Item {
     readonly property bool anyPopupVisible: calendarVisible || cpuVisible || gpuVisible
         || thermalVisible || aiUsageVisible
         || memVisible || volVisible || controlVisible || networkVisible || bluetoothVisible
-        || batteryVisible || brightnessVisible || mprisVisible || weatherVisible
+        || batteryVisible || brightnessVisible || mprisVisible || weatherVisible || githubHeatmapVisible
         || workspaceVisible || imagePickerVisible || mediaBrowserVisible || notifVisible
         || powerProfileVisible || storageVisible || archVisible || trayVisible || trayMenuVisible
     readonly property bool keyboardPopupVisible: imagePickerVisible || mediaBrowserVisible
@@ -332,6 +332,7 @@ Item {
         else if (name === "gpu") gpuBarX = x
         else if (name === "thermal") thermalBarX = x
         else if (name === "storage") storageBarX = x
+        else if (name === "githubHeatmap") githubHeatmapBarX = x
         else if (name === "ai") aiBarX = x
         else if (name === "workspace") workspaceBarX = x
         else if (name === "arch") archBarX = x
@@ -397,6 +398,7 @@ Item {
         if (except !== "brightnessVisible") brightnessVisible = false
         if (except !== "mprisVisible") mprisVisible = false
         if (except !== "weatherVisible") weatherVisible = false
+        if (except !== "githubHeatmapVisible") githubHeatmapVisible = false
         if (except !== "workspaceVisible") workspaceVisible = false
         if (except !== "imagePickerVisible") imagePickerVisible = false
         if (except !== "mediaBrowserVisible") mediaBrowserVisible = false
@@ -1605,6 +1607,7 @@ Item {
     property bool modCpuTemperature: true
     property bool modGpu:        true
     property bool modStorage:    true
+    property bool modGithubHeatmap: true
     property bool modVolume:     true
     property bool modWeather:    true
     property bool modNetwork:    true
@@ -2560,6 +2563,8 @@ Item {
     onMprisVisibleChanged: popupOpened("mprisVisible")
     property bool weatherVisible:   false
     onWeatherVisibleChanged: popupOpened("weatherVisible")
+    property bool githubHeatmapVisible: false
+    onGithubHeatmapVisibleChanged: popupOpened("githubHeatmapVisible")
     property bool workspaceVisible: false
     onWorkspaceVisibleChanged: popupOpened("workspaceVisible")
 
@@ -3021,6 +3026,7 @@ Item {
     property real powerBarX:      0
     property real mprisBarX:      0
     property real weatherBarX:    0
+    property real githubHeatmapBarX: 0
     property real calendarBarX:   weatherBarX
     property real launcherBarX:   6   // ControlPanel follows the Launcher/Control group
 

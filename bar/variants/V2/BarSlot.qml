@@ -849,7 +849,7 @@ PanelWindow {
     function resetOrder() {
         var dL = ["G1","G2","G3","","G5","G6","G4","G7","",""]
         var dR = ["G9","G10","G11","G14","G12","G13","G16",
-                  "G18","G17","G15","","",""]
+                  "G18","G17","G19","G15","",""]
         resetModel(leftModel, dL, leftBaseSlotCount)
         resetModel(centerModel, ["G8"], centerBaseSlotCount)
         resetModel(rightModel, dR, rightBaseSlotCount)
@@ -1210,6 +1210,12 @@ PanelWindow {
         }
     }
     Component {
+        id: compGithubHeatmap
+        GithubHeatmapWidget {
+            root: barSlot.root
+        }
+    }
+    Component {
         id: compPower
         PowerProfileWidget {
             root: barSlot.root
@@ -1248,7 +1254,8 @@ PanelWindow {
         "G8": compCenter,
         "G9": compMpris, "G10": compQuick, "G11": compNetwork,
         "G12": compBattery, "G13": compBrightness, "G14": compPower, "G15": compBluetooth,
-        "G16": compCpuTemperature, "G17": compGpu, "G18": compStorage
+        "G16": compCpuTemperature, "G17": compGpu, "G18": compStorage,
+        "G19": compGithubHeatmap
     })
 
     // ───────────────────── reusable region row of slots ─────────────────────
@@ -1893,7 +1900,7 @@ PanelWindow {
             if (gid === "G8") return true                                        // clock has its own stages
             if (stage <= 0) return true
             if (stage === 1) return ["G7", "G9", "G10"].indexOf(gid) < 0         // drop AI · MPRIS · Quick
-            if (stage === 2) return ["G4", "G7", "G9", "G10", "G17", "G18"].indexOf(gid) < 0   // also MEM · GPU · HDD
+            if (stage === 2) return ["G4", "G7", "G9", "G10", "G17", "G18", "G19"].indexOf(gid) < 0   // also MEM · GPU · HDD · Heatmap
             return ["G1", "G2", "G6", "G8", "G11", "G14"].indexOf(gid) >= 0      // emergency whitelist
         }
         function sideNaturalWidth(row, stage) {
@@ -1968,7 +1975,7 @@ PanelWindow {
             ListElement { gid: "G9"; extra: false }  ListElement { gid: "G10"; extra: false } ListElement { gid: "G11"; extra: false }
             ListElement { gid: "G14"; extra: false } ListElement { gid: "G12"; extra: false } ListElement { gid: "G13"; extra: false }
             ListElement { gid: "G16"; extra: false } ListElement { gid: "G18"; extra: true }  ListElement { gid: "G17"; extra: true }
-            ListElement { gid: "G15"; extra: true }  ListElement { gid: ""; extra: true }     ListElement { gid: ""; extra: true }
+            ListElement { gid: "G19"; extra: true }  ListElement { gid: "G15"; extra: true }  ListElement { gid: ""; extra: true }
             ListElement { gid: ""; extra: true }
         }
 
@@ -2070,6 +2077,7 @@ PanelWindow {
                 gpu:          island.groupX("G17", 0.5),
                 thermal:      island.groupX("G16", 0.5),
                 storage:      island.groupX("G18", 0.5),
+                githubHeatmap:island.groupX("G19", 0.5),
                 ai:           island.groupX("G7",  0.5),
                 workspace:    island.groupX("G2",  0.5),
                 arch:         island.groupX("G3",  0.5),
