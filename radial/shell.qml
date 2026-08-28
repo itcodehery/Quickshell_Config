@@ -282,6 +282,22 @@ ShellRoot {
                             scale: wedgeItem.isHovered ? 1.1 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
                             
+                            Rectangle {
+                                anchors.bottom: parent.bottom
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                height: parent.height * 0.4
+                                radius: 8
+                                
+                                opacity: wedgeItem.isHovered ? 0.4 : 0.0
+                                Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                                
+                                gradient: Gradient {
+                                    GradientStop { position: 0.0; color: "transparent" }
+                                    GradientStop { position: 1.0; color: root.themeAccent }
+                                }
+                            }
+                            
                             Text {
                                 visible: wedgeItem.isEmpty
                                 text: "+"
