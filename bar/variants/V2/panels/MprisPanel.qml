@@ -219,105 +219,130 @@ PanelWindow {
         Column {
             id: col
             anchors.fill: parent
-            anchors.margins: 12
-            spacing: 8
+            anchors.margins: 20
+            spacing: 20
 
             // ── header ──
             Item {
                 width: parent.width
                 height: 24
                 UiText {
-                    anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
-                    text: "NOW PLAYING"
-                    color: root.ink; font.family: root.mono; font.pixelSize: 13
-                    font.letterSpacing: 2; font.weight: Font.Medium
+                    anchors.centerIn: parent
+                    text: "N O W   P L A Y I N G"
+                    color: root.sumiHi; font.family: root.mono; font.pixelSize: 11
+                    font.letterSpacing: 2; font.weight: Font.DemiBold
                 }
-                Row {
+                UiText {
                     anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                    spacing: 8
-                    UiText {
-                        anchors.verticalCenter: parent.verticalCenter
-                        visible: mprisPanel.active && mprisPanel.playerName !== ""
-                        text: mprisPanel.playerName
-                        color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.45)
-                        font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
-                    }
-                    UiText {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "✕"; color: closeMa.containsMouse ? root.seal : root.sumi; font.pixelSize: 12
-                        Behavior on color { ColorAnimation { duration: 120 } }
-                        MouseArea { id: closeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.mprisVisible = false }
-                    }
+                    text: "✕"; color: closeMa.containsMouse ? root.seal : root.sumi; font.pixelSize: 12
+                    Behavior on color { ColorAnimation { duration: 120 } }
+                    MouseArea { id: closeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.mprisVisible = false }
                 }
             }
-
-            Rectangle { width: parent.width; height: 1; color: root.sep }
 
             // ── ACTIVE: art + track info ──
-            Row {
+            Column {
                 width: parent.width
-                spacing: 10
+                spacing: 16
                 visible: mprisPanel.active
 
-                // album art (falls back to a music glyph)
-                Rectangle {
-                    width: 52; height: 52; radius: 5
-                    color: root.fillActive
-                    clip: true
-                    Image {
-                        id: panelCoverArt
+                // Large album art
+                Item {
+                    width: 220; height: 220
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    
+                    Rectangle {
                         anchors.fill: parent
-                        source: artwork.source
-                        fillMode: Image.PreserveAspectCrop
-                        asynchronous: true
-                        visible: status === Image.Ready
-                    }
-                    IconText {
-                        anchors.centerIn: parent
-                        visible: panelCoverArt.status !== Image.Ready
-                        text: ""   // music_note
-                        font.pixelSize: 26
-                        color: root.seal
+                        radius: 16
+                        color: root.fillActive
+                        clip: true
+                        Image {
+                            id: panelCoverArt
+                            anchors.fill: parent
+                            source: artwork.source
+                            fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                            visible: status === Image.Ready
+                        }
+                        IconText {
+                            anchors.centerIn: parent
+                            visible: panelCoverArt.status !== Image.Ready
+                            text: ""   // music_note
+                            font.pixelSize: 64
+                            color: root.seal
+                        }
                     }
                 }
 
+                // Track Info Centered
                 Column {
-                    width: parent.width - 62
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 3
-                    UiText {
+                    width: parent.width
+                    spacing: 4
+                    Item {
                         width: parent.width
-                        text: mprisPanel.player ? (mprisPanel.player.trackTitle || "Unknown") : ""
-                        color: root.ink; font.family: root.mono; font.pixelSize: 12; font.weight: Font.Medium
-                        elide: Text.ElideRight
+                        height: titleText.implicitHeight
+                        clip: true
+                        UiText {
+                            id: titleText
+                            text: mprisPanel.player ? (mprisPanel.player.trackTitle || "Unknown") : ""
+                            color: root.ink; font.family: root.mono; font.pixelSize: 16; font.weight: Font.Bold
+                            
+                            x: implicitWidth <= parent.width ? (parent.width - implicitWidth) / 2 : scrollAnim.currentX
+                            property real maxScroll: Math.max(0, implicitWidth - parent.width)
+                            
+                            SequentialAnimation {
+                                id: scrollAnim
+                                running: titleText.maxScroll > 0 && mprisPanel.active
+                                loops: Animation.Infinite
+                                property real currentX: 0
+                                
+                                PauseAnimation { duration: 1500 }
+                                NumberAnimation { 
+                                    target: scrollAnim
+                                    property: "currentX"
+                                    to: -titleText.maxScroll
+                                    duration: titleText.maxScroll * 30
+                                    easing.type: Easing.InOutSine
+                                }
+                                PauseAnimation { duration: 1500 }
+                                NumberAnimation { 
+                                    target: scrollAnim
+                                    property: "currentX"
+                                    to: 0
+                                    duration: titleText.maxScroll * 30
+                                    easing.type: Easing.InOutSine
+                                }
+                            }
+                        }
                     }
                     UiText {
                         width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
                         text: mprisPanel.player ? (mprisPanel.player.trackArtist || "") : ""
-                        color: root.sumiHi; font.family: root.mono; font.pixelSize: 11
-                        elide: Text.ElideRight
-                        visible: text !== ""
-                    }
-                    UiText {
-                        width: parent.width
-                        text: mprisPanel.player ? (mprisPanel.player.trackAlbum || "") : ""
-                        color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.45)
-                        font.family: root.mono; font.pixelSize: 10
+                        color: root.sumiHi; font.family: root.mono; font.pixelSize: 13
                         elide: Text.ElideRight
                         visible: text !== ""
                     }
                 }
             }
 
-            // ── progress bar (only when the player reports a length) ──
+            // ── progress bar ──
             Item {
                 width: parent.width
                 height: 14
                 visible: mprisPanel.active && mprisPanel.curLen > 0
+                
+                UiText {
+                    anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
+                    text: mprisPanel.fmtTime(mprisPanel.curPos)
+                    color: root.sumiHi; font.family: root.mono; font.pixelSize: 10
+                }
+                
                 Rectangle {
                     id: track
                     anchors.left: parent.left; anchors.right: parent.right
-                    anchors.top: parent.top
+                    anchors.leftMargin: 40; anchors.rightMargin: 40
+                    anchors.verticalCenter: parent.verticalCenter
                     height: 4; radius: 2
                     color: root.fillActive
                     Rectangle {
@@ -327,20 +352,67 @@ PanelWindow {
                             ? Math.min(1, mprisPanel.curPos / mprisPanel.curLen) : 0)
                         Behavior on width { NumberAnimation { duration: 450 } }
                     }
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -12
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: (mouse) => {
+                            if (!mprisPanel.player || mprisPanel.curLen <= 0) return
+                            var newPos = Math.max(0, Math.min(1, mouse.x / width)) * mprisPanel.curLen
+                            // Quickshell's player exposes `position` and we can set it.
+                            if (typeof mprisPanel.player.setPosition === "function") {
+                                mprisPanel.player.setPosition(newPos)
+                            } else {
+                                mprisPanel.player.position = newPos
+                            }
+                        }
+                    }
                 }
+                
                 UiText {
-                    anchors.left: parent.left; anchors.top: track.bottom; anchors.topMargin: 2
-                    text: mprisPanel.fmtTime(mprisPanel.curPos)
-                    color: root.sumiHi; font.family: root.mono; font.pixelSize: 9
-                }
-                UiText {
-                    anchors.right: parent.right; anchors.top: track.bottom; anchors.topMargin: 2
+                    anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
                     text: mprisPanel.fmtTime(mprisPanel.curLen)
-                    color: root.sumiHi; font.family: root.mono; font.pixelSize: 9
+                    color: root.sumiHi; font.family: root.mono; font.pixelSize: 10
                 }
             }
 
-            // ── visualizer + no-song message (shared canvas) ──
+            // ── controls ──
+            Row {
+                visible: mprisPanel.active
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 32
+
+                IconText {
+                    text: ""
+                    font.pixelSize: 22
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: (mprisPanel.player && mprisPanel.player.canGoPrevious) ? root.ink : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.25)
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (mprisPanel.player) mprisPanel.player.previous() }
+                }
+                
+                Rectangle {
+                    width: 72; height: 48; radius: 24
+                    color: root.seal
+                    anchors.verticalCenter: parent.verticalCenter
+                    IconText {
+                        anchors.centerIn: parent
+                        text: mprisPanel.playing ? "" : ""
+                        font.pixelSize: 24
+                        color: root.base
+                    }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (mprisPanel.player) mprisPanel.player.togglePlaying() }
+                }
+
+                IconText {
+                    text: ""
+                    font.pixelSize: 22
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: (mprisPanel.player && mprisPanel.player.canGoNext) ? root.ink : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.25)
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (mprisPanel.player) mprisPanel.player.next() }
+                }
+            }
+
+            // ── visualizer + no-song message ──
             Item {
                 width: parent.width
                 height: 40
@@ -393,7 +465,6 @@ PanelWindow {
                     }
                 }
 
-                // no-song label rides on top of the idle wave
                 Column {
                     anchors.centerIn: parent
                     spacing: 1
@@ -402,45 +473,15 @@ PanelWindow {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "No song playing"
                         color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.55)
-                        font.family: root.mono; font.pixelSize: 12; font.weight: Font.Medium
+                        font.family: root.mono; font.pixelSize: 14; font.weight: Font.Medium
                     }
                     UiText {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "no active player"
                         color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.3)
-                        font.family: root.mono; font.pixelSize: 10
+                        font.family: root.mono; font.pixelSize: 11
                     }
                 }
             }
-
-            // ── controls ──
-            Row {
-                visible: mprisPanel.active
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 18
-
-                IconText {
-                    text: ""
-                    font.pixelSize: 20
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: (mprisPanel.player && mprisPanel.player.canGoPrevious) ? root.ink : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.25)
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (mprisPanel.player) mprisPanel.player.previous() }
-                }
-                IconText {
-                    text: mprisPanel.playing ? "" : ""
-                    font.pixelSize: 24
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: root.seal
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (mprisPanel.player) mprisPanel.player.togglePlaying() }
-                }
-                IconText {
-                    text: ""
-                    font.pixelSize: 20
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: (mprisPanel.player && mprisPanel.player.canGoNext) ? root.ink : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.25)
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (mprisPanel.player) mprisPanel.player.next() }
-                }
-            }
-        }
-    }
+        }    }
 }
