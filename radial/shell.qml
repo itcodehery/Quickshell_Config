@@ -8,10 +8,47 @@ ShellRoot {
     id: root
 
     property var clientsData: []
+    property var activeWorkspaces: []
+    property var displayWorkspaces: [1]
     property int activeWsId: 1
-    property int numWorkspaces: 5 
+    property int numWorkspaces: 1 
     property real globalCursorX: 1920 / 2
     property real globalCursorY: 1080 / 2
+
+    // Dynamic Theme Properties
+    property color themeBackground: "#2d353b"
+    property color themeForeground: "#d3c6aa"
+    property color themeAccent: "#7fbbb3"
+    property color themeLighterBg: "#343f44"
+    property color themeDarkBg: "#21272c"
+    property color themeSelection: "#3d484d"
+    property color themeMuted: "#475258"
+
+    FileView {
+        path: "/home/hery/.local/state/omarchy/current/theme/colors.toml"
+        watchChanges: true
+        onLoaded: {
+            let lines = text().split('\n');
+            let colors = {};
+            for (let i = 0; i < lines.length; i++) {
+                let m = lines[i].match(/([a-z0-9_]+)\s*=\s*"([^"]+)"/);
+                if (m) {
+                    colors[m[1]] = m[2];
+                }
+            }
+            
+            let bg = colors["background"] || colors["color0"] || "#2d353b";
+            themeBackground = bg;
+            themeForeground = colors["foreground"] || colors["color7"] || "#d3c6aa";
+            themeAccent = colors["accent"] || colors["color4"] || "#7fbbb3";
+            
+            themeSelection = colors["selection"] || colors["color8"] || themeAccent;
+            themeMuted = colors["muted"] || colors["color8"] || themeForeground;
+            
+            themeDarkBg = colors["dark_background"] || bg;
+            themeLighterBg = colors["lighter_background"] || colors["selection"] || colors["color8"] || bg;
+        }
+    }
     
     Process {
         id: switchProc
@@ -30,11 +67,20 @@ ShellRoot {
                     let json = JSON.parse(this.text);
                     clientsData = json;
                     
-                    let m = 5;
+                    let wsSet = new Set();
                     for(let i = 0; i < json.length; i++) {
-                        if (json[i].workspace.id > m) m = json[i].workspace.id;
+                        if (json[i].workspace.id > 0) {
+                            wsSet.add(json[i].workspace.id);
+                        }
                     }
-                    numWorkspaces = m;
+                    let arr = Array.from(wsSet).sort((a,b) => a - b);
+                    activeWorkspaces = arr;
+                    
+                    let empty = 1;
+                    while (arr.includes(empty)) empty++;
+                    
+                    displayWorkspaces = arr.concat([empty]);
+                    numWorkspaces = displayWorkspaces.length;
                 } catch (e) {}
             }
         }
@@ -69,6 +115,12 @@ ShellRoot {
         }
     }
 
+    function closeMenu() {
+        radialCenter.scale = 0.8
+        radialCenter.opacity = 0
+        let t = Qt.createQmlObject('import QtQuick; Timer { interval: 200; running: true; onTriggered: Qt.quit() }', root, "timer")
+    }
+
     PanelWindow {
         id: radialWindow
         anchors { top: true; bottom: true; left: true; right: true }
@@ -85,7 +137,7 @@ ShellRoot {
         Rectangle {
             id: dimBackground
             anchors.fill: parent
-            color: "transparent" // NO DIMMING AT ALL
+            color: "transparent" 
             
             MouseArea {
                 anchors.fill: parent
@@ -101,20 +153,20 @@ ShellRoot {
                     let dy = mouse.y - radialCenter.y
                     let dist = Math.sqrt(dx*dx + dy*dy)
                     
-                    if (dist >= 50 && dist <= 180) {
+                    if (dist >= 80 && dist <= 200) {
                         let angle = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360
                         let wedgeSize = 360 / root.numWorkspaces
-                        let shiftedAngle = (angle + 90) % 360
+                        let shiftedAngle = (angle + 90 + wedgeSize/2) % 360
                         let clickedIndex = Math.floor(shiftedAngle / wedgeSize)
-                        let wsId = clickedIndex + 1
+                        if (clickedIndex < 0 || clickedIndex >= root.displayWorkspaces.length) return;
                         
-                        radialCenter.scale = 0.8
-                        radialCenter.opacity = 0
+                        let wsId = root.displayWorkspaces[clickedIndex]
+                        
                         switchProc.targetWs = wsId;
                         switchProc.running = true;
-                        let t = Qt.createQmlObject('import QtQuick; Timer { interval: 300; running: true; onTriggered: Qt.quit() }', root, "timer")
+                        closeMenu()
                     } else {
-                        Qt.quit()
+                        closeMenu()
                     }
                 }
             }
@@ -122,7 +174,7 @@ ShellRoot {
             Item {
                 anchors.fill: parent
                 focus: true
-                Keys.onEscapePressed: Qt.quit()
+                Keys.onEscapePressed: closeMenu()
             }
 
             Item {
@@ -140,18 +192,44 @@ ShellRoot {
                 
                 // Central circle
                 Rectangle {
+                    id: centerCircle
                     anchors.centerIn: parent
-                    width: 90
-                    height: 90
-                    radius: 45
-                    color: "#2d353b"
+                    width: 70
+                    height: 70
+                    radius: 35
                     
-                    Text {
+                    color: centerArea.containsMouse ? root.themeDarkBg : root.themeBackground
+                    border.color: centerArea.containsMouse ? root.themeAccent : root.themeMuted
+                    border.width: centerArea.containsMouse ? 2 : 1
+                    
+                    scale: centerArea.containsMouse ? 1.05 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                    
+                    MouseArea {
+                        id: centerArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: closeMenu()
+                    }
+                    
+                    Column {
                         anchors.centerIn: parent
-                        text: root.activeWsId
-                        color: "#7fbbb3"
-                        font.pixelSize: 28
-                        font.bold: true
+                        spacing: 2
+                        
+                        Text {
+                            text: "✕"
+                            color: root.themeForeground
+                            font.pixelSize: 22
+                            anchors.horizontalCenter: parent.horizontalCenter
+                        }
+                        
+                        Text {
+                            text: root.activeWorkspaces.length
+                            color: root.themeMuted
+                            font.pixelSize: 12
+                            font.bold: true
+                            anchors.horizontalCenter: parent.horizontalCenter
+                        }
                     }
                 }
                 
@@ -160,13 +238,12 @@ ShellRoot {
                     
                     Item {
                         id: wedgeItem
-                        property int wsId: index + 1
+                        property int wsId: root.displayWorkspaces[index]
+                        property bool isEmpty: index === root.displayWorkspaces.length - 1
                         
-                        property real innerRadius: 50
-                        property real outerRadius: 180
-                        property real startAngleDeg: index * (360 / root.numWorkspaces) - 90
+                        property real centerAngleDeg: index * (360 / root.numWorkspaces) - 90
+                        property real startAngleDeg: centerAngleDeg - (180 / root.numWorkspaces)
                         property real sweepAngleDeg: 360 / root.numWorkspaces
-                        property real gapDeg: 5
                         
                         property real dx: radialWindow.mx - radialCenter.x
                         property real dy: radialWindow.my - radialCenter.y
@@ -177,7 +254,7 @@ ShellRoot {
                         property real normEnd: (startAngleDeg + sweepAngleDeg + 360) % 360
                         
                         property bool isHovered: {
-                            if (dist < innerRadius || dist > outerRadius) return false;
+                            if (dist < 80 || dist > 200) return false;
                             let a = mouseAngleDeg;
                             if (normStart < normEnd) {
                                 return a >= normStart && a < normEnd;
@@ -186,89 +263,122 @@ ShellRoot {
                             }
                         }
                         
-                        Shape {
-                            id: wedgeShape
+                        Rectangle {
+                            id: wsRect
+                            width: 120
+                            height: 75
                             
-                            scale: wedgeItem.isHovered ? 1.05 : 1.0
+                            property real centerAngleRad: wedgeItem.centerAngleDeg * Math.PI / 180
+                            property real distFromCenter: 140
+                            
+                            x: distFromCenter * Math.cos(centerAngleRad) - width/2
+                            y: distFromCenter * Math.sin(centerAngleRad) - height/2
+                            
+                            color: wedgeItem.wsId === root.activeWsId ? root.themeLighterBg : (wedgeItem.isHovered ? root.themeBackground : root.themeDarkBg)
+                            border.color: wedgeItem.isHovered ? root.themeAccent : (wedgeItem.isEmpty ? root.themeMuted : root.themeSelection)
+                            border.width: wedgeItem.isHovered ? 1 : 0
+                            radius: 8
+                            
+                            scale: wedgeItem.isHovered ? 1.1 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
                             
-                            ShapePath {
-                                // No stroke at all, completely sharp clean slices
-                                strokeColor: "transparent"
-                                strokeWidth: 0
-                                fillColor: wedgeItem.wsId === root.activeWsId ? "#343f44" : (wedgeItem.isHovered ? "#2d353b" : "#21272c")
-                                
-                                property real startRad: (wedgeItem.startAngleDeg + wedgeItem.gapDeg/2) * Math.PI / 180
-                                property real endRad: (wedgeItem.startAngleDeg + wedgeItem.sweepAngleDeg - wedgeItem.gapDeg/2) * Math.PI / 180
-                                
-                                startX: wedgeItem.innerRadius * Math.cos(startRad)
-                                startY: wedgeItem.innerRadius * Math.sin(startRad)
-                                
-                                PathLine {
-                                    x: wedgeItem.outerRadius * Math.cos(startRad)
-                                    y: wedgeItem.outerRadius * Math.sin(startRad)
-                                }
-                                PathAngleArc {
-                                    centerX: 0; centerY: 0
-                                    radiusX: wedgeItem.outerRadius; radiusY: wedgeItem.outerRadius
-                                    startAngle: wedgeItem.startAngleDeg + wedgeItem.gapDeg/2
-                                    sweepAngle: wedgeItem.sweepAngleDeg - wedgeItem.gapDeg
-                                }
-                                PathLine {
-                                    x: wedgeItem.innerRadius * Math.cos(endRad)
-                                    y: wedgeItem.innerRadius * Math.sin(endRad)
-                                }
-                                PathAngleArc {
-                                    centerX: 0; centerY: 0
-                                    radiusX: wedgeItem.innerRadius; radiusY: wedgeItem.innerRadius
-                                    startAngle: wedgeItem.startAngleDeg + wedgeItem.sweepAngleDeg - wedgeItem.gapDeg/2
-                                    sweepAngle: -(wedgeItem.sweepAngleDeg - wedgeItem.gapDeg)
-                                }
-                            }
-                        }
-                        
-                        // Workspace text / abbreviation list
-                        Column {
-                            property real midRad: (wedgeItem.startAngleDeg + wedgeItem.sweepAngleDeg/2) * Math.PI / 180
-                            property real textDist: wedgeItem.innerRadius + (wedgeItem.outerRadius - wedgeItem.innerRadius) / 2
-                            x: textDist * Math.cos(midRad) - width/2
-                            y: textDist * Math.sin(midRad) - height/2
-                            
-                            spacing: 4
-                            
                             Text {
-                                text: wedgeItem.wsId
-                                color: wedgeItem.wsId === root.activeWsId ? "#7fbbb3" : "#d3c6aa"
-                                font.pixelSize: 18
+                                visible: wedgeItem.isEmpty
+                                text: "+"
+                                anchors.centerIn: parent
+                                color: root.themeMuted
+                                font.pixelSize: 36
                                 font.bold: true
-                                horizontalAlignment: Text.AlignHCenter
-                                anchors.horizontalCenter: parent.horizontalCenter
                             }
                             
-                            Row {
-                                spacing: 6
-                                anchors.horizontalCenter: parent.horizontalCenter
+                            Item {
+                                visible: !wedgeItem.isEmpty
+                                anchors.top: parent.top
+                                anchors.topMargin: 8
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.right: parent.right
+                                anchors.rightMargin: 10
+                                height: 14
+                                
+                                Text {
+                                    text: {
+                                        if (wedgeItem.isEmpty) return "";
+                                        let clients = root.clientsData.filter(c => c.workspace.id === wedgeItem.wsId);
+                                        if (clients.length === 0) return "Empty";
+                                        let first = clients[0].class || clients[0].title || "Unknown";
+                                        first = first.charAt(0).toUpperCase() + first.slice(1);
+                                        if (clients.length === 1) return first;
+                                        return first + " & " + (clients.length - 1) + " other" + (clients.length > 2 ? "s" : "");
+                                    }
+                                    anchors.left: parent.left
+                                    anchors.right: iconImg.left
+                                    anchors.rightMargin: 4
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    color: wedgeItem.wsId === root.activeWsId ? root.themeAccent : root.themeForeground
+                                    font.pixelSize: 10
+                                    font.bold: true
+                                    elide: Text.ElideRight
+                                }
+                                
+                                Image {
+                                    id: iconImg
+                                    property string iconName: {
+                                        if (wedgeItem.isEmpty) return "";
+                                        let clients = root.clientsData.filter(c => c.workspace.id === wedgeItem.wsId);
+                                        if (clients.length === 0) return "";
+                                        return clients[0].class || clients[0].initialClass || "";
+                                    }
+                                    visible: iconName !== ""
+                                    source: iconName !== "" ? Quickshell.iconPath(iconName.toLowerCase(), "application-x-executable") : ""
+                                    width: 12
+                                    height: 12
+                                    fillMode: Image.PreserveAspectFit
+                                    sourceSize.width: 12
+                                    sourceSize.height: 12
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+                            
+                            Item {
+                                visible: !wedgeItem.isEmpty
+                                anchors.top: parent.top
+                                anchors.topMargin: 26
+                                anchors.bottom: parent.bottom
+                                anchors.bottomMargin: 6
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.right: parent.right
+                                anchors.rightMargin: 10
+                                
+                                property real logicalWidth: 1536
+                                property real logicalHeight: 864
                                 
                                 Repeater {
                                     model: {
-                                        let all = root.clientsData.filter(c => c.workspace.id === wedgeItem.wsId);
-                                        return all;
+                                        if (wedgeItem.isEmpty) return [];
+                                        return root.clientsData.filter(c => c.workspace.id === wedgeItem.wsId);
                                     }
                                     
                                     Rectangle {
-                                        width: 28
-                                        height: 16
-                                        color: "#21272c"
-                                        radius: 4
-                                        border.color: "#2d353b"
+                                        x: (modelData.at[0] / parent.logicalWidth) * parent.width
+                                        y: (modelData.at[1] / parent.logicalHeight) * parent.height
+                                        width: (modelData.size[0] / parent.logicalWidth) * parent.width
+                                        height: (modelData.size[1] / parent.logicalHeight) * parent.height
+                                        
+                                        color: root.themeDarkBg
+                                        border.color: root.themeMuted
                                         border.width: 1
+                                        radius: 2
                                         
                                         Text {
                                             anchors.centerIn: parent
                                             text: modelData.class ? modelData.class.substring(0, 3).toUpperCase() : ""
-                                            font.pixelSize: 9
+                                            font.pixelSize: 7
                                             font.bold: true
-                                            color: "#d3c6aa"
+                                            color: root.themeForeground
+                                            visible: parent.width > 20 && parent.height > 10
                                         }
                                     }
                                 }
