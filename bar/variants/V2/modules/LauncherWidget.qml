@@ -62,7 +62,7 @@ Item {
             // gone when idle. Fades so it appears/disappears smoothly.
             opacity: (ma.containsMouse || root.controlVisible) ? 0.55 : 0
             visible: opacity > 0.001
-            Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+            Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
             onPaint: {
                 var ctx = getContext("2d")

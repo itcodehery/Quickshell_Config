@@ -40,7 +40,7 @@ PanelWindow {
 
     property real reveal: root.trayMenuVisible ? 1 : 0
     Behavior on reveal {
-        NumberAnimation { duration: root.trayMenuVisible ? 140 : 100; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: root.trayMenuVisible ? 140 : 100; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
     }
     visible: reveal > 0.001
     WlrLayershell.keyboardFocus: root.trayMenuVisible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None

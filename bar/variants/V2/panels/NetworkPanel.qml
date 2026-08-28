@@ -676,7 +676,7 @@ PanelWindow {
                     width: parent.width
                     height: speedFooter.visible ? speedFooter.implicitHeight : 0
                     clip: true
-                    Behavior on height { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+                    Behavior on height { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
                     UiText {
                         id: speedFooter
@@ -940,7 +940,7 @@ PanelWindow {
                                 color: root.fillIdle
                                 border.color: root.sep
                                 border.width: netTile.expanded ? 1 : 0
-                                Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                                Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
                                 Column {
                                     id: detailColumn

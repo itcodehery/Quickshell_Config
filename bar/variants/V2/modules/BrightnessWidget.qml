@@ -21,7 +21,7 @@ Item {
     visible: implicitWidth > 0.5
     opacity: shown ? 1 : 0
 
-    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
     function refreshBrightness() {
         briProc.running = false
@@ -85,7 +85,7 @@ Item {
                         radius: 0.75
                         color: sun.sunColor
                         opacity: 0.35 + 0.65 * sun.ratio
-                        Behavior on height  { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+                        Behavior on height  { NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
                         Behavior on opacity { NumberAnimation { duration: 250 } }
                         Behavior on color   { ColorAnimation  { duration: 200 } }
                     }

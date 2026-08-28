@@ -629,7 +629,7 @@ Item {
     Behavior on aiUsageReveal {
         NumberAnimation {
             duration: theme.aiUsageVisible ? 160 : 120
-            easing.type: theme.aiUsageVisible ? Easing.OutCubic : Easing.InCubic
+            easing.type: theme.aiUsageVisible ? Easing.OutBack : Easing.InCubic
         }
     }
     onAiUsageVisibleChanged: {
@@ -1582,7 +1582,7 @@ Item {
     Behavior on volReveal {
         NumberAnimation {
             duration: theme.volVisible ? 160 : 120
-            easing.type: theme.volVisible ? Easing.OutCubic : Easing.InCubic
+            easing.type: theme.volVisible ? Easing.OutBack : Easing.InCubic
         }
     }
     onVolVisibleChanged: popupOpened("volVisible")
@@ -3061,7 +3061,7 @@ Item {
     Behavior on panelInsetReveal {
         NumberAnimation {
             duration: theme.anchoredPanelVisible ? 160 : 120
-            easing.type: theme.anchoredPanelVisible ? Easing.OutCubic : Easing.InCubic
+            easing.type: theme.anchoredPanelVisible ? Easing.OutBack : Easing.InCubic
         }
     }
 

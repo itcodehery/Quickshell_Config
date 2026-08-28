@@ -68,7 +68,7 @@ Item {
 
                 // hover feedback works in every style (the old code scaled the
                 // default-only `dot`, invisible in numbers/magic)
-                Behavior on scale { NumberAnimation { duration: 120 } }
+                Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 2.5 } }
 
                 readonly property bool isFocused: Hyprland.focusedWorkspace !== null
                                                && Hyprland.focusedWorkspace.id === wsId
@@ -91,7 +91,7 @@ Item {
                 implicitHeight: 28
 
                 Behavior on implicitWidth {
-                    NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                    NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
                 }
 
                 // ── DEFAULT style: glow + dot ──
@@ -108,7 +108,7 @@ Item {
                         ? Qt.rgba(wsWidget.contentColor.r, wsWidget.contentColor.g, wsWidget.contentColor.b, 0.18)
                         : Qt.rgba(wsWidget.contentColor.r, wsWidget.contentColor.g, wsWidget.contentColor.b, 0.06)
 
-                    Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                    Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
                     Behavior on color { ColorAnimation { duration: 200 } }
                 }
 
@@ -126,7 +126,7 @@ Item {
                         ? wsWidget.contentColor
                         : Qt.rgba(wsWidget.contentColor.r, wsWidget.contentColor.g, wsWidget.contentColor.b, 0.25)
 
-                    Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                    Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
                     Behavior on color { ColorAnimation { duration: 200 } }
                 }
 
@@ -213,7 +213,7 @@ Item {
                     renderType: Text.QtRendering
 
                     Behavior on opacity {
-                        NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+                        NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
                     }
                 }
 
@@ -229,7 +229,7 @@ Item {
                     height: 16
 
                     Behavior on width {
-                        NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                        NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
                     }
 
                     Rectangle {
@@ -245,13 +245,13 @@ Item {
                         antialiasing: true
 
                         Behavior on width {
-                            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                            NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
                         }
                         Behavior on height {
-                            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                            NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
                         }
                         Behavior on opacity {
-                            NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+                            NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
                         }
                     }
                 }
@@ -291,7 +291,7 @@ Item {
         Behavior on animatedX {
             NumberAnimation {
                 duration: 190
-                easing.type: Easing.OutCubic
+                easing.type: Easing.OutBack; easing.overshoot: 1.2
             }
         }
 

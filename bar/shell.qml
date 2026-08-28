@@ -18,7 +18,7 @@ ShellRoot {
     VariantHost {
         id: variantHost
         stateService: variantState
-        v1Source: Qt.resolvedUrl("VariantRoot.qml")
+        v1Source: Qt.resolvedUrl("variants/V2/VariantRoot.qml")
         v2Source: Qt.resolvedUrl("variants/V2/VariantRoot.qml")
     }
 

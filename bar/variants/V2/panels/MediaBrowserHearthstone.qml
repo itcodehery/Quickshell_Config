@@ -38,9 +38,9 @@ PanelWindow {
 
     // ── reveal + deal ──
     property real reveal: 0
-    Behavior on reveal { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+    Behavior on reveal { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
     property real dealT: 0
-    Behavior on dealT { NumberAnimation { duration: 360; easing.type: Easing.OutCubic } }
+    Behavior on dealT { NumberAnimation { duration: 360; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
     onReadyChanged: { reveal = ready ? 1 : 0; if (ready) dealT = 1 }
 
     // ── filtered list ──
@@ -412,10 +412,10 @@ PanelWindow {
                 z: focused ? 1000 : 500 - Math.min(Math.abs(relIdx), 40)
                 opacity: panel.dealT
 
-                Behavior on x        { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
-                Behavior on y        { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
-                Behavior on rotation { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
-                Behavior on scale    { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+                Behavior on x        { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                Behavior on y        { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                Behavior on rotation { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                Behavior on scale    { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
                 // photo/poster (raster) — edges hidden behind the passepartout
                 Item {

@@ -149,7 +149,7 @@ PanelWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             x: btPanel.btOn ? parent.width - width - 3 : 3
                             color: btPanel.btOn ? root.seal : root.sumi
-                            Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                            Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
                         }
                         MouseArea {
                             anchors.fill: parent

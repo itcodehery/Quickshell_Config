@@ -105,7 +105,7 @@ Item {
                     radius: 1.2
                     clip: true
                     color: rootMod.battColor
-                    Behavior on width { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+                    Behavior on width { NumberAnimation { duration: 350; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
                     Behavior on color { ColorAnimation { duration: 200 } }
 
                     // font-free charging shimmer that sweeps across the fill

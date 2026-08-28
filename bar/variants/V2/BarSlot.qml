@@ -96,7 +96,7 @@ PanelWindow {
         y: barSlot.root.barPosition === "bottom"
             ? (barSlot.effectivelyHidden ? barSlot.height : barSlot.height - height)
             : (barSlot.effectivelyHidden ? -height : 0)
-        Behavior on y { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+        Behavior on y { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
         width: barSlot.shellTargetWidth
         height: barSlot.shellVisibleHeight
         radius: barSlot.compactShell ? barSlot.shellRadius : 0
@@ -889,8 +889,8 @@ PanelWindow {
         opacity: barSlot.dragActive ? (barSlot.dropModel ? 0.95 : 0.45) : 0.92
         scale: barSlot.dragActive ? 1.06 : 1.0
         Behavior on opacity { NumberAnimation { duration: 120 } }
-        Behavior on x { enabled: !barSlot.dragActive; NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
-        Behavior on y { enabled: !barSlot.dragActive; NumberAnimation { duration: 230; easing.type: Easing.OutCubic } }
+        Behavior on x { enabled: !barSlot.dragActive; NumberAnimation { duration: 230; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+        Behavior on y { enabled: !barSlot.dragActive; NumberAnimation { duration: 230; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
         Behavior on scale { NumberAnimation { duration: 120 } }
     }
 
@@ -926,8 +926,8 @@ PanelWindow {
                 : 0
             implicitHeight: 28
             opacity: barSlot.root.modStatus ? 1 : 0
-            Behavior on implicitWidth { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-            Behavior on opacity      { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+            Behavior on implicitWidth { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+            Behavior on opacity      { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
             Row {
                 id: statusRow
                 anchors.verticalCenter: parent.verticalCenter
@@ -1087,8 +1087,8 @@ PanelWindow {
                     height: 28
                     clip: true
                     opacity: g8.showWeather ? 1 : 0
-                    Behavior on width   { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-                    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+                    Behavior on width   { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
                     WeatherWidget {
                         id: weather
                         anchors.fill: parent
@@ -1103,8 +1103,8 @@ PanelWindow {
                     height: 28
                     clip: true
                     opacity: g8.showDate ? 1 : 0
-                    Behavior on width   { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-                    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+                    Behavior on width   { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
                     UiText {
                         id: dateLabel
                         anchors.verticalCenter: parent.verticalCenter
@@ -1135,8 +1135,8 @@ PanelWindow {
                     height: 28
                     clip: true
                     opacity: g8.showIcons ? 1 : 0
-                    Behavior on width   { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-                    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+                    Behavior on width   { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
                     Row {
                         id: iconsRow
                         anchors.verticalCenter: parent.verticalCenter
@@ -1161,7 +1161,7 @@ PanelWindow {
                             width: iconsRow.shellFallbackActive ? 26 : 0
                             height: 28
                             sourceComponent: compShellFallbackUpdater
-                            Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                            Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
                         }
                     }
                 }
@@ -1188,8 +1188,8 @@ PanelWindow {
                 : 0
             implicitHeight: 28
             opacity: barSlot.root.modQuick ? 1 : 0
-            Behavior on implicitWidth { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-            Behavior on opacity      { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+            Behavior on implicitWidth { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+            Behavior on opacity      { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
             Row {
                 id: qcRow
                 anchors.verticalCenter: parent.verticalCenter
@@ -1338,8 +1338,8 @@ PanelWindow {
                 height: 32
                 visible: placeholderShown || (hasContent && (autoShown || width > 0.5))
                 opacity: autoShown ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-                Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
                 Rectangle {
                     id: widgetColorSurface
@@ -1811,7 +1811,7 @@ PanelWindow {
         y: barSlot.root.barPosition === "bottom"
             ? (barSlot.effectivelyHidden ? parent.height : parent.height - height)
             : (barSlot.effectivelyHidden ? -height : 0)
-        Behavior on y { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+        Behavior on y { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
         z: 2                                  // above the dim backdrop
         focus: barSlot.root.barUnlocked       // receive keys while unlocked
         Keys.onEscapePressed: barSlot.root.barUnlocked = false
@@ -1997,7 +1997,7 @@ PanelWindow {
                 : island.centerTargetX
             Behavior on x {
                 enabled: !barSlot.compactShell
-                NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                NumberAnimation { duration: 120; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
             }
             rmodel: centerModel
             baseCount: barSlot.centerBaseSlotCount

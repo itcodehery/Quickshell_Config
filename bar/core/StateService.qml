@@ -12,7 +12,7 @@ Item {
     readonly property string statePath: stateRoot + "/active-variant"
     readonly property string legacyStatePath: stateRoot + "/active-version"
 
-    property string committedVariant: "v1"
+    property string committedVariant: "v2"
     property string pendingVariant: ""
     property bool initialized: false
     property bool persistenceAvailable: false
@@ -25,7 +25,7 @@ Item {
 
     function normalize(value) {
         var candidate = String(value || "").trim().toLowerCase()
-        return candidate === "v2" ? "v2" : "v1"
+        return candidate === "v1" ? "v1" : "v2"
     }
 
     function loadState() {
@@ -37,7 +37,7 @@ Item {
         else if (legacy === "v1" || legacy === "v2")
             committedVariant = legacy
         else
-            committedVariant = "v1"
+            committedVariant = "v2"
 
         initialized = true
     }

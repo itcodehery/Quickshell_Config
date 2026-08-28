@@ -13,7 +13,7 @@ Item {
     implicitWidth: root.modStorage && root.storageAvailable ? row.implicitWidth + 18 : 0
     implicitHeight: 28
     opacity: root.modStorage && root.storageAvailable ? 1 : 0
-    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
     Row {
         id: row

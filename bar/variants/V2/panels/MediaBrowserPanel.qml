@@ -38,7 +38,7 @@ PanelWindow {
 
     // ── reveal ──
     property real reveal: 0
-    Behavior on reveal { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+    Behavior on reveal { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
     onReadyChanged: reveal = ready ? 1 : 0
 
     // ── filtered list ──
@@ -425,8 +425,8 @@ PanelWindow {
                 visible: near
                 opacity: near ? 1 : 0
 
-                Behavior on x       { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
-                Behavior on width   { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
+                Behavior on x       { NumberAnimation { duration: 260; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                Behavior on width   { NumberAnimation { duration: 260; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
                 Behavior on opacity { NumberAnimation { duration: 200 } }
 
                 // ── lazy cached thumbnail (480px jpg) — videos via ffmpegthumbnailer,

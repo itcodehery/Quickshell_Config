@@ -11,7 +11,7 @@ Item {
     implicitHeight: 28
     opacity: root.modMemory ? 1 : 0
 
-    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
     readonly property int percent: root.systemMemPercent
     readonly property real usedGiB: root.systemMemUsedGiB

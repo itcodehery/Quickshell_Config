@@ -34,7 +34,7 @@ PanelWindow {
     Behavior on animatedReveal {
         NumberAnimation {
             duration: menuVisible ? 400 : 0
-            easing.type: Easing.OutCubic
+            easing.type: Easing.OutBack; easing.overshoot: 1.2
         }
     }
 

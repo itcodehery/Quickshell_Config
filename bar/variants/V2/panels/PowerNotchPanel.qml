@@ -23,7 +23,7 @@ PanelWindow {
     property bool notchVisible: hoverTrigger.containsMouse || menuArea.containsMouse || shutDownMouse.containsMouse || restartMouse.containsMouse || lockMouse.containsMouse
     property real reveal: notchVisible ? 1 : 0
     Behavior on reveal {
-        NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
     }
 
     Item {

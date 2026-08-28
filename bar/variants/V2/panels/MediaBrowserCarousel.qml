@@ -387,9 +387,9 @@ PanelWindow {
                 height: selected ? panel.expandedH : panel.sliceH
                 z: selected ? 100 : 50 - Math.min(Math.abs(relIdx), 40)
 
-                Behavior on x     { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-                Behavior on y     { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-                Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+                Behavior on x     { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                Behavior on y     { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
                 readonly property real skAbs:    Math.abs(panel.skew)
                 readonly property real topLeft:  panel.skew >= 0 ? skAbs : 0

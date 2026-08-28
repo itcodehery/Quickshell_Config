@@ -141,7 +141,7 @@ PanelWindow {
                 z: colorMa.containsMouse || open ? 1 : 0
                 Behavior on color { ColorAnimation { duration: 120 } }
                 Behavior on scale {
-                    NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                    NumberAnimation { duration: 120; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
                 }
             }
 
@@ -291,28 +291,12 @@ PanelWindow {
             }
             Grid {
                 width: parent.width
-                columns: 3
+                columns: 1
                 columnSpacing: 6
                 Tile {
-                    width: root.evenW((col.width - 12) / 3)
+                    width: parent.width
                     label: "Reload"
                     onActivated: { root.controlVisible = false; Quickshell.reload(false) }
-                }
-                Tile {
-                    width: root.evenW((col.width - 12) / 3)
-                    label: "V1"
-                    active: root.variantHost ? root.variantHost.runningVariant === "v1" : false
-                    enabled: root.variantHost ? !root.variantHost.switching && root.variantHost.runningVariant !== "v1" : true
-                    opacity: active ? 1.0 : (enabled ? 1.0 : 0.4)
-                    onActivated: ctrlPanel.switchBar("v1")
-                }
-                Tile {
-                    width: root.evenW((col.width - 12) / 3)
-                    label: "V2"
-                    active: root.variantHost ? root.variantHost.runningVariant === "v2" : true
-                    enabled: root.variantHost ? !root.variantHost.switching && root.variantHost.runningVariant !== "v2" : false
-                    opacity: active ? 1.0 : (enabled ? 1.0 : 0.4)
-                    onActivated: ctrlPanel.switchBar("v2")
                 }
             }
 
@@ -381,7 +365,7 @@ PanelWindow {
                         z: hovered ? 1 : 0
                         Behavior on color { ColorAnimation { duration: 120 } }
                         Behavior on scale {
-                            NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                            NumberAnimation { duration: 120; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
                         }
                         UiText {
                             anchors.centerIn: parent
@@ -635,7 +619,7 @@ PanelWindow {
                                 scale: widgetSwatchMa.containsMouse ? 1.04 : 1.0
                                 z: widgetSwatchMa.containsMouse ? 1 : 0
                                 Behavior on scale {
-                                    NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                                    NumberAnimation { duration: 120; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
                                 }
                                 UiText {
                                     anchors.centerIn: parent

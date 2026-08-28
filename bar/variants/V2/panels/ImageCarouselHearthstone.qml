@@ -40,12 +40,12 @@ PanelWindow {
 
     // ── reveal + deal ──
     property real reveal: 0
-    Behavior on reveal { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+    Behavior on reveal { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
     property real dealT: 0
     readonly property int dealDuration: isThemeMode ? 260 : 180
     readonly property int cardMotionDuration: isThemeMode ? 220 : 180
     readonly property bool dealSettled: dealT >= 0.999
-    Behavior on dealT { NumberAnimation { duration: panel.dealDuration; easing.type: Easing.OutCubic } }
+    Behavior on dealT { NumberAnimation { duration: panel.dealDuration; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
     onReadyChanged: { reveal = ready ? 1 : 0; if (ready) dealT = 1 }
 
     // ── filtered list ──
@@ -527,10 +527,10 @@ PanelWindow {
                 z: focused ? 1000 : 500 - Math.min(Math.abs(relIdx), 40)
                 opacity: panel.dealT
 
-                Behavior on x        { enabled: panel.dealSettled; NumberAnimation { duration: panel.cardMotionDuration; easing.type: Easing.OutCubic } }
-                Behavior on y        { enabled: panel.dealSettled; NumberAnimation { duration: panel.cardMotionDuration; easing.type: Easing.OutCubic } }
-                Behavior on rotation { enabled: panel.dealSettled; NumberAnimation { duration: panel.cardMotionDuration; easing.type: Easing.OutCubic } }
-                Behavior on scale    { enabled: panel.dealSettled; NumberAnimation { duration: panel.cardMotionDuration; easing.type: Easing.OutCubic } }
+                Behavior on x        { enabled: panel.dealSettled; NumberAnimation { duration: panel.cardMotionDuration; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                Behavior on y        { enabled: panel.dealSettled; NumberAnimation { duration: panel.cardMotionDuration; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                Behavior on rotation { enabled: panel.dealSettled; NumberAnimation { duration: panel.cardMotionDuration; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                Behavior on scale    { enabled: panel.dealSettled; NumberAnimation { duration: panel.cardMotionDuration; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
                 // photo (raster) — its edges are hidden behind the passepartout's
                 // crisp Shape inner edge, so no rotated raster edge ever shows

@@ -103,9 +103,9 @@ Item {
     // drop bars to rest when paused
     ParallelAnimation {
         id: dropAnim
-        NumberAnimation { target: rootMod; property: "barH1"; to: 0.08; duration: 380; easing.type: Easing.OutCubic }
-        NumberAnimation { target: rootMod; property: "barH2"; to: 0.08; duration: 430; easing.type: Easing.OutCubic }
-        NumberAnimation { target: rootMod; property: "barH3"; to: 0.08; duration: 480; easing.type: Easing.OutCubic }
+        NumberAnimation { target: rootMod; property: "barH1"; to: 0.08; duration: 380; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
+        NumberAnimation { target: rootMod; property: "barH2"; to: 0.08; duration: 430; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
+        NumberAnimation { target: rootMod; property: "barH3"; to: 0.08; duration: 480; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
     }
     onPlayingChanged: {
         if (!playing) {
@@ -127,10 +127,10 @@ Item {
     implicitHeight: 28
     opacity: root.modMpris ? 1 : 0
 
-    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
     Behavior on implicitWidth {
-        NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
     }
 
     // ── idle: a single music-note, clickable to open the no-song panel ──

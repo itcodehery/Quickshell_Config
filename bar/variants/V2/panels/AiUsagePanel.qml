@@ -270,7 +270,7 @@ PanelWindow {
                     height: 28
                     spacing: 6
                     Repeater {
-                        model: [ { id: "claude", label: "Claude" }, { id: "codex", label: "Codex" }, { id: "opencode", label: "OpenCode" } ]
+                        model: [ { id: "claude", label: "Claude" }, { id: "opencode", label: "OpenCode" }, { id: "agy", label: "Antigravity" } ]
                         Rectangle {
                             required property var modelData
                             width: root.evenW((parent.width - 12) / 3)
@@ -333,38 +333,7 @@ PanelWindow {
 
                 Rectangle { visible: false; width: parent.width; height: 1; color: root.sep }
 
-                // ── OpenAI Codex ──
-                Item {
-                    visible: aiPanel.showCodex
-                    width: parent.width; height: 16
-                    UiText {
-                        anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
-                        text: "OpenAI Codex" + (aiPanel.cxPlan ? "  · " + aiPanel.cxPlan : "")
-                        color: root.ink
-                        font.family: root.mono; font.pixelSize: 12; font.weight: Font.Medium
-                    }
-                    UiText {
-                        anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                        text: aiPanel.cxFresh ? "live" : "stale"
-                        color: aiPanel.cxFresh ? root.sumi : root.sealRaw
-                        font.family: root.mono; font.pixelSize: 10
-                    }
-                }
-                UiText {
-                    visible: aiPanel.showCodex && !aiPanel.cxHas
-                    width: parent.width
-                    text: "no data — run codex"
-                    color: root.sumiHi; font.family: root.mono; font.pixelSize: 11
-                }
-                UsageRow { visible: aiPanel.showCodex && aiPanel.cxWin0 !== null; label: aiPanel.cxWin0 ? aiPanel.cxWin0.label : ""; pct: aiPanel.cxWin0 ? aiPanel.cxWin0.pct : 0; dim: !aiPanel.cxFresh }
-                UsageRow { visible: aiPanel.showCodex && aiPanel.cxWin1 !== null; label: aiPanel.cxWin1 ? aiPanel.cxWin1.label : ""; pct: aiPanel.cxWin1 ? aiPanel.cxWin1.pct : 0; dim: !aiPanel.cxFresh }
-                DetailRow { visible: aiPanel.showCodex && aiPanel.cxWin0 !== null; k: (aiPanel.cxWin0 ? aiPanel.cxWin0.label : "") + " resets in"; v: root.aiFmtResetDetail(aiPanel.cxWin0 ? aiPanel.cxWin0.resetTs : 0) || "—" }
-                DetailRow { visible: aiPanel.showCodex && aiPanel.cxWin1 !== null; k: (aiPanel.cxWin1 ? aiPanel.cxWin1.label : "") + " resets in"; v: root.aiFmtResetDetail(aiPanel.cxWin1 ? aiPanel.cxWin1.resetTs : 0) || "—" }
-                DetailRow { visible: aiPanel.showCodex && aiPanel.cxHas; k: "General limit"; v: root.aiCodexStatusLabel(aiPanel.cxLimitStatus, aiPanel.cxLimitReachedType) }
-                DetailRow { visible: aiPanel.showCodex && aiPanel.cxHas && aiPanel.cxRate !== "";   k: "Local activity (1h, incl. cached)"; v: aiPanel.cxRate }
-                DetailRow { visible: aiPanel.showCodex && aiPanel.cxHas && aiPanel.cxToday > 0; k: "Today"; v: (aiPanel.cxToday / 1e6).toFixed(2) + "M tok" }
 
-                Rectangle { visible: false; width: parent.width; height: 1; color: root.sep }
 
                 // ── OpenCode ──
                 Item {
@@ -426,6 +395,24 @@ PanelWindow {
                         todayLabel: modelData.todayLabel || "0"
                         pct: parseInt(modelData.pct) || 0
                     }
+                }
+                
+                // ── Antigravity CLI ──
+                Item {
+                    visible: root.aiTool === "agy"
+                    width: parent.width; height: 16
+                    UiText {
+                        anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
+                        text: "Antigravity CLI (Agentic Coding)"
+                        color: root.ink
+                        font.family: root.mono; font.pixelSize: 12; font.weight: Font.Medium
+                    }
+                }
+                UiText {
+                    visible: root.aiTool === "agy"
+                    width: parent.width
+                    text: "Tracks agent activity locally"
+                    color: root.sumiHi; font.family: root.mono; font.pixelSize: 11
                 }
             }
         }
