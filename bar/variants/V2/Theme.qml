@@ -59,6 +59,7 @@ Item {
         1.0)
     property string barColor: "color01"
     property bool widgetIconsForeground: false
+    property color mprisDominantColor: "transparent"
     readonly property bool barColorIsAccent: barColor === "accent"
     // Compatibility alias for older local code/reviews that still use the
     // previous boolean name.

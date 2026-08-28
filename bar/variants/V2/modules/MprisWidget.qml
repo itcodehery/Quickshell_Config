@@ -18,7 +18,7 @@ Item {
     readonly property bool islandMode: root.mprisBarStyle === "island"
     readonly property color contentColor: root.widgetContentColor("G9", root.ink)
     
-    MprisArtwork { id: artwork; player: rootMod.player }
+    MprisArtwork { id: artwork; player: rootMod.player; root: rootMod.root }
     readonly property color accentColor: root.widgetHasFill("G9")
         ? contentColor
         : root.seal

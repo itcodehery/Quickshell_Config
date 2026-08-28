@@ -8,6 +8,7 @@ import Quickshell.Io
 Item {
     id: artwork
     required property var player
+    property var root: null
 
     property string fallbackUrl: ""
     readonly property string source: {
@@ -65,6 +66,33 @@ Item {
         command: []
         stdout: StdioCollector {
             onStreamFinished: artwork.applyMetadata(this.text)
+        }
+    }
+
+    property color dominantColor: "transparent"
+
+    Process {
+        id: colorExtractor
+        command: []
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var c = this.text.trim()
+                if (c.startsWith("#") && c.length >= 7) {
+                    artwork.dominantColor = c.substring(0, 7)
+                    if (root) root.mprisDominantColor = artwork.dominantColor
+                }
+            }
+        }
+    }
+
+    onSourceChanged: {
+        dominantColor = "transparent"
+        if (source !== "") {
+            // handle both URLs and local file paths safely
+            var s = source.replace(/"/g, "\\\"")
+            var script = "f=$(mktemp); u=\"" + s + "\"; if [[ \"$u\" == http* ]] || [[ \"$u\" == file://* ]]; then curl -sL \"$u\" -o \"$f\"; else cp \"$u\" \"$f\" 2>/dev/null; fi; if [ -s \"$f\" ]; then magick \"$f\" -resize 1x1\\! -format \"#%[hex:u]\" info:; fi; rm -f \"$f\""
+            colorExtractor.command = ["bash", "-c", script]
+            colorExtractor.running = true
         }
     }
 

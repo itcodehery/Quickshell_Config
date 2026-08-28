@@ -103,6 +103,17 @@ PanelWindow {
         color: "transparent"
         z: 0
 
+        Rectangle {
+            anchors.fill: parent
+            color: barSlot.root.mprisDominantColor || "transparent"
+            opacity: color.a > 0.01 && color != "#00000000" && color != "transparent" ? 0.25 : 0.0
+            Behavior on opacity { NumberAnimation { duration: 600; easing.type: Easing.InOutQuad } }
+            Behavior on color { ColorAnimation { duration: 600 } }
+            radius: continuousBarSurface.radius
+            z: 1  // Above shadow, below island
+            visible: barSlot.root.barShellStyle !== "notch"
+        }
+
         readonly property real topCornerRadius:
             !barSlot.compactShell ? 0
             : barSlot.root.barShellStyle === "fit" ? radius
@@ -1815,6 +1826,28 @@ PanelWindow {
         z: 2                                  // above the dim backdrop
         focus: barSlot.root.barUnlocked       // receive keys while unlocked
         Keys.onEscapePressed: barSlot.root.barUnlocked = false
+
+        property int prevNotifCount: 0
+        property real blackHoleStrength: 0
+
+        Connections {
+            target: barSlot.root
+            function onNotifCountChanged() {
+                if (barSlot.root.notifCount > island.prevNotifCount) blackHoleAnim.restart()
+                island.prevNotifCount = barSlot.root.notifCount
+            }
+        }
+        SequentialAnimation {
+            id: blackHoleAnim
+            NumberAnimation { target: island; property: "blackHoleStrength"; from: 0; to: 1; duration: 120; easing.type: Easing.OutQuad }
+            NumberAnimation { target: island; property: "blackHoleStrength"; from: 1; to: 0; duration: 350; easing.type: Easing.OutBack; easing.overshoot: 3.0 }
+        }
+        transform: Scale {
+            origin.x: barSlot.root.notifBarX > 0 ? (barSlot.root.notifBarX - island.x) : island.width / 2
+            origin.y: island.height / 2
+            xScale: 1.0 - (island.blackHoleStrength * 0.06)
+            yScale: 1.0 - (island.blackHoleStrength * 0.08)
+        }
 
         readonly property int fitPadding: 8
         readonly property int fitRegionGap: 12
