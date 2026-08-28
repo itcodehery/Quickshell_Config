@@ -365,8 +365,19 @@ PanelWindow {
 
                     ctx.lineJoin = "round";
                     ctx.lineWidth = 10;
-                    ctx.fillStyle = (index === hIndex) ? opaqueHover : opaqueBg;
-                    ctx.strokeStyle = ctx.fillStyle;
+                    
+                    if (index === hIndex) {
+                        var grad = ctx.createRadialGradient(width/2, height/2, rIn, width/2, height/2, rOut);
+                        grad.addColorStop(0, opaqueBg);
+                        grad.addColorStop(1, Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.4));
+                        
+                        ctx.fillStyle = grad;
+                        ctx.strokeStyle = root.seal;
+                    } else {
+                        ctx.fillStyle = opaqueBg;
+                        ctx.strokeStyle = opaqueBg;
+                    }
+                    
                     ctx.stroke();
                     ctx.fill();
                 }

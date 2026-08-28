@@ -270,7 +270,7 @@ PanelWindow {
                     height: 28
                     spacing: 6
                     Repeater {
-                        model: [ { id: "claude", label: "Claude" }, { id: "opencode", label: "OpenCode" }, { id: "agy", label: "Antigravity" } ]
+                        model: [ { id: "agy", label: "Antigravity" }, { id: "claude", label: "Claude" }, { id: "opencode", label: "OpenCode" } ]
                         Rectangle {
                             required property var modelData
                             width: root.evenW((parent.width - 12) / 3)
@@ -408,11 +408,24 @@ PanelWindow {
                         font.family: root.mono; font.pixelSize: 12; font.weight: Font.Medium
                     }
                 }
-                UiText {
+                Grid {
                     visible: root.aiTool === "agy"
                     width: parent.width
-                    text: "Tracks agent activity locally"
-                    color: root.sumiHi; font.family: root.mono; font.pixelSize: 11
+                    columns: 2
+                    columnSpacing: 16
+                    rowSpacing: 8
+                    
+                    UiText { text: "Total Sessions:"; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11 }
+                    UiText { text: root.aiAgyTotalSessions; color: root.seal; font.family: root.mono; font.pixelSize: 11; font.weight: Font.Medium }
+                    
+                    UiText { text: "Total Steps:"; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11 }
+                    UiText { text: root.aiAgyTotalSteps; color: root.seal; font.family: root.mono; font.pixelSize: 11; font.weight: Font.Medium }
+                    
+                    UiText { text: "Sessions (24h):"; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11 }
+                    UiText { text: root.aiAgyTodaySessions; color: root.seal; font.family: root.mono; font.pixelSize: 11; font.weight: Font.Medium }
+                    
+                    UiText { text: "Steps (24h):"; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11 }
+                    UiText { text: root.aiAgyTodaySteps; color: root.seal; font.family: root.mono; font.pixelSize: 11; font.weight: Font.Medium }
                 }
             }
         }

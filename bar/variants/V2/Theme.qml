@@ -637,7 +637,7 @@ Item {
         popupOpened("aiUsageVisible")
         if (aiUsageVisible) refreshAiUsage()
     }
-    property string aiTool: "claude"   // "claude", "codex", or "opencode" — icon shown in the bar
+    property string aiTool: "agy"   // "claude", "codex", "opencode", or "agy" — icon shown in the bar
 
     // ── AI usage data (single source of truth) ───────────────────
     // The bar pill (ClaudeWidget) and the AiUsagePanel both render from these —
@@ -684,6 +684,13 @@ Item {
     property string aiOcModel: ""
     property int    aiOcToday: 0
     property var    aiOcModels: []
+    
+    property bool   aiAgyHas: false
+    property string aiAgyTotalSessions: "0"
+    property string aiAgyTotalSteps: "0"
+    property string aiAgyTodaySessions: "0"
+    property string aiAgyTodaySteps: "0"
+    
     property int    aiClockTick: 0
 
     // F15: clamp an external 0..1 utilization to a 0–100 int (a negative/over-range value would
@@ -955,6 +962,27 @@ Item {
         }
     }
 
+    Process {
+        id: aiReadAgy
+        command: ["bash", "-c",
+            "sqlite3 -noheader -list ~/.gemini/antigravity-cli/conversation_summaries.db \"SELECT COUNT(*), SUM(step_count) FROM conversation_summaries; SELECT COUNT(*), SUM(step_count) FROM conversation_summaries WHERE last_modified_time > datetime('now', '-1 day');\" 2>/dev/null"
+        ]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var lines = this.text.trim().split("\n");
+                if (lines.length >= 2) {
+                    var total = lines[0].split("|");
+                    var today = lines[1].split("|");
+                    theme.aiAgyTotalSessions = total[0] || "0";
+                    theme.aiAgyTotalSteps = total[1] || "0";
+                    theme.aiAgyTodaySessions = today[0] || "0";
+                    theme.aiAgyTodaySteps = today[1] || "0";
+                    theme.aiAgyHas = true;
+                }
+            }
+        }
+    }
+
     function refreshAiUsage(selectedOnly) {
         aiClockTick++
         var only = selectedOnly === true
@@ -966,6 +994,9 @@ Item {
         }
         if (!only || aiTool === "opencode") {
             aiReadOpenCode.running = false; aiReadOpenCode.running = true
+        }
+        if (!only || aiTool === "agy") {
+            aiReadAgy.running = false; aiReadAgy.running = true
         }
     }
 
@@ -2162,6 +2193,9 @@ Item {
     function widgetColorMode(gid) { return widgetColorStyle(gid).mode }
     function widgetTone(gid) { return widgetColorStyle(gid).tone }
     function widgetHasFill(gid) {
+        if (gid === "G9" && mprisDominantColor.a > 0.01 && mprisDominantColor != "#00000000" && mprisDominantColor != "transparent") {
+            return true
+        }
         var style = widgetColorStyle(gid)
         return style.color !== "inherit"
     }
@@ -2170,6 +2204,9 @@ Item {
         return style.mode === "border" || style.mode === "both"
     }
     function widgetAssignedColor(gid) {
+        if (gid === "G9" && mprisDominantColor.a > 0.01 && mprisDominantColor != "#00000000" && mprisDominantColor != "transparent") {
+            return mprisDominantColor
+        }
         var id = widgetPaletteId(gid)
         return id === "inherit" ? seal : paletteColor(id)
     }
@@ -2191,6 +2228,9 @@ Item {
         return _contrastRatio(fill, paper) >= _contrastRatio(fill, ink) ? paper : ink
     }
     function widgetContrastColor(gid) {
+        if (gid === "G9" && mprisDominantColor.a > 0.01 && mprisDominantColor != "#00000000" && mprisDominantColor != "transparent") {
+            return ink
+        }
         var fill = widgetAssignedColor(gid)
         var tone = widgetTone(gid)
         if (tone === "background") return paper
@@ -2201,6 +2241,10 @@ Item {
         return widgetHasFill(gid) ? widgetContrastColor(gid) : fallback
     }
     function widgetFillColor(gid) {
+        if (gid === "G9" && mprisDominantColor.a > 0.01 && mprisDominantColor != "#00000000" && mprisDominantColor != "transparent") {
+            var c = mprisDominantColor
+            return Qt.rgba(c.r, c.g, c.b, 0.25)
+        }
         return widgetHasFill(gid) ? widgetAssignedColor(gid) : Qt.rgba(0, 0, 0, 0)
     }
     function widgetBorderColor(gid) {
@@ -2491,7 +2535,7 @@ Item {
                     if (parts.length > wsField + 15) theme.modMpris  = parts[wsField + 15] !== "0"
                     if (parts.length > wsField + 16) {
                         var at = parts[wsField + 16]
-                        if (at === "claude" || at === "codex" || at === "opencode") theme.aiTool = at
+                        if (at === "claude" || at === "codex" || at === "opencode" || at === "agy") theme.aiTool = at
                     }
                     // +17 is the retired transparent/frost field.
                     if (parts.length > wsField + 18) {

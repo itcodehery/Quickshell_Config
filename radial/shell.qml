@@ -283,10 +283,7 @@ ShellRoot {
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
                             
                             Rectangle {
-                                anchors.bottom: parent.bottom
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                height: parent.height * 0.4
+                                anchors.fill: parent
                                 radius: 8
                                 
                                 opacity: wedgeItem.isHovered ? 0.4 : 0.0

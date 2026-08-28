@@ -103,16 +103,7 @@ PanelWindow {
         color: "transparent"
         z: 0
 
-        Rectangle {
-            anchors.fill: parent
-            color: barSlot.root.mprisDominantColor || "transparent"
-            opacity: color.a > 0.01 && color != "#00000000" && color != "transparent" ? 0.25 : 0.0
-            Behavior on opacity { NumberAnimation { duration: 600; easing.type: Easing.InOutQuad } }
-            Behavior on color { ColorAnimation { duration: 600 } }
-            radius: continuousBarSurface.radius
-            z: 1  // Above shadow, below island
-            visible: barSlot.root.barShellStyle !== "notch"
-        }
+
 
         readonly property real topCornerRadius:
             !barSlot.compactShell ? 0
