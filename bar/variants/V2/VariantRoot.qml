@@ -263,7 +263,8 @@ Item {
     BluetoothPanel { root: theme }
     BatteryPanel { root: theme }
     BrightnessPanel { root: theme }
-    MprisPanel { root: theme }
+    MprisPanel { id: theMprisPanel; root: theme }
+    LyricsPanel { root: theme; mprisPanel: theMprisPanel }
     WeatherPanel { root: theme }
     GithubHeatmapPanel { root: theme }
     WorkspacePanel { root: theme }

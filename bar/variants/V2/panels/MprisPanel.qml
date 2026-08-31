@@ -35,6 +35,65 @@ PanelWindow {
         return n.replace(/^org\.mpris\.MediaPlayer2\./, "")
     }
 
+    // ── lyrics state ────────────────────────────────────────────────
+    property var lyricsList: []
+    property int currentLyricIndex: -1
+    property bool showingLyrics: false
+
+    property string currentTrackId: mprisPanel.player ? ((mprisPanel.player.trackTitle || "") + "||" + (mprisPanel.player.trackArtist || "")) : ""
+    onCurrentTrackIdChanged: {
+        var title = mprisPanel.player ? (mprisPanel.player.trackTitle || "") : ""
+        var artist = mprisPanel.player ? (mprisPanel.player.trackArtist || "") : ""
+        lyricsList = []
+        currentLyricIndex = -1
+        
+        if (title === "") return
+        
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "https://lrclib.net/api/get?track_name=" + encodeURIComponent(title) + "&artist_name=" + encodeURIComponent(artist));
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === XMLHttpRequest.DONE) {
+                if (xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        var synced = data.syncedLyrics;
+                        if (synced) {
+                            var lines = synced.split('\n');
+                            var result = [];
+                            for (var i = 0; i < lines.length; i++) {
+                                var line = lines[i];
+                                var match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
+                                if (match) {
+                                    var time = parseInt(match[1]) * 60 + parseFloat(match[2]);
+                                    var text = match[3].trim();
+                                    if (text !== "") {
+                                        result.push({time: time, text: text});
+                                    }
+                                }
+                            }
+                            lyricsList = result;
+                        }
+                    } catch(e) {}
+                }
+            }
+        }
+        xhr.send();
+    }
+    
+    onCurPosChanged: {
+        var idx = -1;
+        for (var i = 0; i < lyricsList.length; i++) {
+            if (mprisPanel.curPos >= lyricsList[i].time) {
+                idx = i;
+            } else {
+                break;
+            }
+        }
+        if (idx !== currentLyricIndex) {
+            currentLyricIndex = idx;
+        }
+    }
+
     // ── live position polling (for the progress bar) ────────────────
     // Quickshell only refreshes `position` sporadically, so we extrapolate
     // locally while playing and resync whenever the player reports a fresh value.
@@ -377,38 +436,58 @@ PanelWindow {
             }
 
             // ── controls ──
-            Row {
+            Item {
+                width: parent.width
+                height: 48
                 visible: mprisPanel.active
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 32
+                
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 32
 
-                IconText {
-                    text: ""
-                    font.pixelSize: 22
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: (mprisPanel.player && mprisPanel.player.canGoPrevious) ? root.ink : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.25)
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (mprisPanel.player) mprisPanel.player.previous() }
+                    IconText {
+                        text: ""
+                        font.pixelSize: 22
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: (mprisPanel.player && mprisPanel.player.canGoPrevious) ? root.ink : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.25)
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (mprisPanel.player) mprisPanel.player.previous() }
+                    }
+                    
+                    Rectangle {
+                        width: 72; height: 48; radius: 24
+                        color: root.seal
+                        anchors.verticalCenter: parent.verticalCenter
+                        IconText {
+                            anchors.centerIn: parent
+                            text: mprisPanel.playing ? "" : ""
+                            font.pixelSize: 24
+                            color: root.paper
+                        }
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (mprisPanel.player) mprisPanel.player.togglePlaying() }
+                    }
+
+                    IconText {
+                        text: ""
+                        font.pixelSize: 22
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: (mprisPanel.player && mprisPanel.player.canGoNext) ? root.ink : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.25)
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (mprisPanel.player) mprisPanel.player.next() }
+                    }
                 }
                 
-                Rectangle {
-                    width: 72; height: 48; radius: 24
-                    color: root.seal
+                UiText {
+                    anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    IconText {
-                        anchors.centerIn: parent
-                        text: mprisPanel.playing ? "" : ""
-                        font.pixelSize: 24
-                        color: root.base
+                    text: "LRC"
+                    font.family: root.mono; font.pixelSize: 12; font.weight: Font.Bold
+                    color: lyricsList.length > 0 
+                           ? (showingLyrics ? root.ink : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.4))
+                           : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.1)
+                    MouseArea { 
+                        anchors.fill: parent; 
+                        cursorShape: Qt.PointingHandCursor; 
+                        onClicked: { if(lyricsList.length > 0) showingLyrics = !showingLyrics }
                     }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (mprisPanel.player) mprisPanel.player.togglePlaying() }
-                }
-
-                IconText {
-                    text: ""
-                    font.pixelSize: 22
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: (mprisPanel.player && mprisPanel.player.canGoNext) ? root.ink : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.25)
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: if (mprisPanel.player) mprisPanel.player.next() }
                 }
             }
 
