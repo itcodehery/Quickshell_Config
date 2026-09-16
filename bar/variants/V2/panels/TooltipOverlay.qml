@@ -72,7 +72,7 @@ PanelWindow {
             anchors.centerIn: parent
             text: root.tooltipText
             color: root.ink
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 12
             font.letterSpacing: 1
         }

@@ -48,8 +48,32 @@ PanelWindow {
         return out
     }
     readonly property int unreadCount: pending.length
+
+    // grouped = pending collapsed by appName; each group has:
+    //   {appName, count, latest (the first/newest entry), items, keys}
+    property var expandedGroups: ({})   // appName -> true when expanded
+
+    readonly property var grouped: {
+        var order = []
+        var map = {}
+        for (var i = 0; i < pending.length; i++) {
+            var n = pending[i]
+            var app = n.appName || "Unknown"
+            if (map[app] === undefined) {
+                map[app] = { appName: app, count: 0, latest: n, items: [], keys: [] }
+                order.push(app)
+            }
+            map[app].count++
+            map[app].items.push(n)
+            map[app].keys.push(n.key)
+        }
+        var out = []
+        for (var j = 0; j < order.length; j++) out.push(map[order[j]])
+        return out
+    }
+
     // scrollable list height cap, clamped to the monitor
-    readonly property int listCap: Math.max(120, Math.min(420, notifPanel.height - 220))
+    readonly property int listCap: Math.max(120, Math.min(480, notifPanel.height - 180))
 
     Binding { target: root; property: "notifCount"; value: notifPanel.unreadCount }
 
@@ -97,10 +121,9 @@ PanelWindow {
     }
 
     // pid-guarded: with an empty pid, /proc//stat collapses to /proc/stat (a
-    // multi-line file) and awk would inject raw newlines into the token → broken
-    // JSON. So build the token ONLY when mako's pid is known; else token="" (the
-    // merge then keeps the current generation untouched — a safe no-op).
-    readonly property string pollScript: "pid=$(pidof mako 2>/dev/null | awk '{print $1}'); if [ -n \"$pid\" ]; then bid=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null); st=$(awk '{print $22}' /proc/$pid/stat 2>/dev/null); tok=\"$bid-$pid-$st\"; else tok=\"\"; fi; lst=$(makoctl list -j 2>/dev/null); [ -z \"$lst\" ] && lst='[]'; his=$(makoctl history -j 2>/dev/null); [ -z \"$his\" ] && his='[]'; printf '{\"token\":\"%s\",\"list\":%s,\"history\":%s}' \"$tok\" \"$lst\" \"$his\""
+    property bool isDnd: false
+
+    readonly property string pollScript: "dnd=$(quickshell -p /usr/share/omarchy/shell ipc call notifications isDnd 2>/dev/null || echo \"off\"); hist=$(jq -cs '[.[] | {id: .id, app_name: .app, summary: .summary, body: .body}]' ~/.local/state/omarchy/notifications/history/*.json 2>/dev/null); [ -z \"$hist\" ] && hist='[]'; printf '{\"token\":\"omarchy\",\"dnd\":\"%s\",\"list\":[],\"history\":%s}' \"$dnd\" \"$hist\""
 
     Process {
         id: pollProc
@@ -110,6 +133,7 @@ PanelWindow {
             onStreamFinished: {
                 var d
                 try { d = JSON.parse(this.text) } catch (e) { return }
+                notifPanel.isDnd = (d.dnd === "on")
                 notifPanel.merge(d.token || "", d.list || [], d.history || [])
             }
         }
@@ -197,8 +221,19 @@ PanelWindow {
         for (var k in notifPanel.dismissed) nd[k] = true
         nd[entry.key] = true
         notifPanel.dismissed = nd                // reassign → bindings update
-        var id = parseInt(entry.id)              // normalize before it touches a shell
-        if (entry.active && id > 0) notifPanel.runMako("makoctl dismiss -h -n " + id)
+        notifPanel.saveCache()
+    }
+
+    function dismissGroup(group) {
+        var nd = {}
+        for (var k in notifPanel.dismissed) nd[k] = true
+        for (var i = 0; i < group.keys.length; i++) nd[group.keys[i]] = true
+        notifPanel.dismissed = nd
+        // collapse the group when dismissed
+        var eg = {}
+        for (var ek in notifPanel.expandedGroups) eg[ek] = notifPanel.expandedGroups[ek]
+        delete eg[group.appName]
+        notifPanel.expandedGroups = eg
         notifPanel.saveCache()
     }
 
@@ -207,15 +242,12 @@ PanelWindow {
         for (var k in notifPanel.dismissed) nd[k] = true
         for (var i = 0; i < notifPanel.recent.length; i++) nd[notifPanel.recent[i].key] = true
         notifPanel.dismissed = nd
-        notifPanel.recent = []                   // clear own history; re-merged entries stay dismissed-filtered
-        notifPanel.runMako("makoctl dismiss -h --all")   // -h: don't re-add to mako history (next poll won't re-see them)
+        notifPanel.recent = []
+        notifPanel.runMako("quickshell -p /usr/share/omarchy/shell ipc call notifications clear")
         notifPanel.saveCache()
     }
 
     function openNotification(entry) {
-        var id = parseInt(entry.id)              // normalize before it touches a shell
-        if (entry.active && id > 0) notifPanel.runMako("makoctl invoke -n " + id)
-        // history/cache-only entries are no longer active → do nothing (never `restore`)
         root.notifVisible = false
     }
 
@@ -291,9 +323,14 @@ PanelWindow {
                 UiText {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    text: notifPanel.unreadCount > 0 ? "Notifications · " + notifPanel.unreadCount : "Notifications"
+                    text: notifPanel.unreadCount > 0
+                        ? "Notifications · " + notifPanel.grouped.length
+                            + (notifPanel.grouped.length < notifPanel.unreadCount
+                                ? " (" + notifPanel.unreadCount + ")"
+                                : "")
+                        : "Notifications"
                     color: root.ink
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 13
                     font.letterSpacing: 2
                     font.weight: Font.Medium
@@ -333,123 +370,276 @@ PanelWindow {
                     spacing: 6
 
                     Repeater {
-                        model: notifPanel.pending
+                        model: notifPanel.grouped
 
-                        delegate: Rectangle {
+                        delegate: Column {
                             required property var modelData
                             width: listCol.width
-                            height: entryCol.implicitHeight + 16
-                            radius: root.panelButtonRadius
-                            color: entryMa.containsMouse ? root.fillHover : root.fillIdle
-                            border.color: entryMa.containsMouse ? root.seal : root.sep
-                            border.width: 1
-                            Behavior on color { ColorAnimation { duration: 120 } }
+                            spacing: 4
 
-                            Column {
-                                id: entryCol
-                                anchors { left: parent.left; right: parent.right; top: parent.top }
-                                anchors.margins: 8
-                                anchors.topMargin: 8
-                                anchors.rightMargin: 26   // leave room for the ✕
-                                spacing: 3
-
-                                UiText {
-                                    text: modelData.appName || "App"
-                                    color: root.sumiHi
-                                    font.family: root.mono
-                                    font.pixelSize: 10
-                                    font.letterSpacing: 0.5
-                                    width: parent.width
-                                    elide: Text.ElideRight
-                                }
-                                UiText {
-                                    text: modelData.summary || ""
-                                    color: root.ink
-                                    font.family: root.mono
-                                    font.pixelSize: 11
-                                    width: parent.width
-                                    elide: Text.ElideRight
-                                    visible: text !== ""
-                                }
-                                UiText {
-                                    text: modelData.body || ""
-                                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
-                                    font.family: root.mono
-                                    font.pixelSize: 10
-                                    width: parent.width
-                                    wrapMode: Text.WordWrap
-                                    maximumLineCount: 2
-                                    elide: Text.ElideRight
-                                    visible: text !== ""
-                                }
-                            }
-
-                            // click body → focus the app (only if still active in mako)
-                            MouseArea {
-                                id: entryMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: notifPanel.openNotification(modelData)
-                            }
-
-                            // per-item dismiss ✕ (on top, top-right corner)
+                            // ── Group header row ──
                             Rectangle {
-                                anchors.top: parent.top; anchors.right: parent.right
-                                anchors.topMargin: 4; anchors.rightMargin: 4
-                                width: 18; height: 18; radius: 9
-                                color: "transparent"
-                                UiText {
-                                    anchors.centerIn: parent
-                                    text: "✕"
-                                    color: xMa.containsMouse ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.45)
-                                    font.pixelSize: 10
+                                id: groupRow
+                                width: parent.width
+                                height: groupEntryCol.implicitHeight + 16
+                                radius: root.panelButtonRadius
+                                color: groupMa.containsMouse ? root.fillHover : root.fillIdle
+                                border.color: groupMa.containsMouse ? root.seal : root.sep
+                                border.width: 1
+                                Behavior on color { ColorAnimation { duration: 120 } }
+
+                                readonly property bool expanded: notifPanel.expandedGroups[modelData.appName] === true
+
+                                Column {
+                                    id: groupEntryCol
+                                    anchors { left: parent.left; right: parent.right; top: parent.top }
+                                    anchors.margins: 8
+                                    anchors.topMargin: 8
+                                    anchors.rightMargin: 26
+                                    spacing: 3
+
+                                    // App name + count chip
+                                    Row {
+                                        spacing: 6
+                                        width: parent.width
+
+                                        UiText {
+                                            text: modelData.appName || "App"
+                                            color: root.sumiHi
+                                            font.family: root.barFont
+                                            font.pixelSize: 10
+                                            font.letterSpacing: 0.5
+                                            elide: Text.ElideRight
+                                            width: modelData.count > 1 ? parent.width - countChip.width - 6 : parent.width
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+
+                                        // Count badge – only visible when grouped (>1)
+                                        Rectangle {
+                                            id: countChip
+                                            visible: modelData.count > 1
+                                            width: countLbl.implicitWidth + 10
+                                            height: 14
+                                            radius: 7
+                                            color: root.accent
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            UiText {
+                                                id: countLbl
+                                                anchors.centerIn: parent
+                                                text: modelData.count
+                                                color: root.paper
+                                                font.family: root.barFont
+                                                font.pixelSize: 9
+                                                font.weight: Font.Bold
+                                            }
+                                        }
+                                    }
+
+                                    // Latest notification summary
+                                    UiText {
+                                        text: modelData.latest.summary || ""
+                                        color: root.ink
+                                        font.family: root.barFont
+                                        font.pixelSize: 11
+                                        width: parent.width
+                                        elide: Text.ElideRight
+                                        visible: text !== ""
+                                    }
+                                    UiText {
+                                        text: modelData.count > 1 && !groupRow.expanded
+                                            ? "+" + (modelData.count - 1) + " more  ▾"
+                                            : (modelData.latest.body || "")
+                                        color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b,
+                                            modelData.count > 1 && !groupRow.expanded ? 0.45 : 0.6)
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        width: parent.width
+                                        wrapMode: Text.WordWrap
+                                        maximumLineCount: 2
+                                        elide: Text.ElideRight
+                                        visible: modelData.count === 1 || !groupRow.expanded || (modelData.latest.body || "") !== ""
+                                    }
                                 }
+
+                                // Click row → expand/collapse if multi
                                 MouseArea {
-                                    id: xMa
+                                    id: groupMa
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: notifPanel.dismissOne(modelData)
+                                    onClicked: {
+                                        if (modelData.count <= 1) return
+                                        var eg = {}
+                                        for (var k in notifPanel.expandedGroups) eg[k] = notifPanel.expandedGroups[k]
+                                        if (eg[modelData.appName]) delete eg[modelData.appName]
+                                        else eg[modelData.appName] = true
+                                        notifPanel.expandedGroups = eg
+                                    }
+                                }
+
+                                // per-group dismiss ✕
+                                Rectangle {
+                                    anchors.top: parent.top; anchors.right: parent.right
+                                    anchors.topMargin: 4; anchors.rightMargin: 4
+                                    width: 18; height: 18; radius: 9
+                                    color: "transparent"
+                                    UiText {
+                                        anchors.centerIn: parent
+                                        text: "✕"
+                                        color: gxMa.containsMouse ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.45)
+                                        font.pixelSize: 10
+                                    }
+                                    MouseArea {
+                                        id: gxMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: notifPanel.dismissGroup(modelData)
+                                    }
+                                }
+                            }
+
+                            // ── Expanded individual items ──
+                            Column {
+                                visible: groupRow.expanded && modelData.count > 1
+                                width: parent.width
+                                spacing: 4
+
+                                Repeater {
+                                    model: modelData.items
+
+                                    delegate: Rectangle {
+                                        required property var modelData
+                                        width: listCol.width - 12
+                                        anchors.right: parent.right
+                                        height: iEntryCol.implicitHeight + 14
+                                        radius: root.panelButtonRadius
+                                        color: iMa.containsMouse ? root.fillHover : Qt.rgba(root.fillIdle.r, root.fillIdle.g, root.fillIdle.b, 0.6)
+                                        border.color: iMa.containsMouse ? root.seal : root.sep
+                                        border.width: 1
+                                        Behavior on color { ColorAnimation { duration: 120 } }
+
+                                        Column {
+                                            id: iEntryCol
+                                            anchors { left: parent.left; right: parent.right; top: parent.top }
+                                            anchors.margins: 8
+                                            anchors.topMargin: 7
+                                            anchors.rightMargin: 26
+                                            spacing: 2
+
+                                            UiText {
+                                                text: modelData.summary || ""
+                                                color: root.ink
+                                                font.family: root.barFont
+                                                font.pixelSize: 11
+                                                width: parent.width
+                                                elide: Text.ElideRight
+                                                visible: text !== ""
+                                            }
+                                            UiText {
+                                                text: modelData.body || ""
+                                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
+                                                font.family: root.barFont
+                                                font.pixelSize: 10
+                                                width: parent.width
+                                                wrapMode: Text.WordWrap
+                                                maximumLineCount: 2
+                                                elide: Text.ElideRight
+                                                visible: text !== ""
+                                            }
+                                        }
+
+                                        MouseArea { id: iMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor }
+
+                                        Rectangle {
+                                            anchors.top: parent.top; anchors.right: parent.right
+                                            anchors.topMargin: 3; anchors.rightMargin: 4
+                                            width: 18; height: 18; radius: 9
+                                            color: "transparent"
+                                            UiText {
+                                                anchors.centerIn: parent
+                                                text: "✕"
+                                                color: ixMa.containsMouse ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.45)
+                                                font.pixelSize: 10
+                                            }
+                                            MouseArea {
+                                                id: ixMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: notifPanel.dismissOne(modelData)
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
 
                     UiText {
-                        visible: notifPanel.pending.length === 0
+                        visible: notifPanel.grouped.length === 0
                         width: listCol.width
                         horizontalAlignment: Text.AlignHCenter
                         text: "No notifications"
                         color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.3)
-                        font.family: root.mono
+                        font.family: root.barFont
                         font.pixelSize: 11
                     }
                 }
             }
 
-            // ── clear all ──
-            Rectangle {
+            Row {
                 width: parent.width
-                height: 28; radius: root.panelButtonRadius
-                visible: notifPanel.pending.length > 0
-                readonly property bool hovered: clearMa.containsMouse
-                color: hovered ? root.fillHover : root.fillIdle
-                border.color: hovered ? root.seal : root.sep
-                border.width: 1
-                Behavior on color { ColorAnimation { duration: 120 } }
-                UiText {
-                    anchors.centerIn: parent
-                    text: "Clear all"
-                    color: clearMa.containsMouse ? root.seal : root.sumi
-                    font.family: root.mono; font.pixelSize: 11
+                height: 28
+                spacing: 6
+
+                // ── DND toggle ──
+                Rectangle {
+                    width: clearRect.visible ? (parent.width - 6) / 2 : parent.width
+                    height: 28; radius: root.panelButtonRadius
+                    color: dndMa.containsMouse ? root.fillHover : root.fillIdle
+                    border.color: notifPanel.isDnd ? root.accent : (dndMa.containsMouse ? root.seal : root.sep)
+                    border.width: 1
+                    Behavior on color { ColorAnimation { duration: 120 } }
+                    UiText {
+                        anchors.centerIn: parent
+                        text: notifPanel.isDnd ? "DnD: On" : "DnD: Off"
+                        color: notifPanel.isDnd ? root.accent : (dndMa.containsMouse ? root.seal : root.sumi)
+                        font.family: root.barFont; font.pixelSize: 11
+                    }
+                    MouseArea {
+                        id: dndMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: notifPanel.runMako("quickshell -p /usr/share/omarchy/shell ipc call notifications toggleDnd")
+                    }
                 }
-                MouseArea {
-                    id: clearMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: notifPanel.dismissAll()
+
+                // ── clear all ──
+                Rectangle {
+                    id: clearRect
+                    width: (parent.width - 6) / 2
+                    height: 28; radius: root.panelButtonRadius
+                    visible: notifPanel.pending.length > 0
+                    readonly property bool hovered: clearMa.containsMouse
+                    color: hovered ? root.fillHover : root.fillIdle
+                    border.color: hovered ? root.seal : root.sep
+                    border.width: 1
+                    Behavior on color { ColorAnimation { duration: 120 } }
+                    UiText {
+                        anchors.centerIn: parent
+                        text: "Clear all"
+                        color: clearMa.containsMouse ? root.seal : root.sumi
+                        font.family: root.barFont; font.pixelSize: 11
+                    }
+                    MouseArea {
+                        id: clearMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: notifPanel.dismissAll()
+                    }
                 }
             }
         }

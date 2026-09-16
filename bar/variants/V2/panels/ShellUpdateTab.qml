@@ -197,7 +197,7 @@ Column {
             anchors.centerIn: parent
             text: btn.label
             color: btn.primary ? tab.root.paper : (ma.containsMouse && btn.buttonEnabled ? tab.root.seal : tab.root.ink)
-            font.family: tab.root.mono
+            font.family: tab.root.barFont
             font.pixelSize: 11
             elide: Text.ElideRight
         }
@@ -217,7 +217,7 @@ Column {
         renderType: Text.NativeRendering
         wrapMode: Text.NoWrap
         elide: Text.ElideRight
-        font.family: root.mono
+        font.family: root.barFont
         font.pixelSize: 10
         text: {
             function hx(c) { function h(v){var x=Math.round(v*255).toString(16); return x.length<2?"0"+x:x} return "#"+h(c.r)+h(c.g)+h(c.b) }
@@ -238,7 +238,7 @@ Column {
             width: (parent.width - 8) / 2
             text: "Installed: " + shortSha(root.shellInstalledCommit || root.shellUpdateBaseCommit)
             color: root.sumi
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 10
             elide: Text.ElideRight
         }
@@ -246,7 +246,7 @@ Column {
             width: (parent.width - 8) / 2
             text: "Target: " + shortSha(root.shellUpdateTargetCommit || root.shellProgressTargetCommit)
             color: root.sumi
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 10
             elide: Text.ElideRight
         }
@@ -274,7 +274,7 @@ Column {
                     horizontalAlignment: Text.AlignHCenter
                     text: tab.phaseIcon(index + 1)
                     color: tab.phaseColor(index + 1)
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 12
                     font.weight: Font.Medium
                 }
@@ -283,7 +283,7 @@ Column {
                     anchors.verticalCenter: parent.verticalCenter
                     text: tab.phaseLabels[index]
                     color: tab.phaseColor(index + 1)
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 11
                     elide: Text.ElideRight
                 }
@@ -295,7 +295,7 @@ Column {
             visible: progressFailed
             text: progressErrorText
             color: root.seal
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 10
             wrapMode: Text.Wrap
             maximumLineCount: 3
@@ -330,14 +330,14 @@ Column {
                         UiText {
                             text: "•"
                             color: root.seal
-                            font.family: root.mono
+                            font.family: root.barFont
                             font.pixelSize: 11
                         }
                         UiText {
                             width: commitsCol.width - 14
                             text: modelData
                             color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.85)
-                            font.family: root.mono
+                            font.family: root.barFont
                             font.pixelSize: 11
                             wrapMode: Text.Wrap
                         }
@@ -349,7 +349,7 @@ Column {
                     visible: root.shellUpdateSummary.length === 0
                     text: root.shellUpdateBehind > 0 ? "No changelog available" : "No shell update available"
                     color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.5)
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 11
                     horizontalAlignment: Text.AlignHCenter
                     topPadding: 20
@@ -364,7 +364,7 @@ Column {
             ? "You can hide this panel; the update continues in the background."
             : "Shell updates are applied separately from packages and themes."
         color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.45)
-        font.family: root.mono
+        font.family: root.barFont
         font.pixelSize: 9
         font.letterSpacing: 0.5
         wrapMode: Text.Wrap

@@ -108,7 +108,7 @@ PanelWindow {
                 UiText {
                     anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
                     text: "Brightness"
-                    color: root.ink; font.family: root.mono; font.pixelSize: 13
+                    color: root.ink; font.family: root.barFont; font.pixelSize: 13
                     font.letterSpacing: 2; font.weight: Font.Medium
                 }
                 UiText {
@@ -130,7 +130,7 @@ PanelWindow {
                     anchors.top: parent.top
                     text: briPanel.percent + "%"
                     color: root.seal
-                    font.family: root.mono; font.pixelSize: 11; font.weight: Font.Medium
+                    font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium
                 }
                 Rectangle {
                     id: track
@@ -171,7 +171,7 @@ PanelWindow {
                     UiText {
                         anchors.centerIn: parent
                         text: "− 5%"; color: _dn.containsMouse ? root.seal : root.sumi
-                        font.family: root.mono; font.pixelSize: 11
+                        font.family: root.barFont; font.pixelSize: 11
                     }
                     MouseArea {
                         id: _dn
@@ -190,7 +190,7 @@ PanelWindow {
                     UiText {
                         anchors.centerIn: parent
                         text: "+ 5%"; color: _up.containsMouse ? root.seal : root.sumi
-                        font.family: root.mono; font.pixelSize: 11
+                        font.family: root.barFont; font.pixelSize: 11
                     }
                     MouseArea {
                         id: _up

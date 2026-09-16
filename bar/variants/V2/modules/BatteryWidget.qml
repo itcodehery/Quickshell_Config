@@ -174,7 +174,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: rootMod.percent + "%"
             color: rootMod.battColor
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 12
             Behavior on color { ColorAnimation { duration: 200 } }
         }

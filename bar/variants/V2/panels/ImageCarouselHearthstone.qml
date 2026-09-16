@@ -442,7 +442,7 @@ PanelWindow {
         horizontalAlignment: Text.AlignHCenter
         text: "No matches: " + panel.filterText + "\n\nBackspace to edit, or Esc to clear"
         color: root.ink
-        font.family: root.mono; font.pixelSize: 16; font.letterSpacing: 1
+        font.family: root.barFont; font.pixelSize: 16; font.letterSpacing: 1
     }
     Text {
         visible: root.imagePickerVisible && panel.active && !panel.ready
@@ -452,7 +452,7 @@ PanelWindow {
               ? (panel.isThemeMode ? "No themes found" : "No wallpapers found") + "\n\nEsc or click to close"
               : "Loading…"
         color: panel.textLight
-        font.family: root.mono; font.pixelSize: 16; font.letterSpacing: 1
+        font.family: root.barFont; font.pixelSize: 16; font.letterSpacing: 1
     }
 
     // ── position indicator (top) ──
@@ -463,7 +463,7 @@ PanelWindow {
         opacity: panel.reveal
         text: (panel.isThemeMode ? "THEME" : "WALLPAPER") + "      " + (panel.selFilt + 1) + " / " + panel.filtered.length
         color: panel.textDim
-        font.family: root.mono; font.pixelSize: 12; font.letterSpacing: 2
+        font.family: root.barFont; font.pixelSize: 12; font.letterSpacing: 2
     }
 
     // ── the hand ──
@@ -570,7 +570,7 @@ PanelWindow {
                         anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: 12 }
                         text: card.entry ? card.entry.label : ""
                         color: panel.textLight
-                        font.family: root.mono; font.pixelSize: 13; font.weight: Font.DemiBold
+                        font.family: root.barFont; font.pixelSize: 13; font.weight: Font.DemiBold
                         horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
                     }
                     Rectangle {
@@ -663,7 +663,7 @@ PanelWindow {
             anchors.horizontalCenter: parent.horizontalCenter
             width: 820; text: panel.currentLabel
             color: panel.textLight
-            font.family: root.mono; font.pixelSize: 26; font.weight: Font.DemiBold
+            font.family: root.barFont; font.pixelSize: 26; font.weight: Font.DemiBold
             horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
         }
 
@@ -695,14 +695,14 @@ PanelWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 text: "● current"
                 color: root.seal
-                font.family: root.mono; font.pixelSize: 11
+                font.family: root.barFont; font.pixelSize: 11
             }
             Text {
                 visible: panel.isThemeMode && panel.selMeta && panel.selMeta.author.length > 0
                 anchors.verticalCenter: parent.verticalCenter
                 text: "by " + (panel.selMeta ? panel.selMeta.author : "") + "  ↗"
                 color: authorMa.containsMouse ? root.seal : panel.textDim
-                font.family: root.mono; font.pixelSize: 11
+                font.family: root.barFont; font.pixelSize: 11
                 Behavior on color { ColorAnimation { duration: 120 } }
                 MouseArea {
                     id: authorMa
@@ -718,7 +718,7 @@ PanelWindow {
             anchors.horizontalCenter: parent.horizontalCenter
             text: panel.filterText
             color: root.seal; opacity: 0.95
-            font.family: root.mono; font.pixelSize: 14
+            font.family: root.barFont; font.pixelSize: 14
             horizontalAlignment: Text.AlignHCenter
         }
 
@@ -726,7 +726,7 @@ PanelWindow {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "← →  scroll navigate     Enter apply     Esc cancel     type to filter"
             color: panel.textDim
-            font.family: root.mono; font.pixelSize: 11
+            font.family: root.barFont; font.pixelSize: 11
             horizontalAlignment: Text.AlignHCenter
         }
     }

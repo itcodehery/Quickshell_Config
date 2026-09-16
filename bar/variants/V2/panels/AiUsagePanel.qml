@@ -90,14 +90,14 @@ PanelWindow {
             id: rowLbl
             anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
             text: label; color: aiPanel.root.sumiHi
-            font.family: aiPanel.root.mono; font.pixelSize: 11; font.letterSpacing: 1
+            font.family: aiPanel.root.barFont; font.pixelSize: 11; font.letterSpacing: 1
         }
         UiText {
             id: rowVal
             anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
             text: pct + "%"
             color: dim ? aiPanel.root.sumi : aiPanel.root.seal
-            font.family: aiPanel.root.mono; font.pixelSize: 11; font.weight: Font.Medium
+            font.family: aiPanel.root.barFont; font.pixelSize: 11; font.weight: Font.Medium
         }
         Rectangle {
             anchors.left: rowLbl.right; anchors.leftMargin: 8
@@ -121,12 +121,12 @@ PanelWindow {
         width: parent ? parent.width : 0
         UiText {
             text: k; color: aiPanel.root.sumiHi
-            font.family: aiPanel.root.mono; font.pixelSize: 11
+            font.family: aiPanel.root.barFont; font.pixelSize: 11
             width: parent.width * 0.45
         }
         UiText {
             text: v; color: aiPanel.root.ink
-            font.family: aiPanel.root.mono; font.pixelSize: 11
+            font.family: aiPanel.root.barFont; font.pixelSize: 11
             width: parent.width * 0.55; horizontalAlignment: Text.AlignRight
             elide: Text.ElideRight
         }
@@ -154,13 +154,13 @@ PanelWindow {
             text: name
             elide: Text.ElideRight
             color: aiPanel.root.ink
-            font.family: aiPanel.root.mono; font.pixelSize: 10; font.weight: Font.Medium
+            font.family: aiPanel.root.barFont; font.pixelSize: 10; font.weight: Font.Medium
         }
         UiText {
             anchors.right: parent.right; anchors.top: parent.top
             text: totalLabel
             color: aiPanel.root.seal
-            font.family: aiPanel.root.mono; font.pixelSize: 10; font.weight: Font.Medium
+            font.family: aiPanel.root.barFont; font.pixelSize: 10; font.weight: Font.Medium
         }
         Rectangle {
             anchors.left: parent.left; anchors.right: parent.right
@@ -183,7 +183,7 @@ PanelWindow {
                 + (todayLabel !== "0" ? "  today " + todayLabel : "")
             elide: Text.ElideRight
             color: aiPanel.root.sumiHi
-            font.family: aiPanel.root.mono; font.pixelSize: 9
+            font.family: aiPanel.root.barFont; font.pixelSize: 9
         }
     }
 
@@ -242,7 +242,7 @@ PanelWindow {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "AI USAGE"
                         color: root.ink
-                        font.family: root.mono
+                        font.family: root.barFont
                         font.pixelSize: 13
                         font.letterSpacing: 2
                         font.weight: Font.Medium
@@ -285,7 +285,7 @@ PanelWindow {
                                 anchors.centerIn: parent
                                 text: modelData.label
                                 color: (parent.active || segMa.containsMouse) ? root.seal : root.ink
-                                font.family: root.mono; font.pixelSize: 11
+                                font.family: root.barFont; font.pixelSize: 11
                                 font.weight: parent.active ? Font.Medium : Font.Normal
                             }
                             MouseArea {
@@ -308,20 +308,20 @@ PanelWindow {
                     UiText {
                         anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
                         text: "Claude Code"; color: root.ink
-                        font.family: root.mono; font.pixelSize: 12; font.weight: Font.Medium
+                        font.family: root.barFont; font.pixelSize: 12; font.weight: Font.Medium
                     }
                     UiText {
                         anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
                         text: aiPanel.clFresh ? "live" : "stale"
                         color: aiPanel.clFresh ? root.sumi : root.sealRaw
-                        font.family: root.mono; font.pixelSize: 10
+                        font.family: root.barFont; font.pixelSize: 10
                     }
                 }
                 UiText {
                     visible: aiPanel.showClaude && !aiPanel.clHas
                     width: parent.width
                     text: "no data — run claude"
-                    color: root.sumiHi; font.family: root.mono; font.pixelSize: 11
+                    color: root.sumiHi; font.family: root.barFont; font.pixelSize: 11
                 }
                 UsageRow { visible: aiPanel.showClaude && aiPanel.clHas; label: "5h"; pct: aiPanel.clPct5h; dim: !aiPanel.clFresh }
                 UsageRow { visible: aiPanel.showClaude && aiPanel.clHas; label: "7d"; pct: aiPanel.clPct7d; dim: !aiPanel.clFresh }
@@ -343,20 +343,20 @@ PanelWindow {
                         anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
                         text: "OpenCode" + (aiPanel.ocPlan ? "  · " + aiPanel.ocPlan : "")
                         color: root.ink
-                        font.family: root.mono; font.pixelSize: 12; font.weight: Font.Medium
+                        font.family: root.barFont; font.pixelSize: 12; font.weight: Font.Medium
                     }
                     UiText {
                         anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
                         text: aiPanel.ocFresh ? "live" : "stale"
                         color: aiPanel.ocFresh ? root.sumi : root.sealRaw
-                        font.family: root.mono; font.pixelSize: 10
+                        font.family: root.barFont; font.pixelSize: 10
                     }
                 }
                 UiText {
                     visible: aiPanel.showOpenCode && !aiPanel.ocHas
                     width: parent.width
                     text: "no data — run opencode"
-                    color: root.sumiHi; font.family: root.mono; font.pixelSize: 11
+                    color: root.sumiHi; font.family: root.barFont; font.pixelSize: 11
                 }
                 UsageRow { visible: aiPanel.showOpenCode && aiPanel.ocHas; label: "5h"; pct: aiPanel.ocPct5h; dim: !aiPanel.ocFresh }
                 UsageRow { visible: aiPanel.showOpenCode && aiPanel.ocHas; label: "7d"; pct: aiPanel.ocPct7d; dim: !aiPanel.ocFresh }
@@ -372,13 +372,13 @@ PanelWindow {
                         anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
                         text: "MODELS"
                         color: root.sumiHi
-                        font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                        font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
                     }
                     UiText {
                         anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
                         text: "recent"
                         color: root.sumi
-                        font.family: root.mono; font.pixelSize: 10
+                        font.family: root.barFont; font.pixelSize: 10
                     }
                 }
                 Repeater {
@@ -405,7 +405,7 @@ PanelWindow {
                         anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
                         text: "Antigravity CLI (Agentic Coding)"
                         color: root.ink
-                        font.family: root.mono; font.pixelSize: 12; font.weight: Font.Medium
+                        font.family: root.barFont; font.pixelSize: 12; font.weight: Font.Medium
                     }
                 }
                 Grid {
@@ -415,17 +415,17 @@ PanelWindow {
                     columnSpacing: 16
                     rowSpacing: 8
                     
-                    UiText { text: "Total Sessions:"; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11 }
-                    UiText { text: root.aiAgyTotalSessions; color: root.seal; font.family: root.mono; font.pixelSize: 11; font.weight: Font.Medium }
+                    UiText { text: "Total Sessions:"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 11 }
+                    UiText { text: root.aiAgyTotalSessions; color: root.seal; font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium }
                     
-                    UiText { text: "Total Steps:"; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11 }
-                    UiText { text: root.aiAgyTotalSteps; color: root.seal; font.family: root.mono; font.pixelSize: 11; font.weight: Font.Medium }
+                    UiText { text: "Total Steps:"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 11 }
+                    UiText { text: root.aiAgyTotalSteps; color: root.seal; font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium }
                     
-                    UiText { text: "Sessions (24h):"; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11 }
-                    UiText { text: root.aiAgyTodaySessions; color: root.seal; font.family: root.mono; font.pixelSize: 11; font.weight: Font.Medium }
+                    UiText { text: "Sessions (24h):"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 11 }
+                    UiText { text: root.aiAgyTodaySessions; color: root.seal; font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium }
                     
-                    UiText { text: "Steps (24h):"; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11 }
-                    UiText { text: root.aiAgyTodaySteps; color: root.seal; font.family: root.mono; font.pixelSize: 11; font.weight: Font.Medium }
+                    UiText { text: "Steps (24h):"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 11 }
+                    UiText { text: root.aiAgyTodaySteps; color: root.seal; font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium }
                 }
             }
         }

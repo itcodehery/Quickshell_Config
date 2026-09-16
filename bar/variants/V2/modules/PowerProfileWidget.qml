@@ -48,7 +48,7 @@ Item {
             text: rootMod.profileIcon
             renderType: Text.QtRendering
             color: rootMod.profileColor
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: rootMod.isBalanced ? 13 : 14
             Behavior on color { ColorAnimation { duration: 200 } }
         }

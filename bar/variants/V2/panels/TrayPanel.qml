@@ -99,7 +99,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Tray Apps"
                     color: root.ink
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 13
                     font.letterSpacing: 2
                     font.weight: Font.Medium
@@ -112,7 +112,7 @@ PanelWindow {
                     text: trayPanel.hiddenCount + (trayPanel.hiddenCount === 1 ? " APP" : " APPS")
                         + (trayPanel.attentionCount > 0 ? "  ·  " + trayPanel.attentionCount + " ATTENTION" : "")
                     color: trayPanel.attentionCount > 0 ? root.seal : root.sumiHi
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 10
                 }
 
@@ -228,7 +228,7 @@ PanelWindow {
                                         text: (appRow.needsAttention ? "\u26a0 " : "") + appRow.appName
                                         color: appRow.needsAttention ? root.seal
                                             : (activateMa.containsMouse ? root.seal : root.ink)
-                                        font.family: root.mono
+                                        font.family: root.barFont
                                         font.pixelSize: 11
                                         font.weight: Font.Medium
                                         elide: Text.ElideRight
@@ -277,7 +277,7 @@ PanelWindow {
                                         anchors.centerIn: parent
                                         text: "Pin"
                                         color: pinMa.containsMouse ? root.seal : root.ink
-                                        font.family: root.mono
+                                        font.family: root.barFont
                                         font.pixelSize: 11
                                     }
 
@@ -312,7 +312,7 @@ PanelWindow {
                                         anchors.centerIn: parent
                                         text: appRow.modelData.hasMenu ? "AppMenu" : "No Menu"
                                         color: menuMa.containsMouse && appRow.modelData.hasMenu ? root.seal : root.ink
-                                        font.family: root.mono
+                                        font.family: root.barFont
                                         font.pixelSize: 11
                                     }
 

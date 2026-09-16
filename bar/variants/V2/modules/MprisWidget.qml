@@ -238,7 +238,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 text: rootMod.trackLabel
                 color: rootMod.contentColor
-                font.family: root.mono
+                font.family: root.barFont
                 font.pixelSize: 12
                 x: 0
                 Behavior on color { ColorAnimation { duration: 200 } }
@@ -369,7 +369,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 text: rootMod.player ? (rootMod.player.trackTitle || "Unknown") : ""
                 color: rootMod.contentColor
-                font.family: root.mono; font.pixelSize: 12; font.weight: Font.Medium
+                font.family: root.barFont; font.pixelSize: 12; font.weight: Font.Medium
                 elide: Text.ElideRight
                 width: Math.min(islandTitle.implicitWidth, 120) // Cap width
                 clip: true

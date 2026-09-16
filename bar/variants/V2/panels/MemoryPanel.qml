@@ -91,7 +91,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Memory"
                     color: root.ink
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 13
                     font.letterSpacing: 2
                     font.weight: Font.Medium
@@ -124,7 +124,7 @@ PanelWindow {
                     anchors.top: parent.top
                     text: memPanel.pct + "%"
                     color: root.seal
-                    font.family: root.mono; font.pixelSize: 11; font.weight: Font.Medium
+                    font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium
                 }
                 Rectangle {
                     anchors.bottom: parent.bottom
@@ -145,28 +145,28 @@ PanelWindow {
                 spacing: 4
                 Row {
                     width: parent.width
-                    UiText { text: "Used"; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.4 }
-                    UiText { text: memPanel.usedGiB.toFixed(1) + " GiB"; color: root.ink; font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.3 }
-                    UiText { text: memPanel.memUsed + " MiB"; color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6); font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.3 }
+                    UiText { text: "Used"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 11; width: parent.width * 0.4 }
+                    UiText { text: memPanel.usedGiB.toFixed(1) + " GiB"; color: root.ink; font.family: root.barFont; font.pixelSize: 11; width: parent.width * 0.3 }
+                    UiText { text: memPanel.memUsed + " MiB"; color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6); font.family: root.barFont; font.pixelSize: 11; width: parent.width * 0.3 }
                 }
                 Row {
                     width: parent.width
-                    UiText { text: "Available"; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.4 }
-                    UiText { text: (memPanel.memAvail / 1024).toFixed(1) + " GiB"; color: root.ink; font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.3 }
-                    UiText { text: memPanel.memAvail + " MiB"; color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6); font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.3 }
+                    UiText { text: "Available"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 11; width: parent.width * 0.4 }
+                    UiText { text: (memPanel.memAvail / 1024).toFixed(1) + " GiB"; color: root.ink; font.family: root.barFont; font.pixelSize: 11; width: parent.width * 0.3 }
+                    UiText { text: memPanel.memAvail + " MiB"; color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6); font.family: root.barFont; font.pixelSize: 11; width: parent.width * 0.3 }
                 }
                 Row {
                     width: parent.width
-                    UiText { text: "Total"; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.4 }
-                    UiText { text: memPanel.totalGiB.toFixed(1) + " GiB"; color: root.ink; font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.3 }
-                    UiText { text: memPanel.memTotal + " MiB"; color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6); font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.3 }
+                    UiText { text: "Total"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 11; width: parent.width * 0.4 }
+                    UiText { text: memPanel.totalGiB.toFixed(1) + " GiB"; color: root.ink; font.family: root.barFont; font.pixelSize: 11; width: parent.width * 0.3 }
+                    UiText { text: memPanel.memTotal + " MiB"; color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6); font.family: root.barFont; font.pixelSize: 11; width: parent.width * 0.3 }
                 }
                 Row {
                     width: parent.width
                     visible: root.memorySpeedMTs > 0
-                    UiText { text: "Speed"; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.4 }
-                    UiText { text: root.memorySpeedMTs + " MT/s"; color: root.ink; font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.3 }
-                    UiText { text: root.memoryType; color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6); font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.3 }
+                    UiText { text: "Speed"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 11; width: parent.width * 0.4 }
+                    UiText { text: root.memorySpeedMTs + " MT/s"; color: root.ink; font.family: root.barFont; font.pixelSize: 11; width: parent.width * 0.3 }
+                    UiText { text: root.memoryType; color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6); font.family: root.barFont; font.pixelSize: 11; width: parent.width * 0.3 }
                 }
             }
 
@@ -182,7 +182,7 @@ PanelWindow {
                     anchors.centerIn: parent
                     text: "Open btop"
                     color: root.paper
-                    font.family: root.mono; font.pixelSize: 11
+                    font.family: root.barFont; font.pixelSize: 11
                 }
                 MouseArea {
                     id: btopMa

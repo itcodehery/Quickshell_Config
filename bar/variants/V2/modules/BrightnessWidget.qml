@@ -100,7 +100,7 @@ Item {
             color: rootMod.percent >= 100
                 ? (root.widgetHasFill("G13") ? rootMod.contentColor : root.seal)
                 : rootMod.contentColor
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 12
             Behavior on color { ColorAnimation { duration: 200 } }
         }

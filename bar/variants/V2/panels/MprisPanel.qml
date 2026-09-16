@@ -288,7 +288,7 @@ PanelWindow {
                 UiText {
                     anchors.centerIn: parent
                     text: "N O W   P L A Y I N G"
-                    color: root.sumiHi; font.family: root.mono; font.pixelSize: 11
+                    color: root.sumiHi; font.family: root.barFont; font.pixelSize: 11
                     font.letterSpacing: 2; font.weight: Font.DemiBold
                 }
                 UiText {
@@ -344,7 +344,7 @@ PanelWindow {
                         UiText {
                             id: titleText
                             text: mprisPanel.player ? (mprisPanel.player.trackTitle || "Unknown") : ""
-                            color: root.ink; font.family: root.mono; font.pixelSize: 16; font.weight: Font.Bold
+                            color: root.ink; font.family: root.barFont; font.pixelSize: 16; font.weight: Font.Bold
                             
                             x: implicitWidth <= parent.width ? (parent.width - implicitWidth) / 2 : scrollAnim.currentX
                             property real maxScroll: Math.max(0, implicitWidth - parent.width)
@@ -378,7 +378,7 @@ PanelWindow {
                         width: parent.width
                         horizontalAlignment: Text.AlignHCenter
                         text: mprisPanel.player ? (mprisPanel.player.trackArtist || "") : ""
-                        color: root.sumiHi; font.family: root.mono; font.pixelSize: 13
+                        color: root.sumiHi; font.family: root.barFont; font.pixelSize: 13
                         elide: Text.ElideRight
                         visible: text !== ""
                     }
@@ -394,7 +394,7 @@ PanelWindow {
                 UiText {
                     anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
                     text: mprisPanel.fmtTime(mprisPanel.curPos)
-                    color: root.sumiHi; font.family: root.mono; font.pixelSize: 10
+                    color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10
                 }
                 
                 Rectangle {
@@ -431,7 +431,7 @@ PanelWindow {
                 UiText {
                     anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
                     text: mprisPanel.fmtTime(mprisPanel.curLen)
-                    color: root.sumiHi; font.family: root.mono; font.pixelSize: 10
+                    color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10
                 }
             }
 
@@ -479,7 +479,7 @@ PanelWindow {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     text: "LRC"
-                    font.family: root.mono; font.pixelSize: 12; font.weight: Font.Bold
+                    font.family: root.barFont; font.pixelSize: 12; font.weight: Font.Bold
                     color: lyricsList.length > 0 
                            ? (showingLyrics ? root.ink : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.4))
                            : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.1)
@@ -552,13 +552,13 @@ PanelWindow {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "No song playing"
                         color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.55)
-                        font.family: root.mono; font.pixelSize: 14; font.weight: Font.Medium
+                        font.family: root.barFont; font.pixelSize: 14; font.weight: Font.Medium
                     }
                     UiText {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "no active player"
                         color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.3)
-                        font.family: root.mono; font.pixelSize: 11
+                        font.family: root.barFont; font.pixelSize: 11
                     }
                 }
             }

@@ -114,7 +114,7 @@ Item {
             width: visible ? Math.min(88, implicitWidth) : 0
             text: rootMod.ssid !== "" ? rootMod.ssid : "Wi-Fi"
             color: rootMod.contentColor
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 11
             elide: Text.ElideRight
         }
@@ -134,7 +134,7 @@ Item {
                 width: 8; height: 8
                 text: "RX"
                 color: Qt.rgba(rootMod.contentColor.r, rootMod.contentColor.g, rootMod.contentColor.b, 0.72)
-                font.family: root.mono
+                font.family: root.barFont
                 font.pixelSize: 7
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
@@ -175,7 +175,7 @@ Item {
                 width: 8; height: 8
                 text: "TX"
                 color: Qt.rgba(rootMod.contentColor.r, rootMod.contentColor.g, rootMod.contentColor.b, 0.72)
-                font.family: root.mono
+                font.family: root.barFont
                 font.pixelSize: 7
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter

@@ -40,7 +40,7 @@ Item {
             anchors.centerIn: parent
             text: root.notifCount > 99 ? "99" : root.notifCount
             color: root.widgetHasFill("G3") ? root.widgetAssignedColor("G3") : root.paper
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 7
             font.weight: Font.Bold
         }

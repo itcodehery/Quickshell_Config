@@ -46,7 +46,7 @@ Item {
             color: rootMod.muted
                 ? Qt.rgba(rootMod.contentColor.r, rootMod.contentColor.g, rootMod.contentColor.b, 0.35)
                 : rootMod.contentColor
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 12
             Behavior on color { ColorAnimation { duration: 160 } }
         }

@@ -200,7 +200,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Volume"
                     color: root.ink
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 13
                     font.letterSpacing: 2
                     font.weight: Font.Medium
@@ -228,7 +228,7 @@ PanelWindow {
             UiText {
                 text: "OUTPUT"
                 color: root.sumiHi
-                font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
             }
 
             Item {
@@ -241,7 +241,7 @@ PanelWindow {
                     color: volPanel.muted
                         ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.4)
                         : root.seal
-                    font.family: root.mono; font.pixelSize: 11; font.weight: Font.Medium
+                    font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium
                 }
                 Rectangle {
                     anchors.bottom: parent.bottom
@@ -260,7 +260,7 @@ PanelWindow {
             UiText {
                 text: "OUTPUT DEVICE"
                 color: root.sumiHi
-                font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
             }
             Column {
                 width: parent.width
@@ -287,14 +287,14 @@ PanelWindow {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: devTile.isDef ? "●" : "○"
                                 color: devTile.isDef ? root.seal : root.sumi
-                                font.family: root.mono; font.pixelSize: 10
+                                font.family: root.barFont; font.pixelSize: 10
                             }
                             UiText {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: parent.width - 22
                                 text: devTile.modelData.desc
                                 color: (devTile.isDef || devTile.hovered) ? root.seal : root.ink
-                                font.family: root.mono; font.pixelSize: 11
+                                font.family: root.barFont; font.pixelSize: 11
                                 elide: Text.ElideRight
                             }
                         }
@@ -327,7 +327,7 @@ PanelWindow {
                     anchors.centerIn: parent
                     text: volPanel.muted ? "Unmute volume" : "Mute volume"
                     color: (muteMa.containsMouse || volPanel.muted) ? root.seal : root.sumi
-                    font.family: root.mono; font.pixelSize: 11
+                    font.family: root.barFont; font.pixelSize: 11
                 }
                 MouseArea {
                     id: muteMa
@@ -346,7 +346,7 @@ PanelWindow {
                 visible: volPanel.apps.length > 0
                 text: "APPS"
                 color: root.sumiHi
-                font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
             }
             Column {
                 width: parent.width
@@ -384,7 +384,7 @@ PanelWindow {
                             anchors.right: appPct.left; anchors.rightMargin: 6
                             text: appRow.modelData.name
                             color: appRow.modelData.muted ? root.sumi : root.ink
-                            font.family: root.mono; font.pixelSize: 11
+                            font.family: root.barFont; font.pixelSize: 11
                             elide: Text.ElideRight
                         }
                         UiText {
@@ -394,7 +394,7 @@ PanelWindow {
                             anchors.verticalCenterOffset: 1
                             text: appRow.liveVol + "%"
                             color: root.seal
-                            font.family: root.mono; font.pixelSize: 11; font.weight: Font.Medium
+                            font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium
                         }
 
                         // draggable volume bar
@@ -432,7 +432,7 @@ PanelWindow {
             UiText {
                 text: "INPUT"
                 color: root.sumiHi
-                font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
             }
 
             Row {
@@ -440,7 +440,7 @@ PanelWindow {
                 UiText {
                     text: "Microphone"
                     color: root.sumiHi
-                    font.family: root.mono; font.pixelSize: 11
+                    font.family: root.barFont; font.pixelSize: 11
                     width: parent.width * 0.5
                 }
                 UiText {
@@ -448,7 +448,7 @@ PanelWindow {
                     color: volPanel.micMuted
                         ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.5)
                         : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.7)
-                    font.family: root.mono; font.pixelSize: 11
+                    font.family: root.barFont; font.pixelSize: 11
                     width: parent.width * 0.5
                     horizontalAlignment: Text.AlignRight
                 }
@@ -495,7 +495,7 @@ PanelWindow {
                     anchors.centerIn: parent
                     text: volPanel.micMuted ? "Unmute mic" : "Mute mic"
                     color: (micMuteMa.containsMouse || volPanel.micMuted) ? root.seal : root.sumi
-                    font.family: root.mono; font.pixelSize: 11
+                    font.family: root.barFont; font.pixelSize: 11
                 }
                 MouseArea {
                     id: micMuteMa
@@ -520,7 +520,7 @@ PanelWindow {
                     anchors.centerIn: parent
                     text: "Open audio"
                     color: root.paper
-                    font.family: root.mono; font.pixelSize: 11
+                    font.family: root.barFont; font.pixelSize: 11
                 }
                 MouseArea {
                     id: audioBtnMa

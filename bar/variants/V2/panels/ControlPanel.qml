@@ -68,7 +68,7 @@ PanelWindow {
             anchors.centerIn: parent
             text: parent.label
             color: (parent.active || _ma.containsMouse) ? parent.accent : root.ink
-            font.family: root.mono; font.pixelSize: 11
+            font.family: root.barFont; font.pixelSize: 11
         }
         MouseArea {
             id: _ma
@@ -110,7 +110,7 @@ PanelWindow {
             anchors.verticalCenter: parent.verticalCenter
             text: parent.label
             color: parent.shown ? root.ink : root.sumi
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 10
             elide: Text.ElideRight
             Behavior on color { ColorAnimation { duration: 120 } }
@@ -168,7 +168,7 @@ PanelWindow {
                     ? stateArea.parent.modeOnLabel
                     : stateArea.parent.modeOffLabel
                 color: modeMa.containsMouse || (stateArea.parent.shown && stateArea.parent.compact) ? root.seal : root.sumiHi
-                font.family: root.mono; font.pixelSize: 10
+                font.family: root.barFont; font.pixelSize: 10
                 opacity: stateArea.parent.shown ? 1 : 0.4
                 Behavior on color { ColorAnimation { duration: 120 } }
             }
@@ -271,7 +271,7 @@ PanelWindow {
                 UiText {
                     anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
                     text: "Control"
-                    color: root.ink; font.family: root.mono; font.pixelSize: 13
+                    color: root.ink; font.family: root.barFont; font.pixelSize: 13
                     font.letterSpacing: 2; font.weight: Font.Medium
                 }
                 UiText {
@@ -287,7 +287,7 @@ PanelWindow {
             // ── ACTIONS ──
             UiText {
                 text: "ACTIONS"
-                color: root.sumiHi; font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
             }
             Grid {
                 width: parent.width
@@ -342,7 +342,7 @@ PanelWindow {
             // ── BAR COLOR: compact colors.toml palette ──
             UiText {
                 text: "BAR COLOR"
-                color: root.sumiHi; font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
             }
             Grid {
                 width: parent.width
@@ -371,7 +371,7 @@ PanelWindow {
                             anchors.centerIn: parent
                             text: modelData === "foreground" ? "FG" : modelData.slice(-2)
                             color: root.paletteContrastColor(modelData)
-                            font.family: root.mono
+                            font.family: root.barFont
                             font.pixelSize: 9
                             font.weight: Font.Medium
                         }
@@ -400,7 +400,7 @@ PanelWindow {
             // ── BAR FUNCTIONS (opens the fly-out sub-panel) ──
             UiText {
                 text: "BAR FUNCTIONS"
-                color: root.sumiHi; font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
             }
             Tile {
                 width: parent.width
@@ -414,7 +414,7 @@ PanelWindow {
             // ── PICKER style (theme/wallpaper/screenshot/video picker visual) ──
             UiText {
                 text: "PICKER-STIL"
-                color: root.sumiHi; font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
             }
             Row {
                 id: pickerRow
@@ -429,7 +429,7 @@ PanelWindow {
                 // plus an equal share of the leftover space, so every tile gets
                 // the same side padding. Fixed 1/3-each made the long "Hearthstone"
                 // label touch its borders while the short labels had slack.
-                TextMetrics { id: pickMetrics; font.family: root.mono; font.pixelSize: 10; text: "0" }
+                TextMetrics { id: pickMetrics; font.family: root.barFont; font.pixelSize: 10; text: "0" }
                 readonly property real charW: pickMetrics.advanceWidth
                 readonly property real sumTextW: {
                     var n = 0;
@@ -454,7 +454,7 @@ PanelWindow {
                             anchors.centerIn: parent
                             text: pickTile.modelData.label
                             color: (pickTile.on || pickTile.hovered) ? root.seal : root.ink
-                            font.family: root.mono; font.pixelSize: 10
+                            font.family: root.barFont; font.pixelSize: 10
                             font.weight: pickTile.on ? Font.Medium : Font.Normal
                         }
                         MouseArea {
@@ -498,7 +498,7 @@ PanelWindow {
 
             UiText {
                 text: "LAYOUT"
-                color: root.sumiHi; font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
             }
             Row {
                 width: parent.width
@@ -523,7 +523,7 @@ PanelWindow {
             // ── WIDGETS: one tile per widget, two quiet interaction zones ──
             UiText {
                 text: "WIDGETS"
-                color: root.sumiHi; font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
             }
             Grid {
                 width: parent.width
@@ -575,7 +575,7 @@ PanelWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             text: ctrlPanel.widgetColorMenuLabel.toUpperCase() + " COLOR"
                             color: root.sumiHi
-                            font.family: root.mono
+                            font.family: root.barFont
                             font.pixelSize: 9
                             font.letterSpacing: 0.7
                         }
@@ -584,7 +584,7 @@ PanelWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             text: root.widgetPaletteId(ctrlPanel.widgetColorMenuGid) === "inherit" ? "INHERIT" : "RESET"
                             color: resetColorMa.containsMouse ? root.seal : root.sumiHi
-                            font.family: root.mono
+                            font.family: root.barFont
                             font.pixelSize: 9
                         }
                         MouseArea {
@@ -625,7 +625,7 @@ PanelWindow {
                                     anchors.centerIn: parent
                                     text: modelData === "foreground" ? "F" : modelData.slice(-1)
                                     color: root.paletteContrastColor(modelData)
-                                    font.family: root.mono
+                                    font.family: root.barFont
                                     font.pixelSize: 8
                                     font.weight: Font.Medium
                                 }
@@ -689,7 +689,7 @@ PanelWindow {
                                     anchors.centerIn: parent
                                     text: modelData.label
                                     color: selected ? root.seal : root.ink
-                                    font.family: root.mono
+                                    font.family: root.barFont
                                     font.pixelSize: 9
                                 }
                                 MouseArea {
@@ -745,7 +745,7 @@ PanelWindow {
                                 anchors.centerIn: parent
                                 text: wsmTile.modelData.label
                                 color: (wsmTile.on || wsmTile.hovered) ? root.seal : root.ink
-                                font.family: root.mono; font.pixelSize: 10
+                                font.family: root.barFont; font.pixelSize: 10
                                 font.weight: wsmTile.on ? Font.Medium : Font.Normal
                             }
                             MouseArea { id: wsmMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.workspaceMode = wsmTile.modelData.mode }
@@ -787,7 +787,7 @@ PanelWindow {
                                 anchors.centerIn: parent
                                 text: wssTile.modelData.label
                                 color: (wssTile.on || wssTile.hovered) ? root.seal : root.ink
-                                font.family: root.mono; font.pixelSize: 10
+                                font.family: root.barFont; font.pixelSize: 10
                                 font.weight: wssTile.on ? Font.Medium : Font.Normal
                             }
                             MouseArea { id: wssMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.workspaceStyle = wssTile.modelData.mode }
@@ -801,7 +801,7 @@ PanelWindow {
             // ── BAR SHELL (full-width / floating / attached / winged notch) ──
             UiText {
                 text: "BAR STYLE"
-                color: root.sumiHi; font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
             }
             Row {
                 id: barStyleRow
@@ -844,7 +844,7 @@ PanelWindow {
             // ── POSITION (bar on top or bottom edge) ──
             UiText {
                 text: "POSITION"
-                color: root.sumiHi; font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
             }
             Row {
                 width: parent.width; spacing: 4
@@ -858,7 +858,7 @@ PanelWindow {
             // ── LOGO (launcher text/icon variant) ──
             UiText {
                 text: "LOGO"
-                color: root.sumiHi; font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
             }
             Row {
                 width: parent.width

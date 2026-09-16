@@ -711,7 +711,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Updates"
                     color: root.ink
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 13
                     font.letterSpacing: 2
                     font.weight: Font.Medium
@@ -743,7 +743,7 @@ PanelWindow {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "Badge Toggle:"
                         color: root.ink
-                        font.family: root.mono
+                        font.family: root.barFont
                         font.pixelSize: 11
                     }
                     Repeater {
@@ -766,7 +766,7 @@ PanelWindow {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: badgeToggleItem.modelData.label
                                 color: root.ink
-                                font.family: root.mono
+                                font.family: root.barFont
                                 font.pixelSize: 11
                             }
                             Rectangle {
@@ -836,7 +836,7 @@ PanelWindow {
                             anchors.centerIn: parent
                             text: modelData.label
                             color: (parent.active || tabMa.containsMouse) ? root.seal : root.ink
-                            font.family: root.mono; font.pixelSize: 11
+                            font.family: root.barFont; font.pixelSize: 11
                             font.weight: parent.active ? Font.Medium : Font.Normal
                         }
                         MouseArea {
@@ -870,7 +870,7 @@ PanelWindow {
                 renderType: Text.NativeRendering
                 wrapMode: Text.NoWrap
                 elide: Text.ElideRight
-                font.family: root.mono; font.pixelSize: 10
+                font.family: root.barFont; font.pixelSize: 10
                 linkColor: root.ink
                 text: {
                     function hx(c) {
@@ -912,7 +912,7 @@ PanelWindow {
                 width: parent.width
                 text: "⚠ installed copy may be compromised — run the infection checker"
                 color: root.seal
-                font.family: root.mono; font.pixelSize: 10
+                font.family: root.barFont; font.pixelSize: 10
                 wrapMode: Text.WordWrap
             }
 
@@ -924,19 +924,19 @@ PanelWindow {
                     width: parent.width * 0.4
                     text: "Package"
                     color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
-                    font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                    font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
                 }
                 UiText {
                     width: parent.width * 0.3
                     text: "Installed"
                     color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
-                    font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                    font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
                 }
                 UiText {
                     width: parent.width * 0.3
                     text: "Available"
                     color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
-                    font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1
+                    font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
                 }
             }
 
@@ -991,28 +991,28 @@ PanelWindow {
                                     // unknown/scanning must NOT look like a green pass
                                     text: vBlocked ? "✗" : vReview ? "⚠" : vOk ? "✓" : "·"
                                     color: vBlocked ? root.seal : vReview ? root.inkDeep : vOk ? root.green : root.sumi
-                                    font.family: root.mono; font.pixelSize: 11
+                                    font.family: root.barFont; font.pixelSize: 11
                                     horizontalAlignment: Text.AlignHCenter
                                 }
                                 UiText {
                                     width: parent.width * 0.4 - 18
                                     text: modelData.name
                                     color: vBlocked ? root.seal : srcColor
-                                    font.family: root.mono; font.pixelSize: 11
+                                    font.family: root.barFont; font.pixelSize: 11
                                     elide: Text.ElideRight
                                 }
                                 UiText {
                                     width: parent.width * 0.3
                                     text: modelData.oldVer
                                     color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.7)
-                                    font.family: root.mono; font.pixelSize: 11
+                                    font.family: root.barFont; font.pixelSize: 11
                                     elide: Text.ElideRight
                                 }
                                 UiText {
                                     width: parent.width * 0.3
                                     text: modelData.newVer
                                     color: srcColor
-                                    font.family: root.mono; font.pixelSize: 11
+                                    font.family: root.barFont; font.pixelSize: 11
                                     font.weight: Font.Medium
                                     elide: Text.ElideRight
                                 }
@@ -1025,7 +1025,7 @@ PanelWindow {
                                 width: parent.width - 18
                                 text: vReason
                                 color: vBlocked ? root.seal : root.ink
-                                font.family: root.mono; font.pixelSize: 9
+                                font.family: root.barFont; font.pixelSize: 9
                                 elide: Text.ElideRight
                             }
 
@@ -1043,7 +1043,7 @@ PanelWindow {
                         visible: root.archUpdates.length === 0
                         text: "No updates available"
                         color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.5)
-                        font.family: root.mono; font.pixelSize: 11
+                        font.family: root.barFont; font.pixelSize: 11
                         horizontalAlignment: Text.AlignHCenter
                         topPadding: 20
                     }
@@ -1071,7 +1071,7 @@ PanelWindow {
                         anchors.centerIn: parent
                         text: "Refresh"
                         color: refreshMa.containsMouse ? root.seal : root.ink
-                        font.family: root.mono; font.pixelSize: 11
+                        font.family: root.barFont; font.pixelSize: 11
                     }
                     MouseArea {
                         id: refreshMa
@@ -1099,7 +1099,7 @@ PanelWindow {
                         width: parent.width - 16
                         horizontalAlignment: Text.AlignHCenter
                         color: root.paper
-                        font.family: root.mono; font.pixelSize: 11
+                        font.family: root.barFont; font.pixelSize: 11
                         elide: Text.ElideRight
                     }
                     MouseArea {
@@ -1140,7 +1140,7 @@ PanelWindow {
                         anchors.centerIn: parent
                         text: "Review " + archPanel.aurReviewPackages + " AUR"
                         color: reviewMa.containsMouse ? root.seal : root.ink
-                        font.family: root.mono; font.pixelSize: 11
+                        font.family: root.barFont; font.pixelSize: 11
                     }
                     MouseArea {
                         id: reviewMa
@@ -1175,7 +1175,7 @@ PanelWindow {
                     renderType: Text.NativeRendering
                     wrapMode: Text.NoWrap
                     elide: Text.ElideRight
-                    font.family: root.mono; font.pixelSize: 10
+                    font.family: root.barFont; font.pixelSize: 10
                     text: {
                         function hx(c) { function h(v){var x=Math.round(v*255).toString(16); return x.length<2?"0"+x:x} return "#"+h(c.r)+h(c.g)+h(c.b) }
                         function seg(t,c){ return '<font color="'+hx(c)+'">'+t+'</font>' }
@@ -1196,7 +1196,7 @@ PanelWindow {
                     width: parent.width
                     text: "Remove failed · " + archPanel.removeError
                     color: root.seal
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 10
                     elide: Text.ElideRight
                 }
@@ -1212,7 +1212,7 @@ PanelWindow {
                         width: parent.width - 84
                         text: "⟳ current theme updated — live copy is stale"
                         color: root.inkDeep
-                        font.family: root.mono; font.pixelSize: 10
+                        font.family: root.barFont; font.pixelSize: 10
                         elide: Text.ElideRight
                     }
                     Rectangle {
@@ -1228,7 +1228,7 @@ PanelWindow {
                             anchors.centerIn: parent
                             text: "Re-apply"
                             color: reapplyMa.containsMouse ? root.seal : root.ink
-                            font.family: root.mono; font.pixelSize: 9
+                            font.family: root.barFont; font.pixelSize: 9
                         }
                         MouseArea {
                             id: reapplyMa
@@ -1244,11 +1244,11 @@ PanelWindow {
                 Row {
                     width: parent.width
                     spacing: archPanel.themeGridGap
-                    UiText { width: parent.width - archPanel.themeRightBlockWidth - archPanel.themeGridGap; text: "Theme";  color: Qt.rgba(root.ink.r,root.ink.g,root.ink.b,0.6); font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1 }
+                    UiText { width: parent.width - archPanel.themeRightBlockWidth - archPanel.themeGridGap; text: "Theme";  color: Qt.rgba(root.ink.r,root.ink.g,root.ink.b,0.6); font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1 }
                     // Intentionally blank: row actions (update, reinstall, remove).
                     Item { width: archPanel.themeActionsWidth; height: 1 }
-                    UiText { width: archPanel.themeBehindWidth; text: "Behind"; color: Qt.rgba(root.ink.r,root.ink.g,root.ink.b,0.6); font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1 }
-                    UiText { width: archPanel.themeStateWidth; text: "State"; color: Qt.rgba(root.ink.r,root.ink.g,root.ink.b,0.6); font.family: root.mono; font.pixelSize: 10; font.letterSpacing: 1 }
+                    UiText { width: archPanel.themeBehindWidth; text: "Behind"; color: Qt.rgba(root.ink.r,root.ink.g,root.ink.b,0.6); font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1 }
+                    UiText { width: archPanel.themeStateWidth; text: "State"; color: Qt.rgba(root.ink.r,root.ink.g,root.ink.b,0.6); font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1 }
                 }
 
                 // ── theme list (only outdated + unreachable themes are in the model) ──
@@ -1329,7 +1329,7 @@ PanelWindow {
                                         anchors.verticalCenter: parent.verticalCenter
                                         text: modelData.name
                                         color: modelData.current ? root.seal : root.ink
-                                        font.family: root.mono; font.pixelSize: 11
+                                        font.family: root.barFont; font.pixelSize: 11
                                         elide: Text.ElideRight
                                     }
                                     Item {
@@ -1384,7 +1384,7 @@ PanelWindow {
                                                                 : archPanel.removeError !== "" ? "retry" : "remove"
                                                             : "update"
                                                         color: root.paper
-                                                        font.family: root.mono
+                                                        font.family: root.barFont
                                                         font.pixelSize: 9
                                                     }
                                                     MouseArea {
@@ -1437,7 +1437,7 @@ PanelWindow {
                                                     visible: themeRow.confirmingRemove
                                                     text: "cancel"
                                                     color: root.paper
-                                                    font.family: root.mono
+                                                    font.family: root.barFont
                                                     font.pixelSize: 9
                                                 }
                                                 IconText {
@@ -1526,7 +1526,7 @@ PanelWindow {
                                             width: parent.width
                                             text: isUnreach ? "—" : (modelData.behind + (modelData.behind === 1 ? " commit" : " commits"))
                                             color: behindMa.containsMouse && themeRow.canViewChanges ? root.seal : Qt.rgba(root.ink.r,root.ink.g,root.ink.b,0.7)
-                                            font.family: root.mono; font.pixelSize: 10
+                                            font.family: root.barFont; font.pixelSize: 10
                                             elide: Text.ElideRight
                                         }
                                         MouseArea {
@@ -1559,7 +1559,7 @@ PanelWindow {
                                             color: stateMa.containsMouse && themeRow.stateTooltip !== ""
                                                 ? root.seal
                                                 : isLocalEdits ? root.inkDeep : root.sumi
-                                            font.family: root.mono; font.pixelSize: 10
+                                            font.family: root.barFont; font.pixelSize: 10
                                             elide: Text.ElideRight
                                         }
                                         MouseArea {
@@ -1588,7 +1588,7 @@ PanelWindow {
                             visible: root.themeUpdList.length === 0
                             text: root.themeUpdChecked === "" ? "Not checked yet" : "All themes up to date"
                             color: Qt.rgba(root.ink.r,root.ink.g,root.ink.b,0.5)
-                            font.family: root.mono; font.pixelSize: 11
+                            font.family: root.barFont; font.pixelSize: 11
                             horizontalAlignment: Text.AlignHCenter
                             topPadding: 20
                         }
@@ -1617,7 +1617,7 @@ PanelWindow {
                             anchors.centerIn: parent
                             text: root.themeUpdChecking ? "Checking…" : "Check themes"
                             color: (checkMa.containsMouse && !root.themeUpdChecking) ? root.seal : root.ink
-                            font.family: root.mono; font.pixelSize: 11
+                            font.family: root.barFont; font.pixelSize: 11
                         }
                         MouseArea {
                             id: checkMa
@@ -1646,7 +1646,7 @@ PanelWindow {
                                                   : parent.canApply ? (root.themeUpdLocalEdits > 0 ? "Update clean" : "Update all")
                                                   : root.themeUpdOutdated > 0 ? "Review first" : "No updates"
                             color: root.paper
-                            font.family: root.mono; font.pixelSize: 11
+                            font.family: root.barFont; font.pixelSize: 11
                         }
                         MouseArea {
                             id: allMa

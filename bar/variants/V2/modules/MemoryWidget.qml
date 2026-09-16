@@ -79,7 +79,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: rootMod.usedLabel
             color: rootMod.contentColor
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 12
         }
     }

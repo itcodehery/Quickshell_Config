@@ -50,6 +50,38 @@ PanelWindow {
     visible: reveal > 0.001
     WlrLayershell.keyboardFocus: root.batteryVisible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
+    component InfoRow: Item {
+        property string label: ""
+        property string value: ""
+        property color valueColor: batPanel.root.ink
+
+        width: parent ? parent.width : 0
+        height: 16
+        visible: value !== ""
+
+        UiText {
+            id: infoLabel
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            text: label
+            color: batPanel.root.sumiHi
+            font.family: batPanel.root.barFont
+            font.pixelSize: 10
+        }
+        UiText {
+            anchors.left: infoLabel.right
+            anchors.leftMargin: 12
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            text: value
+            color: valueColor
+            font.family: batPanel.root.barFont
+            font.pixelSize: 10
+            elide: Text.ElideRight
+            horizontalAlignment: Text.AlignRight
+        }
+    }
+
     MouseArea { anchors.fill: parent; onClicked: root.batteryVisible = false }
 
     Rectangle {
@@ -93,7 +125,7 @@ PanelWindow {
                 UiText {
                     anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
                     text: "Battery"
-                    color: root.ink; font.family: root.mono; font.pixelSize: 13
+                    color: root.ink; font.family: root.barFont; font.pixelSize: 13
                     font.letterSpacing: 2; font.weight: Font.Medium
                 }
                 UiText {
@@ -108,69 +140,144 @@ PanelWindow {
 
             Item {
                 width: parent.width
-                height: 30
-                UiText {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    text: batPanel.percent + "%"
-                    color: batPanel.charging ? root.indigo : root.seal
-                    font.family: root.mono; font.pixelSize: 11; font.weight: Font.Medium
-                }
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    width: parent.width; height: 8; radius: 4
-                    color: root.fillActive
-                    Rectangle {
-                        width: parent.width * batPanel.percent / 100
-                        height: parent.height; radius: 4
-                        color: batPanel.charging ? root.indigo : root.seal
-                        Behavior on width { NumberAnimation { duration: 300 } }
+                height: 110
+
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 24
+
+                    Item {
+                        width: 52; height: 100
+                        anchors.verticalCenter: parent.verticalCenter
+                        
+                        Rectangle {
+                            width: 20; height: 6; radius: 3
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.top: parent.top
+                            color: root.sumi
+                        }
+                        
+                        Rectangle {
+                            width: 52; height: 96
+                            anchors.bottom: parent.bottom
+                            radius: 10
+                            color: "transparent"
+                            border.width: 2
+                            border.color: batPanel.charging ? root.indigo : root.sumi
+                            
+                            Rectangle {
+                                anchors.bottom: parent.bottom
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.margins: 4
+                                height: Math.max(0, (parent.height - 8) * (batPanel.percent / 100))
+                                radius: 6
+                                color: batPanel.charging ? root.indigo : root.seal
+                                Behavior on height { NumberAnimation { duration: 600; easing.type: Easing.OutElastic; easing.overshoot: 1.2 } }
+                                Behavior on color { ColorAnimation { duration: 200 } }
+                            }
+
+                            Canvas {
+                                id: bolt
+                                visible: batPanel.charging
+                                anchors.centerIn: parent
+                                width: 18; height: 26
+                                property color boltColor: root.paper
+                                onBoltColorChanged: requestPaint()
+                                onPaint: {
+                                    var ctx = getContext("2d")
+                                    ctx.clearRect(0, 0, width, height)
+                                    ctx.beginPath()
+                                    ctx.moveTo(width * 0.55, 0)
+                                    ctx.lineTo(width * 0.12, height * 0.55)
+                                    ctx.lineTo(width * 0.45, height * 0.55)
+                                    ctx.lineTo(width * 0.38, height)
+                                    ctx.lineTo(width * 0.88, height * 0.45)
+                                    ctx.lineTo(width * 0.55, height * 0.45)
+                                    ctx.closePath()
+                                    ctx.fillStyle = bolt.boltColor
+                                    ctx.fill()
+                                }
+                                Component.onCompleted: requestPaint()
+                            }
+                        }
+                    }
+
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 2
+
+                        UiText {
+                            text: batPanel.percent + "%"
+                            color: batPanel.charging ? root.indigo : root.seal
+                            font.family: root.barFont
+                            font.pixelSize: 48
+                            font.weight: Font.Bold
+                            Behavior on color { ColorAnimation { duration: 200 } }
+                        }
+
+                        UiText {
+                            text: batPanel.statusTitle(batPanel.status)
+                            color: batPanel.charging ? root.indigo : root.ink
+                            font.family: root.barFont
+                            font.pixelSize: 14
+                            font.weight: Font.Medium
+                            font.letterSpacing: 1
+                        }
+
+                        UiText {
+                            visible: batPanel.timeText !== ""
+                            text: batPanel.timeText + (batPanel.charging ? " to full" : " remaining")
+                            color: root.sumiHi
+                            font.family: root.barFont
+                            font.pixelSize: 11
+                        }
                     }
                 }
             }
 
-            Column {
+            Rectangle { width: parent.width; height: 1; color: root.sep }
+
+            Grid {
                 width: parent.width
-                spacing: 4
-                Row {
-                    width: parent.width
-                    UiText { text: "Status"; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.4 }
-                    UiText {
-                        text: batPanel.statusTitle(batPanel.status)
-                        color: batPanel.charging ? root.indigo : root.ink
-                        font.family: root.mono; font.pixelSize: 11
+                columns: 2
+                spacing: 8
+
+                component StatBox: Rectangle {
+                    property string label: ""
+                    property string val: ""
+                    width: (parent.width - 8) / 2
+                    height: 52
+                    radius: root.panelRadius
+                    color: root.fillActive
+                    visible: val !== ""
+
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 4
+                        UiText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: label
+                            color: root.sumiHi
+                            font.family: root.barFont
+                            font.pixelSize: 10
+                            font.letterSpacing: 1
+                        }
+                        UiText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: val
+                            color: root.ink
+                            font.family: root.barFont
+                            font.pixelSize: 12
+                            font.weight: Font.Medium
+                        }
                     }
                 }
-                Row {
-                    width: parent.width
-                    visible: batPanel.timeText !== ""
-                    UiText { text: batPanel.timeLabel; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.4 }
-                    UiText { text: batPanel.timeText; color: root.ink; font.family: root.mono; font.pixelSize: 11 }
-                }
-                Row {
-                    width: parent.width
-                    visible: batPanel.healthText !== ""
-                    UiText { text: batPanel.healthLabel; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.4 }
-                    UiText { text: batPanel.healthText; color: root.ink; font.family: root.mono; font.pixelSize: 11 }
-                }
-                Row {
-                    width: parent.width
-                    visible: batPanel.powerRate !== ""
-                    UiText { text: batPanel.charging ? "Charge rate" : "Power draw"; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.4 }
-                    UiText { text: batPanel.powerRate + " W"; color: root.ink; font.family: root.mono; font.pixelSize: 11 }
-                }
-                Row {
-                    width: parent.width
-                    visible: batPanel.sizeText !== ""
-                    UiText { text: "Battery size"; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.4 }
-                    UiText { text: batPanel.sizeText; color: root.ink; font.family: root.mono; font.pixelSize: 11 }
-                }
-                Row {
-                    width: parent.width
-                    visible: batPanel.cycles > 0
-                    UiText { text: "Charge cycles"; color: root.sumiHi; font.family: root.mono; font.pixelSize: 11; width: parent.width * 0.4 }
-                    UiText { text: String(batPanel.cycles); color: root.ink; font.family: root.mono; font.pixelSize: 11 }
-                }
+
+                StatBox { label: batPanel.charging ? "CHARGE RATE" : "POWER DRAW"; val: batPanel.powerRate !== "" ? batPanel.powerRate + " W" : "" }
+                StatBox { label: "HEALTH"; val: batPanel.healthText }
+                StatBox { label: "CYCLES"; val: batPanel.cycles > 0 ? String(batPanel.cycles) : "" }
+                StatBox { label: "CAPACITY"; val: batPanel.sizeText }
             }
 
             Rectangle { width: parent.width; height: 1; color: root.sep }
@@ -180,7 +287,7 @@ PanelWindow {
                 height: 28; radius: root.panelButtonRadius
                 color: btopMa.containsMouse ? root.fillPrimaryHover : root.seal
                 Behavior on color { ColorAnimation { duration: 120 } }
-                UiText { anchors.centerIn: parent; text: "Open btop"; color: root.paper; font.family: root.mono; font.pixelSize: 11 }
+                UiText { anchors.centerIn: parent; text: "Open btop"; color: root.paper; font.family: root.barFont; font.pixelSize: 11 }
                 MouseArea {
                     id: btopMa
                     anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor

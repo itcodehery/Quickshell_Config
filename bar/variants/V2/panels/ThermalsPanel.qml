@@ -62,7 +62,7 @@ PanelWindow {
             anchors.top: parent.top
             text: label
             color: thermalPanel.root.sumiHi
-            font.family: thermalPanel.root.mono
+            font.family: thermalPanel.root.barFont
             font.pixelSize: 10
             elide: Text.ElideRight
         }
@@ -73,7 +73,7 @@ PanelWindow {
             anchors.top: parent.top
             text: value + "°C · " + thermalPanel.status(value, maximum, critical)
             color: meterColor
-            font.family: thermalPanel.root.mono
+            font.family: thermalPanel.root.barFont
             font.pixelSize: 10
             font.weight: Font.Medium
         }
@@ -116,7 +116,7 @@ PanelWindow {
             anchors.bottom: parent.bottom
             text: scaleMax + "° limit"
             color: thermalPanel.root.sumi
-            font.family: thermalPanel.root.mono
+            font.family: thermalPanel.root.barFont
             font.pixelSize: 8
             horizontalAlignment: Text.AlignRight
         }
@@ -173,7 +173,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "THERMALS"
                     color: root.ink
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 13
                     font.letterSpacing: 2
                     font.weight: Font.Medium
@@ -205,7 +205,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "BAR SENSOR"
                     color: root.sumiHi
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 9
                     font.letterSpacing: 1
                 }
@@ -214,7 +214,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: root.barTemperatureSourceLabel(root.barTemperatureSource)
                     color: root.seal
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 10
                     font.weight: Font.Medium
                 }
@@ -256,7 +256,7 @@ PanelWindow {
                             anchors.centerIn: parent
                             text: modelData.label
                             color: (selected || hovered) ? root.seal : root.ink
-                            font.family: root.mono
+                            font.family: root.barFont
                             font.pixelSize: 9
                             font.weight: selected ? Font.Medium : Font.Normal
                         }
@@ -308,7 +308,7 @@ PanelWindow {
                     && root.nvmeTemperatureC <= 0 && root.memoryTemperatureC <= 0
                 text: "No temperature sensors available"
                 color: root.sumiHi
-                font.family: root.mono
+                font.family: root.barFont
                 font.pixelSize: 10
                 horizontalAlignment: Text.AlignHCenter
             }

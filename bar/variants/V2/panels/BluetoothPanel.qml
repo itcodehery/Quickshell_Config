@@ -111,7 +111,7 @@ PanelWindow {
                     UiText {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "Bluetooth"
-                        color: root.ink; font.family: root.mono; font.pixelSize: 13
+                        color: root.ink; font.family: root.barFont; font.pixelSize: 13
                         font.letterSpacing: 2; font.weight: Font.Medium
                     }
                     Row {
@@ -128,7 +128,7 @@ PanelWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             text: String(btPanel.numConnected)
                             color: root.seal
-                            font.family: root.mono; font.pixelSize: 11
+                            font.family: root.barFont; font.pixelSize: 11
                         }
                     }
                 }
@@ -174,7 +174,7 @@ PanelWindow {
                 width: parent.width; horizontalAlignment: Text.AlignHCenter
                 text: "Bluetooth is off"
                 color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.35)
-                font.family: root.mono; font.pixelSize: 11
+                font.family: root.barFont; font.pixelSize: 11
                 topPadding: 4; bottomPadding: 4
             }
 
@@ -193,7 +193,7 @@ PanelWindow {
                     anchors.centerIn: parent
                     text: btPanel.scanning ? "Scanning…" : "Scan for devices"
                     color: btPanel.scanning ? root.seal : root.ink
-                    font.family: root.mono; font.pixelSize: 11
+                    font.family: root.barFont; font.pixelSize: 11
                 }
                 MouseArea {
                     id: scanMa
@@ -240,7 +240,7 @@ PanelWindow {
                             UiText {
                                 width: parent.width
                                 text: devTile.modelData.name
-                                color: root.ink; font.family: root.mono; font.pixelSize: 11
+                                color: root.ink; font.family: root.barFont; font.pixelSize: 11
                                 elide: Text.ElideRight
                             }
                             UiText {
@@ -248,7 +248,7 @@ PanelWindow {
                                 text: devTile.modelData.connected ? "Connected"
                                       : devTile.modelData.paired ? "Paired" : "Available"
                                 color: root.ink
-                                font.family: root.mono; font.pixelSize: 10; font.weight: Font.Medium
+                                font.family: root.barFont; font.pixelSize: 10; font.weight: Font.Medium
                                 elide: Text.ElideRight
                             }
                         }
@@ -268,7 +268,7 @@ PanelWindow {
                                 anchors.centerIn: parent
                                 text: devTile.modelData.connected ? "Disconnect" : "Connect"
                                 color: actionMa.containsMouse ? root.seal : root.ink
-                                font.family: root.mono; font.pixelSize: 10
+                                font.family: root.barFont; font.pixelSize: 10
                             }
                             MouseArea {
                                 id: actionMa
@@ -286,7 +286,7 @@ PanelWindow {
                     width: parent.width; horizontalAlignment: Text.AlignHCenter
                     text: btPanel.scanning ? "Searching…" : "No devices — tap Scan"
                     color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.3)
-                    font.family: root.mono; font.pixelSize: 11
+                    font.family: root.barFont; font.pixelSize: 11
                     topPadding: 2; bottomPadding: 2
                 }
             }
@@ -298,7 +298,7 @@ PanelWindow {
                 height: 28; radius: root.panelButtonRadius
                 color: btSetMa.containsMouse ? root.fillPrimaryHover : root.seal
                 Behavior on color { ColorAnimation { duration: 120 } }
-                UiText { anchors.centerIn: parent; text: "Bluetooth settings"; color: root.paper; font.family: root.mono; font.pixelSize: 11 }
+                UiText { anchors.centerIn: parent; text: "Bluetooth settings"; color: root.paper; font.family: root.barFont; font.pixelSize: 11 }
                 MouseArea {
                     id: btSetMa
                     anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor

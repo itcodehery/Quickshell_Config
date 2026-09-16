@@ -1,6 +1,10 @@
 import Quickshell.Hyprland
 import QtQuick
 import QtQuick.Shapes
+import Quickshell
+import Quickshell.Wayland
+import Quickshell.Io
+import "../panels"
 
 Item {
     id: wsWidget
@@ -149,7 +153,7 @@ Item {
                         color: isFocused  ? wsWidget.contentColor
                              : isOccupied ? Qt.rgba(wsWidget.contentColor.r, wsWidget.contentColor.g, wsWidget.contentColor.b, 0.5)
                                           : Qt.rgba(wsWidget.contentColor.r, wsWidget.contentColor.g, wsWidget.contentColor.b, 0.28)
-                        font.family: root.mono
+                        font.family: root.barFont
                         font.pixelSize: isFocused ? 13 : 12
                         font.weight: isFocused ? Font.Bold : Font.Normal
                     }
@@ -206,7 +210,7 @@ Item {
                         : isFocused ? 1.0
                         : isOccupied ? 0.64
                         : 0.24
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 12
                     font.weight: Font.Normal
                     font.hintingPreference: Font.PreferNoHinting
@@ -262,9 +266,20 @@ Item {
                     cursorShape: Qt.PointingHandCursor
                     hoverEnabled: true
                     onClicked: root.gotoWorkspace(wsId)
-                    onEntered: wsCell.scale = root.workspaceStyle === "rings" ? 1.0
-                        : root.workspaceStyle === "aurora" ? 1.04 : 1.15
-                    onExited:  wsCell.scale = 1.0
+                    onEntered: {
+                        wsCell.scale = root.workspaceStyle === "rings" ? 1.0
+                            : root.workspaceStyle === "aurora" ? 1.04 : 1.15
+                        previewTimer.targetWsId = wsId
+                        previewTimer.targetX = wsCell.mapToItem(null, wsCell.width / 2, 0).x
+                        previewTimer.restart()
+                    }
+                    onExited: {
+                        wsCell.scale = 1.0
+                        previewTimer.stop()
+                        if (previewOverlay.previewWsId === wsId) {
+                            previewOverlay.previewWsId = 0
+                        }
+                    }
                 }
             }
         }
@@ -338,6 +353,154 @@ Item {
                 PathQuad {
                     x: frameShape.r; y: 0.5
                     controlX: 0.5; controlY: 0.5
+                }
+            }
+        }
+    }
+
+    Process {
+        id: clientsProc
+        property int pendingWsId: 0
+        property real pendingTargetX: 0
+        command: ["bash", "-c", "hyprctl clients -j"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    var json = JSON.parse(this.text);
+                    var clients = [];
+                    for(var i=0; i<json.length; i++) {
+                        if(json[i].workspace.id === clientsProc.pendingWsId) {
+                            clients.push(json[i]);
+                        }
+                    }
+                    
+                    previewOverlay.targetX = clientsProc.pendingTargetX
+                    previewOverlay.clientsData = clients
+                    previewOverlay.previewWsId = clientsProc.pendingWsId
+                } catch(e) {}
+            }
+        }
+    }
+
+    Timer {
+        id: previewTimer
+        interval: 400
+        property int targetWsId: 0
+        property real targetX: 0
+        onTriggered: {
+            clientsProc.pendingWsId = targetWsId
+            clientsProc.pendingTargetX = targetX
+            clientsProc.running = false
+            clientsProc.running = true
+        }
+    }
+
+    PanelWindow {
+        id: previewOverlay
+        screen: wsWidget.root.activePopupScreen
+        color: "transparent"
+        anchors { top: true; bottom: true; left: true; right: true }
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.namespace: "omarchy-preview"
+        mask: Region {}
+
+        property int previewWsId: 0
+        property var clientsData: []
+        property real targetX: 0
+        
+        property real reveal: previewWsId !== 0 ? 1 : 0
+        Behavior on reveal {
+            NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+        }
+        visible: reveal > 0.001
+
+        Rectangle {
+            id: previewCard
+            width: 320
+            height: 180 + 26
+            
+            x: Math.max(4, Math.min(previewOverlay.targetX - width / 2, parent.width - width - 4))
+            y: root.barPosition === "bottom"
+                ? (parent.height - root.v2BarHeight - 6 - height) + 2 * (1 - previewOverlay.reveal)
+                : (root.v2BarHeight + 6) - 2 * (1 - previewOverlay.reveal)
+
+            color: root.barBg
+            border.color: root.panelOuterBorderColor
+            border.width: root.panelOuterBorderW
+            radius: root.panelRadius
+            opacity: previewOverlay.reveal
+
+            PillShadow { theme: root }
+
+            Column {
+                anchors.fill: parent
+                anchors.margins: 6
+                spacing: 4
+
+                UiText {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: previewOverlay.previewWsId > 0 ? "Workspace " + previewOverlay.previewWsId : ""
+                    color: root.ink
+                    font.family: root.barFont
+                    font.pixelSize: 11
+                    font.weight: Font.Medium
+                }
+
+                Rectangle {
+                    width: parent.width
+                    height: 180
+                    color: root.paper
+                    radius: root.panelRadius - 2
+                    clip: true
+                    
+                    Item {
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        
+                        property real logicalWidth: 1536
+                        property real logicalHeight: 864
+                        
+                        Repeater {
+                            model: previewOverlay.clientsData
+                            
+                            Rectangle {
+                                property real modelX: modelData.at[0]
+                                property real modelY: modelData.at[1]
+                                property real modelW: modelData.size[0]
+                                property real modelH: modelData.size[1]
+                                
+                                x: (modelX / parent.logicalWidth) * parent.width
+                                y: (modelY / parent.logicalHeight) * parent.height
+                                width: (modelW / parent.logicalWidth) * parent.width
+                                height: (modelH / parent.logicalHeight) * parent.height
+                                
+                                color: root.fillHover
+                                border.color: root.seal
+                                border.width: 1
+                                radius: 4
+                                
+                                UiText {
+                                    anchors.centerIn: parent
+                                    text: modelData.class ? modelData.class.substring(0, 3).toUpperCase() : ""
+                                    font.family: root.barFont
+                                    font.pixelSize: 10
+                                    font.weight: Font.Bold
+                                    color: root.ink
+                                    visible: parent.width > 20 && parent.height > 10
+                                }
+                            }
+                        }
+                    }
+                    
+                    UiText {
+                        visible: previewOverlay.clientsData.length === 0
+                        anchors.centerIn: parent
+                        text: "Empty Workspace"
+                        color: root.sumi
+                        font.family: root.barFont
+                        font.pixelSize: 12
+                    }
                 }
             }
         }

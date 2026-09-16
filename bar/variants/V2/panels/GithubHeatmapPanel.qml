@@ -137,7 +137,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "GITHUB CONTRIBUTIONS (" + "itcodehery" + ")"
                     color: root.sumiHi
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 10
                     font.letterSpacing: 1
                 }
@@ -150,7 +150,7 @@ PanelWindow {
                     UiText {
                         text: "Refreshing..."
                         color: root.sumiHi
-                        font.family: root.mono
+                        font.family: root.barFont
                         font.pixelSize: 10
                         visible: ghPanel.refreshing
                         anchors.verticalCenter: parent.verticalCenter
@@ -159,7 +159,7 @@ PanelWindow {
                     Text {
                         text: String.fromCodePoint(0xF021)
                         color: refreshMa.containsMouse ? root.seal : root.sumiHi
-                        font.family: root.mono
+                        font.family: root.barFont
                         font.pixelSize: 12
                         anchors.verticalCenter: parent.verticalCenter
                         
@@ -196,7 +196,7 @@ PanelWindow {
                     anchors.centerIn: parent
                     text: "Fetching heatmap..."
                     color: root.sumiHi
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 12
                     visible: ghPanel.refreshing && !img.status
                 }

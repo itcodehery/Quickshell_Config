@@ -158,7 +158,7 @@ Item {
                 color: root.widgetHasFill(rootMod.colorGid)
                     ? root.widgetAssignedColor(rootMod.colorGid)
                     : root.paper
-                font.family: root.mono
+                font.family: root.barFont
                 font.pixelSize: 7
                 font.weight: Font.Bold
             }

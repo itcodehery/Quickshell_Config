@@ -319,7 +319,7 @@ PanelWindow {
         horizontalAlignment: Text.AlignHCenter
         text: "No matches: " + panel.filterText + "\n\nBackspace to edit, or Esc to clear"
         color: root.ink
-        font.family: root.mono; font.pixelSize: 16; font.letterSpacing: 1
+        font.family: root.barFont; font.pixelSize: 16; font.letterSpacing: 1
     }
     Text {
         visible: root.mediaBrowserVisible && panel.active && !panel.ready
@@ -329,7 +329,7 @@ PanelWindow {
               ? (panel.isVideos ? "No recordings in ~/Videos" : "No screenshots in ~/Pictures") + "\n\nEsc or click to close"
               : "Loading…"
         color: root.ink
-        font.family: root.mono; font.pixelSize: 16; font.letterSpacing: 1
+        font.family: root.barFont; font.pixelSize: 16; font.letterSpacing: 1
     }
 
     // ── header ──
@@ -341,7 +341,7 @@ PanelWindow {
         opacity: panel.reveal
         text: panel.isVideos ? "VIDEOS" : "SCREENSHOTS"
         color: root.sumiHi
-        font.family: root.mono; font.pixelSize: 12; font.letterSpacing: 3; font.weight: Font.Medium
+        font.family: root.barFont; font.pixelSize: 12; font.letterSpacing: 3; font.weight: Font.Medium
         horizontalAlignment: Text.AlignHCenter
     }
 
@@ -525,7 +525,7 @@ PanelWindow {
             width: panel.focusedW + 160
             text: (panel.isVideos ? "Videos · " : "Screenshots · ") + panel.currentLabel
             color: root.ink
-            font.family: root.mono; font.pixelSize: 22; font.weight: Font.DemiBold
+            font.family: root.barFont; font.pixelSize: 22; font.weight: Font.DemiBold
             horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
         }
 
@@ -534,7 +534,7 @@ PanelWindow {
             anchors.horizontalCenter: parent.horizontalCenter
             text: panel.filterText
             color: root.seal; opacity: 0.95
-            font.family: root.mono; font.pixelSize: 14
+            font.family: root.barFont; font.pixelSize: 14
             horizontalAlignment: Text.AlignHCenter
         }
 
@@ -545,7 +545,7 @@ PanelWindow {
             text: "Delete this " + (panel.isVideos ? "video" : "screenshot")
                   + "?   Del again to confirm   ·   Esc cancel"
             color: root.seal
-            font.family: root.mono; font.pixelSize: 11; font.weight: Font.Medium
+            font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium
             horizontalAlignment: Text.AlignHCenter
         }
 
@@ -554,7 +554,7 @@ PanelWindow {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "← →  scroll navigate     Enter open     Del delete     Ctrl+C copy     Esc"
             color: panel.uiDim
-            font.family: root.mono; font.pixelSize: 11
+            font.family: root.barFont; font.pixelSize: 11
             horizontalAlignment: Text.AlignHCenter
         }
     }

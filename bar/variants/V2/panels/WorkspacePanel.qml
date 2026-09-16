@@ -72,7 +72,7 @@ PanelWindow {
                 UiText {
                     anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
                     text: "Workspaces"
-                    color: root.ink; font.family: root.mono; font.pixelSize: 13
+                    color: root.ink; font.family: root.barFont; font.pixelSize: 13
                     font.letterSpacing: 2; font.weight: Font.Medium
                 }
                 UiText {
@@ -108,14 +108,14 @@ PanelWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             text: "Workspace " + modelData.id
                             color: (ma.containsMouse || isActive) ? root.seal : root.ink
-                            font.family: root.mono; font.pixelSize: 12
+                            font.family: root.barFont; font.pixelSize: 12
                             font.weight: isActive ? Font.Medium : Font.Normal
                         }
                         UiText {
                             anchors.right: parent.right; anchors.rightMargin: 10
                             anchors.verticalCenter: parent.verticalCenter
                             text: modelData.toplevels && modelData.toplevels.values ? modelData.toplevels.values.length : ""
-                            color: root.sumiHi; font.family: root.mono; font.pixelSize: 10
+                            color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10
                         }
 
                         MouseArea {

@@ -159,7 +159,7 @@ Item {
                     text: String.fromCodePoint(0xF167A)
                     renderType: Text.QtRendering
                     color: Qt.rgba(rootMod.contentColor.r, rootMod.contentColor.g, rootMod.contentColor.b, 0.25)
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 14
                 }
                 Item {
@@ -175,7 +175,7 @@ Item {
                         text: String.fromCodePoint(0xF167A)
                         renderType: Text.QtRendering
                         color: rootMod.contentColor
-                        font.family: root.mono
+                        font.family: root.barFont
                         font.pixelSize: 14
                         Behavior on color { ColorAnimation { duration: 200 } }
                     }
@@ -239,7 +239,7 @@ Item {
                 ? "BLK"
                 : (rootMod.selSignal ? String(rootMod.pct5h).padStart(2, "0") + "%" : "··")
             color: rootMod.contentColor
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 12
             Behavior on color { ColorAnimation { duration: 200 } }
         }

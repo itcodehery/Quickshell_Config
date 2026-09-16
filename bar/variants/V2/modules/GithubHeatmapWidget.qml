@@ -18,7 +18,7 @@ Item {
         anchors.centerIn: parent
         text: String.fromCodePoint(0xF09B) // Github icon
         color: root.widgetContentColor("G19", root.ink)
-        font.family: root.mono
+        font.family: root.barFont
         font.pixelSize: 14
     }
 

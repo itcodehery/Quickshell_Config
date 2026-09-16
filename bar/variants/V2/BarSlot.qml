@@ -802,6 +802,12 @@ PanelWindow {
             if (!registry[gid] || seen[gid]) return false
             seen[gid] = true
         }
+        // Auto-inject new G20 widget if missing from cache
+        if (!seen["G20"]) {
+            r.push({ gid: "G20", extra: true })
+            seen["G20"] = true
+        }
+
         if (Object.keys(seen).length !== Object.keys(registry).length) return false
 
         applyEntries(leftModel, l)
@@ -851,7 +857,7 @@ PanelWindow {
     function resetOrder() {
         var dL = ["G1","G2","G3","","G5","G6","G4","G7","",""]
         var dR = ["G9","G10","G11","G14","G12","G13","G16",
-                  "G18","G17","G19","G15","",""]
+                  "G18","G17","G19","G15","G20","",""]
         resetModel(leftModel, dL, leftBaseSlotCount)
         resetModel(centerModel, ["G8"], centerBaseSlotCount)
         resetModel(rightModel, dR, rightBaseSlotCount)
@@ -1117,7 +1123,7 @@ PanelWindow {
                             return days[d.getDay()] + " " + d.getDate();
                         }
                         color: Qt.rgba(g8.contentColor.r, g8.contentColor.g, g8.contentColor.b, 0.5)
-                        font.family: barSlot.root.mono
+                        font.family: barSlot.root.barFont
                         font.pixelSize: 10
                         font.letterSpacing: 0.5
                     }
@@ -1249,6 +1255,14 @@ PanelWindow {
             readonly property real barContentRightInset: 9
         }
     }
+    Component {
+        id: compNotes
+        NotesWidget {
+            root: barSlot.root
+            readonly property real barContentLeftInset: 9
+            readonly property real barContentRightInset: 9
+        }
+    }
 
     readonly property var registry: ({
         "G1": compLauncher, "G2": compWorkspace, "G3": compStatus,
@@ -1257,7 +1271,7 @@ PanelWindow {
         "G9": compMpris, "G10": compQuick, "G11": compNetwork,
         "G12": compBattery, "G13": compBrightness, "G14": compPower, "G15": compBluetooth,
         "G16": compCpuTemperature, "G17": compGpu, "G18": compStorage,
-        "G19": compGithubHeatmap
+        "G19": compGithubHeatmap, "G20": compNotes
     })
 
     // ───────────────────── reusable region row of slots ─────────────────────
@@ -1690,7 +1704,7 @@ PanelWindow {
                         anchors.centerIn: parent
                         text: slot.extra ? "×" : "·"
                         color: removeMa.containsMouse ? barSlot.root.seal : barSlot.root.sumi
-                        font.family: barSlot.root.mono
+                        font.family: barSlot.root.barFont
                         font.pixelSize: slot.extra ? 12 : 14
                     }
 
@@ -1755,7 +1769,7 @@ PanelWindow {
                         visible: !slot.sepOn
                         text: "•"
                         color: barSlot.root.sumi
-                        font.pixelSize: 10; font.family: barSlot.root.mono
+                        font.pixelSize: 10; font.family: barSlot.root.barFont
                         opacity: sepMa.containsMouse ? 0.9 : 0.0          // hover-revealed
                         Behavior on opacity { NumberAnimation { duration: 120 } }
                     }
@@ -1787,7 +1801,7 @@ PanelWindow {
                 anchors.centerIn: parent
                 text: "+"
                 color: addMa.containsMouse ? barSlot.root.seal : barSlot.root.ink
-                font.family: barSlot.root.mono
+                font.family: barSlot.root.barFont
                 font.pixelSize: 14
             }
 
@@ -1999,7 +2013,8 @@ PanelWindow {
             ListElement { gid: "G9"; extra: false }  ListElement { gid: "G10"; extra: false } ListElement { gid: "G11"; extra: false }
             ListElement { gid: "G14"; extra: false } ListElement { gid: "G12"; extra: false } ListElement { gid: "G13"; extra: false }
             ListElement { gid: "G16"; extra: false } ListElement { gid: "G18"; extra: true }  ListElement { gid: "G17"; extra: true }
-            ListElement { gid: "G19"; extra: true }  ListElement { gid: "G15"; extra: true }  ListElement { gid: ""; extra: true }
+            ListElement { gid: "G19"; extra: true }  ListElement { gid: "G15"; extra: true }  ListElement { gid: "G20"; extra: true }
+            ListElement { gid: ""; extra: true }
             ListElement { gid: ""; extra: true }
         }
 

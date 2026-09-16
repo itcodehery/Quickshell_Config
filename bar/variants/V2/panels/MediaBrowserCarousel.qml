@@ -302,7 +302,7 @@ PanelWindow {
         horizontalAlignment: Text.AlignHCenter
         text: "No matches: " + panel.filterText + "\n\nBackspace to edit, or Esc to clear"
         color: root.ink
-        font.family: root.mono; font.pixelSize: 16; font.letterSpacing: 1
+        font.family: root.barFont; font.pixelSize: 16; font.letterSpacing: 1
     }
     Text {
         visible: root.mediaBrowserVisible && panel.active && !panel.ready
@@ -313,7 +313,7 @@ PanelWindow {
               : "Loading…"
         color: root.ink
         style: Text.Outline; styleColor: Qt.rgba(0, 0, 0, 0.6)
-        font.family: root.mono; font.pixelSize: 18
+        font.family: root.barFont; font.pixelSize: 18
     }
 
     // ── Carousel ──
@@ -486,7 +486,7 @@ PanelWindow {
             text: (panel.isVideos ? "Videos · " : "Screenshots · ") + panel.currentLabel()
             color: panel.footerText
             renderType: Text.NativeRendering
-            font.family: root.mono; font.pixelSize: 30; font.weight: Font.DemiBold
+            font.family: root.barFont; font.pixelSize: 30; font.weight: Font.DemiBold
             horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
         }
 
@@ -497,7 +497,7 @@ PanelWindow {
             text: panel.filterText
             color: panel.footerText; opacity: 0.95
             renderType: Text.NativeRendering
-            font.family: root.mono; font.pixelSize: 15
+            font.family: root.barFont; font.pixelSize: 15
             horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
         }
 
@@ -508,7 +508,7 @@ PanelWindow {
             text: "Delete this " + (panel.isVideos ? "video" : "screenshot") + "?   Del again to confirm   ·   Esc cancel"
             color: panel.footerText
             renderType: Text.NativeRendering
-            font.family: root.mono; font.pixelSize: 11; font.weight: Font.Medium
+            font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium
             horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
         }
 
@@ -519,7 +519,7 @@ PanelWindow {
             text: "← → navigate   Enter open   Del delete   Ctrl+C copy   Esc"
             color: panel.footerDim
             renderType: Text.NativeRendering
-            font.family: root.mono; font.pixelSize: 11
+            font.family: root.barFont; font.pixelSize: 11
             horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
         }
     }

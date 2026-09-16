@@ -86,7 +86,7 @@ PanelWindow {
                         anchors.centerIn: parent
                         text: "‹"   // ‹
                         color: prevMa.containsMouse ? root.seal : root.sumi
-                        font.family: root.mono; font.pixelSize: 16
+                        font.family: root.barFont; font.pixelSize: 16
                     }
                     MouseArea {
                         id: prevMa
@@ -102,7 +102,7 @@ PanelWindow {
                     anchors.centerIn: parent
                     text: root.calendarMonthName + "  " + root.calendarYear
                     color: monthMa.containsMouse && root.calendarMonthOffset !== 0 ? root.seal : root.ink
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 12
                     font.letterSpacing: 2
                     font.weight: Font.Medium
@@ -125,7 +125,7 @@ PanelWindow {
                         anchors.centerIn: parent
                         text: "›"   // ›
                         color: nextMa.containsMouse ? root.seal : root.sumi
-                        font.family: root.mono; font.pixelSize: 16
+                        font.family: root.barFont; font.pixelSize: 16
                     }
                     MouseArea {
                         id: nextMa
@@ -154,7 +154,7 @@ PanelWindow {
                             text: modelData
                             color: index >= 5 ? root.seal : root.inkDeep
                             opacity: index >= 5 ? 0.85 : 0.7
-                            font.family: root.mono
+                            font.family: root.barFont
                             font.pixelSize: 10
                             font.letterSpacing: 2
                         }
@@ -207,7 +207,7 @@ PanelWindow {
                             text: modelData.day === 0 ? "" : modelData.day
                             color: textColor
                             opacity: isCurrentMonth ? 1.0 : 0.35
-                            font.family: root.mono
+                            font.family: root.barFont
                             font.pixelSize: 12
                             font.weight: isToday ? Font.Medium : Font.Light
                         }

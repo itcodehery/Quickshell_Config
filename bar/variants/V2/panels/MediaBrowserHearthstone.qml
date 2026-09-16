@@ -316,7 +316,7 @@ PanelWindow {
         horizontalAlignment: Text.AlignHCenter
         text: "No matches: " + panel.filterText + "\n\nBackspace to edit, or Esc to clear"
         color: root.ink
-        font.family: root.mono; font.pixelSize: 16; font.letterSpacing: 1
+        font.family: root.barFont; font.pixelSize: 16; font.letterSpacing: 1
     }
     Text {
         visible: root.mediaBrowserVisible && panel.active && !panel.ready
@@ -326,7 +326,7 @@ PanelWindow {
               ? (panel.isVideos ? "No recordings in ~/Videos" : "No screenshots in ~/Pictures") + "\n\nEsc or click to close"
               : "Loading…"
         color: panel.textLight
-        font.family: root.mono; font.pixelSize: 16; font.letterSpacing: 1
+        font.family: root.barFont; font.pixelSize: 16; font.letterSpacing: 1
     }
 
     // ── header + position (top) ──
@@ -337,7 +337,7 @@ PanelWindow {
         opacity: panel.reveal
         text: (panel.isVideos ? "VIDEOS" : "SCREENSHOTS") + "      " + (panel.selFilt + 1) + " / " + panel.filtered.length
         color: panel.textDim
-        font.family: root.mono; font.pixelSize: 12; font.letterSpacing: 2
+        font.family: root.barFont; font.pixelSize: 12; font.letterSpacing: 2
     }
 
     // ── the hand ──
@@ -453,7 +453,7 @@ PanelWindow {
                         anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: 12 }
                         text: card.entry ? card.entry.label : ""
                         color: panel.textLight
-                        font.family: root.mono; font.pixelSize: 12; font.weight: Font.DemiBold
+                        font.family: root.barFont; font.pixelSize: 12; font.weight: Font.DemiBold
                         horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
                     }
                     Rectangle {
@@ -535,7 +535,7 @@ PanelWindow {
             width: 820
             text: (panel.isVideos ? "Videos · " : "Screenshots · ") + panel.currentLabel
             color: panel.textLight
-            font.family: root.mono; font.pixelSize: 24; font.weight: Font.DemiBold
+            font.family: root.barFont; font.pixelSize: 24; font.weight: Font.DemiBold
             horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight
         }
 
@@ -544,7 +544,7 @@ PanelWindow {
             anchors.horizontalCenter: parent.horizontalCenter
             text: panel.filterText
             color: root.seal; opacity: 0.95
-            font.family: root.mono; font.pixelSize: 14
+            font.family: root.barFont; font.pixelSize: 14
             horizontalAlignment: Text.AlignHCenter
         }
 
@@ -554,7 +554,7 @@ PanelWindow {
             text: "Delete this " + (panel.isVideos ? "video" : "screenshot")
                   + "?   Del again to confirm   ·   Esc cancel"
             color: root.seal
-            font.family: root.mono; font.pixelSize: 11; font.weight: Font.Medium
+            font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium
             horizontalAlignment: Text.AlignHCenter
         }
 
@@ -563,7 +563,7 @@ PanelWindow {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "← →  scroll navigate     Enter open     Del delete     Ctrl+C copy     Esc"
             color: panel.textDim
-            font.family: root.mono; font.pixelSize: 11
+            font.family: root.barFont; font.pixelSize: 11
             horizontalAlignment: Text.AlignHCenter
         }
     }

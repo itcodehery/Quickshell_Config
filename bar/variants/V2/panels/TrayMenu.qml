@@ -102,7 +102,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: root.trayMenuTitle !== "" ? root.trayMenuTitle : "App Menu"
                     color: root.ink
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 12
                     font.weight: Font.Medium
                     elide: Text.ElideRight
@@ -140,7 +140,7 @@ PanelWindow {
                     anchors.left: parent.left; anchors.leftMargin: 8
                     anchors.verticalCenter: parent.verticalCenter
                     text: "‹  back"; color: root.sumiHi
-                    font.family: root.mono; font.pixelSize: 11
+                    font.family: root.barFont; font.pixelSize: 11
                 }
                 MouseArea {
                     id: backMa
@@ -188,7 +188,7 @@ PanelWindow {
                             width: 12
                             text: entry.modelData.checkState === Qt.Checked ? "✓" : ""
                             color: root.seal
-                            font.family: root.mono; font.pixelSize: 11
+                            font.family: root.barFont; font.pixelSize: 11
                         }
 
                         Image {
@@ -209,7 +209,7 @@ PanelWindow {
                             text: trayMenu.strip(entry.modelData.text)
                             color: entry.modelData.enabled ? root.ink
                                  : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.35)
-                            font.family: root.mono; font.pixelSize: 11
+                            font.family: root.barFont; font.pixelSize: 11
                             elide: Text.ElideRight
                         }
 
@@ -220,7 +220,7 @@ PanelWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             visible: entry.modelData.hasChildren
                             text: "›"; color: root.sumiHi
-                            font.family: root.mono; font.pixelSize: 13
+                            font.family: root.barFont; font.pixelSize: 13
                         }
 
                         MouseArea {

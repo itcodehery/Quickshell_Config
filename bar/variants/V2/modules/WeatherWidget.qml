@@ -133,7 +133,7 @@ Item {
         color: rootMod.weatherUnavailable && !rootMod.weatherLoaded
                ? Qt.rgba(rootMod.contentColor.r, rootMod.contentColor.g, rootMod.contentColor.b, 0.4)
                : rootMod.contentColor
-        font.family: root.mono
+        font.family: root.barFont
         font.pixelSize: 14
     }
 

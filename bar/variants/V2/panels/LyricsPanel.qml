@@ -66,7 +66,7 @@ PanelWindow {
                 id: lyricsText
                 text: mprisPanel.currentLyricIndex >= 0 && mprisPanel.currentLyricIndex < mprisPanel.lyricsList.length ? mprisPanel.lyricsList[mprisPanel.currentLyricIndex].text : (mprisPanel.lyricsList.length > 0 ? "..." : "No lyrics found")
                 color: root.ink
-                font.family: root.mono
+                font.family: root.barFont
                 font.pixelSize: 14
                 font.weight: Font.DemiBold
                 elide: Text.ElideRight

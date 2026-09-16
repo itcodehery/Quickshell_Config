@@ -87,7 +87,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Power Profile"
                     color: root.ink
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 13
                     font.letterSpacing: 2
                     font.weight: Font.Medium
@@ -144,14 +144,14 @@ PanelWindow {
                             text: modelData.icon
                             renderType: Text.QtRendering
                             color: (ma.containsMouse || isActive) ? root.seal : root.ink
-                            font.family: root.mono
+                            font.family: root.barFont
                             font.pixelSize: 14
                             anchors.verticalCenter: parent.verticalCenter
                         }
                         UiText {
                             text: modelData.label
                             color: (ma.containsMouse || isActive) ? root.seal : root.ink
-                            font.family: root.mono
+                            font.family: root.barFont
                             font.pixelSize: 12
                             font.weight: isActive ? Font.Medium : Font.Normal
                             anchors.verticalCenter: parent.verticalCenter

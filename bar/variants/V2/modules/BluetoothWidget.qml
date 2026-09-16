@@ -48,7 +48,7 @@ Item {
             visible: rootMod.connected && !root.iconOnly("G15")
             text: String(rootMod.numConnected)
             color: root.widgetHasFill("G15") ? rootMod.contentColor : root.seal
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 12
         }
     }

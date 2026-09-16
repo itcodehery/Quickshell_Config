@@ -53,7 +53,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: rootMod.elapsedStr
             color: rootMod.contentColor
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 11
         }
     }

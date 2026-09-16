@@ -126,7 +126,7 @@ Item {
                 text: ""
                 color: rootMod.contentColor
                 renderType: Text.QtRendering
-                font.family: root.mono
+                font.family: root.barFont
                 font.pixelSize: 15
             }
 

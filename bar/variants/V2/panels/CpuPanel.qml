@@ -59,7 +59,7 @@ PanelWindow {
             anchors.verticalCenter: parent.verticalCenter
             text: label
             color: cpuPanel.root.sumiHi
-            font.family: cpuPanel.root.mono
+            font.family: cpuPanel.root.barFont
             font.pixelSize: 10
         }
         UiText {
@@ -69,7 +69,7 @@ PanelWindow {
             anchors.verticalCenter: parent.verticalCenter
             text: value
             color: valueColor
-            font.family: cpuPanel.root.mono
+            font.family: cpuPanel.root.barFont
             font.pixelSize: 10
             elide: Text.ElideRight
             horizontalAlignment: Text.AlignRight
@@ -127,7 +127,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "CPU"
                     color: root.ink
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 13
                     font.letterSpacing: 2
                     font.weight: Font.Medium
@@ -138,7 +138,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "KERNEL " + root.kernelRelease
                     color: root.sumiHi
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 9
                 }
                 UiText {
@@ -171,7 +171,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: root.cpuModelName
                     color: root.ink
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 10
                     elide: Text.ElideRight
                 }
@@ -181,7 +181,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: cpuPanel.topologySummary
                     color: root.sumiHi
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 10
                 }
             }
@@ -195,7 +195,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "USAGE"
                     color: root.sumiHi
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 11
                     font.letterSpacing: 1
                 }
@@ -205,7 +205,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: cpuPanel.cpuPct + "%"
                     color: root.seal
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 11
                     font.weight: Font.Medium
                 }
@@ -252,7 +252,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "TOP PROCESSES"
                     color: root.sumiHi
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 9
                     font.letterSpacing: 1
                 }
@@ -261,7 +261,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "CPU"
                     color: root.sumi
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 9
                 }
             }
@@ -285,7 +285,7 @@ PanelWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             text: String(index + 1).padStart(2, "0")
                             color: root.sumi
-                            font.family: root.mono
+                            font.family: root.barFont
                             font.pixelSize: 9
                         }
                         UiText {
@@ -296,7 +296,7 @@ PanelWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             text: process ? process.name : (index === 0 ? "Collecting…" : "—")
                             color: process ? root.ink : root.sumi
-                            font.family: root.mono
+                            font.family: root.barFont
                             font.pixelSize: 10
                             elide: Text.ElideRight
                         }
@@ -307,7 +307,7 @@ PanelWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             text: process ? Number(process.percent).toFixed(1) + "%" : "—"
                             color: process ? root.ink : root.sumi
-                            font.family: root.mono
+                            font.family: root.barFont
                             font.pixelSize: 10
                             horizontalAlignment: Text.AlignRight
                         }
@@ -327,7 +327,7 @@ PanelWindow {
                     anchors.centerIn: parent
                     text: "Open btop"
                     color: root.paper
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 11
                 }
                 MouseArea {

@@ -37,7 +37,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: rootMod.temperature + "°"
             color: rootMod.contentColor
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 12
         }
     }

@@ -20,7 +20,7 @@ Item {
         // 󰛨 U+F06E8 = activated / 󰛩 U+F06E9 = deactivated
         text: rootMod.on ? String.fromCodePoint(0xF06E8) : String.fromCodePoint(0xF06E9)
         renderType: Text.QtRendering
-        font.family: root.mono
+        font.family: root.barFont
         font.pixelSize: 14
         color: rootMod.on
             ? (root.widgetHasFill("G10") ? rootMod.contentColor : root.seal)

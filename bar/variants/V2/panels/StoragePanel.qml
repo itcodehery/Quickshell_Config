@@ -79,7 +79,7 @@ PanelWindow {
             width: 18
             text: storagePanel.driveTypeIcon(drive.driveType)
             color: storagePanel.root.seal
-            font.family: storagePanel.root.mono
+            font.family: storagePanel.root.barFont
             font.pixelSize: 15
             horizontalAlignment: Text.AlignHCenter
         }
@@ -93,7 +93,7 @@ PanelWindow {
             anchors.top: parent.top
             text: drive.model
             color: storagePanel.root.ink
-            font.family: storagePanel.root.mono
+            font.family: storagePanel.root.barFont
             font.pixelSize: 11
             elide: Text.ElideRight
         }
@@ -104,7 +104,7 @@ PanelWindow {
             anchors.top: parent.top
             text: storagePanel.formatCapacity(drive.size)
             color: storagePanel.root.ink
-            font.family: storagePanel.root.mono
+            font.family: storagePanel.root.barFont
             font.pixelSize: 11
             font.weight: Font.Medium
         }
@@ -121,7 +121,7 @@ PanelWindow {
                 + " · " + drive.state
                 + (!showUsageDetails && drive.percent >= 0 ? " · " + drive.percent + "%" : "")
             color: storagePanel.root.sumiHi
-            font.family: storagePanel.root.mono
+            font.family: storagePanel.root.barFont
             font.pixelSize: 9
             elide: Text.ElideMiddle
         }
@@ -134,7 +134,7 @@ PanelWindow {
             visible: drive.freeBytes >= 0 && !showUsageDetails
             text: storagePanel.formatFree(drive.freeBytes)
             color: storagePanel.root.ink
-            font.family: storagePanel.root.mono
+            font.family: storagePanel.root.barFont
             font.pixelSize: 9
             font.weight: Font.Medium
         }
@@ -154,7 +154,7 @@ PanelWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 text: "USAGE"
                 color: storagePanel.root.sumiHi
-                font.family: storagePanel.root.mono
+                font.family: storagePanel.root.barFont
                 font.pixelSize: 10
                 font.letterSpacing: 1
             }
@@ -164,7 +164,7 @@ PanelWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 text: drive.percent + "%"
                 color: storagePanel.root.seal
-                font.family: storagePanel.root.mono
+                font.family: storagePanel.root.barFont
                 font.pixelSize: 10
                 font.weight: Font.Medium
             }
@@ -211,7 +211,7 @@ PanelWindow {
                         anchors.top: parent.top
                         text: modelData.label
                         color: storagePanel.root.sumi
-                        font.family: storagePanel.root.mono
+                        font.family: storagePanel.root.barFont
                         font.pixelSize: 9
                         font.letterSpacing: 1
                     }
@@ -219,7 +219,7 @@ PanelWindow {
                         anchors.bottom: parent.bottom
                         text: modelData.value
                         color: storagePanel.root.ink
-                        font.family: storagePanel.root.mono
+                        font.family: storagePanel.root.barFont
                         font.pixelSize: 10
                     }
                 }
@@ -287,7 +287,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "STORAGE"
                     color: root.ink
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 13
                     font.letterSpacing: 2
                     font.weight: Font.Medium
@@ -298,7 +298,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "DRIVES: " + root.storageDrives.length
                     color: root.sumiHi
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 9
                     font.letterSpacing: 0.5
                 }
@@ -331,7 +331,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "ROOT"
                     color: root.sumiHi
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 11
                     font.letterSpacing: 1
                 }
@@ -341,7 +341,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: storagePanel.pct + "%"
                     color: root.seal
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 11
                     font.weight: Font.Medium
                 }
@@ -382,7 +382,7 @@ PanelWindow {
                             anchors.top: parent.top
                             text: modelData.label
                             color: root.sumi
-                            font.family: root.mono
+                            font.family: root.barFont
                             font.pixelSize: 9
                             font.letterSpacing: 1
                         }
@@ -390,7 +390,7 @@ PanelWindow {
                             anchors.bottom: parent.bottom
                             text: modelData.value
                             color: root.ink
-                            font.family: root.mono
+                            font.family: root.barFont
                             font.pixelSize: 11
                         }
                     }
@@ -420,7 +420,7 @@ PanelWindow {
                 visible: root.storageDrives.length === 0
                 text: root.storageInventoryAvailable ? "No physical drives found" : "Reading drive information…"
                 color: root.sumiHi
-                font.family: root.mono
+                font.family: root.barFont
                 font.pixelSize: 10
                 horizontalAlignment: Text.AlignHCenter
             }

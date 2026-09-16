@@ -50,7 +50,7 @@ PanelWindow {
             anchors.verticalCenter: parent.verticalCenter
             text: label
             color: gpuPanel.root.sumiHi
-            font.family: gpuPanel.root.mono
+            font.family: gpuPanel.root.barFont
             font.pixelSize: 10
         }
         UiText {
@@ -60,7 +60,7 @@ PanelWindow {
             anchors.verticalCenter: parent.verticalCenter
             text: value
             color: gpuPanel.root.ink
-            font.family: gpuPanel.root.mono
+            font.family: gpuPanel.root.barFont
             font.pixelSize: 10
             elide: Text.ElideRight
         }
@@ -117,7 +117,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "GPU"
                     color: root.ink
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 13
                     font.letterSpacing: 2
                     font.weight: Font.Medium
@@ -159,7 +159,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "USAGE"
                     color: root.sumiHi
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 11
                     font.letterSpacing: 1
                 }
@@ -169,7 +169,7 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     text: gpuPanel.gpuUtil + "%"
                     color: root.seal
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 11
                     font.weight: Font.Medium
                 }
@@ -227,7 +227,7 @@ PanelWindow {
                 visible: !root.gpuAvailable
                 text: "GPU telemetry unavailable"
                 color: root.sumiHi
-                font.family: root.mono
+                font.family: root.barFont
                 font.pixelSize: 10
                 horizontalAlignment: Text.AlignHCenter
             }
@@ -244,7 +244,7 @@ PanelWindow {
                     anchors.centerIn: parent
                     text: "Open btop"
                     color: root.paper
-                    font.family: root.mono
+                    font.family: root.barFont
                     font.pixelSize: 11
                 }
                 MouseArea {

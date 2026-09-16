@@ -25,7 +25,7 @@ Item {
             width: 15
             text: "󰋊"
             color: rootMod.contentColor
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 15
             horizontalAlignment: Text.AlignHCenter
         }
@@ -35,7 +35,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: String(Math.min(100, rootMod.percent)).padStart(2, "0") + "%"
             color: rootMod.contentColor
-            font.family: root.mono
+            font.family: root.barFont
             font.pixelSize: 12
         }
     }
