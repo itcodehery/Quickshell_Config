@@ -393,7 +393,7 @@ PanelWindow {
             
             property string centerText: {
                 switch(menuCard.hoveredIndex) {
-                    case 0: return "System Monitor";
+                    case 0: return "WhatsApp";
                     case 1: return "Spotify";
                     case 2: return "LocalSend";
                     case 3: return "Theme";
@@ -445,7 +445,6 @@ PanelWindow {
 
                 property string iconTxt: {
                     switch(index) {
-                        case 0: return "memory";
                         case 2: return "share";
                         case 3: return "palette";
                         case 4: return "image";
@@ -458,6 +457,7 @@ PanelWindow {
                 
                 property string iconSrc: {
                     switch(index) {
+                        case 0: return Quickshell.env("HOME") + "/.config/quickshell/bar/whatsapp.svg";
                         case 1: return Quickshell.env("HOME") + "/.config/quickshell/bar/spotify.svg";
                         case 5: return Quickshell.env("HOME") + "/.config/quickshell/bar/gemini_final.svg";
                         case 6: return Quickshell.env("HOME") + "/.config/quickshell/bar/claude.svg";
@@ -529,7 +529,7 @@ PanelWindow {
                 }
                 if (menuCard.hoveredIndex !== -1) {
                     switch(menuCard.hoveredIndex) {
-                        case 0: Quickshell.execDetached(["kitty", "-e", "btop"]); break;
+                        case 0: Quickshell.execDetached(["omarchy-launch-webapp", "https://web.whatsapp.com/"]); break;
                         case 1: Quickshell.execDetached(["spotify"]); break;
                         case 2: Quickshell.execDetached(["localsend"]); break;
                         case 3: root.ipcOpenPicker("theme"); break;
