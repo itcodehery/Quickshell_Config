@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Io
 import "../modules"
 
 PanelWindow {
@@ -25,6 +26,49 @@ PanelWindow {
     property string widgetColorMenuGid: ""
     property string widgetColorMenuLabel: ""
     readonly property string barctlPath: Quickshell.env("HOME") + "/.config/quickshell/bin/qs-barctl"
+
+    // ── System info card ──────────────────────────────────────────────────────
+    property string siHostname: ""
+    property string siModel: ""
+    property string siCpu: ""
+    property string siRam: ""
+    property string siGpu: ""
+    property string siDisplay: ""
+    property string siOs: ""
+    property string siKernel: ""
+    property bool siFetched: false
+
+    Process {
+        id: siFetchProc
+        command: ["bash", "-c",
+            "hostname=$(hostname); " +
+            "model=$(cat /sys/class/dmi/id/product_name 2>/dev/null || echo ''); " +
+            "cpu=$(grep 'model name' /proc/cpuinfo | head -1 | sed 's/.*: //' | sed 's/ with.*//'); " +
+            "ram=$(awk '/MemTotal/{printf \"%.0f GB\", $2/1024/1024}' /proc/meminfo); " +
+            "gpu=$(glxinfo 2>/dev/null | grep 'OpenGL renderer' | sed 's/OpenGL renderer string: //' | sed 's/\\/PCIe.*//' || echo 'N/A'); " +
+            "display=$(hyprctl monitors -j 2>/dev/null | python3 -c \"import sys,json; d=json.load(sys.stdin); print(', '.join(f'{m[\\\"width\\\"]}x{m[\\\"height\\\"]} @{int(m[\\\"refreshRate\\\"])}Hz' for m in d))\"); " +
+            "os=$(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '\"'); " +
+            "kernel=$(uname -r); " +
+            "printf '%s\\n%s\\n%s\\n%s\\n%s\\n%s\\n%s\\n%s' \"$hostname\" \"$model\" \"$cpu\" \"$ram\" \"$gpu\" \"$display\" \"$os\" \"$kernel\""
+        ]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var lines = this.text.trim().split("\n")
+                ctrlPanel.siHostname = lines[0] || ""
+                ctrlPanel.siModel    = lines[1] || ""
+                ctrlPanel.siCpu      = lines[2] || ""
+                ctrlPanel.siRam      = lines[3] || ""
+                ctrlPanel.siGpu      = lines[4] || ""
+                ctrlPanel.siDisplay  = lines[5] || ""
+                ctrlPanel.siOs       = lines[6] || ""
+                ctrlPanel.siKernel   = lines[7] || ""
+                ctrlPanel.siFetched  = true
+            }
+        }
+    }
+    // Fetch once when the panel first opens
+    onVisibleChanged: { if (visible && !ctrlPanel.siFetched) siFetchProc.running = true }
 
     function switchBar(version) {
         root.controlVisible = false
@@ -282,62 +326,98 @@ PanelWindow {
                 }
             }
 
+            // ── SYSTEM INFO CARD ──────────────────────────────────────────────
+            Rectangle {
+                width: parent.width
+                color: root.fillIdle
+                radius: root.panelButtonRadius
+                border.color: root.sep
+                border.width: 1
+                implicitHeight: siCardCol.implicitHeight + 20
+
+                Column {
+                    id: siCardCol
+                    anchors { left: parent.left; right: parent.right; top: parent.top }
+                    anchors.margins: 12
+                    anchors.topMargin: 12
+                    spacing: 0
+
+                    // Centered Omarchy logo glyph
+                    Text {
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        text: "\uE900"
+                        color: root.ink
+                        font.family: "omarchy"
+                        font.pixelSize: 26
+                    }
+                    Item { width: 1; height: 4 }
+                    // Hostname (subtitle)
+                    UiText {
+                        text: ctrlPanel.siHostname
+                        color: root.sumiHi
+                        font.family: root.barFont
+                        font.pixelSize: 10
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                    }
+                    Item { width: 1; height: 10 }
+
+                    Rectangle { width: parent.width; height: 1; color: root.sep; opacity: 0.5 }
+
+                    Item { width: 1; height: 6 }
+
+                    // CPU row
+                    Item { width: parent.width; height: 18
+                        UiText { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; text: "CPU"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10 }
+                        UiText { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: ctrlPanel.siCpu; color: root.ink; font.family: root.barFont; font.pixelSize: 10; elide: Text.ElideRight; width: parent.width * 0.65; horizontalAlignment: Text.AlignRight }
+                    }
+                    // Memory row
+                    Item { width: parent.width; height: 18
+                        UiText { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; text: "Memory"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10 }
+                        UiText { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: ctrlPanel.siRam; color: root.ink; font.family: root.barFont; font.pixelSize: 10; elide: Text.ElideRight; width: parent.width * 0.65; horizontalAlignment: Text.AlignRight }
+                    }
+                    // GPU row — label top-aligned, value wraps freely
+                    Item {
+                        width: parent.width
+                        implicitHeight: Math.max(18, gpuVal.implicitHeight)
+                        height: implicitHeight
+                        UiText { id: gpuLbl; anchors.left: parent.left; anchors.top: parent.top; anchors.topMargin: 1; text: "GPU"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10 }
+                        UiText {
+                            id: gpuVal
+                            anchors.right: parent.right; anchors.top: parent.top
+                            text: ctrlPanel.siGpu
+                            color: root.ink; font.family: root.barFont; font.pixelSize: 10
+                            width: parent.width * 0.72
+                            wrapMode: Text.WordWrap
+                            horizontalAlignment: Text.AlignRight
+                        }
+                    }
+                    // Display row
+                    Item { width: parent.width; height: 18
+                        UiText { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; text: "Display"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10 }
+                        UiText { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: ctrlPanel.siDisplay; color: root.ink; font.family: root.barFont; font.pixelSize: 10; elide: Text.ElideRight; width: parent.width * 0.65; horizontalAlignment: Text.AlignRight }
+                    }
+
+                    Item { width: 1; height: 6 }
+                    Rectangle { width: parent.width; height: 1; color: root.sep; opacity: 0.5 }
+                    Item { width: 1; height: 6 }
+
+                    // OS row
+                    Item { width: parent.width; height: 18
+                        UiText { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; text: "OS"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10 }
+                        UiText { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: ctrlPanel.siOs; color: root.ink; font.family: root.barFont; font.pixelSize: 10; elide: Text.ElideRight; width: parent.width * 0.65; horizontalAlignment: Text.AlignRight }
+                    }
+                    // Kernel row
+                    Item { width: parent.width; height: 18
+                        UiText { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; text: "Kernel"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10 }
+                        UiText { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: ctrlPanel.siKernel; color: root.ink; font.family: root.barFont; font.pixelSize: 10; elide: Text.ElideRight; width: parent.width * 0.65; horizontalAlignment: Text.AlignRight }
+                    }
+                }
+            }
+
             Rectangle { width: parent.width; height: 1; color: root.sep }
 
-            // ── ACTIONS ──
-            UiText {
-                text: "ACTIONS"
-                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
-            }
-            Grid {
-                width: parent.width
-                columns: 1
-                columnSpacing: 6
-                Tile {
-                    width: parent.width
-                    label: "Reload"
-                    onActivated: { root.controlVisible = false; Quickshell.reload(false) }
-                }
-            }
-
-            // ── POWER (collapsed sub-menu; nothing destructive pre-shown) ──
-            Tile {
-                width: parent.width
-                label: ctrlPanel.powerOpen ? "Power  ▾" : "Power  ▸"
-                accent: root.seal
-                onActivated: ctrlPanel.powerOpen = !ctrlPanel.powerOpen
-            }
-            Grid {
-                width: parent.width
-                columns: 2
-                columnSpacing: 8
-                rowSpacing: 8
-                visible: ctrlPanel.powerOpen
-                Tile {
-                    width: root.evenW((col.width - 8) / 2)
-                    label: "Lock"
-                    onActivated: { root.controlVisible = false; Quickshell.execDetached(["hyprlock"]) }
-                }
-                Tile {
-                    width: root.evenW((col.width - 8) / 2)
-                    label: "Suspend"
-                    onActivated: { root.controlVisible = false; Quickshell.execDetached(["systemctl", "suspend"]) }
-                }
-                Tile {
-                    width: root.evenW((col.width - 8) / 2)
-                    label: "Reboot"
-                    accent: root.indigo
-                    onActivated: { root.controlVisible = false; Quickshell.execDetached(["systemctl", "reboot"]) }
-                }
-                Tile {
-                    width: root.evenW((col.width - 8) / 2)
-                    label: "Shutdown"
-                    accent: root.seal
-                    onActivated: { root.controlVisible = false; Quickshell.execDetached(["systemctl", "poweroff"]) }
-                }
-            }
-
-            Rectangle { width: parent.width; height: 1; color: root.sep }
 
             // ── BAR COLOR: compact colors.toml palette ──
             UiText {
