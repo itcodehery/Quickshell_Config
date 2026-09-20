@@ -8,6 +8,9 @@ import "Palette.js" as Palette
 Item {
     id: theme
     property var variantHost: null
+    property string lastMediaTitle: ""
+    property string lastMediaArtist: ""
+    property string lastMediaArtUrl: ""
 
     property string omarchyCurrentRoot: Quickshell.env("HOME") + "/.config/omarchy/current"
     property string omarchyInstallRoot: Quickshell.env("HOME") + "/.local/share/omarchy"
@@ -1644,6 +1647,8 @@ Item {
     property bool modVolume:     true
     property bool modWeather:    true
     property bool modNetwork:    true
+    property bool modBattery:    true
+    property bool dashboardExpanded: false
     property string networkMode: "none"   // mirrored from NetworkWidget: wifi/ethernet/none
     // Centralized status indicators. These live on Theme so BarSlot-per-monitor
     // widgets don't each spawn their own status poller.

@@ -15,7 +15,7 @@ PanelWindow {
     color: "transparent"
     anchors { top: true; bottom: true; left: true; right: true }
     exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.layer: WlrLayer.Bottom
+    WlrLayershell.layer: WlrLayer.Background
     WlrLayershell.namespace: "omarchy-desktop-menu"
 
     property bool menuVisible: false
@@ -130,6 +130,7 @@ PanelWindow {
             } else {
                 menuVisible = false
                 animatedReveal = 0
+                root.dashboardExpanded = false
             }
         }
     }

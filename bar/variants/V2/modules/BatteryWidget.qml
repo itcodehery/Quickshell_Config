@@ -45,9 +45,13 @@ Item {
         root.widgetHasFill("G12") ? contentColor
         : ((charging || full) ? root.indigo : root.seal)
 
-    implicitWidth:  hasBattery ? (row.implicitWidth + 18) : 0
+    readonly property bool shown: hasBattery && root.modBattery
+    implicitWidth:  shown ? (row.implicitWidth + 18) : 0
     implicitHeight: 28
-    visible: hasBattery
+    visible: shown
+    opacity: shown ? 1 : 0
+
+    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
 
     Row {

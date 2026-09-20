@@ -304,4 +304,17 @@ Item {
             }
         }
     }
+
+    Variants {
+        model: root.barScreens
+
+        delegate: Component {
+            HomescreenClockPanel {
+                required property var modelData
+
+                root: theme
+                targetScreen: modelData
+            }
+        }
+    }
 }
