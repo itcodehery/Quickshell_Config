@@ -2055,7 +2055,7 @@ Item {
     property bool panelTooltipBorderEnabled: true
     function barShellStyleValid(value) {
         return value === "full" || value === "fit"
-            || value === "dock" || value === "notch"
+            || value === "dock" || value === "notch" || value === "island"
     }
 
     // ── picker visual style (theme/wallpaper/screenshot/video pickers) ──

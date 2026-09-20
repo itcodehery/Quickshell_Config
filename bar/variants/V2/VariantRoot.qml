@@ -224,6 +224,7 @@ Item {
 
                 root: theme
                 screen: modelData
+                mprisPanel: theMprisPanel
 
                 BarWindowRecovery {
                     targetWindow: barWindow

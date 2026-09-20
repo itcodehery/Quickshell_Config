@@ -891,7 +891,8 @@ PanelWindow {
                     { label: "Full",  mode: "full"  },
                     { label: "Fit",   mode: "fit"   },
                     { label: "Dock",  mode: "dock"  },
-                    { label: "Notch", mode: "notch" }
+                    { label: "Notch", mode: "notch" },
+                    { label: "Island", mode: "island" }
                 ]
                 Repeater {
                     model: barStyleRow.opts

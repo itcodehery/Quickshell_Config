@@ -102,7 +102,7 @@ PanelWindow {
     property real _lastRead: -1
     Timer {
         interval: 500; repeat: true
-        running: (mprisPanel.visible || showingLyrics) && mprisPanel.active
+        running: mprisPanel.active
         triggeredOnStart: true
         onTriggered: {
             if (!mprisPanel.player) return

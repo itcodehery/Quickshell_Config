@@ -9,17 +9,21 @@ import QtQuick.Shapes
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
+import Quickshell.Hyprland
 import "modules"
 
 PanelWindow {
     id: barSlot
     required property var root
+    required property var mprisPanel
     readonly property string screenName: barSlot.screen ? barSlot.screen.name : ""
     readonly property bool compactShell: barSlot.root.barShellStyle !== "full"
     readonly property int shellOuterMargin: 5
     readonly property int shellRadius: barSlot.root.barShellStyle === "dock"
         ? 8
-        : barSlot.root.barShellStyle === "notch" ? 0 : barSlot.root.panelRadius
+        : barSlot.root.barShellStyle === "island"
+            ? shellVisibleHeight / 2
+            : barSlot.root.barShellStyle === "notch" ? 0 : barSlot.root.panelRadius
     // The Notch is a content-width lobe flowing directly out of the screen edge.
     // One continuous cubic per side creates the soft diagonal run-out without
     // a neck, step or frame around the rest of the output.
@@ -50,7 +54,7 @@ PanelWindow {
     exclusionMode: ExclusionMode.Normal
     // Keep the same compositor reservation for every shell style: clients must
     // never slide behind a content-width Fit/Dock/Notch bar.
-    exclusiveZone: effectivelyHidden ? 1 : barSlot.root.v2BarHeight + 3
+    exclusiveZone: effectivelyHidden ? 1 : barSlot.root.v2BarHeight + (barSlot.root.barShellStyle === "island" ? 8 : 3)
 
     readonly property bool effectivelyHidden: barSlot.root.v2AutoHide && !slotHover.hovered && !barSlot.root.barUnlocked && !barSlot.root.anyPopupVisible
 
@@ -59,7 +63,7 @@ PanelWindow {
         y: barSlot.root.barUnlocked ? 0
            : barSlot.effectivelyHidden
                ? (barSlot.root.barPosition === "bottom" ? barSlot.height - 1 : 0)
-               : (barSlot.root.barPosition === "bottom" ? barSlot.height - barSlot.shellVisibleHeight : 0)
+               : (barSlot.root.barPosition === "bottom" ? barSlot.height - barSlot.shellVisibleHeight - (barSlot.root.barShellStyle === "island" ? 4 : 0) : (barSlot.root.barShellStyle === "island" ? 4 : 0))
         width: barSlot.root.barUnlocked ? barSlot.width : Math.round(continuousBarSurface.width)
         height: barSlot.root.barUnlocked ? barSlot.height
            : barSlot.effectivelyHidden ? 1 : barSlot.shellVisibleHeight
@@ -93,11 +97,16 @@ PanelWindow {
     Rectangle {
         id: continuousBarSurface
         x: barSlot.compactShell ? Math.round((barSlot.width - width) / 2) : 0
+        readonly property int islandMargin: barSlot.root.barShellStyle === "island" ? 4 : 0
         y: barSlot.root.barPosition === "bottom"
-            ? (barSlot.effectivelyHidden ? barSlot.height : barSlot.height - height)
-            : (barSlot.effectivelyHidden ? -height : 0)
+            ? (barSlot.effectivelyHidden ? barSlot.height : barSlot.height - height - islandMargin)
+            : (barSlot.effectivelyHidden ? -height : islandMargin)
         Behavior on y { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
         width: barSlot.shellTargetWidth
+        Behavior on width {
+            enabled: barSlot.root.barShellStyle === "island" && island.islandShrinkProgress > 0.95
+            NumberAnimation { duration: 400; easing.type: Easing.OutCubic }
+        }
         height: barSlot.shellVisibleHeight
         radius: barSlot.compactShell ? barSlot.shellRadius : 0
         color: "transparent"
@@ -107,11 +116,11 @@ PanelWindow {
 
         readonly property real topCornerRadius:
             !barSlot.compactShell ? 0
-            : barSlot.root.barShellStyle === "fit" ? radius
+            : (barSlot.root.barShellStyle === "fit" || barSlot.root.barShellStyle === "island") ? radius
             : barSlot.root.barPosition === "bottom" ? radius : 0
         readonly property real bottomCornerRadius:
             !barSlot.compactShell ? 0
-            : barSlot.root.barShellStyle === "fit" ? radius
+            : (barSlot.root.barShellStyle === "fit" || barSlot.root.barShellStyle === "island") ? radius
             : barSlot.root.barPosition === "top" ? radius : 0
         readonly property real insetProgress: edgeBorder.curvedInsetRendering
             ? edgeBorder.curvedInsetReveal
@@ -1406,7 +1415,7 @@ PanelWindow {
                     // Keep every optional fill/border surface slightly inset from
                     // the bar edges so all widget treatments share one geometry.
                     height: 24
-                    radius: barSlot.root.panelButtonRadius
+                    radius: barSlot.root.barShellStyle === "island" ? height / 2 : barSlot.root.panelButtonRadius
                     clip: true
                     visible: slot.occupied && slot.hasContent && slot.autoShown
                         && (barSlot.root.widgetHasFill(slot.gid)
@@ -1824,13 +1833,16 @@ PanelWindow {
         x: continuousBarSurface.x
         width: continuousBarSurface.width
         height: barSlot.root.v2BarHeight
-        y: barSlot.root.barPosition === "bottom"
-            ? (barSlot.effectivelyHidden ? parent.height : parent.height - height)
-            : (barSlot.effectivelyHidden ? -height : 0)
-        Behavior on y { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+        y: continuousBarSurface.y
         z: 2                                  // above the dim backdrop
         focus: barSlot.root.barUnlocked       // receive keys while unlocked
         Keys.onEscapePressed: barSlot.root.barUnlocked = false
+
+        property bool isHovered: islandHover.hovered
+        HoverHandler {
+            id: islandHover
+            acceptedDevices: PointerDevice.AllDevices
+        }
 
         property int prevNotifCount: 0
         property real blackHoleStrength: 0
@@ -1854,16 +1866,28 @@ PanelWindow {
             yScale: 1.0 - (island.blackHoleStrength * 0.08)
         }
 
-        readonly property int fitPadding: 8
+        readonly property int fitPadding: barSlot.root.barShellStyle === "island" ? Math.floor((barSlot.root.v2BarHeight - 24) / 2.0) : 8
         readonly property int fitRegionGap: 12
         readonly property int fitRegionCount:
             (leftRowItem.implicitWidth > 0.5 ? 1 : 0)
             + (centerRowItem.implicitWidth > 0.5 ? 1 : 0)
             + (rightRowItem.implicitWidth > 0.5 ? 1 : 0)
+
+        // The base shell draws a black hole around the island when hovered.
+        property bool isIslandHidden: barSlot.root.barShellStyle === "island" && !island.isHovered && !barSlot.root.anyPopupVisible
+        property real islandShrinkProgress: isIslandHidden ? 1.0 : 0.0
+        Behavior on islandShrinkProgress { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+
+        property real leftVisibleWidth: (1.0 - islandShrinkProgress) * (leftRowItem.implicitWidth + (leftRowItem.implicitWidth > 0.5 ? fitRegionGap : 0))
+        property real rightVisibleWidth: (1.0 - islandShrinkProgress) * (rightRowItem.implicitWidth + (rightRowItem.implicitWidth > 0.5 ? fitRegionGap : 0))
+
+        readonly property real centerVisibleWidth: (1.0 - islandShrinkProgress) * centerRowItem.implicitWidth + islandShrinkProgress * (islandCollapsedItem.visibleWidth)
         readonly property real fitNaturalWidth: Math.ceil(
             2 * fitPadding
-            + leftRowItem.implicitWidth + centerRowItem.implicitWidth + rightRowItem.implicitWidth
-            + Math.max(0, fitRegionCount - 1) * fitRegionGap)
+            + centerVisibleWidth
+            + leftVisibleWidth
+            + rightVisibleWidth
+        )
 
         // edit-mode frame around the bar while unlocked (gentle pulse)
         Rectangle {
@@ -2021,40 +2045,84 @@ PanelWindow {
         SlotRow {
             id: leftRowItem
             anchors.verticalCenter: parent.verticalCenter
-            x: barSlot.compactShell ? island.fitPadding : island.rowMargin
+            x: barSlot.compactShell ? island.fitPadding - (island.islandShrinkProgress * implicitWidth) : island.rowMargin
             rmodel: leftModel
             baseCount: barSlot.leftBaseSlotCount
             maxExtraCount: barSlot.leftExtraSlotLimit
+            opacity: 1.0 - island.islandShrinkProgress
         }
         SlotRow {
             id: centerRowItem
             // no centerIn: x is clamped between the side rows on narrow monitors
             anchors.verticalCenter: parent.verticalCenter
             x: barSlot.compactShell
-                ? leftRowItem.x + leftRowItem.implicitWidth
-                    + (leftRowItem.implicitWidth > 0.5 ? island.fitRegionGap : 0)
+                ? island.fitPadding + island.leftVisibleWidth + (island.centerVisibleWidth - implicitWidth) / 2
                 : island.centerTargetX
             Behavior on x {
                 enabled: !barSlot.compactShell
-                NumberAnimation { duration: 120; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
+                NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
             }
             rmodel: centerModel
             baseCount: barSlot.centerBaseSlotCount
             maxExtraCount: barSlot.centerExtraSlotLimit
+            opacity: 1.0 - island.islandShrinkProgress
         }
+        
+        Rectangle {
+            id: islandCollapsedItem
+            anchors.verticalCenter: parent.verticalCenter
+            x: barSlot.compactShell ? island.fitPadding + island.leftVisibleWidth + (island.centerVisibleWidth - width) / 2 : island.centerTargetX
+            
+            readonly property bool mediaActive: barSlot.mprisPanel && barSlot.mprisPanel.active
+            readonly property bool hasLyrics: mediaActive && barSlot.mprisPanel.lyricsList && barSlot.mprisPanel.lyricsList.length > 0 && barSlot.mprisPanel.currentLyricIndex >= 0
+            readonly property string lyricText: hasLyrics ? barSlot.mprisPanel.lyricsList[barSlot.mprisPanel.currentLyricIndex].text : ""
+            
+            readonly property string windowTitle: Hyprland && Hyprland.activeToplevel ? Hyprland.activeToplevel.title : ""
+            
+            readonly property string displayText: hasLyrics ? lyricText : (windowTitle !== "" ? windowTitle : "Desktop")
+            readonly property real maxTextWidth: hasLyrics ? (barSlot.width - 120) : 350
+            
+            readonly property real visibleWidth: Math.min(Math.max(islandCollapsedText.implicitWidth + 24, 60), maxTextWidth + 24)
+            width: visibleWidth
+            Behavior on width {
+                NumberAnimation { duration: 400; easing.type: Easing.OutCubic }
+            }
+            height: 24
+            radius: height / 2
+            color: "transparent"
+            opacity: island.islandShrinkProgress
+            visible: opacity > 0
+            
+            Text {
+                id: islandCollapsedText
+                anchors.centerIn: parent
+                text: islandCollapsedItem.displayText
+                color: barSlot.root.ink
+                font.family: "DM Sans"
+                font.pixelSize: 12
+                font.weight: Font.Medium
+                elide: islandCollapsedItem.hasLyrics ? Text.ElideNone : Text.ElideRight
+                width: Math.min(implicitWidth, islandCollapsedItem.maxTextWidth)
+                Behavior on text {
+                    SequentialAnimation {
+                        NumberAnimation { target: islandCollapsedText; property: "opacity"; to: 0; duration: 150; easing.type: Easing.OutCubic }
+                        PropertyAction { target: islandCollapsedText; property: "text" }
+                        NumberAnimation { target: islandCollapsedText; property: "opacity"; to: 1; duration: 200; easing.type: Easing.OutCubic }
+                    }
+                }
+            }
+        }
+
         SlotRow {
             id: rightRowItem
             anchors.verticalCenter: parent.verticalCenter
             x: barSlot.compactShell
-                ? island.fitPadding
-                    + leftRowItem.implicitWidth
-                    + (leftRowItem.implicitWidth > 0.5 ? island.fitRegionGap : 0)
-                    + centerRowItem.implicitWidth
-                    + (centerRowItem.implicitWidth > 0.5 ? island.fitRegionGap : 0)
+                ? island.fitPadding + island.leftVisibleWidth + island.centerVisibleWidth + (island.centerVisibleWidth > 0.5 ? island.fitRegionGap : 0)
                 : island.width - island.rowMargin - implicitWidth
             rmodel: rightModel
             baseCount: barSlot.rightBaseSlotCount
             maxExtraCount: barSlot.rightExtraSlotLimit
+            opacity: 1.0 - island.islandShrinkProgress
         }
 
         // ── slot-aware panel X positions: publish per-screen anchors ──
@@ -2144,7 +2212,7 @@ PanelWindow {
         y: continuousBarSurface.y
         width: continuousBarSurface.width
         height: barSlot.root.v2BarHeight
-        visible: barSlot.root.barBorderEnabled
+        visible: barSlot.root.barBorderEnabled && barSlot.root.barShellStyle !== "island"
         z: 3
 
         Rectangle {
