@@ -15,7 +15,7 @@ PanelWindow {
     color: "transparent"
     anchors { top: true; bottom: true; left: true; right: true }
     exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.layer: WlrLayer.Background
+    WlrLayershell.layer: WlrLayer.Bottom
     WlrLayershell.namespace: "omarchy-desktop-menu"
 
     property bool menuVisible: false
@@ -170,9 +170,9 @@ PanelWindow {
                     id: titleText
                     text: mprisSel.active ? (mprisSel.player.trackTitle || "Unknown Track") : desktopMenu.currentGreeting
                     color: root.ink
-                    font.family: root.barFont
+                    font.family: "DM Sans"
                     font.pixelSize: 13
-                    font.weight: Font.Bold
+                    font.weight: Font.DemiBold
                     width: mprisSel.active ? implicitWidth : parent.width
                     wrapMode: mprisSel.active ? Text.NoWrap : Text.WordWrap
                     horizontalAlignment: mprisSel.active ? Text.AlignLeft : Text.AlignHCenter
@@ -189,13 +189,13 @@ PanelWindow {
                         NumberAnimation { 
                             target: titleAnim; property: "currentX"
                             from: 0; to: -(titleText.implicitWidth - titleText.parent.width)
-                            duration: (titleText.implicitWidth - titleText.parent.width) * 30
+                            duration: Math.max(0, (titleText.implicitWidth - titleText.parent.width) * 30)
                         }
                         PauseAnimation { duration: 2000 }
                         NumberAnimation { 
                             target: titleAnim; property: "currentX"
                             from: -(titleText.implicitWidth - titleText.parent.width); to: 0
-                            duration: (titleText.implicitWidth - titleText.parent.width) * 30
+                            duration: Math.max(0, (titleText.implicitWidth - titleText.parent.width) * 30)
                         }
                     }
                 }
@@ -210,9 +210,9 @@ PanelWindow {
                     id: artistText
                     text: mprisSel.active ? (mprisSel.player.trackArtist || "Unknown Artist") : desktopMenu.currentQuote
                     color: root.sumiHi
-                    font.family: root.barFont
+                    font.family: "DM Sans"
                     font.pixelSize: 11
-                    font.italic: true
+                    font.weight: Font.Medium
                     width: mprisSel.active ? implicitWidth : parent.width
                     wrapMode: mprisSel.active ? Text.NoWrap : Text.WordWrap
                     horizontalAlignment: mprisSel.active ? Text.AlignLeft : Text.AlignHCenter
@@ -229,13 +229,13 @@ PanelWindow {
                         NumberAnimation { 
                             target: artistAnim; property: "currentX"
                             from: 0; to: -(artistText.implicitWidth - artistText.parent.width)
-                            duration: (artistText.implicitWidth - artistText.parent.width) * 30
+                            duration: Math.max(0, (artistText.implicitWidth - artistText.parent.width) * 30)
                         }
                         PauseAnimation { duration: 2000 }
                         NumberAnimation { 
                             target: artistAnim; property: "currentX"
                             from: -(artistText.implicitWidth - artistText.parent.width); to: 0
-                            duration: (artistText.implicitWidth - artistText.parent.width) * 30
+                            duration: Math.max(0, (artistText.implicitWidth - artistText.parent.width) * 30)
                         }
                     }
                 }
@@ -365,15 +365,19 @@ PanelWindow {
                     ctx.closePath();
 
                     ctx.lineJoin = "round";
+
+                    // 1. Draw the outer border stroke (thickest)
+                    if (root.panelOuterBorderW > 0) {
+                        ctx.lineWidth = 10 + (root.panelOuterBorderW * 2);
+                        ctx.strokeStyle = root.panelOuterBorderColor;
+                        ctx.stroke();
+                    }
+
+                    // 2. Draw the inner rounding stroke to mask the border
                     ctx.lineWidth = 10;
-                    
                     if (index === hIndex) {
-                        var grad = ctx.createRadialGradient(width/2, height/2, rIn, width/2, height/2, rOut);
-                        grad.addColorStop(0, opaqueBg);
-                        grad.addColorStop(1, Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.4));
-                        
-                        ctx.fillStyle = grad;
-                        ctx.strokeStyle = root.seal;
+                        ctx.fillStyle = opaqueHover;
+                        ctx.strokeStyle = opaqueHover;
                     } else {
                         ctx.fillStyle = opaqueBg;
                         ctx.strokeStyle = opaqueBg;
@@ -414,8 +418,9 @@ PanelWindow {
                 text: parent.centerText
                 visible: text !== ""
                 color: root.ink
-                font.pixelSize: 11
-                font.weight: Font.Bold
+                font.family: "DM Sans"
+                font.pixelSize: 10
+                font.weight: Font.DemiBold
                 width: parent.width - 4
                 wrapMode: Text.WordWrap
                 horizontalAlignment: Text.AlignHCenter
