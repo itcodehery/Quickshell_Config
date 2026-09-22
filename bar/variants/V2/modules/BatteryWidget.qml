@@ -38,7 +38,7 @@ Item {
         : "On battery"
     readonly property string tooltipText: statusText + " · " + percent + "%"
                                           + (timeText ? " · " + timeText : "")
-    readonly property color contentColor: root.widgetContentColor("G12", root.ink)
+    property color contentColor: root.widgetContentColor("G12", root.ink)
 
     // colour shared by the drawn battery body, fill and nub
     readonly property color battColor:

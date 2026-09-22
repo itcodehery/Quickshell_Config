@@ -7,7 +7,7 @@ Item {
     required property var root
 
     property date now: new Date()
-    readonly property color contentColor: root.widgetContentColor("G8", root.ink)
+    property color contentColor: root.widgetContentColor("G8", root.ink)
 
     function pad(n) { return n < 10 ? "0" + n : String(n) }
 
@@ -61,10 +61,10 @@ Item {
         onExited: { tip.hide(); }
         onClicked: (e) => {
             if (e.button === Qt.LeftButton) {
-                root.clock12h = !root.clock12h;          // toggle 24h / 12h
+                root.dashboardExpanded = !root.dashboardExpanded;
             } else if (e.button === Qt.RightButton) {
                 tip.hide();
-                tzRunner.running = false;                // timezone picker (unchanged)
+                tzRunner.running = false;                // timezone picker
                 tzRunner.running = true;
             }
         }

@@ -2026,17 +2026,17 @@ PanelWindow {
         // ── region models (physical L→R order) ──
         ListModel {
             id: leftModel
-            ListElement { gid: "G1"; extra: false } ListElement { gid: "G2"; extra: false } ListElement { gid: "G3"; extra: false }
+            ListElement { gid: "G1"; extra: false } ListElement { gid: "G3"; extra: false }
             ListElement { gid: ""; extra: false }   ListElement { gid: "G5"; extra: false } ListElement { gid: "G6"; extra: false }
             ListElement { gid: "G4"; extra: false } ListElement { gid: "G7"; extra: false } ListElement { gid: ""; extra: false }
             ListElement { gid: ""; extra: false }
         }
-        ListModel { id: centerModel; ListElement { gid: "G8"; extra: false } }
+        ListModel { id: centerModel; }
         ListModel {
             id: rightModel
             ListElement { gid: "G9"; extra: false }  ListElement { gid: "G10"; extra: false } ListElement { gid: "G11"; extra: false }
             ListElement { gid: "G14"; extra: false } ListElement { gid: "G12"; extra: false } ListElement { gid: "G13"; extra: false }
-            ListElement { gid: "G16"; extra: false } ListElement { gid: "G18"; extra: true }  ListElement { gid: "G17"; extra: true }
+            ListElement { gid: "G16"; extra: false }  ListElement { gid: "G17"; extra: true }
             ListElement { gid: "G19"; extra: true }  ListElement { gid: "G15"; extra: true }  ListElement { gid: "G20"; extra: true }
             ListElement { gid: ""; extra: true }
             ListElement { gid: ""; extra: true }
@@ -2206,6 +2206,7 @@ PanelWindow {
     // The screen-facing edge is the final visual layer of the bar. Keeping this
     // separate from the filled surface lets ordinary widget fills remain simple
     // rounded rectangles while the connected indentation always stays visible.
+    
     Item {
         id: foregroundEdgeBorder
         x: continuousBarSurface.x

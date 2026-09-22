@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Widgets
+import QtQml.Models
 import "../modules"
 
 Item {
@@ -192,136 +193,502 @@ Item {
             }
 
             // --- MATERIAL YOU TILES ---
-            Grid {
+            ListView {
+                id: tilesPager
                 width: parent.width
-                columns: 2
-                spacing: 12
-
-                // Wi-Fi Tile
-                Rectangle {
-                    id: wifiTile
-                    property bool connected: dashboardContent.currentWifiName !== "Wi-Fi"
-                    width: (parent.width - 12) / 2
-                    height: 60
-                    radius: 30
-                    color: connected ? root.seal : root.fillIdle
-                    scale: wifiMa.pressed ? 0.92 : 1.0
-                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-                    Behavior on color { ColorAnimation { duration: 200 } }
-                    
-                    Row {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.leftMargin: 16
-                        spacing: 12
-                        
-                        IconText { text: "wifi"; color: wifiTile.connected ? root.paper : root.ink; font.pixelSize: 20; Behavior on color { ColorAnimation { duration: 200 } } }
-                        
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            Text { text: "Wi-Fi"; color: wifiTile.connected ? root.paper : root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold; Behavior on color { ColorAnimation { duration: 200 } } }
-                            Text { text: dashboardContent.currentWifiName; color: wifiTile.connected ? root.paper : root.ink; opacity: wifiTile.connected ? 0.8 : 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: wifiTile.width - 64; Behavior on color { ColorAnimation { duration: 200 } } }
+                height: 132
+                clip: true
+                snapMode: ListView.SnapToItem
+                orientation: ListView.Vertical
+                boundsBehavior: Flickable.StopAtBounds
+                spacing: 24
+                
+                WheelHandler {
+                    onWheel: (event) => {
+                        if (event.angleDelta.y > 0) {
+                            tilesPager.flick(0, 2000)
+                        } else if (event.angleDelta.y < 0) {
+                            tilesPager.flick(0, -2000)
                         }
-                    }
-                    MouseArea {
-                        id: wifiMa
-                        anchors.fill: parent
-                        onClicked: root.networkVisible = !root.networkVisible
                     }
                 }
-
-                // Bluetooth Tile
-                Rectangle {
-                    id: btTile
-                    property bool connected: dashboardContent.currentBtName !== "Bluetooth"
-                    width: (parent.width - 12) / 2
-                    height: 60
-                    radius: 30
-                    color: connected ? root.seal : root.fillIdle
-                    scale: btMa.pressed ? 0.92 : 1.0
-                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-                    Behavior on color { ColorAnimation { duration: 200 } }
-                    
-                    Row {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.leftMargin: 16
+                
+                model: ObjectModel {
+                    // --- PAGE 1 ---
+                    Grid {
+                        width: tilesPager.width
+                        height: tilesPager.height
+                        columns: 2
                         spacing: 12
-                        
-                        IconText { text: "bluetooth"; color: btTile.connected ? root.paper : root.ink; font.pixelSize: 20; Behavior on color { ColorAnimation { duration: 200 } } }
-                        
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            Text { text: "Bluetooth"; color: btTile.connected ? root.paper : root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold; Behavior on color { ColorAnimation { duration: 200 } } }
-                            Text { text: dashboardContent.currentBtName; color: btTile.connected ? root.paper : root.ink; opacity: btTile.connected ? 0.8 : 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: btTile.width - 64; Behavior on color { ColorAnimation { duration: 200 } } }
+
+                        // Wi-Fi Tile
+                        Rectangle {
+                            id: wifiTile
+                            property bool connected: dashboardContent.currentWifiName !== "Wi-Fi"
+                            width: (parent.width - 12) / 2
+                            height: 60
+                            radius: 30
+                            color: connected ? root.seal : root.fillIdle
+                            scale: wifiMa.pressed ? 0.92 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                            Behavior on color { ColorAnimation { duration: 200 } }
+                            
+                            Row {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.leftMargin: 16
+                                spacing: 12
+                                
+                                IconText { text: "wifi"; color: wifiTile.connected ? root.paper : root.ink; font.pixelSize: 20; Behavior on color { ColorAnimation { duration: 200 } } }
+                                
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    Text { text: "Wi-Fi"; color: wifiTile.connected ? root.paper : root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold; Behavior on color { ColorAnimation { duration: 200 } } }
+                                    Text { text: dashboardContent.currentWifiName; color: wifiTile.connected ? root.paper : root.ink; opacity: wifiTile.connected ? 0.8 : 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: wifiTile.width - 64; Behavior on color { ColorAnimation { duration: 200 } } }
+                                }
+                            }
+                            MouseArea {
+                                id: wifiMa
+                                anchors.fill: parent
+                                onClicked: root.networkVisible = !root.networkVisible
+                            }
+                        }
+
+                        // Bluetooth Tile
+                        Rectangle {
+                            id: btTile
+                            property bool connected: dashboardContent.currentBtName !== "Bluetooth"
+                            width: (parent.width - 12) / 2
+                            height: 60
+                            radius: 30
+                            color: connected ? root.seal : root.fillIdle
+                            scale: btMa.pressed ? 0.92 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                            Behavior on color { ColorAnimation { duration: 200 } }
+                            
+                            Row {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.leftMargin: 16
+                                spacing: 12
+                                
+                                IconText { text: "bluetooth"; color: btTile.connected ? root.paper : root.ink; font.pixelSize: 20; Behavior on color { ColorAnimation { duration: 200 } } }
+                                
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    Text { text: "Bluetooth"; color: btTile.connected ? root.paper : root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold; Behavior on color { ColorAnimation { duration: 200 } } }
+                                    Text { text: dashboardContent.currentBtName; color: btTile.connected ? root.paper : root.ink; opacity: btTile.connected ? 0.8 : 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: btTile.width - 64; Behavior on color { ColorAnimation { duration: 200 } } }
+                                }
+                            }
+                            MouseArea {
+                                id: btMa
+                                anchors.fill: parent
+                                onClicked: root.bluetoothVisible = !root.bluetoothVisible
+                            }
+                        }
+
+                        // CPU Tile
+                        Rectangle {
+                            id: cpuTile
+                            width: (parent.width - 12) / 2
+                            height: 60
+                            radius: 30
+                            color: root.fillIdle
+                            scale: cpuMa.pressed ? 0.92 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                            
+                            Row {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.leftMargin: 16
+                                spacing: 12
+                                
+                                IconText { text: "memory"; color: root.ink; font.pixelSize: 20 }
+                                
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    Text { text: "CPU"; color: root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold }
+                                    Text { text: root.systemCpuPercent + "%"; color: root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: 60 }
+                                }
+                            }
+                            MouseArea {
+                                id: cpuMa
+                                anchors.fill: parent
+                                onClicked: root.cpuVisible = !root.cpuVisible
+                            }
+                        }
+
+                        // Memory Tile
+                        Rectangle {
+                            id: memTile
+                            width: (parent.width - 12) / 2
+                            height: 60
+                            radius: 30
+                            color: root.fillIdle
+                            scale: memMa.pressed ? 0.92 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                            
+                            Row {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.leftMargin: 16
+                                spacing: 12
+                                
+                                IconText { text: "dns"; color: root.ink; font.pixelSize: 20 }
+                                
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    Text { text: "Memory"; color: root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold }
+                                    Text { text: root.systemMemUsedGiB.toFixed(1) + "/" + root.systemMemTotalGiB.toFixed(0) + "G"; color: root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: 60 }
+                                }
+                            }
+                            MouseArea {
+                                id: memMa
+                                anchors.fill: parent
+                                onClicked: root.memVisible = !root.memVisible
+                            }
                         }
                     }
-                    MouseArea {
-                        id: btMa
-                        anchors.fill: parent
-                        onClicked: root.bluetoothVisible = !root.bluetoothVisible
-                    }
-                }
 
-                // CPU Tile
-                Rectangle {
-                    id: cpuTile
-                    width: (parent.width - 12) / 2
-                    height: 60
-                    radius: 30
-                    color: root.fillIdle
-                    scale: cpuMa.pressed ? 0.92 : 1.0
-                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-                    
-                    Row {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.leftMargin: 16
+                    // --- PAGE 2 ---
+                    Grid {
+                        width: tilesPager.width
+                        height: tilesPager.height
+                        columns: 2
                         spacing: 12
-                        
-                        IconText { text: "memory"; color: root.ink; font.pixelSize: 20 }
-                        
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            Text { text: "CPU"; color: root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold }
-                            Text { text: root.systemCpuPercent + "%"; color: root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: 60 }
+
+                        // DND Tile
+                        Rectangle {
+                            id: dndTile
+                            property bool active: root.notifSilenced
+                            width: (parent.width - 12) / 2
+                            height: 60
+                            radius: 30
+                            color: active ? root.color04 : root.fillIdle
+                            scale: dndMa.pressed ? 0.92 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                            Behavior on color { ColorAnimation { duration: 200 } }
+                            
+                            Row {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.leftMargin: 16
+                                spacing: 12
+                                IconText { text: dndTile.active ? "notifications_off" : "notifications_active"; color: dndTile.active ? root.paper : root.ink; font.pixelSize: 20; Behavior on color { ColorAnimation { duration: 200 } } }
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    Text { text: "DND"; color: dndTile.active ? root.paper : root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold; Behavior on color { ColorAnimation { duration: 200 } } }
+                                    Text { text: dndTile.active ? "Silenced" : "Alerts On"; color: dndTile.active ? root.paper : root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; Behavior on color { ColorAnimation { duration: 200 } } }
+                                }
+                            }
+                            MouseArea {
+                                id: dndMa
+                                anchors.fill: parent
+                                onClicked: {
+                                    Quickshell.execDetached(["quickshell", "-p", "/usr/share/omarchy/shell", "ipc", "call", "notifications", "toggleDnd"])
+                                    root.notifSilenced = !root.notifSilenced
+                                }
+                            }
+                        }
+
+                        // Eye Comfort Tile
+                        Rectangle {
+                            id: nightTile
+                            property bool active: false
+                            
+                            Process {
+                                running: true
+                                command: ["bash", "-c", "pgrep -x hyprsunset > /dev/null && echo 'on' || echo 'off'"]
+                                stdout: StdioCollector {
+                                    onStreamFinished: nightTile.active = (this.text.trim() === "on")
+                                }
+                            }
+
+                            width: (parent.width - 12) / 2
+                            height: 60
+                            radius: 30
+                            color: active ? root.color01 : root.fillIdle
+                            scale: nightMa.pressed ? 0.92 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                            Behavior on color { ColorAnimation { duration: 200 } }
+                            
+                            Row {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.leftMargin: 16
+                                spacing: 12
+                                IconText { text: "nightlight_round"; color: nightTile.active ? root.paper : root.ink; font.pixelSize: 20; Behavior on color { ColorAnimation { duration: 200 } } }
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    Text { text: "Night Light"; color: nightTile.active ? root.paper : root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold; Behavior on color { ColorAnimation { duration: 200 } } }
+                                    Text { text: nightTile.active ? "Warm" : "Off"; color: nightTile.active ? root.paper : root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; Behavior on color { ColorAnimation { duration: 200 } } }
+                                }
+                            }
+                            MouseArea {
+                                id: nightMa
+                                anchors.fill: parent
+                                onClicked: {
+                                    if (nightTile.active) {
+                                        Quickshell.execDetached(["killall", "hyprsunset"])
+                                        nightTile.active = false
+                                    } else {
+                                        Quickshell.execDetached(["hyprsunset", "-t", "4000"])
+                                        nightTile.active = true
+                                    }
+                                }
+                            }
+                        }
+
+                        // Power Mode Tile
+                        Rectangle {
+                            id: powerTile
+                            property bool active: false
+                            
+                            Process {
+                                running: true
+                                command: ["powerprofilesctl", "get"]
+                                stdout: StdioCollector {
+                                    onStreamFinished: powerTile.active = (this.text.trim() === "performance")
+                                }
+                            }
+
+                            width: (parent.width - 12) / 2
+                            height: 60
+                            radius: 30
+                            color: active ? root.color02 : root.fillIdle
+                            scale: powerMa.pressed ? 0.92 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                            Behavior on color { ColorAnimation { duration: 200 } }
+                            
+                            Row {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.leftMargin: 16
+                                spacing: 12
+                                IconText { text: "bolt"; color: powerTile.active ? root.paper : root.ink; font.pixelSize: 20; Behavior on color { ColorAnimation { duration: 200 } } }
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    Text { text: "Power"; color: powerTile.active ? root.paper : root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold; Behavior on color { ColorAnimation { duration: 200 } } }
+                                    Text { text: powerTile.active ? "Performance" : "Balanced"; color: powerTile.active ? root.paper : root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; Behavior on color { ColorAnimation { duration: 200 } } }
+                                }
+                            }
+                            MouseArea {
+                                id: powerMa
+                                anchors.fill: parent
+                                onClicked: {
+                                    let newMode = powerTile.active ? "balanced" : "performance"
+                                    Quickshell.execDetached(["powerprofilesctl", "set", newMode])
+                                    powerTile.active = !powerTile.active
+                                }
+                            }
+                        }
+
+                        // Caffeine Tile
+                        Rectangle {
+                            id: coffeeTile
+                            property bool active: false
+                            
+                            Process {
+                                running: true
+                                command: ["bash", "-c", "pgrep -f 'why=caffeine' > /dev/null && echo 'on' || echo 'off'"]
+                                stdout: StdioCollector {
+                                    onStreamFinished: coffeeTile.active = (this.text.trim() === "on")
+                                }
+                            }
+
+                            width: (parent.width - 12) / 2
+                            height: 60
+                            radius: 30
+                            color: active ? root.color03 : root.fillIdle
+                            scale: coffeeMa.pressed ? 0.92 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                            Behavior on color { ColorAnimation { duration: 200 } }
+                            
+                            Row {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.leftMargin: 16
+                                spacing: 12
+                                IconText { text: "local_cafe"; color: coffeeTile.active ? root.paper : root.ink; font.pixelSize: 20; Behavior on color { ColorAnimation { duration: 200 } } }
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    Text { text: "Caffeine"; color: coffeeTile.active ? root.paper : root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold; Behavior on color { ColorAnimation { duration: 200 } } }
+                                    Text { text: coffeeTile.active ? "Awake" : "Sleepy"; color: coffeeTile.active ? root.paper : root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; Behavior on color { ColorAnimation { duration: 200 } } }
+                                }
+                            }
+                            MouseArea {
+                                id: coffeeMa
+                                anchors.fill: parent
+                                onClicked: {
+                                    if (coffeeTile.active) {
+                                        Quickshell.execDetached(["pkill", "-f", "why=caffeine"])
+                                        coffeeTile.active = false
+                                    } else {
+                                        Quickshell.execDetached(["systemd-inhibit", "--what=idle", "--who=quickshell", "--why=caffeine", "sleep", "infinity"])
+                                        coffeeTile.active = true
+                                    }
+                                }
+                            }
                         }
                     }
-                    MouseArea {
-                        id: cpuMa
-                        anchors.fill: parent
-                        onClicked: root.cpuVisible = !root.cpuVisible
-                    }
-                }
 
-                // Memory Tile
-                Rectangle {
-                    id: memTile
-                    width: (parent.width - 12) / 2
-                    height: 60
-                    radius: 30
-                    color: root.fillIdle
-                    scale: memMa.pressed ? 0.92 : 1.0
-                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-                    
-                    Row {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.leftMargin: 16
-                        spacing: 12
+                    // --- PAGE 3 ---
+                    Item {
+                        width: tilesPager.width
+                        height: tilesPager.height
                         
-                        IconText { text: "dns"; color: root.ink; font.pixelSize: 20 }
-                        
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            Text { text: "Memory"; color: root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold }
-                            Text { text: root.systemMemUsedGiB.toFixed(1) + "/" + root.systemMemTotalGiB.toFixed(0) + "G"; color: root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: 60 }
+                        // Big Pill (Temp)
+                        Rectangle {
+                            id: tempTile
+                            x: 0
+                            y: 0
+                            width: (tilesPager.width - 12) / 2
+                            height: 132
+                            radius: 30
+                            
+                            property int currentTemp: 45
+                            
+                            color: {
+                                if (currentTemp < 50) return Qt.rgba(0.2, 0.6, 0.8, 0.4) // Cool blue
+                                if (currentTemp < 75) return Qt.rgba(0.9, 0.7, 0.2, 0.4) // Warm yellow/orange
+                                return Qt.rgba(0.9, 0.2, 0.2, 0.4) // Hot red
+                            }
+                            Behavior on color { ColorAnimation { duration: 500 } }
+                            
+                            Process {
+                                running: true
+                                command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp"]
+                                stdout: StdioCollector {
+                                    onStreamFinished: {
+                                        let t = parseInt(this.text.trim())
+                                        if (!isNaN(t)) {
+                                            tempTile.currentTemp = Math.round(t / 1000)
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            Timer {
+                                interval: 3000; repeat: true; running: true
+                                onTriggered: {
+                                    Quickshell.execDetached(["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp > /tmp/qt_temp"])
+                                }
+                            }
+                            
+                            // Better: Let's use a Process that is re-run by a Timer
+                            Process {
+                                id: tempUpdater
+                                command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp"]
+                                stdout: StdioCollector {
+                                    onStreamFinished: {
+                                        let t = parseInt(this.text.trim())
+                                        if (!isNaN(t)) {
+                                            tempTile.currentTemp = Math.round(t / 1000)
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            Timer {
+                                interval: 2000; repeat: true; running: true
+                                onTriggered: { tempUpdater.running = false; tempUpdater.running = true }
+                            }
+                            
+                            Column {
+                                anchors.centerIn: parent
+                                spacing: 16
+                                IconText { 
+                                    text: "thermostat"
+                                    color: root.ink
+                                    font.pixelSize: 42
+                                    anchors.horizontalCenter: parent.horizontalCenter 
+                                }
+                                Text { 
+                                    text: tempTile.currentTemp + "°C"
+                                    color: root.ink
+                                    font.family: root.barFont
+                                    font.pixelSize: 24
+                                    font.weight: Font.Bold
+                                    anchors.horizontalCenter: parent.horizontalCenter 
+                                }
+                            }
                         }
-                    }
-                    MouseArea {
-                        id: memMa
-                        anchors.fill: parent
-                        onClicked: root.memVisible = !root.memVisible
+                        
+                        // Two small pills
+                        Column {
+                            x: (tilesPager.width + 12) / 2
+                            y: 0
+                            width: (tilesPager.width - 12) / 2
+                            height: 132
+                            spacing: 12
+                            
+                            // Extra 1
+                            Rectangle {
+                                width: parent.width
+                                height: 60
+                                radius: 30
+                                color: root.fillIdle
+                                
+                                Row {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 16
+                                    spacing: 12
+                                    
+                                    IconText { text: "speed"; color: root.ink; font.pixelSize: 20 }
+                                    
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        Text { text: "CPU Clock"; color: root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold }
+                                        Text { text: "3.4 GHz"; color: root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: 60 }
+                                    }
+                                }
+                            }
+                            
+                            // Extra 2
+                            Rectangle {
+                                id: storageTile
+                                width: parent.width
+                                height: 60
+                                radius: 30
+                                color: root.fillIdle
+                                scale: storageMa.pressed ? 0.92 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                                
+                                Process {
+                                    running: true
+                                    command: ["bash", "-c", "df -h / | awk 'NR==2{print $4}'"]
+                                    stdout: StdioCollector {
+                                        onStreamFinished: {
+                                            storageVal.text = this.text.trim() + " Free"
+                                        }
+                                    }
+                                }
+                                
+                                Row {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 16
+                                    spacing: 12
+                                    
+                                    IconText { text: "storage"; color: root.ink; font.pixelSize: 20 }
+                                    
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        Text { text: "Disk Space"; color: root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold }
+                                        Text { id: storageVal; text: "Loading..."; color: root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: 60 }
+                                    }
+                                }
+                                
+                                MouseArea {
+                                    id: storageMa
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        Quickshell.execDetached(["xdg-open", "/"])
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
