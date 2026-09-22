@@ -18,10 +18,11 @@ PanelWindow {
     margins.bottom: 20
     
     exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.layer: WlrLayer.Bottom
+    WlrLayershell.layer: expanded ? WlrLayer.Overlay : WlrLayer.Bottom
     WlrLayershell.namespace: "homescreen-clock"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
+    mask: Region { item: bgRect }
 
     property bool expanded: root.dashboardExpanded
     onExpandedChanged: {
@@ -84,13 +85,6 @@ PanelWindow {
 
         HoverHandler {
             id: bgHover
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            onClicked: {
-                if (!expanded) expanded = true;
-            }
         }
         
         // Header / Compact Clock
@@ -184,24 +178,37 @@ PanelWindow {
             }
         }
         
-        // Top-left Battery
-        Rectangle {
+        // Top-left: System Pet + Battery
+        Row {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.margins: 20
-            height: 32
-            width: battLoader.item ? battLoader.item.implicitWidth : 0
-            radius: 16
-            color: root.fillIdle
-            visible: expanded && battLoader.item && battLoader.item.shown
+            spacing: 12
+            visible: expanded
             opacity: expanded ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 300 } }
 
-            Loader {
-                id: battLoader
-                anchors.centerIn: parent
-                active: expanded
-                sourceComponent: BatteryWidget { root: hsClock.root }
+            // System Pet
+            SystemPet {
+                root: hsClock.root
+                anchors.verticalCenter: parent.verticalCenter
+            }
+
+            // Battery pill
+            Rectangle {
+                height: 32
+                width: battLoader.item ? battLoader.item.implicitWidth : 0
+                radius: 16
+                color: root.fillIdle
+                visible: battLoader.item && battLoader.item.shown
+                anchors.verticalCenter: parent.verticalCenter
+
+                Loader {
+                    id: battLoader
+                    anchors.centerIn: parent
+                    active: expanded
+                    sourceComponent: BatteryWidget { root: hsClock.root }
+                }
             }
         }
         

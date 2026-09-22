@@ -103,9 +103,46 @@ PanelWindow {
         }
     }
 
+    // --- Clock hover zone detection ---
+    // The HomescreenClockPanel sits behind this full-screen surface on the
+    // same WlrLayer.Bottom, so it never receives mouse events directly.
+    // We detect the cursor entering the clock pill area here and toggle
+    // root.dashboardExpanded accordingly.
+    readonly property real clockZoneWidth: 260   // ~pill width + small margin
+    readonly property real clockZoneHeight: 100   // pill + bottom margin
+
+    function cursorInClockZone(mx, my) {
+        var cx = desktopMenu.width / 2
+        var bottom = desktopMenu.height
+        return mx >= cx - clockZoneWidth / 2
+            && mx <= cx + clockZoneWidth / 2
+            && my >= bottom - clockZoneHeight - 30
+            && my <= bottom - 30
+    }
+
+    // When the dashboard is expanded, the bgRect grows to ~70% width and ~55% height.
+    // Keep it alive while cursor stays inside that larger region.
+    function cursorInExpandedZone(mx, my) {
+        var cx = desktopMenu.width / 2
+        var ew = desktopMenu.width * 0.7
+        var eh = desktopMenu.height * 0.55
+        var bottom = desktopMenu.height
+        return mx >= cx - ew / 2
+            && mx <= cx + ew / 2
+            && my >= bottom - eh - 20
+    }
+
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.RightButton | Qt.LeftButton
+        hoverEnabled: true
+
+        onPositionChanged: (mouse) => {
+            if (!root.dashboardExpanded && desktopMenu.cursorInClockZone(mouse.x, mouse.y)) {
+                root.dashboardExpanded = true
+            }
+        }
+
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
                 menuX = Math.min(Math.max(mouse.x, 130), parent.width - 130)
