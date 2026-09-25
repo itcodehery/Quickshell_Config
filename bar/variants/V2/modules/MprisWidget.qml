@@ -362,17 +362,57 @@ Item {
                     color: rootMod.accentColor
                 }
             }
-
             // Title
-            UiText {
-                id: islandTitle
+            Item {
+                id: islandMarqueeClip
                 anchors.verticalCenter: parent.verticalCenter
-                text: rootMod.player ? (rootMod.player.trackTitle || "Unknown") : ""
-                color: rootMod.contentColor
-                font.family: root.barFont; font.pixelSize: 12; font.weight: Font.Medium
-                elide: Text.ElideRight
-                width: Math.min(islandTitle.implicitWidth, 120) // Cap width
+                width: Math.min(islandMarqueeText.implicitWidth, 120)
+                height: 28
                 clip: true
+
+                Text {
+                    id: islandMarqueeText
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: rootMod.player ? (rootMod.player.trackTitle || "Unknown") : ""
+                    color: rootMod.contentColor
+                    font.family: root.barFont; font.pixelSize: 12; font.weight: Font.Medium
+                    x: 0
+                    
+                    onTextChanged: { islandMarqueeClip.resetMarquee(); }
+                }
+
+                function resetMarquee() {
+                    islandMarqueeAnim.stop();
+                    islandMarqueeText.x = 0;
+                    if (rootMod.visible && rootMod.playing && islandMarqueeText.implicitWidth > islandMarqueeClip.width) {
+                        islandMarqueeAnim.start();
+                    }
+                }
+
+                Connections {
+                    target: rootMod
+                    function onPlayingChanged() { islandMarqueeClip.resetMarquee(); }
+                    function onVisibleChanged() { islandMarqueeClip.resetMarquee(); }
+                }
+                
+                Connections {
+                    target: islandMarqueeClip
+                    function onWidthChanged() { islandMarqueeClip.resetMarquee(); }
+                }
+
+                SequentialAnimation {
+                    id: islandMarqueeAnim
+                    loops: Animation.Infinite
+                    PauseAnimation  { duration: 2000 }
+                    NumberAnimation {
+                        target: islandMarqueeText; property: "x"
+                        to: -(islandMarqueeText.implicitWidth - islandMarqueeClip.width + 12)
+                        duration: Math.max(100, islandMarqueeText.implicitWidth - islandMarqueeClip.width + 12) * 20
+                        easing.type: Easing.Linear
+                    }
+                    PauseAnimation  { duration: 900 }
+                    NumberAnimation { target: islandMarqueeText; property: "x"; to: 0; duration: 0 }
+                }
             }
 
             // Mini EQ
