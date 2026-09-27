@@ -1881,7 +1881,7 @@ PanelWindow {
         property real leftVisibleWidth: (1.0 - islandShrinkProgress) * (leftRowItem.implicitWidth + (leftRowItem.implicitWidth > 0.5 ? fitRegionGap : 0))
         property real rightVisibleWidth: (1.0 - islandShrinkProgress) * (rightRowItem.implicitWidth + (rightRowItem.implicitWidth > 0.5 ? fitRegionGap : 0))
 
-        readonly property real collapsedCenterTotalWidth: islandCollapsedItem.visibleWidth + (islandCollapsedItem.hasLyrics && barSlot.root.barShellStyle === "island" ? centerRowItem.implicitWidth + 8 + islandCollapsedMpris.width : 0)
+        readonly property real collapsedCenterTotalWidth: islandCollapsedItem.visibleWidth + (barSlot.root.barShellStyle === "island" ? centerRowItem.implicitWidth + 8 + islandCollapsedRightSlot.width : 0)
         readonly property real centerVisibleWidth: (1.0 - islandShrinkProgress) * centerRowItem.implicitWidth + islandShrinkProgress * collapsedCenterTotalWidth
         readonly property real fitNaturalWidth: Math.ceil(
             2 * fitPadding
@@ -2057,7 +2057,7 @@ PanelWindow {
             // no centerIn: x is clamped between the side rows on narrow monitors
             anchors.verticalCenter: parent.verticalCenter
             x: barSlot.compactShell
-                ? (islandCollapsedItem.hasLyrics && barSlot.root.barShellStyle === "island"
+                ? (barSlot.root.barShellStyle === "island"
                     ? island.fitPadding + island.leftVisibleWidth
                     : island.fitPadding + island.leftVisibleWidth + (island.centerVisibleWidth - implicitWidth) / 2)
                 : island.centerTargetX
@@ -2069,14 +2069,14 @@ PanelWindow {
             baseCount: barSlot.centerBaseSlotCount
             maxExtraCount: barSlot.centerExtraSlotLimit
             visible: opacity > 0
-            opacity: (islandCollapsedItem.hasLyrics && barSlot.root.barShellStyle === "island") ? 1.0 : (1.0 - island.islandShrinkProgress)
+            opacity: barSlot.root.barShellStyle === "island" ? 1.0 : (1.0 - island.islandShrinkProgress)
         }
         
         Rectangle {
             id: islandCollapsedItem
             anchors.verticalCenter: parent.verticalCenter
             x: barSlot.compactShell 
-                ? (islandCollapsedItem.hasLyrics && barSlot.root.barShellStyle === "island"
+                ? (barSlot.root.barShellStyle === "island"
                     ? island.fitPadding + island.leftVisibleWidth + centerRowItem.implicitWidth + 4
                     : island.fitPadding + island.leftVisibleWidth + (island.centerVisibleWidth - width) / 2)
                 : island.centerTargetX
@@ -2125,8 +2125,13 @@ PanelWindow {
             ListElement { gid: "G9"; type: "widget"; extra: false }
         }
 
+        ListModel {
+            id: islandBatteryModel
+            ListElement { gid: "G12"; type: "widget"; extra: false }
+        }
+
         SlotRow {
-            id: islandCollapsedMpris
+            id: islandCollapsedRightSlot
             anchors.verticalCenter: parent.verticalCenter
             
             x: barSlot.compactShell
@@ -2134,9 +2139,9 @@ PanelWindow {
                 : island.centerTargetX
                 
             visible: opacity > 0
-            opacity: (islandCollapsedItem.hasLyrics && barSlot.root.barShellStyle === "island") ? island.islandShrinkProgress : 0
+            opacity: barSlot.root.barShellStyle === "island" ? island.islandShrinkProgress : 0
             
-            rmodel: islandMediaModel
+            rmodel: islandCollapsedItem.hasLyrics ? islandMediaModel : islandBatteryModel
             baseCount: 1
             maxExtraCount: 0
         }
