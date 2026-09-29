@@ -101,11 +101,11 @@ PanelWindow {
         y: barSlot.root.barPosition === "bottom"
             ? (barSlot.effectivelyHidden ? barSlot.height : barSlot.height - height - islandMargin)
             : (barSlot.effectivelyHidden ? -height : islandMargin)
-        Behavior on y { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+        Behavior on y { NumberAnimation { duration: 400; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
         width: barSlot.shellTargetWidth
         Behavior on width {
             enabled: barSlot.root.barShellStyle === "island" && island.islandShrinkProgress > 0.95
-            NumberAnimation { duration: 400; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: 400; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
         }
         height: barSlot.shellVisibleHeight
         radius: barSlot.compactShell ? barSlot.shellRadius : 0
@@ -1876,7 +1876,7 @@ PanelWindow {
         // The base shell draws a black hole around the island when hovered.
         property bool isIslandHidden: barSlot.root.barShellStyle === "island" && !island.isHovered && !barSlot.root.anyPopupVisible
         property real islandShrinkProgress: isIslandHidden ? 1.0 : 0.0
-        Behavior on islandShrinkProgress { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+        Behavior on islandShrinkProgress { NumberAnimation { duration: 400; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
         property real leftVisibleWidth: (1.0 - islandShrinkProgress) * (leftRowItem.implicitWidth + (leftRowItem.implicitWidth > 0.5 ? fitRegionGap : 0))
         property real rightVisibleWidth: (1.0 - islandShrinkProgress) * (rightRowItem.implicitWidth + (rightRowItem.implicitWidth > 0.5 ? fitRegionGap : 0))
@@ -2093,7 +2093,7 @@ PanelWindow {
             readonly property real visibleWidth: Math.min(Math.max(islandCollapsedText.implicitWidth + 24, 60), maxTextWidth + 24)
             width: visibleWidth
             Behavior on width {
-                NumberAnimation { duration: 400; easing.type: Easing.OutCubic }
+                NumberAnimation { duration: 400; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
             }
             height: 24
             radius: height / 2

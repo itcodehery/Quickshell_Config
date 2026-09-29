@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Effects
 import "../modules"
 import Quickshell
 import Quickshell.Io
@@ -35,6 +36,7 @@ PanelWindow {
 
     property var notesData: []
     property string editingId: ""
+    property string noteToDelete: ""
     property string editingColor: ""
 
     FileView {
@@ -62,6 +64,21 @@ PanelWindow {
         writeProc.jsonContent = JSON.stringify(notesPanel.notesData);
         writeProc.running = false;
         writeProc.running = true;
+    }
+
+    function updateCurrentNoteTitle(titleText) {
+        if (editingId === "") return;
+        var arr = Array.from(notesPanel.notesData);
+        for (var i=0; i<arr.length; i++) {
+            if (arr[i].id === editingId) {
+                if (arr[i].title === titleText) return;
+                arr[i].title = titleText;
+                arr[i].timestamp = Date.now();
+                break;
+            }
+        }
+        notesPanel.notesData = arr;
+        saveTimer.restart();
     }
 
     function updateCurrentNote(text) {
@@ -98,6 +115,7 @@ PanelWindow {
         var arr = Array.from(notesPanel.notesData);
         arr.unshift({
             id: newId,
+            title: "",
             text: "",
             color: root.paper,
             timestamp: Date.now()
@@ -107,8 +125,9 @@ PanelWindow {
         
         editingId = newId;
         editingColor = root.paper;
+        titleField.text = "";
         textArea.text = "";
-        textArea.forceActiveFocus();
+        titleField.forceActiveFocus();
     }
 
     function deleteNote(id) {
@@ -137,11 +156,11 @@ PanelWindow {
 
     readonly property var noteColors: [
         root.paper,
-        "#4a2a2a", // red tinted
-        "#2a4a35", // green tinted
-        "#2a3b4a", // blue tinted
-        "#4a452a", // yellow tinted
-        "#422a4a"  // purple tinted
+        Qt.tint(root.paper, Qt.rgba(root.color01.r, root.color01.g, root.color01.b, 0.15)),
+        Qt.tint(root.paper, Qt.rgba(root.color02.r, root.color02.g, root.color02.b, 0.15)),
+        Qt.tint(root.paper, Qt.rgba(root.color04.r, root.color04.g, root.color04.b, 0.15)),
+        Qt.tint(root.paper, Qt.rgba(root.color03.r, root.color03.g, root.color03.b, 0.15)),
+        Qt.tint(root.paper, Qt.rgba(root.color05.r, root.color05.g, root.color05.b, 0.15))
     ]
 
     Rectangle {
@@ -178,14 +197,24 @@ PanelWindow {
                 width: parent.width
                 height: 24
 
-                UiText {
-                    text: "Notes"
-                    color: root.ink
-                    font.family: root.barFont
-                    font.pixelSize: 14
-                    font.weight: Font.Bold
+                Row {
+                    spacing: 8
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
+                    IconText {
+                        text: ""
+                        color: root.accent
+                        font.pixelSize: 16
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    UiText {
+                        text: "Notes"
+                        color: root.ink
+                        font.family: root.barFont
+                        font.pixelSize: 16
+                        font.weight: Font.Bold
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
                 }
 
                 Row {
@@ -231,30 +260,57 @@ PanelWindow {
                 }
             }
 
-            GridView {
+            ListView {
                 width: parent.width
                 height: parent.height - 32
-                cellWidth: width / 2
-                cellHeight: 110
                 clip: true
+                spacing: 4
                 model: notesPanel.notesData
 
                 delegate: Item {
-                    width: GridView.view.cellWidth
-                    height: GridView.view.cellHeight
+                    width: ListView.view.width
+                    height: 110
                     
                     Rectangle {
+                        id: noteBg
                         anchors.fill: parent
-                        anchors.margins: 4
-                        radius: 8
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 12
+                        anchors.topMargin: 8
+                        anchors.bottomMargin: 8
+                        radius: 4
                         color: modelData.color ? modelData.color : root.paper
-                        border.color: noteCardMa.containsMouse ? root.seal : root.sep
+                        border.color: noteCardMa.containsMouse ? root.seal : Qt.rgba(0,0,0,0.1)
                         border.width: 1
+                        
+                        property real rot: ((index * 37) % 7) - 3
+                        rotation: rot * 0.4
+                        
+                        layer.enabled: true
+                        layer.effect: MultiEffect {
+                            shadowEnabled: true
+                            shadowColor: Qt.rgba(0, 0, 0, 0.3)
+                            shadowBlur: 0.8
+                            shadowHorizontalOffset: 2
+                            shadowVerticalOffset: 4
+                        }
+                        
+                        // Washi Tape
+                        Rectangle {
+                            width: 40; height: 12
+                            color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.15)
+                            border.color: Qt.rgba(0,0,0,0.05)
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.top: parent.top
+                            anchors.topMargin: -6
+                            rotation: ((index * 17) % 11) - 5
+                        }
 
                         Column {
                             anchors.fill: parent
-                            anchors.margins: 8
-                            anchors.rightMargin: 24 // Don't overlap the trash can!
+                            anchors.margins: 12
+                            anchors.rightMargin: 32
+                            anchors.topMargin: 16 // Space for tape
                             spacing: 4
 
                             UiText {
@@ -267,12 +323,21 @@ PanelWindow {
                             }
 
                             UiText {
-                                width: parent.width
-                                height: parent.height - 18
-                                text: modelData.text || "Empty Note"
+                                text: modelData.title || "Untitled Note"
                                 color: root.ink
                                 font.family: root.barFont
-                                font.pixelSize: 11
+                                font.pixelSize: 13
+                                font.weight: Font.Bold
+                                width: parent.width
+                                elide: Text.ElideRight
+                            }
+                            UiText {
+                                width: parent.width
+                                height: parent.height - 18 - 28
+                                text: modelData.text || ""
+                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.8)
+                                font.family: root.barFont
+                                font.pixelSize: 12
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideRight
                             }
@@ -284,9 +349,15 @@ PanelWindow {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                notesPanel.editingId = modelData.id
-                                notesPanel.editingColor = modelData.color || root.paper
-                                textArea.text = modelData.text || ""
+                                var clickedId = modelData.id
+                                var clickedColor = modelData.color || root.paper
+                                var clickedTitle = modelData.title || ""
+                                var clickedText = modelData.text || ""
+                                
+                                titleField.text = clickedTitle
+                                textArea.text = clickedText
+                                notesPanel.editingId = clickedId
+                                notesPanel.editingColor = clickedColor
                             }
                         }
 
@@ -294,16 +365,16 @@ PanelWindow {
                             width: 20; height: 20
                             radius: 10
                             color: delCardMa.containsMouse ? root.red : "transparent"
-                            anchors.top: parent.top; anchors.topMargin: 4
-                            anchors.right: parent.right; anchors.rightMargin: 4
+                            anchors.top: parent.top; anchors.topMargin: 8
+                            anchors.right: parent.right; anchors.rightMargin: 8
                             visible: noteCardMa.containsMouse || delCardMa.containsMouse
-                            IconText { anchors.centerIn: parent; text: "\uE872"; color: delCardMa.containsMouse ? root.barBg : root.sumi; font.pixelSize: 10 }
+                            IconText { anchors.centerIn: parent; text: ""; color: delCardMa.containsMouse ? root.barBg : root.sumi; font.pixelSize: 10 }
                             MouseArea {
                                 id: delCardMa
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: deleteNote(modelData.id)
+                                onClicked: notesPanel.noteToDelete = modelData.id
                             }
                         }
                     }
@@ -312,7 +383,8 @@ PanelWindow {
                 UiText {
                     visible: parent.count === 0
                     anchors.centerIn: parent
-                    text: "No notes yet.\nClick 'New' to add one!"
+                    text: "No notes yet.
+Click 'New' to add one!"
                     color: root.sumi
                     font.family: root.barFont
                     font.pixelSize: 12
@@ -380,7 +452,7 @@ PanelWindow {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: deleteNote(notesPanel.editingId)
+                        onClicked: notesPanel.noteToDelete = notesPanel.editingId
                     }
                 }
             }
@@ -397,28 +469,143 @@ PanelWindow {
                     anchors.fill: parent
                     anchors.margins: 8
                     contentWidth: width
-                    contentHeight: textArea.implicitHeight
+                    contentHeight: editCol.implicitHeight
                     clip: true
                     
-                    TextArea.flickable: TextArea {
-                        id: textArea
-                        text: ""
-                        color: root.ink
-                        font.family: root.barFont
-                        font.pixelSize: 13
-                        wrapMode: TextEdit.Wrap
-                        background: null
-                        
-                        onTextChanged: {
-                            if (notesPanel.editingId !== "") {
-                                updateCurrentNote(text)
+                    Column {
+                        id: editCol
+                        width: parent.width
+                        spacing: 4
+                        TextField {
+                            id: titleField
+                            width: parent.width
+                            text: ""
+                            color: root.ink
+                            font.family: root.barFont
+                            font.pixelSize: 14
+                            font.weight: Font.Bold
+                            background: null
+                            placeholderText: "Title"
+                            placeholderTextColor: root.sumi
+                            onTextChanged: {
+                                if (notesPanel.editingId !== "") {
+                                    updateCurrentNoteTitle(text)
+                                }
+                            }
+                        }
+                        Rectangle {
+                            width: parent.width
+                            height: 1
+                            color: root.sep
+                        }
+                        TextArea {
+                            id: textArea
+                            width: parent.width
+                            text: ""
+                            color: root.ink
+                            font.family: root.barFont
+                            font.pixelSize: 13
+                            wrapMode: TextEdit.Wrap
+                            background: null
+                            placeholderText: "Note body..."
+                            placeholderTextColor: root.sumi
+                            
+                            onTextChanged: {
+                                if (notesPanel.editingId !== "") {
+                                    updateCurrentNote(text)
+                                }
                             }
                         }
                     }
                     
                     ScrollBar.vertical: ScrollBar {
                         width: 8
-                        policy: textArea.implicitHeight > parent.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                        policy: editCol.implicitHeight > parent.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                    }
+                }
+            }
+        }
+
+        // CONFIRMATION OVERLAY
+        Rectangle {
+            anchors.fill: parent
+            color: Qt.rgba(0, 0, 0, 0.5)
+            radius: root.panelRadius
+            visible: notesPanel.noteToDelete !== ""
+            opacity: visible ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: 150 } }
+
+            MouseArea {
+                anchors.fill: parent // block clicks to things underneath
+            }
+
+            Rectangle {
+                width: 260
+                height: 120
+                anchors.centerIn: parent
+                color: root.barBg
+                radius: 8
+                border.color: root.sep
+                border.width: 1
+                
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: Qt.rgba(0,0,0,0.5)
+                    shadowBlur: 1.0
+                    shadowVerticalOffset: 4
+                }
+
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 20
+
+                    UiText {
+                        text: "Delete this note?"
+                        color: root.ink
+                        font.family: root.barFont
+                        font.pixelSize: 15
+                        font.weight: Font.Bold
+                        horizontalAlignment: Text.AlignHCenter
+                        width: 240
+                    }
+
+                    Row {
+                        spacing: 16
+                        anchors.horizontalCenter: parent.horizontalCenter
+
+                        Rectangle {
+                            width: 80; height: 32
+                            radius: 6
+                            color: cancelMa.containsMouse ? root.fillHover : "transparent"
+                            border.color: root.sep
+                            border.width: 1
+                            UiText { text: "Cancel"; color: root.ink; font.family: root.barFont; font.pixelSize: 13; anchors.centerIn: parent }
+                            MouseArea {
+                                id: cancelMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: notesPanel.noteToDelete = ""
+                            }
+                        }
+
+                        Rectangle {
+                            width: 80; height: 32
+                            radius: 6
+                            color: confirmMa.containsMouse ? Qt.darker(root.red, 1.2) : root.red
+                            UiText { text: "Delete"; color: root.barBg; font.family: root.barFont; font.pixelSize: 13; font.weight: Font.Bold; anchors.centerIn: parent }
+                            MouseArea {
+                                id: confirmMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    deleteNote(notesPanel.noteToDelete)
+                                    notesPanel.noteToDelete = ""
+                                }
+                            }
+                        }
                     }
                 }
             }
