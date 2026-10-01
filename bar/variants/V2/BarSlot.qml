@@ -2144,7 +2144,7 @@ PanelWindow {
             visible: opacity > 0
             opacity: barSlot.root.barShellStyle === "island" ? island.islandShrinkProgress : 0
             
-            rmodel: islandCollapsedItem.hasLyrics ? islandMediaModel : islandBatteryModel
+            rmodel: islandCollapsedItem.mediaActive ? islandMediaModel : islandBatteryModel
             baseCount: 1
             maxExtraCount: 0
         }

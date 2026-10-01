@@ -14,18 +14,34 @@ PanelWindow {
 
     // Lower the clock and allow it to expand upwards
     anchors { bottom: true; left: true; right: true; top: false }
-    height: expanded ? targetScreen.height * 0.55 : 110
+    height: (expanded || isClosing) ? targetScreen.height * 0.55 : 110
     margins.bottom: 20
     
     exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.layer: expanded ? WlrLayer.Overlay : WlrLayer.Bottom
+    WlrLayershell.layer: (expanded || isClosing) ? WlrLayer.Overlay : WlrLayer.Bottom
     WlrLayershell.namespace: "homescreen-clock"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
     mask: Region { item: bgRect }
 
     property bool expanded: root.dashboardExpanded
+    property bool isClosing: false
+
+    Timer {
+        id: closeTimer
+        interval: 420
+        repeat: false
+        onTriggered: hsClock.isClosing = false
+    }
+
     onExpandedChanged: {
+        if (expanded) {
+            closeTimer.stop()
+            isClosing = false
+        } else {
+            isClosing = true
+            closeTimer.restart()
+        }
         if (root.dashboardExpanded !== expanded) {
             root.dashboardExpanded = expanded
         }
@@ -69,18 +85,52 @@ PanelWindow {
         onTriggered: expanded = false
     }
 
+    readonly property real pillHeight: clockLayout.height > 0 ? clockLayout.height + 24 : 80
+    readonly property real pillWidth: clockLayout.width > 0 ? clockLayout.width + 48 : 220
+
     Rectangle {
         id: bgRect
-        anchors.centerIn: parent
-        width: expanded ? parent.width * 0.7 : clockLayout.width + 48
-        height: expanded ? parent.height : clockLayout.height + 24
+        clip: true
+        visible: expanded || isClosing || opacity > 0
+        opacity: expanded ? 1.0 : 0.0
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: expanded ? 0 : Math.max(0, (110 - pillHeight) / 2)
+        width: expanded ? parent.width * 0.7 : pillWidth
+        height: expanded ? parent.height : pillHeight
         radius: expanded ? 24 : height / 2
         color: root.bg
         border.color: root.islandBorder
         border.width: 1
         
-        Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
-        Behavior on height { NumberAnimation { duration: 400; easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 380
+                easing.type: Easing.OutCubic
+            }
+        }
+        
+        Behavior on width {
+            NumberAnimation {
+                duration: 400
+                easing.type: hsClock.expanded ? Easing.OutBack : Easing.OutCubic
+                easing.overshoot: 1.1
+            }
+        }
+        Behavior on height {
+            NumberAnimation {
+                duration: 400
+                easing.type: hsClock.expanded ? Easing.OutBack : Easing.OutCubic
+                easing.overshoot: 1.1
+            }
+        }
+        Behavior on anchors.bottomMargin {
+            NumberAnimation {
+                duration: 400
+                easing.type: hsClock.expanded ? Easing.OutBack : Easing.OutCubic
+                easing.overshoot: 1.1
+            }
+        }
         Behavior on radius { NumberAnimation { duration: 400 } }
 
         HoverHandler {
@@ -166,7 +216,7 @@ PanelWindow {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.margins: 20
-            active: expanded
+            active: expanded || isClosing
             source: "HomescreenDashboardContent.qml"
             opacity: expanded ? 1 : 0
             visible: opacity > 0
@@ -184,9 +234,9 @@ PanelWindow {
             anchors.left: parent.left
             anchors.margins: 20
             spacing: 12
-            visible: expanded
+            visible: opacity > 0
             opacity: expanded ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: 300 } }
+            Behavior on opacity { NumberAnimation { duration: 250 } }
 
             // System Pet
             SystemPet {
@@ -206,7 +256,7 @@ PanelWindow {
                 Loader {
                     id: battLoader
                     anchors.centerIn: parent
-                    active: expanded
+                    active: expanded || isClosing
                     sourceComponent: BatteryWidget { root: hsClock.root }
                 }
             }
@@ -218,9 +268,9 @@ PanelWindow {
             anchors.right: parent.right
             anchors.margins: 20
             spacing: 12
-            visible: expanded
+            visible: opacity > 0
             opacity: expanded ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: 300 } }
+            Behavior on opacity { NumberAnimation { duration: 250 } }
             
             Process {
                 id: uptimeProc
