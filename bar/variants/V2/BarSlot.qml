@@ -802,22 +802,22 @@ PanelWindow {
             r = previousRight
         }
 
-        // Only accept a complete permutation of G1..G18. Empty slots are legal,
-        // but each registered widget must still occur exactly once.
+        // Empty slots are legal, but each registered widget must occur at most once.
         var all = l.concat(c, r), seen = {}
         for (var i = 0; i < all.length; i++) {
             var gid = all[i].gid
             if (gid === "") continue
-            if (!registry[gid] || seen[gid]) return false
+            if (!registry[gid]) { all[i].gid = ""; continue }
+            if (seen[gid]) return false
             seen[gid] = true
         }
-        // Auto-inject new G20 widget if missing from cache
-        if (!seen["G20"]) {
-            r.push({ gid: "G20", extra: true })
-            seen["G20"] = true
+        // Auto-inject any missing registered widgets
+        for (var regGid in registry) {
+            if (!seen[regGid]) {
+                r.push({ gid: regGid, extra: true })
+                seen[regGid] = true
+            }
         }
-
-        if (Object.keys(seen).length !== Object.keys(registry).length) return false
 
         applyEntries(leftModel, l)
         applyEntries(centerModel, c)
@@ -2032,7 +2032,10 @@ PanelWindow {
             ListElement { gid: "G4"; extra: false } ListElement { gid: "G7"; extra: false } ListElement { gid: ""; extra: false }
             ListElement { gid: ""; extra: false }
         }
-        ListModel { id: centerModel; }
+        ListModel {
+            id: centerModel
+            ListElement { gid: "G8"; extra: false }
+        }
         ListModel {
             id: rightModel
             ListElement { gid: "G9"; extra: false }  ListElement { gid: "G10"; extra: false } ListElement { gid: "G11"; extra: false }
