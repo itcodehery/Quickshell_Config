@@ -97,7 +97,10 @@ Item {
     }
 
     onBarScreensChanged: ensureActivePopupScreen()
-    Component.onCompleted: ensureActivePopupScreen()
+    Component.onCompleted: {
+        ensureActivePopupScreen()
+        Quickshell.execDetached(["/home/hery/.config/quickshell/bar/variants/V2/scripts/start_screentime.sh"])
+    }
 
     // Secondary guard for failures that do not replace the ShellScreen object.
     // resourcesLost is followed by closed, so one pending flag handles the pair
@@ -271,6 +274,7 @@ Item {
     GithubHeatmapPanel { root: theme }
     WorkspacePanel { root: theme }
     ControlPanel { root: theme }
+    ScreentimePanel { root: theme }
     TrayMenu { root: theme }
 
     // Picker variants: only the selected pickerStyle is instantiated.

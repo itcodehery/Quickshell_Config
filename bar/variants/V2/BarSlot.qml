@@ -1273,6 +1273,14 @@ PanelWindow {
         }
     }
 
+    Component {
+        id: compScreentime
+        ScreentimeWidget {
+            root: barSlot.root
+            readonly property real barContentLeftInset: 9
+            readonly property real barContentRightInset: 9
+        }
+    }
     readonly property var registry: ({
         "G1": compLauncher, "G2": compWorkspace, "G3": compStatus,
         "G4": compMem, "G5": compCpu, "G6": compVol, "G7": compClaude,
@@ -1280,7 +1288,7 @@ PanelWindow {
         "G9": compMpris, "G10": compQuick, "G11": compNetwork,
         "G12": compBattery, "G13": compBrightness, "G14": compPower, "G15": compBluetooth,
         "G16": compCpuTemperature, "G17": compGpu, "G18": compStorage,
-        "G19": compGithubHeatmap, "G20": compNotes
+        "G21": compScreentime, "G19": compGithubHeatmap, "G20": compNotes
     })
 
     // ───────────────────── reusable region row of slots ─────────────────────
@@ -2217,6 +2225,7 @@ PanelWindow {
                 battery:      island.groupX("G12", 0.5),
                 memory:       island.groupX("G4",  0.5),
                 cpu:          island.groupX("G5",  0.5),
+                screentime:   island.groupX("G21", 0.5),
                 gpu:          island.groupX("G17", 0.5),
                 thermal:      island.groupX("G16", 0.5),
                 storage:      island.groupX("G18", 0.5),

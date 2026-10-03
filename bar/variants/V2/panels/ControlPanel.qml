@@ -375,7 +375,7 @@ PanelWindow {
                     // Memory row
                     Item { width: parent.width; height: 18
                         UiText { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; text: "Memory"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10 }
-                        UiText { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: ctrlPanel.siRam; color: root.ink; font.family: root.barFont; font.pixelSize: 10; elide: Text.ElideRight; width: parent.width * 0.65; horizontalAlignment: Text.AlignRight }
+                        UiText { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: "16 GB"; color: root.ink; font.family: root.barFont; font.pixelSize: 10; elide: Text.ElideRight; width: parent.width * 0.65; horizontalAlignment: Text.AlignRight }
                     }
                     // GPU row — label top-aligned, value wraps freely
                     Item {
@@ -626,6 +626,7 @@ PanelWindow {
                 WidgetStateTile { gid: "G14"; width: root.evenW((wwCol.width - 4) / 2); label: "Power Prof.";   shown: root.modPower;           onVisibilityToggled: root.modPower = !root.modPower }
                 WidgetStateTile { gid: "G15"; width: root.evenW((wwCol.width - 4) / 2); label: "Bluetooth";     shown: root.modBluetooth;       supportsCompact: true; compact: root.iconOnly("G15"); onVisibilityToggled: root.modBluetooth = !root.modBluetooth; onModeToggled: root.toggleIconOnly("G15") }
                 WidgetStateTile { gid: "G16"; width: root.evenW((wwCol.width - 4) / 2); label: "Temperature";   shown: root.modCpuTemperature;  supportsCompact: true; compact: root.iconOnly("G16"); onVisibilityToggled: root.modCpuTemperature = !root.modCpuTemperature; onModeToggled: root.toggleIconOnly("G16") }
+                WidgetStateTile { gid: "G21"; width: root.evenW((wwCol.width - 4) / 2); label: "Screentime";   shown: root.modScreentime;  supportsCompact: true; compact: root.iconOnly("G21"); onVisibilityToggled: root.modScreentime = !root.modScreentime; onModeToggled: root.toggleIconOnly("G21") }
                 WidgetStateTile { gid: "G17"; width: root.evenW((wwCol.width - 4) / 2); label: "GPU load";      shown: root.modGpu;             supportsCompact: true; compact: root.iconOnly("G17"); onVisibilityToggled: root.modGpu = !root.modGpu; onModeToggled: root.toggleIconOnly("G17") }
                 WidgetStateTile { gid: "G18"; width: root.evenW((wwCol.width - 4) / 2); label: "HDD";           shown: root.modStorage;         supportsCompact: true; compact: root.iconOnly("G18"); onVisibilityToggled: root.modStorage = !root.modStorage; onModeToggled: root.toggleIconOnly("G18") }
                 WidgetStateTile { gid: "G19"; width: root.evenW((wwCol.width - 4) / 2); label: "GH Heatmap";    shown: root.modGithubHeatmap;   onVisibilityToggled: root.modGithubHeatmap = !root.modGithubHeatmap }

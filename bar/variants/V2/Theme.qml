@@ -348,6 +348,7 @@ Item {
         else if (name === "mpris") mprisBarX = x
         else if (name === "weather") weatherBarX = x
         else if (name === "calendar") calendarBarX = x
+        else if (name === "screentime") screentimeBarX = x
         else if (name === "launcher") launcherBarX = x
         else if (name === "trayMenu") trayMenuX = x
     }
@@ -391,6 +392,7 @@ Item {
         _closingPopups = true
         if (except !== "calendarVisible") calendarVisible = false
         if (except !== "cpuVisible") cpuVisible = false
+        if (except !== "screentimeVisible") screentimeVisible = false
         if (except !== "gpuVisible") gpuVisible = false
         if (except !== "thermalVisible") thermalVisible = false
         if (except !== "aiUsageVisible") aiUsageVisible = false
@@ -1640,6 +1642,8 @@ Item {
     property bool modStatus:     true
     property bool modMemory:     true
     property bool modCpu:        true
+    property bool modScreentime: true
+    property bool screentimeVisible: false
     property bool modCpuTemperature: true
     property bool modGpu:        true
     property bool modStorage:    true
@@ -3064,6 +3068,7 @@ Item {
     property real batteryBarX:    0
     property real memoryBarX:     0
     property real cpuBarX:        0
+    property real screentimeBarX: 0
     property real gpuBarX:        0
     property real thermalBarX:    0
     property real storageBarX:    0

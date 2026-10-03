@@ -8,6 +8,46 @@ import "../modules"
 Item {
     id: dashboardContent
     anchors.fill: parent
+    focus: true
+    Keys.onUpPressed: pageUp()
+    Keys.onDownPressed: pageDown()
+    Keys.onPressed: (event) => {
+        if (event.key === Qt.Key_K) {
+            pageUp()
+            event.accepted = true
+        } else if (event.key === Qt.Key_J) {
+            pageDown()
+            event.accepted = true
+        }
+    }
+    
+    NumberAnimation {
+        id: smoothScrollAnim
+        target: tilesPager
+        property: "contentY"
+        duration: 250
+        easing.type: Easing.OutCubic
+    }
+    
+    function pageUp() {
+        let h = tilesPager.height + tilesPager.spacing
+        let idx = Math.round(tilesPager.contentY / h)
+        if (idx > 0) {
+            smoothScrollAnim.stop()
+            smoothScrollAnim.to = (idx - 1) * h
+            smoothScrollAnim.start()
+        }
+    }
+    
+    function pageDown() {
+        let h = tilesPager.height + tilesPager.spacing
+        let idx = Math.round(tilesPager.contentY / h)
+        if (idx < tilesPager.count - 1) {
+            smoothScrollAnim.stop()
+            smoothScrollAnim.to = (idx + 1) * h
+            smoothScrollAnim.start()
+        }
+    }
     property var root
     property var panel
 

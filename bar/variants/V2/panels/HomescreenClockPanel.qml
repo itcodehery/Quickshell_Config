@@ -20,7 +20,7 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: (expanded || isClosing) ? WlrLayer.Overlay : WlrLayer.Bottom
     WlrLayershell.namespace: "homescreen-clock"
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: (expanded || isClosing) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     mask: Region { item: bgRect }
 
@@ -38,6 +38,7 @@ PanelWindow {
         if (expanded) {
             closeTimer.stop()
             isClosing = false
+            if (dashboardLoader.item) dashboardLoader.item.forceActiveFocus()
         } else {
             isClosing = true
             closeTimer.restart()
@@ -225,6 +226,7 @@ PanelWindow {
             onLoaded: {
                 item.root = hsClock.root
                 item.panel = hsClock
+                if (expanded) item.forceActiveFocus()
             }
         }
         
@@ -291,17 +293,29 @@ PanelWindow {
                 height: 32
                 width: uptimeTxt.implicitWidth + 24
                 radius: 16
-                color: root.fillIdle
+                color: uptimeMa.containsMouse ? root.fillHover : root.fillIdle
+                Behavior on color { ColorAnimation { duration: 150 } }
                 Text {
                     id: uptimeTxt
                     anchors.centerIn: parent
                     text: "UP --"
                     color: root.ink
-                    opacity: 0.7
+                    opacity: uptimeMa.containsMouse ? 1.0 : 0.7
                     font.family: root.barFont
                     font.pixelSize: 11
                     font.weight: Font.Bold
                     font.letterSpacing: 1.0
+                    Behavior on opacity { NumberAnimation { duration: 150 } }
+                }
+                MouseArea {
+                    id: uptimeMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        
+                        root.screentimeVisible = !root.screentimeVisible // Toggle screentime
+                    }
                 }
             }
 
