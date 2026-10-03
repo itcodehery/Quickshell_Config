@@ -34,6 +34,7 @@ Item {
     function layoutLock() { theme.barUnlocked = false }
     function layoutUnlock() { theme.barUnlocked = true }
     function toggleBar() { theme.barHidden = !theme.barHidden }
+    function toggleDashboard() { theme.dashboardExpanded = !theme.dashboardExpanded }
     function systemUpdateRefresh() { theme.archRefreshTick++ }
     function runReactor(kind, arg) {
         // Reactor is a V1-only animation. Keep the shared IPC contract stable,

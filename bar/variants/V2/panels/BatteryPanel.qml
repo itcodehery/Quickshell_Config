@@ -122,8 +122,8 @@ PanelWindow {
                     Rectangle {
                         height: 20
                         width: acRow.implicitWidth + 12
-                        radius: 2
-                        border.width: 1
+                        radius: 8
+                        border.width: 0
                         border.color: batPanel.acOnline ? root.seal : root.sep
                         color: batPanel.acOnline ? root.fillActive : root.fillIdle
                         Row {
@@ -152,10 +152,10 @@ PanelWindow {
                     // Close Button
                     Rectangle {
                         width: 20; height: 20
-                        radius: 2
-                        border.width: 1
+                        radius: 8
+                        border.width: 0
                         border.color: closeMa.containsMouse ? root.seal : root.sep
-                        color: closeMa.containsMouse ? root.fillHover : "transparent"
+                        color: closeMa.containsMouse ? root.fillHover : root.fillIdle
                         IconText {
                             anchors.centerIn: parent
                             text: "close"
@@ -181,8 +181,8 @@ PanelWindow {
                 Rectangle {
                     height: 18
                     width: batIdTxt.implicitWidth + 8
-                    radius: 2
-                    border.width: 1
+                    radius: 8
+                    border.width: 0
                     border.color: root.sep
                     color: root.fillIdle
                     UiText {
@@ -200,8 +200,8 @@ PanelWindow {
                 Rectangle {
                     height: 18
                     width: hBadgeTxt.implicitWidth + 8
-                    radius: 2
-                    border.width: 1
+                    radius: 8
+                    border.width: 0
                     border.color: root.sep
                     color: root.fillIdle
                     UiText {
@@ -219,8 +219,8 @@ PanelWindow {
                 Rectangle {
                     height: 18
                     width: voltBadgeTxt.implicitWidth + 8
-                    radius: 2
-                    border.width: 1
+                    radius: 8
+                    border.width: 0
                     border.color: root.sep
                     color: root.fillIdle
                     UiText {
@@ -242,8 +242,8 @@ PanelWindow {
             Rectangle {
                 width: parent.width
                 height: 82
-                radius: 2
-                border.width: 1
+                radius: 8
+                border.width: 0
                 border.color: root.sep
                 color: root.fillIdle
 
@@ -330,18 +330,18 @@ PanelWindow {
                                     required property int index
                                     width: (parent.width - (19 * 3)) / 20
                                     height: parent.height
-                                    radius: 1
+                                    radius: 4
                                     
                                     readonly property bool isFilled: (index + 1) * 5 <= batPanel.percent
                                     readonly property bool isNext: !isFilled && (index * 5 < batPanel.percent)
 
-                                    border.width: 1
+                                    border.width: 0
                                     border.color: isFilled 
                                         ? (batPanel.charging ? root.indigo : root.seal)
                                         : root.sep
                                     color: isFilled
                                         ? (batPanel.charging ? root.indigo : root.seal)
-                                        : (isNext ? root.fillHover : "transparent")
+                                        : (isNext ? root.fillHover : root.fillIdle)
                                 }
                             }
                         }
@@ -389,9 +389,9 @@ PanelWindow {
                     Rectangle {
                         width: (parent.width - 12) / 3
                         height: 26
-                        radius: 2
+                        radius: 8
                         readonly property bool isCurrent: root.powerProfileCurrent === "power-saver"
-                        border.width: 1
+                        border.width: 0
                         border.color: isCurrent ? root.seal : (psMa.containsMouse ? root.seal : root.sep)
                         color: isCurrent ? root.seal : (psMa.containsMouse ? root.fillHover : root.fillIdle)
 
@@ -430,9 +430,9 @@ PanelWindow {
                     Rectangle {
                         width: (parent.width - 12) / 3
                         height: 26
-                        radius: 2
+                        radius: 8
                         readonly property bool isCurrent: root.powerProfileCurrent === "balanced"
-                        border.width: 1
+                        border.width: 0
                         border.color: isCurrent ? root.seal : (balMa.containsMouse ? root.seal : root.sep)
                         color: isCurrent ? root.seal : (balMa.containsMouse ? root.fillHover : root.fillIdle)
 
@@ -471,9 +471,9 @@ PanelWindow {
                     Rectangle {
                         width: (parent.width - 12) / 3
                         height: 26
-                        radius: 2
+                        radius: 8
                         readonly property bool isCurrent: root.powerProfileCurrent === "performance"
-                        border.width: 1
+                        border.width: 0
                         border.color: isCurrent ? root.seal : (perfMa.containsMouse ? root.seal : root.sep)
                         color: isCurrent ? root.seal : (perfMa.containsMouse ? root.fillHover : root.fillIdle)
 
@@ -524,8 +524,8 @@ PanelWindow {
                     property string sub: ""
                     width: (parent.width - 6) / 2
                     height: 44
-                    radius: 2
-                    border.width: 1
+                    radius: 8
+                    border.width: 0
                     border.color: root.sep
                     color: root.fillIdle
 
@@ -629,8 +629,8 @@ PanelWindow {
                         required property var modelData
                         width: parent.width
                         height: 22
-                        radius: 2
-                        border.width: 1
+                        radius: 8
+                        border.width: 0
                         border.color: root.sep
                         color: root.fillIdle
 
@@ -664,9 +664,9 @@ PanelWindow {
                             Rectangle {
                                 height: 16
                                 width: cpuTxt.implicitWidth + 8
-                                radius: 2
+                                radius: 8
                                 color: root.fillActive
-                                border.width: 1
+                                border.width: 0
                                 border.color: root.seal
                                 anchors.verticalCenter: parent.verticalCenter
                                 UiText {
@@ -695,7 +695,7 @@ PanelWindow {
                 Rectangle {
                     width: parent.width - 92
                     height: 28
-                    radius: 2
+                    radius: 8
                     color: btopMa.containsMouse ? root.fillPrimaryHover : root.seal
                     Behavior on color { ColorAnimation { duration: 120 } }
                     Row {
@@ -734,8 +734,8 @@ PanelWindow {
                 Rectangle {
                     width: 86
                     height: 28
-                    radius: 2
-                    border.width: 1
+                    radius: 8
+                    border.width: 0
                     border.color: refMa.containsMouse ? root.seal : root.sep
                     color: refMa.containsMouse ? root.fillHover : root.fillIdle
                     Row {

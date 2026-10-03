@@ -355,10 +355,10 @@ PanelWindow {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     width: 26; height: 22
-                    radius: 2
-                    border.width: 1
+                    radius: 8
+                    border.width: 0
                     border.color: prevMa.containsMouse ? root.seal : root.sep
-                    color: prevMa.containsMouse ? root.fillHover : "transparent"
+                    color: prevMa.containsMouse ? root.fillHover : root.fillIdle
                     UiText {
                         anchors.centerIn: parent
                         text: "‹"
@@ -416,10 +416,10 @@ PanelWindow {
                     Rectangle {
                         height: 22
                         width: todayBadgeTxt.implicitWidth + 8
-                        radius: 2
-                        border.width: 1
+                        radius: 8
+                        border.width: 0
                         border.color: root.seal
-                        color: todayBadgeMa.containsMouse ? root.fillActive : "transparent"
+                        color: todayBadgeMa.containsMouse ? root.fillActive : root.fillIdle
                         visible: root.calendarMonthOffset !== 0
                         UiText {
                             id: todayBadgeTxt
@@ -448,10 +448,10 @@ PanelWindow {
                     Rectangle {
                         id: nextBtn
                         width: 26; height: 22
-                        radius: 2
-                        border.width: 1
+                        radius: 8
+                        border.width: 0
                         border.color: nextMa.containsMouse ? root.seal : root.sep
-                        color: nextMa.containsMouse ? root.fillHover : "transparent"
+                        color: nextMa.containsMouse ? root.fillHover : root.fillIdle
                         UiText {
                             anchors.centerIn: parent
                             text: "›"
@@ -484,8 +484,8 @@ PanelWindow {
                     Rectangle {
                         height: 20
                         width: timeTxt.implicitWidth + 10
-                        radius: 2
-                        border.width: 1
+                        radius: 8
+                        border.width: 0
                         border.color: root.sep
                         color: root.fillIdle
                         UiText {
@@ -504,8 +504,8 @@ PanelWindow {
                     Rectangle {
                         height: 20
                         width: wkTxt.implicitWidth + 8
-                        radius: 2
-                        border.width: 1
+                        radius: 8
+                        border.width: 0
                         border.color: root.sep
                         color: root.fillIdle
                         UiText {
@@ -524,8 +524,8 @@ PanelWindow {
                     Rectangle {
                         height: 20
                         width: doyTxt.implicitWidth + 8
-                        radius: 2
-                        border.width: 1
+                        radius: 8
+                        border.width: 0
                         border.color: root.sep
                         color: root.fillIdle
                         UiText {
@@ -547,8 +547,8 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     height: 20
                     width: qTxt.implicitWidth + 8
-                    radius: 2
-                    border.width: 1
+                    radius: 8
+                    border.width: 0
                     border.color: root.seal
                     color: root.fillActive
                     UiText {
@@ -571,14 +571,14 @@ PanelWindow {
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: 1.5
+                    radius: 4.5
                     color: root.sep
                 }
 
                 Rectangle {
                     height: parent.height
                     width: Math.round(parent.width * calPopup.yearProgress)
-                    radius: 1.5
+                    radius: 4.5
                     color: root.seal
                 }
             }
@@ -698,8 +698,8 @@ PanelWindow {
                             Rectangle {
                                 id: tileBox
                                 anchors.fill: parent
-                                radius: 2
-                                border.width: 1
+                                radius: 8
+                                border.width: 0
                                 border.color: isToday 
                                     ? root.seal 
                                     : (isSelected 
@@ -709,7 +709,7 @@ PanelWindow {
                                     ? root.seal 
                                     : (isSelected 
                                         ? root.fillActive 
-                                        : (cellMa.containsMouse ? root.fillHover : "transparent"))
+                                        : (cellMa.containsMouse ? root.fillHover : root.fillIdle))
 
                                 // Day number
                                 UiText {
@@ -724,7 +724,7 @@ PanelWindow {
 
                                 // Note marker pip (brutalist square)
                                 Rectangle {
-                                    width: 3; height: 3; radius: 1
+                                    width: 3; height: 3; radius: 4
                                     anchors.bottom: parent.bottom
                                     anchors.bottomMargin: 2
                                     anchors.horizontalCenter: parent.horizontalCenter
@@ -783,8 +783,8 @@ PanelWindow {
                     Rectangle {
                         height: 18
                         width: relTxt.implicitWidth + 8
-                        radius: 2
-                        border.width: 1
+                        radius: 8
+                        border.width: 0
                         border.color: calPopup.selectedRelativeStr === "TODAY" ? root.seal : root.sep
                         color: calPopup.selectedRelativeStr === "TODAY" ? root.fillActive : root.fillIdle
                         anchors.verticalCenter: parent.verticalCenter
@@ -813,9 +813,9 @@ PanelWindow {
                             required property var modelData
                             width: parent.width
                             height: 24
-                            radius: 2
+                            radius: 8
                             color: noteRowMa.containsMouse ? root.fillHover : root.fillIdle
-                            border.width: 1
+                            border.width: 0
                             border.color: root.sep
 
                             MouseArea {
@@ -832,10 +832,10 @@ PanelWindow {
 
                                 // Checkbox toggle
                                 Rectangle {
-                                    width: 14; height: 14; radius: 2
-                                    border.width: 1
+                                    width: 14; height: 14; radius: 8
+                                    border.width: 0
                                     border.color: modelData.done ? root.seal : root.sumi
-                                    color: modelData.done ? root.seal : "transparent"
+                                    color: modelData.done ? root.seal : root.fillIdle
                                     anchors.verticalCenter: parent.verticalCenter
                                     UiText {
                                         anchors.centerIn: parent
@@ -868,8 +868,8 @@ PanelWindow {
 
                                 // Delete button
                                 Rectangle {
-                                    width: 16; height: 16; radius: 2
-                                    color: delMa.containsMouse ? root.seal : "transparent"
+                                    width: 16; height: 16; radius: 8
+                                    color: delMa.containsMouse ? root.seal : root.fillIdle
                                     visible: noteRowMa.containsMouse
                                     anchors.verticalCenter: parent.verticalCenter
                                     UiText {
@@ -896,9 +896,9 @@ PanelWindow {
                 Rectangle {
                     width: parent.width
                     height: 26
-                    radius: 2
+                    radius: 8
                     color: root.fillIdle
-                    border.width: 1
+                    border.width: 0
                     border.color: noteInput.activeFocus ? root.seal : root.sep
 
                     Row {
@@ -940,11 +940,11 @@ PanelWindow {
                         Rectangle {
                             width: 20
                             height: 18
-                            radius: 2
+                            radius: 8
                             anchors.verticalCenter: parent.verticalCenter
-                            border.width: 1
+                            border.width: 0
                             border.color: addBtnMa.containsMouse ? root.seal : root.sep
-                            color: addBtnMa.containsMouse ? root.fillActive : "transparent"
+                            color: addBtnMa.containsMouse ? root.fillActive : root.fillIdle
                             visible: noteInput.text.trim() !== ""
                             UiText {
                                 anchors.centerIn: parent

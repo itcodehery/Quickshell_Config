@@ -96,6 +96,7 @@ Item {
         function lock(): void { router.invoke("layoutLock") }
         function unlock(): void { router.invoke("layoutUnlock") }
         function togglebar(): void { router.invoke("toggleBar") }
+        function toggledashboard(): void { router.invoke("toggleDashboard") }
     }
 
     IpcHandler {
