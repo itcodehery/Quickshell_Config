@@ -1,0 +1,3 @@
+module Radial
+singleton Theme 1.0 Theme.qml
+WorkspaceCard 1.0 WorkspaceCard.qml
