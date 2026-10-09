@@ -1067,16 +1067,19 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: 8
                         IconText {
+                            anchors.verticalCenter: parent.verticalCenter
                             text: "skip_previous"
                             color: root.ink; font.pixelSize: 24
                             MouseArea { anchors.fill: parent; onClicked: if (mprisSel.player) mprisSel.player.previous() }
                         }
                         IconText {
+                            anchors.verticalCenter: parent.verticalCenter
                             text: mprisSel.playing ? "pause" : "play_arrow"
                             color: root.ink; font.pixelSize: 28
                             MouseArea { anchors.fill: parent; onClicked: if (mprisSel.player) mprisSel.player.togglePlaying() }
                         }
                         IconText {
+                            anchors.verticalCenter: parent.verticalCenter
                             text: "skip_next"
                             color: root.ink; font.pixelSize: 24
                             MouseArea { anchors.fill: parent; onClicked: if (mprisSel.player) mprisSel.player.next() }

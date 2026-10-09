@@ -47,7 +47,7 @@ Item {
 
     Timer {
         id: pokeRevertTimer
-        interval: 3000
+        interval: 1500
         onTriggered: {
             pet.annoyed = false
             pet.pokeCount = 0

@@ -12,20 +12,31 @@ PanelWindow {
     screen: targetScreen
     color: "transparent"
 
-    // Lower the clock and allow it to expand upwards
-    anchors { bottom: true; left: true; right: true; top: false }
-    height: (expanded || isClosing) ? targetScreen.height * 0.55 : 110
-    margins.bottom: 20
+    // Fill the screen to allow dimming the entire screen (including the bar)
+    anchors { bottom: true; left: true; right: true; top: true }
     
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: (expanded || isClosing) ? WlrLayer.Overlay : WlrLayer.Bottom
     WlrLayershell.namespace: "homescreen-clock"
     WlrLayershell.keyboardFocus: (expanded || isClosing) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
-    mask: Region { item: bgRect }
-
     property bool expanded: root.dashboardExpanded
     property bool isClosing: false
+
+    Rectangle {
+        id: dimmer
+        anchors.fill: parent
+        color: Qt.rgba(0, 0, 0, 0.7)
+        opacity: (expanded && !isClosing) ? 1.0 : 0.0
+        Behavior on opacity { NumberAnimation { duration: 380; easing.type: Easing.OutCubic } }
+        visible: opacity > 0
+        MouseArea {
+            anchors.fill: parent
+            onClicked: root.dashboardExpanded = false
+        }
+    }
+
+    mask: Region { item: (expanded || isClosing || dimmer.opacity > 0) ? dimmer : bgRect }
 
     Timer {
         id: closeTimer
@@ -96,9 +107,9 @@ PanelWindow {
         opacity: expanded ? 1.0 : 0.0
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: expanded ? 0 : Math.max(0, (110 - pillHeight) / 2)
+        anchors.bottomMargin: expanded ? 20 : 20 + Math.max(0, (110 - pillHeight) / 2)
         width: expanded ? parent.width * 0.7 : pillWidth
-        height: expanded ? parent.height : pillHeight
+        height: expanded ? targetScreen.height * 0.55 : pillHeight
         radius: expanded ? 24 : height / 2
         color: root.bg
         border.color: root.islandBorder
@@ -114,22 +125,22 @@ PanelWindow {
         Behavior on width {
             NumberAnimation {
                 duration: 400
-                easing.type: hsClock.expanded ? Easing.OutBack : Easing.OutCubic
-                easing.overshoot: 1.1
+                easing.type: Easing.OutBack
+                easing.overshoot: 1.3
             }
         }
         Behavior on height {
             NumberAnimation {
                 duration: 400
-                easing.type: hsClock.expanded ? Easing.OutBack : Easing.OutCubic
-                easing.overshoot: 1.1
+                easing.type: Easing.OutBack
+                easing.overshoot: 1.3
             }
         }
         Behavior on anchors.bottomMargin {
             NumberAnimation {
                 duration: 400
-                easing.type: hsClock.expanded ? Easing.OutBack : Easing.OutCubic
-                easing.overshoot: 1.1
+                easing.type: Easing.OutBack
+                easing.overshoot: 1.3
             }
         }
         Behavior on radius { NumberAnimation { duration: 400 } }
