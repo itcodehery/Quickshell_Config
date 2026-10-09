@@ -115,7 +115,7 @@ Item {
     readonly property string barFont: "DM Sans"
 
     // ── transparency knobs (0.0 = fully transparent, 1.0 = opaque) ──
-    property real barOpacity:  0.94   // durchgehende V2-Leiste
+    property real barOpacity:  1.0   // durchgehende V2-Leiste
     property real pillOpacity: 0.18   // einzelne Widget-Pillen (workspace, mem, cpu, …)
 
     readonly property real surfaceOpacity: barOpacity

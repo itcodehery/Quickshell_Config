@@ -43,7 +43,8 @@ def main():
         
         save_data(data)
         
-        session_time = int(time.time() - session_start)
+        # Use daily total screentime instead of process uptime
+        session_time = data[today]["total"]
         with open(SESSION_FILE, "w") as f:
             f.write(str(session_time))
             

@@ -41,7 +41,7 @@ Item {
     function poke() {
         pokeCount = Math.min(pokeCount + 1, 5)
         annoyed = true
-        pokeRevertTimer.restart()
+        if (!pokeRevertTimer.running) pokeRevertTimer.start()
         idleSeconds = 0
     }
 

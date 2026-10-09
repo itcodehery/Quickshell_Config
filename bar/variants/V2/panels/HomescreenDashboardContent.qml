@@ -83,6 +83,7 @@ Item {
     property string currentBtName: "Bluetooth"
 
     Timer {
+        id: statusTimer
         interval: 3000; repeat: true; running: panel.expanded; triggeredOnStart: true
         onTriggered: {
             wifiUpdater.running = false; wifiUpdater.running = true
@@ -92,10 +93,13 @@ Item {
     
     Process {
         id: wifiUpdater
-        command: ["bash", "-c", "nmcli -t -f active,ssid dev wifi | grep '^yes' | cut -d':' -f2"]
+        command: ["bash", "-c", "nmcli -t -c no -f TYPE,NAME connection show --active | grep 802-11-wireless | cut -d':' -f2- | head -n1"]
         stdout: StdioCollector {
             onStreamFinished: {
                 let s = this.text.trim()
+                if (s !== "" && dashboardContent.currentWifiName === "Searching...") {
+                    statusTimer.interval = 3000 // reset back
+                }
                 dashboardContent.currentWifiName = s === "" ? "Wi-Fi" : s
             }
         }
@@ -107,6 +111,9 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: {
                 let s = this.text.trim()
+                if (s !== "" && dashboardContent.currentBtName === "Searching...") {
+                    statusTimer.interval = 3000
+                }
                 dashboardContent.currentBtName = s === "" ? "Bluetooth" : s
             }
         }
@@ -148,85 +155,267 @@ Item {
                 width: parent.width
                 spacing: 12
                 
-                // Brightness Slider
-                Rectangle {
-                    id: briSlider
+                // Brightness Container
+                Row {
                     width: parent.width
-                    height: 40
-                    radius: 20
-                    color: root.fillIdle
+                    spacing: 12
                     
-                    property bool sliding: false
-                    property int localValue: dashboardContent.currentBrightness
-                    
+                    // Brightness Slider
                     Rectangle {
-                        width: Math.max(parent.height, parent.width * ((briSlider.sliding ? briSlider.localValue : dashboardContent.currentBrightness) / 100))
-                        height: parent.height
+                        id: briSlider
+                        width: parent.width - 40 - 12
+                        height: 40
                         radius: 20
-                        color: root.seal
-                        Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
-                    }
-                    
-                    Row {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.leftMargin: 16
-                        spacing: 12
-                        IconText { text: "light_mode"; color: (briSlider.sliding ? briSlider.localValue : dashboardContent.currentBrightness) > 20 ? root.paper : root.ink; font.pixelSize: 18 }
-                    }
-                    
-                    MouseArea {
-                        anchors.fill: parent
-                        onPressed: { briSlider.sliding = true }
-                        onPositionChanged: (mouse) => {
-                            if (pressed) briSlider.localValue = Math.max(0, Math.min(100, Math.round((mouse.x / width) * 100)))
+                        color: root.fillIdle
+                        
+                        property bool sliding: false
+                        property int localValue: dashboardContent.currentBrightness
+                        
+                        Item {
+                            id: briFillItem
+                            property real val: briSlider.sliding ? briSlider.localValue : dashboardContent.currentBrightness
+                            property real gap: val > 85 ? 23 * (100 - val) / 15 : 23
+                            property real barOpacity: val > 85 ? (100 - val) / 15 : 1
+                            
+                            width: Math.max(parent.height, parent.width * (val / 100))
+                            height: parent.height
+                            Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                            
+                            // The actual fill
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                width: Math.max(parent.height, parent.width - briFillItem.gap)
+                                radius: 10 + (10 * (1 - briFillItem.barOpacity))
+                                color: root.seal
+                                
+                                // fully rounded on the left
+                                Rectangle {
+                                    width: parent.height
+                                    height: parent.height
+                                    radius: height / 2
+                                    color: root.seal
+                                    anchors.left: parent.left
+                                }
+                            }
+                            
+                            // The vertical bar with "padding"
+                            Rectangle {
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 23 // 10px gap + 3px line + 10px gap
+                                height: parent.height
+                                color: "transparent"
+                                opacity: briFillItem.barOpacity
+                                
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: 3
+                                    height: parent.height - 16
+                                    radius: 1.5
+                                    color: root.seal
+                                }
+                            }
                         }
-                        onReleased: (mouse) => {
-                            briSlider.sliding = false
-                            let pct = Math.max(0, Math.min(100, Math.round((mouse.x / width) * 100)))
-                            dashboardContent.currentBrightness = pct
-                            Quickshell.execDetached(["bash", "-c", "brightnessctl set " + pct + "%"])
+                        
+                        Row {
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.left: parent.left
+                            anchors.leftMargin: 16
+                            spacing: 12
+                            IconText { 
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "light_mode"
+                                color: root.paper
+                                font.pixelSize: 18 
+                            }
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: Math.round(briFillItem.val) + "%"
+                                color: briFillItem.width > 70 ? root.paper : root.ink
+                                font.pixelSize: 13
+                                font.family: root.barFont
+                                font.weight: Font.DemiBold
+                                opacity: briSlider.sliding ? 1 : 0
+                                visible: opacity > 0
+                                Behavior on opacity { NumberAnimation { duration: 200 } }
+                            }
+                        }
+                        
+                        MouseArea {
+                            anchors.fill: parent
+                            onPressed: { briSlider.sliding = true }
+                            onPositionChanged: (mouse) => {
+                                if (pressed) briSlider.localValue = Math.max(0, Math.min(100, Math.round((mouse.x / width) * 100)))
+                            }
+                            onReleased: (mouse) => {
+                                briSlider.sliding = false
+                                let pct = Math.max(0, Math.min(100, Math.round((mouse.x / width) * 100)))
+                                dashboardContent.currentBrightness = pct
+                                Quickshell.execDetached(["bash", "-c", "brightnessctl set " + pct + "%"])
+                            }
+                        }
+                    }
+                    
+                    // Night Light Toggle
+                    Rectangle {
+                        id: localNightToggle
+                        width: 40
+                        height: 40
+                        radius: 20
+                        property bool active: false
+                        
+                        Process {
+                            running: true
+                            command: ["bash", "-c", "pgrep -x hyprsunset > /dev/null && echo 'on' || echo 'off'"]
+                            stdout: StdioCollector {
+                                onStreamFinished: localNightToggle.active = (this.text.trim() === "on")
+                            }
+                        }
+                        
+                        color: active ? root.color01 : root.fillIdle
+                        IconText { 
+                            anchors.centerIn: parent
+                            text: "nightlight_round"
+                            color: localNightToggle.active ? root.paper : root.ink
+                            font.pixelSize: 18
+                            Behavior on color { ColorAnimation { duration: 200 } }
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: {
+                                if (localNightToggle.active) {
+                                    Quickshell.execDetached(["killall", "hyprsunset"])
+                                    localNightToggle.active = false
+                                } else {
+                                    Quickshell.execDetached(["hyprsunset", "-t", "4000"])
+                                    localNightToggle.active = true
+                                }
+                            }
                         }
                     }
                 }
 
-                // Audio Slider
-                Rectangle {
-                    id: audSlider
+                // Audio Container
+                Row {
                     width: parent.width
-                    height: 40
-                    radius: 20
-                    color: root.fillIdle
+                    spacing: 12
                     
-                    property bool sliding: false
-                    property int localValue: audioData.volume
-                    
+                    // Audio Slider
                     Rectangle {
-                        width: Math.max(parent.height, parent.width * ((audSlider.sliding ? audSlider.localValue : audioData.volume) / 100))
-                        height: parent.height
+                        id: audSlider
+                        width: parent.width - 40 - 12
+                        height: 40
                         radius: 20
-                        color: audioData.muted ? root.fillHover : root.seal
-                        Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
-                    }
-                    
-                    Row {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.leftMargin: 16
-                        spacing: 12
-                        IconText { text: audioData.muted ? "volume_off" : "volume_up"; color: ((audSlider.sliding ? audSlider.localValue : audioData.volume) > 20 && !audioData.muted) ? root.paper : root.ink; font.pixelSize: 18 }
-                    }
-                    
-                    MouseArea {
-                        anchors.fill: parent
-                        onPressed: { audSlider.sliding = true }
-                        onPositionChanged: (mouse) => {
-                            if (pressed) audSlider.localValue = Math.max(0, Math.min(100, Math.round((mouse.x / width) * 100)))
+                        color: root.fillIdle
+                        
+                        property bool sliding: false
+                        property int localValue: audioData.volume
+                        
+                        Item {
+                            id: audFillItem
+                            property real val: audSlider.sliding ? audSlider.localValue : audioData.volume
+                            property real gap: val > 85 ? 23 * (100 - val) / 15 : 23
+                            property real barOpacity: val > 85 ? (100 - val) / 15 : 1
+                            
+                            width: Math.max(parent.height, parent.width * (val / 100))
+                            height: parent.height
+                            Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                            
+                            // The actual fill
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                width: Math.max(parent.height, parent.width - audFillItem.gap)
+                                radius: 10 + (10 * (1 - audFillItem.barOpacity))
+                                color: audioData.muted ? root.fillHover : root.seal
+                                
+                                // fully rounded on the left
+                                Rectangle {
+                                    width: parent.height
+                                    height: parent.height
+                                    radius: height / 2
+                                    color: audioData.muted ? root.fillHover : root.seal
+                                    anchors.left: parent.left
+                                }
+                            }
+                            
+                            // The vertical bar with "padding"
+                            Rectangle {
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 23 // 10px gap + 3px line + 10px gap
+                                height: parent.height
+                                color: "transparent"
+                                opacity: audFillItem.barOpacity
+                                
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: 3
+                                    height: parent.height - 16
+                                    radius: 1.5
+                                    color: audioData.muted ? root.fillHover : root.seal
+                                }
+                            }
                         }
-                        onReleased: (mouse) => {
-                            audSlider.sliding = false
-                            let pct = Math.max(0, Math.min(100, Math.round((mouse.x / width) * 100)))
-                            Quickshell.execDetached(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", pct + "%"])
+                        
+                        Row {
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.left: parent.left
+                            anchors.leftMargin: 16
+                            spacing: 12
+                            IconText { 
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: audioData.muted ? "volume_off" : "volume_up"
+                                color: audioData.muted ? root.ink : root.paper
+                                font.pixelSize: 18 
+                            }
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: Math.round(audFillItem.val) + "%"
+                                color: audioData.muted ? root.ink : (audFillItem.width > 70 ? root.paper : root.ink)
+                                font.pixelSize: 13
+                                font.family: root.barFont
+                                font.weight: Font.DemiBold
+                                opacity: audSlider.sliding ? 1 : 0
+                                visible: opacity > 0
+                                Behavior on opacity { NumberAnimation { duration: 200 } }
+                            }
+                        }
+                        
+                        MouseArea {
+                            anchors.fill: parent
+                            onPressed: { audSlider.sliding = true }
+                            onPositionChanged: (mouse) => {
+                                if (pressed) audSlider.localValue = Math.max(0, Math.min(100, Math.round((mouse.x / width) * 100)))
+                            }
+                            onReleased: (mouse) => {
+                                audSlider.sliding = false
+                                let pct = Math.max(0, Math.min(100, Math.round((mouse.x / width) * 100)))
+                                Quickshell.execDetached(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", pct + "%"])
+                            }
+                        }
+                    }
+                    
+                    // Audio Menu Toggle
+                    Rectangle {
+                        width: 40
+                        height: 40
+                        radius: 20
+                        color: root.volVisible ? root.color02 : root.fillIdle
+                        
+                        IconText { 
+                            anchors.centerIn: parent
+                            text: "tune"
+                            color: root.volVisible ? root.paper : root.ink
+                            font.pixelSize: 18
+                            Behavior on color { ColorAnimation { duration: 200 } }
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: root.volVisible = !root.volVisible
                         }
                     }
                 }
@@ -268,29 +457,58 @@ Item {
                             width: (parent.width - 12) / 2
                             height: 60
                             radius: 30
-                            color: connected ? root.seal : root.fillIdle
-                            scale: wifiMa.pressed ? 0.92 : 1.0
+                            color: root.fillIdle
+                            scale: (wifiMa.pressed || wifiInnerMa.pressed) ? 0.92 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-                            Behavior on color { ColorAnimation { duration: 200 } }
                             
-                            Row {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 16
-                                spacing: 12
-                                
-                                IconText { text: "wifi"; color: wifiTile.connected ? root.paper : root.ink; font.pixelSize: 20; Behavior on color { ColorAnimation { duration: 200 } } }
-                                
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    Text { text: "Wi-Fi"; color: wifiTile.connected ? root.paper : root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold; Behavior on color { ColorAnimation { duration: 200 } } }
-                                    Text { text: dashboardContent.currentWifiName; color: wifiTile.connected ? root.paper : root.ink; opacity: wifiTile.connected ? 0.8 : 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: wifiTile.width - 64; Behavior on color { ColorAnimation { duration: 200 } } }
-                                }
-                            }
                             MouseArea {
                                 id: wifiMa
                                 anchors.fill: parent
                                 onClicked: root.networkVisible = !root.networkVisible
+                            }
+                            
+                            Row {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.leftMargin: 8
+                                spacing: 12
+                                
+                                Rectangle {
+                                    width: 44
+                                    height: 44
+                                    radius: 14
+                                    color: wifiTile.connected ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.1)
+                                    Behavior on color { ColorAnimation { duration: 200 } }
+                                    
+                                    IconText { 
+                                        anchors.centerIn: parent
+                                        text: "wifi"
+                                        color: wifiTile.connected ? root.paper : root.ink
+                                        font.pixelSize: 20
+                                        Behavior on color { ColorAnimation { duration: 200 } }
+                                    }
+                                    
+                                    MouseArea {
+                                        id: wifiInnerMa
+                                        anchors.fill: parent
+                                        onClicked: {
+                                            if (wifiTile.connected) {
+                                                dashboardContent.currentWifiName = "Wi-Fi"
+                                            } else {
+                                                dashboardContent.currentWifiName = "Searching..."
+                                            }
+                                            Quickshell.execDetached(["bash", "-c", "nmcli radio wifi | grep -q 'enabled' && nmcli radio wifi off || nmcli radio wifi on"])
+                                            statusTimer.interval = 500
+                                            statusTimer.restart()
+                                        }
+                                    }
+                                }
+                                
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    Text { text: "Wi-Fi"; color: root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold }
+                                    Text { text: dashboardContent.currentWifiName; color: root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: wifiTile.width - 44 - 8 - 12 - 16 }
+                                }
                             }
                         }
 
@@ -301,29 +519,58 @@ Item {
                             width: (parent.width - 12) / 2
                             height: 60
                             radius: 30
-                            color: connected ? root.seal : root.fillIdle
-                            scale: btMa.pressed ? 0.92 : 1.0
+                            color: root.fillIdle
+                            scale: (btMa.pressed || btInnerMa.pressed) ? 0.92 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-                            Behavior on color { ColorAnimation { duration: 200 } }
                             
-                            Row {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 16
-                                spacing: 12
-                                
-                                IconText { text: "bluetooth"; color: btTile.connected ? root.paper : root.ink; font.pixelSize: 20; Behavior on color { ColorAnimation { duration: 200 } } }
-                                
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    Text { text: "Bluetooth"; color: btTile.connected ? root.paper : root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold; Behavior on color { ColorAnimation { duration: 200 } } }
-                                    Text { text: dashboardContent.currentBtName; color: btTile.connected ? root.paper : root.ink; opacity: btTile.connected ? 0.8 : 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: btTile.width - 64; Behavior on color { ColorAnimation { duration: 200 } } }
-                                }
-                            }
                             MouseArea {
                                 id: btMa
                                 anchors.fill: parent
                                 onClicked: root.bluetoothVisible = !root.bluetoothVisible
+                            }
+                            
+                            Row {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.leftMargin: 8
+                                spacing: 12
+                                
+                                Rectangle {
+                                    width: 44
+                                    height: 44
+                                    radius: 14
+                                    color: btTile.connected ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.1)
+                                    Behavior on color { ColorAnimation { duration: 200 } }
+                                    
+                                    IconText { 
+                                        anchors.centerIn: parent
+                                        text: "bluetooth"
+                                        color: btTile.connected ? root.paper : root.ink
+                                        font.pixelSize: 20
+                                        Behavior on color { ColorAnimation { duration: 200 } }
+                                    }
+                                    
+                                    MouseArea {
+                                        id: btInnerMa
+                                        anchors.fill: parent
+                                        onClicked: {
+                                            if (btTile.connected) {
+                                                dashboardContent.currentBtName = "Bluetooth"
+                                            } else {
+                                                dashboardContent.currentBtName = "Searching..."
+                                            }
+                                            Quickshell.execDetached(["bash", "-c", "bluetoothctl show | grep -q 'Powered: yes' && bluetoothctl power off || bluetoothctl power on"])
+                                            statusTimer.interval = 500
+                                            statusTimer.restart()
+                                        }
+                                    }
+                                }
+                                
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    Text { text: "Bluetooth"; color: root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold }
+                                    Text { text: dashboardContent.currentBtName; color: root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: btTile.width - 44 - 8 - 12 - 16 }
+                                }
                             }
                         }
 
