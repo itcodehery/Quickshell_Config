@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import Quickshell
+import Quickshell.Widgets
 import Quickshell.Wayland
 import Quickshell.Io
 import "../modules"
@@ -19,6 +20,7 @@ PanelWindow {
     WlrLayershell.namespace: "omarchy-desktop-menu"
 
     property bool menuVisible: false
+    property bool isListMode: false
     property real menuX: 0
     property real menuY: 0
     
@@ -184,7 +186,7 @@ PanelWindow {
         border.width: root.panelOuterBorderW
         opacity: desktopMenu.reveal
         scale: 0.8 + (0.2 * desktopMenu.reveal)
-        visible: desktopMenu.reveal > 0.001
+        visible: desktopMenu.reveal > 0.001 && !desktopMenu.isListMode
         
         Behavior on scale {
             NumberAnimation { duration: 160; easing.type: Easing.OutBack }
@@ -285,6 +287,7 @@ PanelWindow {
                 topPadding: 8
 
                 IconText {
+                    anchors.verticalCenter: parent.verticalCenter
                     text: "skip_previous"
                     font.pixelSize: 18
                     color: root.ink
@@ -298,12 +301,20 @@ PanelWindow {
                     }
                 }
                 
-                IconText {
-                    text: mprisSel.playing ? "pause" : "play_arrow"
-                    font.pixelSize: 18
-                    color: root.ink
-                    opacity: playMouse.containsMouse ? 1 : 0.6
-                    Behavior on opacity { NumberAnimation { duration: 100 } }
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 48
+                    height: 28
+                    radius: 14
+                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, playMouse.containsMouse ? 0.12 : 0.06)
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                    
+                    IconText {
+                        anchors.centerIn: parent
+                        text: mprisSel.playing ? "pause" : "play_arrow"
+                        font.pixelSize: 18
+                        color: root.ink
+                    }
                     MouseArea {
                         id: playMouse
                         anchors.fill: parent
@@ -313,6 +324,7 @@ PanelWindow {
                 }
                 
                 IconText {
+                    anchors.verticalCenter: parent.verticalCenter
                     text: "skip_next"
                     font.pixelSize: 18
                     color: root.ink
@@ -339,7 +351,7 @@ PanelWindow {
         color: "transparent"
         opacity: desktopMenu.reveal
         scale: 0.8 + (0.2 * desktopMenu.reveal)
-        visible: desktopMenu.reveal > 0.001
+        visible: desktopMenu.reveal > 0.001 && !desktopMenu.isListMode
         
         property real outerRadius: 130
         property real innerRadius: 50
@@ -442,7 +454,7 @@ PanelWindow {
                     case 4: return "Wallpaper";
                     case 5: return "Gemini";
                     case 6: return "Claude";
-                    case 7: return root.barHidden ? "Show Bar" : "Hide Bar";
+                    case 7: return "List Menu";
                     case 8: return desktopMenu.currentRefresh;
                     case 9: return "Zen Browser";
                     case 10: return "Files";
@@ -491,7 +503,7 @@ PanelWindow {
                         case 2: return "share";
                         case 3: return "palette";
                         case 4: return "image";
-                        case 7: return root.barHidden ? "visibility" : "visibility_off";
+                        case 7: return "list";
                         case 8: return "speed";
                         case 10: return "folder";
                         default: return "";
@@ -579,10 +591,544 @@ PanelWindow {
                         case 4: root.ipcOpenPicker("wallpaper"); break;
                         case 5: Quickshell.execDetached(["xdg-open", "https://gemini.google.com"]); break;
                         case 6: Quickshell.execDetached(["xdg-open", "https://claude.ai"]); break;
-                        case 7: root.barHidden = !root.barHidden; break;
+                        case 7: desktopMenu.isListMode = true; break;
                         case 8: Quickshell.execDetached(["bash", Quickshell.env("HOME") + "/.config/quickshell/bin/toggle-refresh-rate"]); break;
                         case 9: Quickshell.execDetached(["zen-browser"]); break;
                         case 10: Quickshell.execDetached(["nautilus"]); break;
+                    }
+                }
+            }
+        }
+    }
+
+    Item {
+        id: listMenuCard
+        x: Math.max(20, Math.min(menuX, desktopMenu.width - width - 20))
+        y: Math.max(20, Math.min(menuY, desktopMenu.height - height - 20))
+        width: 250
+        height: listMenuColumn.implicitHeight
+        
+        property real listReveal: desktopMenu.menuVisible ? 1 : 0
+        Behavior on listReveal { NumberAnimation { duration: 350 } }
+        visible: listReveal > 0.001 && desktopMenu.isListMode
+        
+        property real staggeredReveal: desktopMenu.menuVisible ? 5 : 0
+        Behavior on staggeredReveal {
+            NumberAnimation { duration: desktopMenu.menuVisible ? 200 : 0 }
+        }
+        
+        property bool aiExpanded: false
+        property bool appsExpanded: false
+        
+        property var wallpaperList: []
+        property string activeWallpaper: ""
+        
+        Process {
+            command: ["bash", "-c", "readlink -f " + (root.currentBackgroundPath || "")]
+            stdout: StdioCollector {
+                onStreamFinished: { listMenuCard.activeWallpaper = this.text.trim(); }
+            }
+            running: desktopMenu.menuVisible
+        }
+        
+        Process {
+            id: wpScanProc
+            command: ["bash", "-c",
+                    "find -L " + (root.wallpaperSourcePaths || []).join(" ") + " -maxdepth 1 -type f " +
+                    "\\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \\) " +
+                    "-exec stat -c '%Y %n' {} + 2>/dev/null | sort -nr | cut -d' ' -f2-"]
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    var lines = this.text.split('\n').map(s => s.trim()).filter(s => s.length > 0)
+                    listMenuCard.wallpaperList = lines;
+                }
+            }
+            running: desktopMenu.menuVisible
+        }
+
+        Column {
+            id: listMenuColumn
+            width: parent.width
+            spacing: 3
+
+            // Top Pill: Quote / Media Section (staggerIndex 0)
+            Rectangle {
+                id: quotePill
+                property int staggerIndex: 0
+                property bool isRevealed: listMenuCard.staggeredReveal > staggerIndex
+                
+                opacity: isRevealed ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                scale: isRevealed ? 1 : 0.95
+                Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
+                property real yOffset: isRevealed ? 0 : -15
+                Behavior on yOffset { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
+                transform: Translate { y: yOffset }
+                transformOrigin: Item.Top
+
+                width: parent.width
+                height: listQuoteLayout.implicitHeight + 24
+                topLeftRadius: 24
+                topRightRadius: 24
+                bottomLeftRadius: 8
+                bottomRightRadius: 8
+                color: root.bg
+                border.color: root.panelOuterBorderColor
+                border.width: root.panelOuterBorderW
+                PillShadow { theme: root }
+
+                Column {
+                    id: listQuoteLayout
+                    anchors.top: parent.top
+                    anchors.topMargin: 12
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: parent.width - 24
+                    spacing: 6
+                    
+                    UiText {
+                        text: mprisSel.active ? (mprisSel.player.trackTitle || "Unknown Track") : desktopMenu.currentGreeting
+                        color: root.ink
+                        font.family: "DM Sans"
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        width: parent.width
+                        wrapMode: mprisSel.active ? Text.NoWrap : Text.WordWrap
+                        horizontalAlignment: Text.AlignHCenter
+                        elide: Text.ElideRight
+                    }
+                    UiText {
+                        text: mprisSel.active ? (mprisSel.player.trackArtist || "Unknown Artist") : desktopMenu.currentQuote
+                        color: root.sumiHi
+                        font.family: "DM Sans"
+                        font.pixelSize: 10
+                        font.weight: Font.Medium
+                        width: parent.width
+                        wrapMode: mprisSel.active ? Text.NoWrap : Text.WordWrap
+                        horizontalAlignment: Text.AlignHCenter
+                        elide: Text.ElideRight
+                    }
+                    Row {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        spacing: 24
+                        visible: mprisSel.active
+                        topPadding: 8
+                        IconText {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "skip_previous"
+                            font.pixelSize: 16
+                            color: root.ink
+                            opacity: listPrevMouse.containsMouse ? 1 : 0.6
+                            MouseArea { id: listPrevMouse; anchors.fill: parent; hoverEnabled: true; onClicked: if (mprisSel.player) mprisSel.player.previous() }
+                        }
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 44; height: 24; radius: 12
+                            color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, listPlayMouse.containsMouse ? 0.12 : 0.06)
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                            IconText {
+                                anchors.centerIn: parent
+                                text: mprisSel.playing ? "pause" : "play_arrow"
+                                font.pixelSize: 16
+                                color: root.ink
+                            }
+                            MouseArea { id: listPlayMouse; anchors.fill: parent; hoverEnabled: true; onClicked: if (mprisSel.player) mprisSel.player.togglePlaying() }
+                        }
+                        IconText {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "skip_next"
+                            font.pixelSize: 16
+                            color: root.ink
+                            opacity: listNextMouse.containsMouse ? 1 : 0.6
+                            MouseArea { id: listNextMouse; anchors.fill: parent; hoverEnabled: true; onClicked: if (mprisSel.player) mprisSel.player.next() }
+                        }
+                    }
+                }
+            }
+
+            // AI Pill (staggerIndex 1)
+            Rectangle {
+                property int staggerIndex: 1
+                property bool isRevealed: listMenuCard.staggeredReveal > staggerIndex
+                opacity: isRevealed ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                scale: isRevealed ? 1 : 0.95
+                Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
+                property real yOffset: isRevealed ? 0 : -15
+                Behavior on yOffset { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
+                transform: Translate { y: yOffset }
+                transformOrigin: Item.Top
+
+                width: parent.width
+                height: aiCol.implicitHeight + 16
+                clip: true
+                topLeftRadius: 8; topRightRadius: 8; bottomLeftRadius: 8; bottomRightRadius: 8
+                color: root.bg; border.color: root.panelOuterBorderColor; border.width: root.panelOuterBorderW
+                
+                PillShadow { theme: root }
+
+                Rectangle {
+                    visible: listMenuCard.aiExpanded
+                    width: 2; radius: 1; color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                    anchors.left: aiCol.left; anchors.leftMargin: 19
+                    anchors.top: aiCol.top; anchors.topMargin: 36
+                    anchors.bottom: aiCol.bottom; anchors.bottomMargin: 4
+                    opacity: visible ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 250 } }
+                }
+
+                Column {
+                    id: aiCol
+                    anchors.top: parent.top; anchors.topMargin: 8
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: parent.width - 16
+
+                    Rectangle {
+                        width: parent.width; height: 32; radius: 10
+                        color: aiHeaderMouse.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent"
+                        Behavior on color { ColorAnimation { duration: 150 } }
+                        Row {
+                            anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 12
+                            Item {
+                                width: 16; height: 16; anchors.verticalCenter: parent.verticalCenter
+                                IconText { anchors.centerIn: parent; text: "auto_awesome"; color: root.ink; font.pixelSize: 16 }
+                            }
+                            UiText { anchors.verticalCenter: parent.verticalCenter; text: "AI"; color: root.ink; font.family: "DM Sans"; font.pixelSize: 11; font.weight: Font.Medium }
+                        }
+                        Rectangle {
+                            anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                            width: 32; height: 20; radius: 10; color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+                            IconText { anchors.centerIn: parent; text: listMenuCard.aiExpanded ? "expand_less" : "expand_more"; color: root.sumiHi; font.pixelSize: 16 }
+                        }
+                        MouseArea { id: aiHeaderMouse; anchors.fill: parent; hoverEnabled: true; onClicked: listMenuCard.aiExpanded = !listMenuCard.aiExpanded }
+                    }
+
+                    Repeater {
+                        model: [5, 6]
+                        Rectangle {
+                            id: aiItem
+                            required property int modelData; property int idx: modelData
+                            property bool showItem: listMenuCard.aiExpanded
+                            width: parent.width; height: showItem ? 32 : 0; opacity: showItem ? 1 : 0
+                            visible: height > 0 || opacity > 0
+                            Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.InOutCubic } }
+                            Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutCubic } }
+                            radius: 10; color: aiItemMouse.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent"
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                            
+                            Row {
+                                anchors.fill: parent; anchors.leftMargin: 38; anchors.rightMargin: 12; spacing: 12
+                                Item {
+                                    width: 16; height: 16; anchors.verticalCenter: parent.verticalCenter
+                                    Image {
+                                        anchors.centerIn: parent; width: 14; height: 14; fillMode: Image.PreserveAspectFit
+                                        source: idx === 5 ? Quickshell.env("HOME") + "/.config/quickshell/bar/gemini_final.svg" : Quickshell.env("HOME") + "/.config/quickshell/bar/claude.svg"
+                                        layer.enabled: true
+                                        layer.effect: MultiEffect { colorization: 1.0; colorizationColor: (idx === 5 && aiItemMouse.containsMouse) ? "#4285F4" : ((idx === 6 && aiItemMouse.containsMouse) ? "#D97757" : root.ink) }
+                                    }
+                                }
+                                UiText { anchors.verticalCenter: parent.verticalCenter; text: idx === 5 ? "Gemini" : "Claude"; color: root.ink; font.family: "DM Sans"; font.pixelSize: 11; font.weight: Font.Medium }
+                            }
+                            MouseArea {
+                                id: aiItemMouse; anchors.fill: parent; hoverEnabled: true
+                                onClicked: { desktopMenu.menuVisible = false; Quickshell.execDetached(["xdg-open", idx === 5 ? "https://gemini.google.com" : "https://claude.ai"]); }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Quick Apps Pill (staggerIndex 2)
+            Rectangle {
+                property int staggerIndex: 2
+                property bool isRevealed: listMenuCard.staggeredReveal > staggerIndex
+                opacity: isRevealed ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                scale: isRevealed ? 1 : 0.95
+                Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
+                property real yOffset: isRevealed ? 0 : -15
+                Behavior on yOffset { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
+                transform: Translate { y: yOffset }
+                transformOrigin: Item.Top
+
+                width: parent.width
+                height: appsCol.implicitHeight + 16
+                clip: true
+                topLeftRadius: 8; topRightRadius: 8; bottomLeftRadius: 8; bottomRightRadius: 8
+                color: root.bg; border.color: root.panelOuterBorderColor; border.width: root.panelOuterBorderW
+                
+                PillShadow { theme: root }
+
+                Rectangle {
+                    visible: listMenuCard.appsExpanded
+                    width: 2; radius: 1; color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                    anchors.left: appsCol.left; anchors.leftMargin: 19
+                    anchors.top: appsCol.top; anchors.topMargin: 36
+                    anchors.bottom: appsCol.bottom; anchors.bottomMargin: 4
+                    opacity: visible ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 250 } }
+                }
+
+                Column {
+                    id: appsCol
+                    anchors.top: parent.top; anchors.topMargin: 8
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: parent.width - 16
+
+                    Rectangle {
+                        width: parent.width; height: 32; radius: 10
+                        color: appsHeaderMouse.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent"
+                        Behavior on color { ColorAnimation { duration: 150 } }
+                        Row {
+                            anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 12
+                            Item {
+                                width: 16; height: 16; anchors.verticalCenter: parent.verticalCenter
+                                IconText { anchors.centerIn: parent; text: "apps"; color: root.ink; font.pixelSize: 16 }
+                            }
+                            UiText { anchors.verticalCenter: parent.verticalCenter; text: "Quick Apps"; color: root.ink; font.family: "DM Sans"; font.pixelSize: 11; font.weight: Font.Medium }
+                        }
+                        Rectangle {
+                            anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                            width: 32; height: 20; radius: 10; color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+                            IconText { anchors.centerIn: parent; text: listMenuCard.appsExpanded ? "expand_less" : "expand_more"; color: root.sumiHi; font.pixelSize: 16 }
+                        }
+                        MouseArea { id: appsHeaderMouse; anchors.fill: parent; hoverEnabled: true; onClicked: listMenuCard.appsExpanded = !listMenuCard.appsExpanded }
+                    }
+
+                    Repeater {
+                        model: [10, 9, 0, 1, 2]
+                        Rectangle {
+                            id: appsItem
+                            required property int modelData; property int idx: modelData
+                            property bool showItem: listMenuCard.appsExpanded
+                            width: parent.width; height: showItem ? 32 : 0; opacity: showItem ? 1 : 0
+                            visible: height > 0 || opacity > 0
+                            Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.InOutCubic } }
+                            Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutCubic } }
+                            radius: 10; color: appsItemMouse.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent"
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                            
+                            Row {
+                                anchors.fill: parent; anchors.leftMargin: 38; anchors.rightMargin: 12; spacing: 12
+                                Item {
+                                    width: 16; height: 16; anchors.verticalCenter: parent.verticalCenter
+                                    IconText {
+                                        anchors.centerIn: parent; visible: idx === 2 || idx === 10
+                                        text: idx === 2 ? "share" : (idx === 10 ? "folder" : "")
+                                        color: root.ink; font.pixelSize: 16
+                                    }
+                                    Image {
+                                        anchors.centerIn: parent; visible: idx === 0 || idx === 1 || idx === 9; width: 14; height: 14; fillMode: Image.PreserveAspectFit
+                                        source: idx === 0 ? Quickshell.env("HOME") + "/.config/quickshell/bar/whatsapp.svg" : (idx === 1 ? Quickshell.env("HOME") + "/.config/quickshell/bar/spotify.svg" : Quickshell.env("HOME") + "/.config/quickshell/bar/zen.svg")
+                                        layer.enabled: true
+                                        layer.effect: MultiEffect { colorization: 1.0; colorizationColor: root.ink }
+                                    }
+                                }
+                                UiText { 
+                                    anchors.verticalCenter: parent.verticalCenter; color: root.ink; font.family: "DM Sans"; font.pixelSize: 11; font.weight: Font.Medium 
+                                    text: idx === 0 ? "WhatsApp" : (idx === 1 ? "Spotify" : (idx === 2 ? "LocalSend" : (idx === 9 ? "Zen Browser" : "Files")))
+                                }
+                            }
+                            MouseArea {
+                                id: appsItemMouse; anchors.fill: parent; hoverEnabled: true
+                                onClicked: {
+                                    desktopMenu.menuVisible = false;
+                                    switch(idx) {
+                                        case 0: Quickshell.execDetached(["omarchy-launch-webapp", "https://web.whatsapp.com/"]); break;
+                                        case 1: Quickshell.execDetached(["spotify"]); break;
+                                        case 2: Quickshell.execDetached(["localsend"]); break;
+                                        case 9: Quickshell.execDetached(["zen-browser"]); break;
+                                        case 10: Quickshell.execDetached(["nautilus"]); break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Wallpaper Picker Pill (staggerIndex 3)
+            Rectangle {
+                property int staggerIndex: 3
+                property bool isRevealed: listMenuCard.staggeredReveal > staggerIndex
+                opacity: isRevealed ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                scale: isRevealed ? 1 : 0.95
+                Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
+                property real yOffset: isRevealed ? 0 : -15
+                Behavior on yOffset { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
+                transform: Translate { y: yOffset }
+                transformOrigin: Item.Top
+
+                width: parent.width
+                height: wpCol.implicitHeight + 16
+                clip: true
+                topLeftRadius: 8; topRightRadius: 8; bottomLeftRadius: 8; bottomRightRadius: 8
+                color: root.bg; border.color: root.panelOuterBorderColor; border.width: root.panelOuterBorderW
+                
+                PillShadow { theme: root }
+
+                Column {
+                    id: wpCol
+                    anchors.top: parent.top; anchors.topMargin: 8
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: parent.width - 16
+                    // removed spacing and title
+                    
+                    Flickable {
+                        width: parent.width - 16 // slightly wider area
+                        height: 64
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        contentWidth: wpRow.implicitWidth
+                        clip: true
+                        interactive: true
+
+                        Row {
+                            id: wpRow
+                            spacing: 8
+                            anchors.verticalCenter: parent.verticalCenter
+                            
+                            Repeater {
+                                model: listMenuCard.wallpaperList
+                                ClippingRectangle {
+                                    width: isCurrent ? 96 : 32
+                                    height: 64
+                                    radius: isCurrent ? 14 : 16
+                                    color: "transparent"
+                                    
+                                    Behavior on width { NumberAnimation { duration: 350; easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
+                                    Behavior on radius { NumberAnimation { duration: 350; easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
+                                    
+                                    required property string modelData
+                                    property bool isCurrent: {
+                                        var currentBase = listMenuCard.activeWallpaper.split('/').pop();
+                                        var thisBase = modelData.split('/').pop();
+                                        return currentBase === thisBase && currentBase !== undefined && currentBase.length > 0;
+                                    }
+                                    
+                                    Image {
+                                        anchors.fill: parent
+                                        source: "file://" + modelData
+                                        fillMode: Image.PreserveAspectCrop
+                                        opacity: wpItemMouse.containsMouse ? 1.0 : (isCurrent ? 1.0 : 0.45)
+                                        Behavior on opacity { NumberAnimation { duration: 150 } }
+                                    }
+                                    
+                                    Rectangle {
+                                        visible: isCurrent
+                                        anchors.centerIn: parent
+                                        width: 28; height: 28; radius: 14
+                                        color: Qt.rgba(root.bg.r, root.bg.g, root.bg.b, 0.85)
+                                        IconText {
+                                            anchors.centerIn: parent
+                                            text: "check"
+                                            color: root.ink
+                                            font.pixelSize: 16
+                                        }
+                                    }
+                                    
+                                    MouseArea {
+                                        id: wpItemMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: {
+                                            listMenuCard.activeWallpaper = modelData; // visually update instantly
+                                            Quickshell.execDetached(["bash", "-c", "omarchy-theme-bg-set '" + modelData.replace(/'/g, "'\\''") + "'"])
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // System Pill (staggerIndex 4)
+            Rectangle {
+                property int staggerIndex: 4
+                property bool isRevealed: listMenuCard.staggeredReveal > staggerIndex
+                opacity: isRevealed ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                scale: isRevealed ? 1 : 0.95
+                Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
+                property real yOffset: isRevealed ? 0 : -15
+                Behavior on yOffset { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
+                transform: Translate { y: yOffset }
+                transformOrigin: Item.Top
+
+                width: parent.width
+                height: sysCol.implicitHeight + 16
+                clip: true
+                topLeftRadius: 8; topRightRadius: 8; bottomLeftRadius: 24; bottomRightRadius: 24
+                color: root.bg; border.color: root.panelOuterBorderColor; border.width: root.panelOuterBorderW
+                
+                PillShadow { theme: root }
+
+                Column {
+                    id: sysCol
+                    anchors.top: parent.top; anchors.topMargin: 8
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: parent.width - 16
+
+                    Repeater {
+                        model: [3, 8, 7]
+                        Rectangle {
+                            id: sysItem
+                            required property int modelData; property int idx: modelData
+                            width: parent.width; height: 32; radius: 10
+                            color: sysItemMouse.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent"
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                            
+                            Row {
+                                anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 12
+                                Item {
+                                    width: 16; height: 16; anchors.verticalCenter: parent.verticalCenter
+                                    IconText {
+                                        anchors.centerIn: parent
+                                        text: idx === 3 ? "palette" : (idx === 8 ? "speed" : "radio_button_checked")
+                                        color: root.ink; font.pixelSize: 16
+                                    }
+                                }
+                                UiText { 
+                                    anchors.verticalCenter: parent.verticalCenter; color: root.ink; font.family: "DM Sans"; font.pixelSize: 11; font.weight: Font.Medium 
+                                    text: idx === 3 ? "Theme" : (idx === 8 ? "Refresh Rate" : "Radial Menu")
+                                }
+                            }
+                            
+                            Rectangle {
+                                anchors.right: parent.right; anchors.rightMargin: 12
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: idx === 8 || idx === 3
+                                width: statusText.implicitWidth + 16
+                                height: 20
+                                radius: 10
+                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+                                
+                                UiText {
+                                    id: statusText
+                                    anchors.centerIn: parent
+                                    text: idx === 8 ? desktopMenu.currentRefresh : (idx === 3 ? (function(str){
+                                        if(!str) return "";
+                                        return str.replace(/[-_]+/g, " ").replace(/\b\w/g, function(l){ return l.toUpperCase(); });
+                                    })(root.currentThemeName) : "")
+                                    color: root.ink
+                                    font.family: "DM Sans"
+                                    font.pixelSize: 10
+                                    font.weight: Font.Medium
+                                }
+                            }
+                            
+                            MouseArea {
+                                id: sysItemMouse; anchors.fill: parent; hoverEnabled: true
+                                onClicked: {
+                                    if (idx === 7) { desktopMenu.isListMode = false; return; }
+                                    desktopMenu.menuVisible = false;
+                                    switch(idx) {
+                                        case 3: root.ipcOpenPicker("theme"); break;
+                                        case 8: Quickshell.execDetached(["bash", Quickshell.env("HOME") + "/.config/quickshell/bin/toggle-refresh-rate"]); break;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
