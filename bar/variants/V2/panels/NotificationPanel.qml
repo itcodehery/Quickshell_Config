@@ -125,7 +125,7 @@ PanelWindow {
     // pid-guarded: with an empty pid, /proc//stat collapses to /proc/stat (a
     property bool isDnd: false
 
-    readonly property string pollScript: "dnd=$(quickshell -p /usr/share/omarchy/shell ipc call notifications isDnd 2>/dev/null || echo \"off\"); hist=$(jq -cs '[.[] | {id: .id, app_name: .app, summary: .summary, body: .body}]' ~/.local/state/omarchy/notifications/history/*.json 2>/dev/null); [ -z \"$hist\" ] && hist='[]'; printf '{\"token\":\"omarchy\",\"dnd\":\"%s\",\"list\":[],\"history\":%s}' \"$dnd\" \"$hist\""
+    readonly property string pollScript: "dnd=$(quickshell -p /usr/share/omarchy/shell ipc call notifications isDnd 2>/dev/null || echo \"off\"); list=$(jq -cs '[.[] | {id: .timestamp, app_name: .app, summary: .summary, body: .body}]' ~/.local/state/omarchy/notifications/*.json 2>/dev/null); [ -z \"$list\" ] && list='[]'; hist=$(jq -cs '[.[] | {id: .timestamp, app_name: .app, summary: .summary, body: .body}]' ~/.local/state/omarchy/notifications/history/*.json 2>/dev/null); [ -z \"$hist\" ] && hist='[]'; printf '{\"token\":\"omarchy\",\"dnd\":\"%s\",\"list\":%s,\"history\":%s}' \"$dnd\" \"$list\" \"$hist\""
 
     Process {
         id: pollProc
