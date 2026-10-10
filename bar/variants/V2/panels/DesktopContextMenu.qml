@@ -1009,8 +1009,7 @@ PanelWindow {
                                         anchors.fill: parent
                                         source: "file://" + modelData
                                         fillMode: Image.PreserveAspectCrop
-                                        opacity: wpItemMouse.containsMouse ? 1.0 : (isCurrent ? 1.0 : 0.45)
-                                        Behavior on opacity { NumberAnimation { duration: 150 } }
+                                        opacity: 1.0
                                     }
                                     
                                     Rectangle {

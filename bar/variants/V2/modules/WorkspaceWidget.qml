@@ -475,9 +475,9 @@ Item {
                                 width: (modelW / parent.logicalWidth) * parent.width
                                 height: (modelH / parent.logicalHeight) * parent.height
                                 
-                                color: root.fillHover
+                                color: root.fillActive
                                 border.color: root.seal
-                                border.width: 1
+                                border.width: 0
                                 radius: 4
                                 
                                 UiText {

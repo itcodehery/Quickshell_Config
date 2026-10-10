@@ -779,7 +779,7 @@ PanelWindow {
                                     ? root.fillActive
                                     : badgeToggleMa.containsMouse ? root.fillHover : root.fillIdle
                                 border.color: (badgeToggleItem.active || badgeToggleMa.containsMouse) ? root.seal : root.sep
-                                border.width: 1
+                                border.width: 0
                                 Behavior on color { ColorAnimation { duration: 120 } }
                                 Rectangle {
                                     width: 10
@@ -830,7 +830,7 @@ PanelWindow {
                         readonly property bool active: root.activeUpdateTab === modelData.id
                         color: active ? root.fillActive : tabMa.containsMouse ? root.fillHover : root.fillIdle
                         border.color: (active || tabMa.containsMouse) ? root.seal : root.sep
-                        border.width: 1
+                        border.width: 0
                         Behavior on color { ColorAnimation { duration: 120 } }
                         UiText {
                             anchors.centerIn: parent
@@ -1065,7 +1065,7 @@ PanelWindow {
                     height: 28; radius: root.panelButtonRadius
                     color: refreshMa.containsMouse ? root.fillHover : root.fillIdle
                     border.color: refreshMa.containsMouse ? root.seal : root.sep
-                    border.width: 1
+                    border.width: 0
                     Behavior on color { ColorAnimation { duration: 120 } }
                     UiText {
                         anchors.centerIn: parent
@@ -1134,7 +1134,7 @@ PanelWindow {
                     height: 28; radius: root.panelButtonRadius
                     color: reviewMa.containsMouse ? root.fillHover : root.fillIdle
                     border.color: reviewMa.containsMouse ? root.seal : root.sep
-                    border.width: 1
+                    border.width: 0
                     Behavior on color { ColorAnimation { duration: 120 } }
                     UiText {
                         anchors.centerIn: parent
@@ -1222,7 +1222,7 @@ PanelWindow {
                         width: 78; height: 18; radius: root.panelButtonRadius
                         color: reapplyMa.containsMouse ? root.fillHover : root.fillIdle
                         border.color: reapplyMa.containsMouse ? root.seal : root.sep
-                        border.width: 1
+                        border.width: 0
                         Behavior on color { ColorAnimation { duration: 120 } }
                         UiText {
                             anchors.centerIn: parent
@@ -1610,7 +1610,7 @@ PanelWindow {
                         height: 28; radius: root.panelButtonRadius
                         color: (checkMa.containsMouse && !root.themeUpdChecking) ? root.fillHover : root.fillIdle
                         border.color: (checkMa.containsMouse && !root.themeUpdChecking) ? root.seal : root.sep
-                        border.width: 1
+                        border.width: 0
                         opacity: root.themeUpdChecking ? 0.5 : 1.0
                         Behavior on color { ColorAnimation { duration: 120 } }
                         UiText {

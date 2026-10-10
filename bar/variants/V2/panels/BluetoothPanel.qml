@@ -142,7 +142,7 @@ PanelWindow {
                         color: btPanel.btOn ? root.fillActive
                                             : root.fillIdle
                         border.color: btPanel.btOn ? root.seal : root.sep
-                        border.width: 1
+                        border.width: 0
                         Behavior on color { ColorAnimation { duration: 150 } }
                         Rectangle {
                             width: 14; height: 14; radius: 7
@@ -187,7 +187,7 @@ PanelWindow {
                 color: btPanel.scanning ? root.fillActive
                        : hovered ? root.fillHover : root.fillIdle
                 border.color: (btPanel.scanning || hovered) ? root.seal : root.sep
-                border.width: 1
+                border.width: 0
                 Behavior on color { ColorAnimation { duration: 120 } }
                 UiText {
                     anchors.centerIn: parent
@@ -222,7 +222,7 @@ PanelWindow {
                                : hovered ? root.fillHover : root.fillIdle
                         border.color: modelData.connected ? root.seal
                                       : hovered ? root.seal : root.sep
-                        border.width: 1
+                        border.width: 0
                         Behavior on color { ColorAnimation { duration: 120 } }
 
                         MouseArea {
@@ -261,7 +261,7 @@ PanelWindow {
                             height: 24; radius: root.panelButtonRadius
                             color: btPanel.deviceActionFill
                             border.color: root.sep
-                            border.width: 1
+                            border.width: 0
                             opacity: connProc.running ? 0.45 : 1
                             UiText {
                                 id: actionLabel

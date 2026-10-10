@@ -70,6 +70,53 @@ PanelWindow {
     // Fetch once when the panel first opens
     onVisibleChanged: { if (visible && !ctrlPanel.siFetched) siFetchProc.running = true }
 
+    // Same toggle path as NotificationSilenceWidget; state comes back via
+    // root.notifSilenced once the status indicators are refreshed.
+    Process {
+        id: dndProc
+        command: ["bash", "-c", "if command -v omarchy-toggle-notification-silencing >/dev/null 2>&1; then exec omarchy-toggle-notification-silencing; fi; exec omarchy toggle notification silencing"]
+        onExited: root.refreshStatusIndicators()
+    }
+
+    // ── pretty spec strings: split raw names into a short model + vendor chip ──
+    function _vendorOf(str) {
+        var m = /^(NVIDIA|AMD|Intel|Apple|Qualcomm)\b/i.exec(str || "")
+        return m ? (m[1].toUpperCase() === "NVIDIA" ? "NVIDIA" : m[1].toUpperCase() === "AMD" ? "AMD"
+                    : m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase()) : ""
+    }
+    function cpuModel(str) {
+        return (str || "")
+            .replace(/\((R|TM)\)/gi, "")
+            .replace(/^(AMD|Intel)\s+/i, "")
+            .replace(/\s+(\d+-Core\s+)?(Processor|CPU)\b.*$/i, "")
+            .replace(/\s+@.*$/, "")
+            .replace(/\s+/g, " ").trim()
+    }
+    function gpuModel(str) {
+        return (str || "")
+            .replace(/\s*\(.*\)\s*$/, "")
+            .replace(/^(NVIDIA|AMD|Intel)\s+(Corporation\s+)?/i, "")
+            .replace(/\b(GeForce|Radeon(?=\s+RX))\s+/i, "")
+            .replace(/\s*(Laptop|Mobile|Max-Q)\b/gi, "")
+            .replace(/\s*(GPU|Graphics)$/i, "")
+            .replace(/\s+/g, " ").trim()
+    }
+    function gpuChip(str) {
+        var v = _vendorOf(str)
+        var mobile = /\b(Laptop|Mobile|Max-Q)\b/i.test(str || "")
+        return mobile ? (v !== "" ? v + " · Laptop" : "Laptop") : v
+    }
+    function displayModel(str) {
+        var first = (str || "").split(",")[0]
+        return first.replace(/\s*@.*$/, "").replace("x", " × ").trim()
+    }
+    function displayChip(str) {
+        var parts = (str || "").split(",")
+        var m = /@\s*(\d+)\s*Hz/i.exec(parts[0] || "")
+        var hz = m ? m[1] + " Hz" : ""
+        return parts.length > 1 ? (hz !== "" ? hz + " · +" + (parts.length - 1) : "+" + (parts.length - 1)) : hz
+    }
+
     function switchBar(version) {
         root.controlVisible = false
         if (root.variantHost)
@@ -95,36 +142,217 @@ PanelWindow {
     }
     WlrLayershell.keyboardFocus: root.controlVisible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
-    // ── reusable tile: neutral by default, highlights only on hover ──
+    // ── Android-shade surface tokens ──────────────────────────────────────────
+    // No borders anywhere: hierarchy comes purely from background tone.
+    //   panel bg  →  card (cardBg)  →  chip on card (chipBg / chipHover)
+    //   "on" state = solid accent fill with paper-coloured content.
+    readonly property int   cardRadius: 18
+    readonly property int   cardPad: 12
+    readonly property color cardBg:    root.fillIdle
+    readonly property color chipBg:    Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.07)
+    readonly property color chipHover: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.13)
+
+    // ── rounded section card (replaces separator lines) ──
+    component Card: Rectangle {
+        id: _card
+        default property alias content: _cardBody.data
+        property string title: ""
+        property string trailing: ""
+        width: parent ? parent.width : 0
+        implicitHeight: _cardHead.height + (_cardHead.visible ? 8 : 0) + _cardBody.implicitHeight + ctrlPanel.cardPad * 2
+        height: implicitHeight
+        radius: ctrlPanel.cardRadius
+        color: ctrlPanel.cardBg
+
+        Item {
+            id: _cardHead
+            visible: _card.title !== ""
+            x: ctrlPanel.cardPad + 2
+            y: ctrlPanel.cardPad
+            width: _card.width - ctrlPanel.cardPad * 2 - 4
+            height: visible ? 16 : 0
+            UiText {
+                anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
+                text: _card.title
+                color: root.sumiHi; font.family: root.barFont
+                font.pixelSize: 11; font.weight: Font.Medium
+            }
+            UiText {
+                anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+                text: _card.trailing
+                visible: text !== ""
+                color: root.sumi; font.family: root.barFont; font.pixelSize: 10
+            }
+        }
+        Column {
+            id: _cardBody
+            x: ctrlPanel.cardPad
+            y: ctrlPanel.cardPad + _cardHead.height + (_cardHead.visible ? 8 : 0)
+            width: _card.width - ctrlPanel.cardPad * 2
+            spacing: 6
+        }
+    }
+
+    // ── pill button: tonal chip by default, solid accent when active ──
     component Tile: Rectangle {
+        id: _tile
         property string label
+        property string icon: ""
         property color accent: root.seal
         property bool active: false
+        // false when the tile sits directly on the panel (not inside a Card)
+        property bool onCard: true
         signal activated()
-        height: 25
-        radius: root.panelButtonRadius
+        readonly property color fg: active ? root.paper : root.ink
+        height: 30
+        radius: height / 2
         opacity: enabled ? 1.0 : 0.4          // built-in `enabled` also blocks input
-        color: active ? Qt.rgba(accent.r, accent.g, accent.b, root.fillActiveAlpha) : _ma.containsMouse ? Qt.rgba(accent.r, accent.g, accent.b, root.fillHoverAlpha) : root.fillIdle
-        border.color: (active || _ma.containsMouse) ? accent : root.sep
-        border.width: 1
-        Behavior on color { ColorAnimation { duration: 120 } }
-        Text {
+        color: active
+            ? (_ma.containsMouse ? Qt.lighter(accent, 1.12) : accent)
+            : (_ma.containsMouse ? ctrlPanel.chipHover : (onCard ? ctrlPanel.chipBg : ctrlPanel.cardBg))
+        Behavior on color { ColorAnimation { duration: 140 } }
+        Row {
             anchors.centerIn: parent
-            text: parent.label
-            color: (parent.active || _ma.containsMouse) ? parent.accent : root.ink
-            font.family: root.barFont; font.pixelSize: 11
+            spacing: 6
+            IconText {
+                visible: _tile.icon !== ""
+                anchors.verticalCenter: parent.verticalCenter
+                text: _tile.icon
+                fill: _tile.active ? 1 : 0
+                color: _tile.fg
+                font.pixelSize: 15
+            }
+            UiText {
+                anchors.verticalCenter: parent.verticalCenter
+                width: Math.min(implicitWidth, _tile.width - 20 - (_tile.icon !== "" ? 21 : 0))
+                elide: Text.ElideRight
+                text: _tile.label
+                color: _tile.fg
+                font.family: root.barFont; font.pixelSize: 11
+                font.weight: _tile.active ? Font.Medium : Font.Normal
+            }
         }
         MouseArea {
             id: _ma
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: parent.activated()
+            onClicked: _tile.activated()
         }
     }
 
-    // ── one quiet tile: body toggles visibility, trailing state toggles density ──
+    // ── big Android quick-settings tile (icon squircle + title/subtitle) ──
+    component QuickTile: Rectangle {
+        id: _qt
+        property string icon
+        property string title
+        property string subtitle: ""
+        property bool active: false
+        property color accent: root.seal
+        signal activated()
+        readonly property color fg: active ? root.paper : root.ink
+        height: 56
+        radius: height / 2
+        color: active
+            ? (_qma.containsMouse ? Qt.lighter(accent, 1.12) : accent)
+            : (_qma.containsMouse ? ctrlPanel.chipHover : ctrlPanel.cardBg)
+        Behavior on color { ColorAnimation { duration: 160 } }
+
+        Rectangle {
+            id: _qtIcon
+            x: 8
+            anchors.verticalCenter: parent.verticalCenter
+            width: 40; height: 40; radius: 14
+            color: _qt.active ? Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.18) : ctrlPanel.chipBg
+            Behavior on color { ColorAnimation { duration: 160 } }
+            IconText {
+                anchors.centerIn: parent
+                text: _qt.icon
+                fill: _qt.active ? 1 : 0
+                color: _qt.fg
+                font.pixelSize: 19
+            }
+        }
+        Column {
+            anchors.left: _qtIcon.right; anchors.leftMargin: 10
+            anchors.right: parent.right; anchors.rightMargin: 14
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 1
+            UiText {
+                width: parent.width
+                text: _qt.title
+                elide: Text.ElideRight
+                color: _qt.fg
+                font.family: root.barFont; font.pixelSize: 12; font.weight: Font.DemiBold
+            }
+            UiText {
+                width: parent.width
+                visible: text !== ""
+                text: _qt.subtitle
+                elide: Text.ElideRight
+                color: _qt.fg; opacity: 0.7
+                font.family: root.barFont; font.pixelSize: 10
+            }
+        }
+        MouseArea {
+            id: _qma
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: _qt.activated()
+        }
+    }
+
+    // ── round palette swatch; selection = check glyph + slight grow ──
+    component Swatch: Rectangle {
+        id: _sw
+        property string paletteId
+        property bool selected: false
+        signal picked()
+        height: width
+        radius: width / 2
+        color: root.paletteColor(paletteId)
+        scale: _swMa.containsMouse ? 1.08 : (selected ? 1.0 : 0.9)
+        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
+        IconText {
+            anchors.centerIn: parent
+            visible: _sw.selected
+            text: "check"
+            color: root.paletteContrastColor(_sw.paletteId)
+            font.pixelSize: Math.round(_sw.width * 0.55)
+            font.weight: Font.DemiBold
+        }
+        MouseArea {
+            id: _swMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: _sw.picked()
+        }
+    }
+
+    // ── segmented pill row (single choice) ──
+    component Segmented: Row {
+        id: _seg
+        property var options: []          // [{ label, value }]
+        property string current: ""
+        signal chosen(string value)
+        spacing: 4
+        Repeater {
+            model: _seg.options
+            delegate: Tile {
+                required property var modelData
+                width: root.evenW((_seg.width - _seg.spacing * (_seg.options.length - 1)) / _seg.options.length)
+                label: modelData.label
+                active: _seg.current === modelData.value
+                onActivated: _seg.chosen(modelData.value)
+            }
+        }
+    }
+
+    // ── widget chip: body toggles visibility, trailing zone = colour / eye / density ──
     component WidgetStateTile: Rectangle {
+        id: _wst
         property string gid
         property string label
         property bool shown: true
@@ -139,98 +367,99 @@ PanelWindow {
         readonly property bool hovered: bodyMa.containsMouse || colorMa.containsMouse
             || eyeMa.containsMouse || modeMa.containsMouse
         readonly property bool interactive: gid !== "" || canHide || (shown && supportsCompact)
+        readonly property bool menuOpen: ctrlPanel.widgetColorMenuGid === gid
 
-        height: 27
-        radius: root.panelButtonRadius
+        height: 30
+        radius: height / 2
         opacity: interactive ? 1 : 0.4
-        color: root.fillIdle
-        border.color: hovered ? root.seal : root.sep
-        border.width: 1
+        // shown → tinted accent, hidden → neutral chip; hover lifts either one
+        color: menuOpen
+            ? root.seal
+            : shown
+                ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, hovered ? 0.36 : root.fillActiveAlpha)
+                : (hovered ? ctrlPanel.chipHover : ctrlPanel.chipBg)
+        Behavior on color { ColorAnimation { duration: 140 } }
+
+        readonly property color fg: menuOpen ? root.paper : (shown ? root.ink : root.sumi)
+        readonly property color fgMuted: menuOpen ? root.paper : root.sumiHi
 
         UiText {
-            id: widgetLabel
-            anchors.left: parent.left; anchors.leftMargin: 8
-            anchors.right: stateArea.left; anchors.rightMargin: 4
+            anchors.left: parent.left; anchors.leftMargin: 12
+            anchors.right: stateArea.left; anchors.rightMargin: 2
             anchors.verticalCenter: parent.verticalCenter
-            text: parent.label
-            color: parent.shown ? root.ink : root.sumi
+            text: _wst.label
+            color: _wst.fg
             font.family: root.barFont
             font.pixelSize: 10
+            font.weight: _wst.shown ? Font.Medium : Font.Normal
             elide: Text.ElideRight
-            Behavior on color { ColorAnimation { duration: 120 } }
         }
 
         Item {
             id: stateArea
             anchors.right: parent.right
+            anchors.rightMargin: 4
             anchors.top: parent.top
             anchors.bottom: parent.bottom
-            width: 88
+            width: 22 + 22 + (_wst.supportsCompact ? 32 : 0)
 
             IconText {
                 id: colorChip
-                readonly property bool open:
-                    ctrlPanel.widgetColorMenuGid === stateArea.parent.gid
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                width: 25
+                width: 22
                 horizontalAlignment: Text.AlignHCenter
                 text: "palette"
-                color: root.widgetHasFill(stateArea.parent.gid)
-                    ? root.widgetAssignedColor(stateArea.parent.gid)
-                    : (colorMa.containsMouse || open ? root.seal : root.sumiHi)
-                font.pixelSize: 15
-                font.weight: Font.Normal
-                scale: colorMa.containsMouse ? 1.04 : 1.0
-                z: colorMa.containsMouse || open ? 1 : 0
+                fill: root.widgetHasFill(_wst.gid) ? 1 : 0
+                color: _wst.menuOpen ? root.paper
+                    : root.widgetHasFill(_wst.gid) ? root.widgetAssignedColor(_wst.gid)
+                    : (colorMa.containsMouse ? root.seal : _wst.fgMuted)
+                font.pixelSize: 14
                 Behavior on color { ColorAnimation { duration: 120 } }
-                Behavior on scale {
-                    NumberAnimation { duration: 120; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
-                }
             }
-
             IconText {
-                id: eyeGlyph
                 anchors.left: colorChip.right
                 anchors.verticalCenter: parent.verticalCenter
-                width: 25
+                width: 22
                 horizontalAlignment: Text.AlignHCenter
-                text: stateArea.parent.shown ? "visibility" : "visibility_off"
-                color: eyeMa.containsMouse ? root.seal : stateArea.parent.shown ? root.sumiHi : root.sumi
-                font.pixelSize: 15
-                opacity: stateArea.parent.canHide ? 1 : 0.4
+                text: _wst.shown ? "visibility" : "visibility_off"
+                color: eyeMa.containsMouse ? root.seal : _wst.fgMuted
+                font.pixelSize: 14
+                opacity: _wst.canHide ? 1 : 0.4
                 Behavior on color { ColorAnimation { duration: 120 } }
             }
-            UiText {
-                id: modeLabel
+            Rectangle {
+                id: modePill
+                visible: _wst.supportsCompact
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                width: 38
-                horizontalAlignment: Text.AlignHCenter
-                visible: stateArea.parent.supportsCompact
-                text: stateArea.parent.compact
-                    ? stateArea.parent.modeOnLabel
-                    : stateArea.parent.modeOffLabel
-                color: modeMa.containsMouse || (stateArea.parent.shown && stateArea.parent.compact) ? root.seal : root.sumiHi
-                font.family: root.barFont; font.pixelSize: 10
-                opacity: stateArea.parent.shown ? 1 : 0.4
+                width: 30; height: 20; radius: 10
+                opacity: _wst.shown ? 1 : 0.4
+                color: modeMa.containsMouse ? ctrlPanel.chipHover : ctrlPanel.chipBg
                 Behavior on color { ColorAnimation { duration: 120 } }
+                UiText {
+                    anchors.centerIn: parent
+                    text: _wst.compact ? _wst.modeOnLabel : _wst.modeOffLabel
+                    color: _wst.menuOpen ? root.paper
+                        : (modeMa.containsMouse || (_wst.shown && _wst.compact)) ? root.seal : _wst.fgMuted
+                    font.family: root.barFont; font.pixelSize: 9
+                }
             }
             MouseArea {
                 id: colorMa
                 anchors.left: parent.left
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
-                width: 25
+                width: 22
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    if (ctrlPanel.widgetColorMenuGid === stateArea.parent.gid) {
+                    if (_wst.menuOpen) {
                         ctrlPanel.widgetColorMenuGid = ""
                         ctrlPanel.widgetColorMenuLabel = ""
                     } else {
-                        ctrlPanel.widgetColorMenuGid = stateArea.parent.gid
-                        ctrlPanel.widgetColorMenuLabel = stateArea.parent.label
+                        ctrlPanel.widgetColorMenuGid = _wst.gid
+                        ctrlPanel.widgetColorMenuLabel = _wst.label
                     }
                 }
             }
@@ -239,22 +468,22 @@ PanelWindow {
                 anchors.left: colorMa.right
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
-                width: 25
-                enabled: stateArea.parent.canHide
+                width: 22
+                enabled: _wst.canHide
                 hoverEnabled: true
                 cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                onClicked: stateArea.parent.visibilityToggled()
+                onClicked: _wst.visibilityToggled()
             }
             MouseArea {
                 id: modeMa
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
-                width: 38
-                enabled: stateArea.parent.shown && stateArea.parent.supportsCompact
+                width: 32
+                enabled: _wst.shown && _wst.supportsCompact
                 hoverEnabled: true
                 cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                onClicked: stateArea.parent.modeToggled()
+                onClicked: _wst.modeToggled()
             }
         }
 
@@ -264,10 +493,69 @@ PanelWindow {
             anchors.right: stateArea.left
             anchors.top: parent.top
             anchors.bottom: parent.bottom
-            enabled: parent.canHide
+            enabled: _wst.canHide
             hoverEnabled: true
             cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-            onClicked: parent.visibilityToggled()
+            onClicked: _wst.visibilityToggled()
+        }
+    }
+
+    // ── system spec tile: tinted icon squircle + vendor chip, label, short value ──
+    component InfoTile: Rectangle {
+        id: _it
+        property string icon
+        property string label
+        property string value
+        property string chip: ""
+        height: 88
+        radius: 16
+        color: ctrlPanel.chipBg
+
+        Rectangle {
+            id: _itIcon
+            x: 10; y: 10
+            width: 30; height: 30; radius: 11
+            color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, root.fillActiveAlpha)
+            IconText {
+                anchors.centerIn: parent
+                text: _it.icon
+                color: root.seal
+                font.pixelSize: 17
+            }
+        }
+        Rectangle {
+            visible: _it.chip !== ""
+            anchors.right: parent.right; anchors.rightMargin: 10
+            anchors.verticalCenter: _itIcon.verticalCenter
+            width: Math.min(_itChip.implicitWidth + 14, _it.width - _itIcon.width - 30)
+            height: 20; radius: 10
+            color: ctrlPanel.chipBg
+            UiText {
+                id: _itChip
+                anchors.centerIn: parent
+                width: Math.min(implicitWidth, parent.width - 14)
+                elide: Text.ElideRight
+                text: _it.chip
+                color: root.sumiHi; font.family: root.barFont
+                font.pixelSize: 9; font.weight: Font.Medium; font.letterSpacing: 0.3
+            }
+        }
+        Column {
+            anchors.left: parent.left; anchors.leftMargin: 12
+            anchors.right: parent.right; anchors.rightMargin: 10
+            anchors.bottom: parent.bottom; anchors.bottomMargin: 11
+            spacing: 1
+            UiText {
+                text: _it.label
+                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10
+            }
+            UiText {
+                width: parent.width
+                text: _it.value !== "" ? _it.value : "—"
+                elide: Text.ElideRight
+                color: root.ink; font.family: root.barFont
+                font.pixelSize: 13; font.weight: Font.DemiBold
+            }
         }
     }
 
@@ -275,11 +563,10 @@ PanelWindow {
 
     Rectangle {
         id: card
-        width: 240
+        width: 396
         height: col.implicitHeight + 24
         radius: ctrlPanel.reveal > 0.001 ? root.panelRadius : 0
         color: "transparent"
-        border.color: root.panelOuterBorderColor
         border.width: 0
         PillShadow { theme: root }
         ConnectedPanelSurface {
@@ -308,245 +595,173 @@ PanelWindow {
             anchors.margins: 12
             spacing: 8
 
-            // ── header ──
+            // ── header: logo squircle · host / OS · close ──
             Item {
                 width: parent.width
-                height: 24
-                UiText {
-                    anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
-                    text: "Control"
-                    color: root.ink; font.family: root.barFont; font.pixelSize: 13
-                    font.letterSpacing: 2; font.weight: Font.Medium
+                height: 44
+
+                Rectangle {
+                    id: logoChip
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 42; height: 42; radius: 15
+                    color: root.seal
+                    Text {
+                        anchors.centerIn: parent
+                        text: "\uE900"
+                        color: root.paper
+                        font.family: "omarchy"
+                        font.pixelSize: 22
+                    }
                 }
-                UiText {
-                    anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                    text: "✕"; color: closeMa.containsMouse ? root.seal : root.sumi; font.pixelSize: 12
+                Column {
+                    anchors.left: logoChip.right; anchors.leftMargin: 10
+                    anchors.right: closeBtn.left; anchors.rightMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 1
+                    UiText {
+                        width: parent.width
+                        text: ctrlPanel.siHostname !== "" ? ctrlPanel.siHostname : "Control"
+                        elide: Text.ElideRight
+                        color: root.ink; font.family: root.barFont
+                        font.pixelSize: 14; font.weight: Font.DemiBold
+                    }
+                    UiText {
+                        width: parent.width
+                        text: ctrlPanel.siOs !== "" ? ctrlPanel.siOs + "  ·  " + ctrlPanel.siKernel : "Control center"
+                        elide: Text.ElideRight
+                        color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10
+                    }
+                }
+                Rectangle {
+                    id: closeBtn
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 30; height: 30; radius: 15
+                    color: closeMa.containsMouse ? ctrlPanel.chipHover : ctrlPanel.cardBg
                     Behavior on color { ColorAnimation { duration: 120 } }
+                    IconText {
+                        anchors.centerIn: parent
+                        text: "close"
+                        color: closeMa.containsMouse ? root.seal : root.ink
+                        font.pixelSize: 16
+                    }
                     MouseArea { id: closeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.controlVisible = false }
                 }
             }
 
-            // ── SYSTEM INFO CARD ──────────────────────────────────────────────
-            Rectangle {
-                width: parent.width
-                color: root.fillIdle
-                radius: root.panelButtonRadius
-                border.color: root.sep
-                border.width: 1
-                implicitHeight: siCardCol.implicitHeight + 20
-
-                Column {
-                    id: siCardCol
-                    anchors { left: parent.left; right: parent.right; top: parent.top }
-                    anchors.margins: 12
-                    anchors.topMargin: 12
-                    spacing: 0
-
-                    // Centered Omarchy logo glyph
-                    Text {
-                        width: parent.width
-                        horizontalAlignment: Text.AlignHCenter
-                        text: "\uE900"
-                        color: root.ink
-                        font.family: "omarchy"
-                        font.pixelSize: 26
-                    }
-                    Item { width: 1; height: 4 }
-                    // Hostname (subtitle)
-                    UiText {
-                        text: ctrlPanel.siHostname
-                        color: root.sumiHi
-                        font.family: root.barFont
-                        font.pixelSize: 10
-                        width: parent.width
-                        horizontalAlignment: Text.AlignHCenter
-                    }
-                    Item { width: 1; height: 10 }
-
-                    Rectangle { width: parent.width; height: 1; color: root.sep; opacity: 0.5 }
-
-                    Item { width: 1; height: 6 }
-
-                    // CPU row
-                    Item { width: parent.width; height: 18
-                        UiText { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; text: "CPU"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10 }
-                        UiText { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: ctrlPanel.siCpu; color: root.ink; font.family: root.barFont; font.pixelSize: 10; elide: Text.ElideRight; width: parent.width * 0.65; horizontalAlignment: Text.AlignRight }
-                    }
-                    // Memory row
-                    Item { width: parent.width; height: 18
-                        UiText { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; text: "Memory"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10 }
-                        UiText { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: "16 GB"; color: root.ink; font.family: root.barFont; font.pixelSize: 10; elide: Text.ElideRight; width: parent.width * 0.65; horizontalAlignment: Text.AlignRight }
-                    }
-                    // GPU row — label top-aligned, value wraps freely
-                    Item {
-                        width: parent.width
-                        implicitHeight: Math.max(18, gpuVal.implicitHeight)
-                        height: implicitHeight
-                        UiText { id: gpuLbl; anchors.left: parent.left; anchors.top: parent.top; anchors.topMargin: 1; text: "GPU"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10 }
-                        UiText {
-                            id: gpuVal
-                            anchors.right: parent.right; anchors.top: parent.top
-                            text: ctrlPanel.siGpu
-                            color: root.ink; font.family: root.barFont; font.pixelSize: 10
-                            width: parent.width * 0.72
-                            wrapMode: Text.WordWrap
-                            horizontalAlignment: Text.AlignRight
-                        }
-                    }
-                    // Display row
-                    Item { width: parent.width; height: 18
-                        UiText { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; text: "Display"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10 }
-                        UiText { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: ctrlPanel.siDisplay; color: root.ink; font.family: root.barFont; font.pixelSize: 10; elide: Text.ElideRight; width: parent.width * 0.65; horizontalAlignment: Text.AlignRight }
-                    }
-
-                    Item { width: 1; height: 6 }
-                    Rectangle { width: parent.width; height: 1; color: root.sep; opacity: 0.5 }
-                    Item { width: 1; height: 6 }
-
-                    // OS row
-                    Item { width: parent.width; height: 18
-                        UiText { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; text: "OS"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10 }
-                        UiText { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: ctrlPanel.siOs; color: root.ink; font.family: root.barFont; font.pixelSize: 10; elide: Text.ElideRight; width: parent.width * 0.65; horizontalAlignment: Text.AlignRight }
-                    }
-                    // Kernel row
-                    Item { width: parent.width; height: 18
-                        UiText { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; text: "Kernel"; color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10 }
-                        UiText { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: ctrlPanel.siKernel; color: root.ink; font.family: root.barFont; font.pixelSize: 10; elide: Text.ElideRight; width: parent.width * 0.65; horizontalAlignment: Text.AlignRight }
-                    }
-                }
-            }
-
-            Rectangle { width: parent.width; height: 1; color: root.sep }
-
-
-            // ── BAR COLOR: compact colors.toml palette ──
-            UiText {
-                text: "BAR COLOR"
-                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
-            }
+            // ── quick settings tiles ──
             Grid {
                 width: parent.width
-                columns: 4
+                columns: 2
                 columnSpacing: 6
                 rowSpacing: 6
-                Repeater {
-                    model: root.barColorOptions
-                    delegate: Rectangle {
-                        required property string modelData
-                        readonly property bool on: root.barColor === modelData
-                        readonly property bool hovered: _cma.containsMouse
-                        width: root.evenW((col.width - 18) / 4)
-                        height: 24
-                        radius: root.panelButtonRadius
-                        color: root.paletteColor(modelData)
-                        border.color: root.sep
-                        border.width: 1
-                        scale: hovered ? 1.04 : 1.0
-                        z: hovered ? 1 : 0
-                        Behavior on color { ColorAnimation { duration: 120 } }
-                        Behavior on scale {
-                            NumberAnimation { duration: 120; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
-                        }
-                        UiText {
-                            anchors.centerIn: parent
-                            text: modelData === "foreground" ? "FG" : modelData.slice(-2)
-                            color: root.paletteContrastColor(modelData)
-                            font.family: root.barFont
-                            font.pixelSize: 9
-                            font.weight: Font.Medium
-                        }
-                        Rectangle {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.bottom: parent.bottom
-                            anchors.bottomMargin: 3
-                            width: 18
-                            height: 2
-                            radius: 1
-                            visible: parent.on
-                            color: root.paletteContrastColor(modelData)
-                        }
-                        MouseArea {
-                            id: _cma
-                            anchors.fill: parent; hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.barColor = modelData
+                readonly property real tileW: root.evenW((width - columnSpacing) / 2)
+
+                QuickTile {
+                    width: parent.tileW
+                    icon: "tune"
+                    title: "Bar functions"
+                    subtitle: root.wwSubVisible ? "Open" : "Widgets & layout"
+                    active: root.wwSubVisible
+                    onActivated: root.wwSubVisible = !root.wwSubVisible
+                }
+                QuickTile {
+                    width: parent.tileW
+                    icon: "edit"
+                    title: "Edit slots"
+                    subtitle: "Rearrange bar"
+                    onActivated: {
+                        root.controlVisible = false
+                        root.barUnlocked = true
+                    }
+                }
+                QuickTile {
+                    width: parent.tileW
+                    icon: root.barPosition === "bottom" ? "vertical_align_bottom" : "vertical_align_top"
+                    title: "Position"
+                    subtitle: root.barPosition === "bottom" ? "Bottom" : "Top"
+                    onActivated: root.barPosition = root.barPosition === "bottom" ? "top" : "bottom"
+                }
+                QuickTile {
+                    width: parent.tileW
+                    icon: root.notifSilenced ? "notifications_off" : "notifications"
+                    title: "Do not disturb"
+                    subtitle: root.notifSilenced ? "Silenced" : "Alerts on"
+                    active: root.notifSilenced
+                    onActivated: { dndProc.running = false; dndProc.running = true }
+                }
+                QuickTile {
+                    width: parent.tileW
+                    icon: "border_outer"
+                    title: "Bar border"
+                    subtitle: root.barBorderEnabled ? "On" : "Off"
+                    active: root.barBorderEnabled
+                    onActivated: root.barBorderEnabled = !root.barBorderEnabled
+                }
+                QuickTile {
+                    width: parent.tileW
+                    icon: "select_window"
+                    title: "Panel border"
+                    subtitle: root.panelTooltipBorderEnabled ? "On" : "Off"
+                    active: root.panelTooltipBorderEnabled
+                    onActivated: root.panelTooltipBorderEnabled = !root.panelTooltipBorderEnabled
+                }
+            }
+
+            // ── BAR COLOR: round swatches ──
+            Card {
+                title: "Bar color"
+                trailing: root.barColorLabel(root.barColor)
+                Grid {
+                    id: barSwatches
+                    width: parent.width
+                    columns: 8
+                    readonly property int size: Math.floor((width - 7 * 4) / 8)
+                    columnSpacing: Math.floor((width - size * 8) / 7)
+                    Repeater {
+                        model: root.barColorOptions
+                        delegate: Swatch {
+                            required property string modelData
+                            width: barSwatches.size
+                            paletteId: modelData
+                            selected: root.barColor === modelData
+                            onPicked: root.barColor = modelData
                         }
                     }
                 }
             }
-
-            Rectangle { width: parent.width; height: 1; color: root.sep }
-
-            // ── BAR FUNCTIONS (opens the fly-out sub-panel) ──
-            UiText {
-                text: "BAR FUNCTIONS"
-                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
-            }
-            Tile {
-                width: parent.width
-                label: root.wwSubVisible ? "Bar Functions  ◂" : "Bar Functions  ▸"
-                active: root.wwSubVisible
-                onActivated: root.wwSubVisible = !root.wwSubVisible
-            }
-
-            Rectangle { width: parent.width; height: 1; color: root.sep }
 
             // ── PICKER style (theme/wallpaper/screenshot/video picker visual) ──
-            UiText {
-                text: "PICKER-STIL"
-                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
-            }
-            Row {
-                id: pickerRow
-                width: parent.width
-                spacing: 4
-                readonly property var opts: [
-                    { label: "Tanzaku",     mode: "tanzaku"     },
-                    { label: "Hearthstone", mode: "hearthstone" },
-                    { label: "Carousel",    mode: "carousel"    }
-                ]
-                // Tiles are sized to their label width (mono → length × charW)
-                // plus an equal share of the leftover space, so every tile gets
-                // the same side padding. Fixed 1/3-each made the long "Hearthstone"
-                // label touch its borders while the short labels had slack.
-                TextMetrics { id: pickMetrics; font.family: root.barFont; font.pixelSize: 10; text: "0" }
-                readonly property real charW: pickMetrics.advanceWidth
-                readonly property real sumTextW: {
-                    var n = 0;
-                    for (var i = 0; i < opts.length; i++) n += opts[i].label.length;
-                    return n * charW;
-                }
-                readonly property real padEach: Math.max(0, (width - spacing * (opts.length - 1) - sumTextW) / (opts.length * 2))
-                Repeater {
-                    model: pickerRow.opts
-                    delegate: Rectangle {
-                        id: pickTile
-                        required property var modelData
-                        readonly property bool on:      root.pickerStyle === modelData.mode
-                        readonly property bool hovered: pickMa.containsMouse
-                        width: root.evenW(modelData.label.length * pickerRow.charW + pickerRow.padEach * 2)
-                        height: 25; radius: root.panelButtonRadius
-                        color: on ? root.fillActive : hovered ? root.fillHover : root.fillIdle
-                        border.color: (on || hovered) ? root.seal : root.sep
-                        border.width: 1
-                        Behavior on color { ColorAnimation { duration: 120 } }
-                        UiText {
-                            anchors.centerIn: parent
-                            text: pickTile.modelData.label
-                            color: (pickTile.on || pickTile.hovered) ? root.seal : root.ink
-                            font.family: root.barFont; font.pixelSize: 10
-                            font.weight: pickTile.on ? Font.Medium : Font.Normal
-                        }
-                        MouseArea {
-                            id: pickMa
-                            anchors.fill: parent; hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.pickerStyle = pickTile.modelData.mode
-                        }
-                    }
+            Card {
+                title: "Picker style"
+                Segmented {
+                    width: parent.width
+                    options: [
+                        { label: "Tanzaku",     value: "tanzaku"     },
+                        { label: "Hearthstone", value: "hearthstone" },
+                        { label: "Carousel",    value: "carousel"    }
+                    ]
+                    current: root.pickerStyle
+                    onChosen: (v) => root.pickerStyle = v
                 }
             }
 
+            // ── SYSTEM INFO ──
+            Card {
+                title: "System"
+                Grid {
+                    id: specGrid
+                    width: parent.width
+                    columns: 2
+                    spacing: 6
+                    readonly property real tileW: root.evenW((width - spacing) / 2)
+                    InfoTile { width: specGrid.tileW; icon: "developer_board"; label: "Processor"; value: ctrlPanel.cpuModel(ctrlPanel.siCpu);         chip: ctrlPanel._vendorOf(ctrlPanel.siCpu) }
+                    InfoTile { width: specGrid.tileW; icon: "memory";          label: "Memory";    value: "16 GB";                                     chip: "RAM" }
+                    InfoTile { width: specGrid.tileW; icon: "videogame_asset"; label: "Graphics";  value: ctrlPanel.gpuModel(ctrlPanel.siGpu);         chip: ctrlPanel.gpuChip(ctrlPanel.siGpu) }
+                    InfoTile { width: specGrid.tileW; icon: "desktop_windows"; label: "Display";   value: ctrlPanel.displayModel(ctrlPanel.siDisplay); chip: ctrlPanel.displayChip(ctrlPanel.siDisplay) }
+                }
+            }
         }
     }
 
@@ -554,7 +769,7 @@ PanelWindow {
     Rectangle {
         id: wwCard
         visible: root.controlVisible && root.wwSubVisible
-        width: 320
+        width: 372
         height: wwCol.implicitHeight + 24
         radius: (root.controlVisible && root.wwSubVisible) ? root.panelRadius : 0
         color: root.bg
@@ -576,157 +791,133 @@ PanelWindow {
             anchors.margins: 12
             spacing: 8
 
-            UiText {
-                text: "LAYOUT"
-                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
-            }
-            Row {
-                width: parent.width
-                spacing: 4
-                Tile {
-                    width: root.evenW((wwCol.width - 4) / 2)
-                    label: "Edit slots"
-                    accent: root.seal
-                    onActivated: {
-                        root.controlVisible = false
-                        root.barUnlocked = true
-                    }
-                }
-                Tile {
-                    width: root.evenW((wwCol.width - 4) / 2)
-                    label: "Default layout"
-                    onActivated: if (root.fnDefaultLayout) root.fnDefaultLayout()
-                }
-            }
-            Rectangle { width: parent.width; height: 1; color: root.sep }
-
-            // ── WIDGETS: one tile per widget, two quiet interaction zones ──
-            UiText {
-                text: "WIDGETS"
-                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
-            }
-            Grid {
-                width: parent.width
-                columns: 2
-                columnSpacing: 4
-                rowSpacing: 4
-                WidgetStateTile { gid: "G1";  width: root.evenW((wwCol.width - 4) / 2); label: "Launcher";      shown: true; canHide: false }
-                WidgetStateTile { gid: "G2";  width: root.evenW((wwCol.width - 4) / 2); label: "Workspaces";    shown: true; canHide: false }
-                WidgetStateTile { gid: "G3";  width: root.evenW((wwCol.width - 4) / 2); label: "Status";        shown: root.modStatus;          onVisibilityToggled: root.modStatus = !root.modStatus }
-                WidgetStateTile { gid: "G4";  width: root.evenW((wwCol.width - 4) / 2); label: "Memory";        shown: root.modMemory;          supportsCompact: true; compact: root.iconOnly("G4");  onVisibilityToggled: root.modMemory = !root.modMemory; onModeToggled: root.toggleIconOnly("G4") }
-                WidgetStateTile { gid: "G5";  width: root.evenW((wwCol.width - 4) / 2); label: "CPU";           shown: root.modCpu;             supportsCompact: true; compact: root.iconOnly("G5");  onVisibilityToggled: root.modCpu = !root.modCpu; onModeToggled: root.toggleIconOnly("G5") }
-                WidgetStateTile { gid: "G6";  width: root.evenW((wwCol.width - 4) / 2); label: "Volume";        shown: root.modVolume;          supportsCompact: true; compact: root.iconOnly("G6");  onVisibilityToggled: root.modVolume = !root.modVolume; onModeToggled: root.toggleIconOnly("G6") }
-                WidgetStateTile { gid: "G7";  width: root.evenW((wwCol.width - 4) / 2); label: "AI usage";      shown: root.modClaude;          supportsCompact: true; compact: root.iconOnly("G7");  onVisibilityToggled: root.modClaude = !root.modClaude; onModeToggled: root.toggleIconOnly("G7") }
-                WidgetStateTile { gid: "G8";  width: root.evenW((wwCol.width - 4) / 2); label: "Clock/Weather"; shown: true; canHide: false }
-                WidgetStateTile { gid: "G9";  width: root.evenW((wwCol.width - 4) / 2); label: "Now playing";   shown: root.modMpris; supportsCompact: true; compact: root.mprisBarStyle !== "default"; modeOffLabel: "Def"; modeOnLabel: root.mprisBarStyle === "island" ? "Isle" : "Full"; onVisibilityToggled: root.modMpris = !root.modMpris; onModeToggled: root.mprisBarStyle = root.mprisBarStyle === "full" ? "island" : (root.mprisBarStyle === "island" ? "default" : "full") }
-                WidgetStateTile { gid: "G10"; width: root.evenW((wwCol.width - 4) / 2); label: "Quick tools";   shown: root.modQuick;           onVisibilityToggled: root.modQuick = !root.modQuick }
-                WidgetStateTile { gid: "G11"; width: root.evenW((wwCol.width - 4) / 2); label: "Network";       shown: root.modNetwork; canHide: true; supportsCompact: true; compact: root.iconOnly("G11"); onVisibilityToggled: root.modNetwork = !root.modNetwork; onModeToggled: root.toggleIconOnly("G11") }
-                WidgetStateTile { gid: "G12"; width: root.evenW((wwCol.width - 4) / 2); label: "Battery";       shown: root.hasBattery && root.modBattery; canHide: root.hasBattery; supportsCompact: true; compact: root.iconOnly("G12"); onVisibilityToggled: root.modBattery = !root.modBattery; onModeToggled: root.toggleIconOnly("G12") }
-                WidgetStateTile { gid: "G13"; width: root.evenW((wwCol.width - 4) / 2); label: "Brightness";    shown: root.hasBacklight && root.modBrightness; canHide: root.hasBacklight; supportsCompact: true; compact: root.iconOnly("G13"); onVisibilityToggled: root.modBrightness = !root.modBrightness; onModeToggled: root.toggleIconOnly("G13") }
-                WidgetStateTile { gid: "G14"; width: root.evenW((wwCol.width - 4) / 2); label: "Power Prof.";   shown: root.modPower;           onVisibilityToggled: root.modPower = !root.modPower }
-                WidgetStateTile { gid: "G15"; width: root.evenW((wwCol.width - 4) / 2); label: "Bluetooth";     shown: root.modBluetooth;       supportsCompact: true; compact: root.iconOnly("G15"); onVisibilityToggled: root.modBluetooth = !root.modBluetooth; onModeToggled: root.toggleIconOnly("G15") }
-                WidgetStateTile { gid: "G16"; width: root.evenW((wwCol.width - 4) / 2); label: "Temperature";   shown: root.modCpuTemperature;  supportsCompact: true; compact: root.iconOnly("G16"); onVisibilityToggled: root.modCpuTemperature = !root.modCpuTemperature; onModeToggled: root.toggleIconOnly("G16") }
-                WidgetStateTile { gid: "G21"; width: root.evenW((wwCol.width - 4) / 2); label: "Screentime";   shown: root.modScreentime;  supportsCompact: true; compact: root.iconOnly("G21"); onVisibilityToggled: root.modScreentime = !root.modScreentime; onModeToggled: root.toggleIconOnly("G21") }
-                WidgetStateTile { gid: "G17"; width: root.evenW((wwCol.width - 4) / 2); label: "GPU load";      shown: root.modGpu;             supportsCompact: true; compact: root.iconOnly("G17"); onVisibilityToggled: root.modGpu = !root.modGpu; onModeToggled: root.toggleIconOnly("G17") }
-                WidgetStateTile { gid: "G18"; width: root.evenW((wwCol.width - 4) / 2); label: "HDD";           shown: root.modStorage;         supportsCompact: true; compact: root.iconOnly("G18"); onVisibilityToggled: root.modStorage = !root.modStorage; onModeToggled: root.toggleIconOnly("G18") }
-                WidgetStateTile { gid: "G19"; width: root.evenW((wwCol.width - 4) / 2); label: "GH Heatmap";    shown: root.modGithubHeatmap;   onVisibilityToggled: root.modGithubHeatmap = !root.modGithubHeatmap }
-            }
-
-            Rectangle {
-                id: widgetColorMenu
-                width: parent.width
-                height: widgetMenuCol.implicitHeight + 16
-                radius: root.panelRadius
-                visible: ctrlPanel.widgetColorMenuGid !== ""
-                color: root.fillIdle
-                border.color: root.sep
-                border.width: 1
-
-                Column {
-                    id: widgetMenuCol
-                    anchors.fill: parent
-                    anchors.margins: 8
-                    spacing: 7
-
-                    Item {
-                        width: parent.width
-                        height: 18
-                        UiText {
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: ctrlPanel.widgetColorMenuLabel.toUpperCase() + " COLOR"
-                            color: root.sumiHi
-                            font.family: root.barFont
-                            font.pixelSize: 9
-                            font.letterSpacing: 0.7
-                        }
-                        UiText {
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: root.widgetPaletteId(ctrlPanel.widgetColorMenuGid) === "inherit" ? "INHERIT" : "RESET"
-                            color: resetColorMa.containsMouse ? root.seal : root.sumiHi
-                            font.family: root.barFont
-                            font.pixelSize: 9
-                        }
-                        MouseArea {
-                            id: resetColorMa
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 48
-                            height: parent.height
-                            enabled: root.widgetPaletteId(ctrlPanel.widgetColorMenuGid) !== "inherit"
-                            hoverEnabled: enabled
-                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                            onClicked: root.resetWidgetColor(ctrlPanel.widgetColorMenuGid)
+            // ── LAYOUT ──
+            Card {
+                title: "Layout"
+                Row {
+                    width: parent.width
+                    spacing: 4
+                    Tile {
+                        width: root.evenW((parent.width - 4) / 2)
+                        icon: "edit"
+                        label: "Edit slots"
+                        onActivated: {
+                            root.controlVisible = false
+                            root.barUnlocked = true
                         }
                     }
+                    Tile {
+                        width: root.evenW((parent.width - 4) / 2)
+                        icon: "restart_alt"
+                        label: "Default layout"
+                        onActivated: if (root.fnDefaultLayout) root.fnDefaultLayout()
+                    }
+                }
+            }
 
-                    Grid {
-                        width: parent.width
-                        columns: 8
-                        columnSpacing: 4
-                        Repeater {
-                            model: root.barColorOptions
-                            delegate: Rectangle {
-                                required property string modelData
-                                readonly property bool selected:
-                                    root.widgetPaletteId(ctrlPanel.widgetColorMenuGid) === modelData
-                                width: root.evenW((widgetMenuCol.width - 28) / 8)
-                                height: 22
-                                radius: root.panelButtonRadius
-                                color: root.paletteColor(modelData)
-                                border.color: root.sep
-                                border.width: 1
-                                scale: widgetSwatchMa.containsMouse ? 1.04 : 1.0
-                                z: widgetSwatchMa.containsMouse ? 1 : 0
-                                Behavior on scale {
-                                    NumberAnimation { duration: 120; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
-                                }
+            // ── WIDGETS: one chip per widget, quiet interaction zones ──
+            Card {
+                id: widgetsCard
+                title: "Widgets"
+                trailing: "tap to show / hide"
+                Grid {
+                    id: widgetGrid
+                    width: parent.width
+                    columns: 2
+                    columnSpacing: 4
+                    rowSpacing: 4
+                    readonly property real tileW: root.evenW((width - columnSpacing) / 2)
+                    WidgetStateTile { gid: "G1";  width: widgetGrid.tileW; label: "Launcher";      shown: true; canHide: false }
+                    WidgetStateTile { gid: "G2";  width: widgetGrid.tileW; label: "Workspaces";    shown: true; canHide: false }
+                    WidgetStateTile { gid: "G3";  width: widgetGrid.tileW; label: "Status";        shown: root.modStatus;          onVisibilityToggled: root.modStatus = !root.modStatus }
+                    WidgetStateTile { gid: "G22"; width: widgetGrid.tileW; label: "Notifications"; shown: root.modNotif; onVisibilityToggled: root.modNotif = !root.modNotif }
+                    WidgetStateTile { gid: "G4";  width: widgetGrid.tileW; label: "Memory";        shown: root.modMemory;          supportsCompact: true; compact: root.iconOnly("G4");  onVisibilityToggled: root.modMemory = !root.modMemory; onModeToggled: root.toggleIconOnly("G4") }
+                    WidgetStateTile { gid: "G5";  width: widgetGrid.tileW; label: "CPU";           shown: root.modCpu;             supportsCompact: true; compact: root.iconOnly("G5");  onVisibilityToggled: root.modCpu = !root.modCpu; onModeToggled: root.toggleIconOnly("G5") }
+                    WidgetStateTile { gid: "G6";  width: widgetGrid.tileW; label: "Volume";        shown: root.modVolume;          supportsCompact: true; compact: root.iconOnly("G6");  onVisibilityToggled: root.modVolume = !root.modVolume; onModeToggled: root.toggleIconOnly("G6") }
+                    WidgetStateTile { gid: "G7";  width: widgetGrid.tileW; label: "AI usage";      shown: root.modClaude;          supportsCompact: true; compact: root.iconOnly("G7");  onVisibilityToggled: root.modClaude = !root.modClaude; onModeToggled: root.toggleIconOnly("G7") }
+                    WidgetStateTile { gid: "G8";  width: widgetGrid.tileW; label: "Clock/Weather"; shown: true; canHide: false }
+                    WidgetStateTile { gid: "G9";  width: widgetGrid.tileW; label: "Now playing";   shown: root.modMpris; supportsCompact: true; compact: root.mprisBarStyle !== "default"; modeOffLabel: "Def"; modeOnLabel: root.mprisBarStyle === "island" ? "Isle" : "Full"; onVisibilityToggled: root.modMpris = !root.modMpris; onModeToggled: root.mprisBarStyle = root.mprisBarStyle === "full" ? "island" : (root.mprisBarStyle === "island" ? "default" : "full") }
+                    WidgetStateTile { gid: "G10"; width: widgetGrid.tileW; label: "Quick tools";   shown: root.modQuick;           onVisibilityToggled: root.modQuick = !root.modQuick }
+                    WidgetStateTile { gid: "G11"; width: widgetGrid.tileW; label: "Network";       shown: root.modNetwork; canHide: true; supportsCompact: true; compact: root.iconOnly("G11"); onVisibilityToggled: root.modNetwork = !root.modNetwork; onModeToggled: root.toggleIconOnly("G11") }
+                    WidgetStateTile { gid: "G12"; width: widgetGrid.tileW; label: "Battery";       shown: root.hasBattery && root.modBattery; canHide: root.hasBattery; supportsCompact: true; compact: root.iconOnly("G12"); onVisibilityToggled: root.modBattery = !root.modBattery; onModeToggled: root.toggleIconOnly("G12") }
+                    WidgetStateTile { gid: "G13"; width: widgetGrid.tileW; label: "Brightness";    shown: root.hasBacklight && root.modBrightness; canHide: root.hasBacklight; supportsCompact: true; compact: root.iconOnly("G13"); onVisibilityToggled: root.modBrightness = !root.modBrightness; onModeToggled: root.toggleIconOnly("G13") }
+                    WidgetStateTile { gid: "G14"; width: widgetGrid.tileW; label: "Power Prof.";   shown: root.modPower;           onVisibilityToggled: root.modPower = !root.modPower }
+                    WidgetStateTile { gid: "G15"; width: widgetGrid.tileW; label: "Bluetooth";     shown: root.modBluetooth;       supportsCompact: true; compact: root.iconOnly("G15"); onVisibilityToggled: root.modBluetooth = !root.modBluetooth; onModeToggled: root.toggleIconOnly("G15") }
+                    WidgetStateTile { gid: "G16"; width: widgetGrid.tileW; label: "Temperature";   shown: root.modCpuTemperature;  supportsCompact: true; compact: root.iconOnly("G16"); onVisibilityToggled: root.modCpuTemperature = !root.modCpuTemperature; onModeToggled: root.toggleIconOnly("G16") }
+                    WidgetStateTile { gid: "G21"; width: widgetGrid.tileW; label: "Screentime";    shown: root.modScreentime;      supportsCompact: true; compact: root.iconOnly("G21"); onVisibilityToggled: root.modScreentime = !root.modScreentime; onModeToggled: root.toggleIconOnly("G21") }
+                    WidgetStateTile { gid: "G17"; width: widgetGrid.tileW; label: "GPU load";      shown: root.modGpu;             supportsCompact: true; compact: root.iconOnly("G17"); onVisibilityToggled: root.modGpu = !root.modGpu; onModeToggled: root.toggleIconOnly("G17") }
+                    WidgetStateTile { gid: "G18"; width: widgetGrid.tileW; label: "HDD";           shown: root.modStorage;         supportsCompact: true; compact: root.iconOnly("G18"); onVisibilityToggled: root.modStorage = !root.modStorage; onModeToggled: root.toggleIconOnly("G18") }
+                    WidgetStateTile { gid: "G19"; width: widgetGrid.tileW; label: "GH Heatmap";    shown: root.modGithubHeatmap;   onVisibilityToggled: root.modGithubHeatmap = !root.modGithubHeatmap }
+                }
+
+                // per-widget colour sheet (nested tonal surface, no outline)
+                Rectangle {
+                    id: widgetColorMenu
+                    width: parent.width
+                    height: visible ? widgetMenuCol.implicitHeight + 20 : 0
+                    radius: 14
+                    visible: ctrlPanel.widgetColorMenuGid !== ""
+                    color: ctrlPanel.chipBg
+
+                    Column {
+                        id: widgetMenuCol
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        spacing: 8
+
+                        Item {
+                            width: parent.width
+                            height: 20
+                            UiText {
+                                anchors.left: parent.left; anchors.leftMargin: 2
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: ctrlPanel.widgetColorMenuLabel + " color"
+                                color: root.ink
+                                font.family: root.barFont
+                                font.pixelSize: 11
+                                font.weight: Font.Medium
+                            }
+                            Rectangle {
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                readonly property bool inherits: root.widgetPaletteId(ctrlPanel.widgetColorMenuGid) === "inherit"
+                                width: resetTxt.implicitWidth + 16; height: 20; radius: 10
+                                opacity: inherits ? 0.5 : 1
+                                color: resetColorMa.containsMouse ? ctrlPanel.chipHover : ctrlPanel.chipBg
                                 UiText {
+                                    id: resetTxt
                                     anchors.centerIn: parent
-                                    text: modelData === "foreground" ? "F" : modelData.slice(-1)
-                                    color: root.paletteContrastColor(modelData)
+                                    text: parent.inherits ? "Inherit" : "Reset"
+                                    color: resetColorMa.containsMouse ? root.seal : root.sumiHi
                                     font.family: root.barFont
-                                    font.pixelSize: 8
-                                    font.weight: Font.Medium
-                                }
-                                Rectangle {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    anchors.bottom: parent.bottom
-                                    anchors.bottomMargin: 2
-                                    width: 12
-                                    height: 2
-                                    radius: 1
-                                    visible: parent.selected
-                                    color: root.paletteContrastColor(modelData)
+                                    font.pixelSize: 9
                                 }
                                 MouseArea {
-                                    id: widgetSwatchMa
+                                    id: resetColorMa
                                     anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (parent.selected)
+                                    enabled: !parent.inherits
+                                    hoverEnabled: enabled
+                                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                    onClicked: root.resetWidgetColor(ctrlPanel.widgetColorMenuGid)
+                                }
+                            }
+                        }
+
+                        Grid {
+                            id: widgetSwatches
+                            width: parent.width
+                            columns: 8
+                            readonly property int size: Math.min(26, Math.floor((width - 7 * 4) / 8))
+                            columnSpacing: Math.floor((width - size * 8) / 7)
+                            Repeater {
+                                model: root.barColorOptions
+                                delegate: Swatch {
+                                    required property string modelData
+                                    width: widgetSwatches.size
+                                    paletteId: modelData
+                                    selected: root.widgetPaletteId(ctrlPanel.widgetColorMenuGid) === modelData
+                                    onPicked: {
+                                        if (selected)
                                             root.resetWidgetColor(ctrlPanel.widgetColorMenuGid)
                                         else
                                             root.setWidgetPaletteColor(ctrlPanel.widgetColorMenuGid, modelData)
@@ -734,104 +925,81 @@ PanelWindow {
                                 }
                             }
                         }
-                    }
 
-                    Tile {
-                        width: parent.width
-                        height: 23
-                        label: "Border"
-                        active: root.widgetHasBorder(ctrlPanel.widgetColorMenuGid)
-                        onActivated: root.setWidgetBorderEnabled(
-                            ctrlPanel.widgetColorMenuGid,
-                            !root.widgetHasBorder(ctrlPanel.widgetColorMenuGid))
-                    }
+                        Tile {
+                            width: parent.width
+                            height: 28
+                            icon: "border_style"
+                            label: "Border"
+                            active: root.widgetHasBorder(ctrlPanel.widgetColorMenuGid)
+                            onActivated: root.setWidgetBorderEnabled(
+                                ctrlPanel.widgetColorMenuGid,
+                                !root.widgetHasBorder(ctrlPanel.widgetColorMenuGid))
+                        }
 
-                    Row {
-                        width: parent.width
-                        spacing: 4
-                        visible: root.widgetHasFill(ctrlPanel.widgetColorMenuGid)
-                        Repeater {
-                            model: [
-                                { id: "auto", label: "Auto" },
-                                { id: "background", label: "BG" },
-                                { id: "foreground", label: "FG" }
+                        Segmented {
+                            width: parent.width
+                            visible: root.widgetHasFill(ctrlPanel.widgetColorMenuGid)
+                            options: [
+                                { label: "Auto", value: "auto" },
+                                { label: "BG",   value: "background" },
+                                { label: "FG",   value: "foreground" }
                             ]
-                            delegate: Rectangle {
-                                required property var modelData
-                                readonly property bool selected:
-                                    root.widgetTone(ctrlPanel.widgetColorMenuGid) === modelData.id
-                                width: root.evenW((widgetMenuCol.width - 8) / 3)
-                                height: 23
-                                radius: root.panelButtonRadius
-                                color: selected ? root.fillActive : toneColorMa.containsMouse ? root.fillHover : "transparent"
-                                border.color: selected || toneColorMa.containsMouse ? root.seal : root.sep
-                                border.width: 1
-                                UiText {
-                                    anchors.centerIn: parent
-                                    text: modelData.label
-                                    color: selected ? root.seal : root.ink
-                                    font.family: root.barFont
-                                    font.pixelSize: 9
-                                }
-                                MouseArea {
-                                    id: toneColorMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.setWidgetTone(ctrlPanel.widgetColorMenuGid, modelData.id)
-                                }
-                            }
+                            current: root.widgetTone(ctrlPanel.widgetColorMenuGid)
+                            onChosen: (v) => root.setWidgetTone(ctrlPanel.widgetColorMenuGid, v)
                         }
                     }
                 }
             }
 
-            Rectangle { width: parent.width; height: 1; color: root.sep }
-
-            // ── WORKSPACES (collapsible, like the old widgets group) ──
-            Tile {
-                width: parent.width
-                label: ctrlPanel.wsOpen ? "Workspaces  ▾" : "Workspaces  ▸"
-                onActivated: ctrlPanel.wsOpen = !ctrlPanel.wsOpen
-            }
-            Column {
-                width: parent.width
-                spacing: 8
-                visible: ctrlPanel.wsOpen
-
-                // display mode: persist 10 / persist 5 / active
-                Row {
-                    id: wsModeRow
+            // ── WORKSPACES (collapsible card) ──
+            Card {
+                id: wsCard
+                Item {
                     width: parent.width
-                    spacing: 4
-                    readonly property var opts: [
-                        { label: "Persist 10", mode: "10"     },
-                        { label: "Persist 5",  mode: "5"      },
-                        { label: "Active",     mode: "active" }
-                    ]
-                    Repeater {
-                        model: wsModeRow.opts
-                        delegate: Rectangle {
-                            id: wsmTile
-                            required property var modelData
-                            readonly property bool on:      root.workspaceMode === modelData.mode
-                            readonly property bool hovered: wsmMa.containsMouse
-                            width: root.evenW((wsModeRow.width - wsModeRow.spacing * (wsModeRow.opts.length - 1)) / wsModeRow.opts.length)
-                            height: 25; radius: root.panelButtonRadius
-                            color: on ? root.fillActive : hovered ? root.fillHover : root.fillIdle
-                            border.color: (on || hovered) ? root.seal : root.sep
-                            border.width: 1
-                            Behavior on color { ColorAnimation { duration: 120 } }
-                            UiText {
-                                anchors.centerIn: parent
-                                text: wsmTile.modelData.label
-                                color: (wsmTile.on || wsmTile.hovered) ? root.seal : root.ink
-                                font.family: root.barFont; font.pixelSize: 10
-                                font.weight: wsmTile.on ? Font.Medium : Font.Normal
-                            }
-                            MouseArea { id: wsmMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.workspaceMode = wsmTile.modelData.mode }
+                    height: 22
+                    UiText {
+                        anchors.left: parent.left; anchors.leftMargin: 2
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Workspaces"
+                        color: root.sumiHi; font.family: root.barFont
+                        font.pixelSize: 11; font.weight: Font.Medium
+                    }
+                    Rectangle {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 36; height: 22; radius: 11
+                        color: ctrlPanel.wsOpen ? root.seal : (wsHeadMa.containsMouse ? ctrlPanel.chipHover : ctrlPanel.chipBg)
+                        Behavior on color { ColorAnimation { duration: 140 } }
+                        IconText {
+                            anchors.centerIn: parent
+                            text: "expand_more"
+                            rotation: ctrlPanel.wsOpen ? 180 : 0
+                            color: ctrlPanel.wsOpen ? root.paper : root.ink
+                            font.pixelSize: 16
+                            Behavior on rotation { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
                         }
                     }
+                    MouseArea {
+                        id: wsHeadMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: ctrlPanel.wsOpen = !ctrlPanel.wsOpen
+                    }
+                }
+
+                // display mode: persist 10 / persist 5 / active
+                Segmented {
+                    width: parent.width
+                    visible: ctrlPanel.wsOpen
+                    options: [
+                        { label: "Persist 10", value: "10"     },
+                        { label: "Persist 5",  value: "5"      },
+                        { label: "Active",     value: "active" }
+                    ]
+                    current: root.workspaceMode
+                    onChosen: (v) => root.workspaceMode = v
                 }
 
                 // Six compact workspace treatments; three columns keep every
@@ -839,6 +1007,7 @@ PanelWindow {
                 Grid {
                     id: wsStyleRow
                     width: parent.width
+                    visible: ctrlPanel.wsOpen
                     columns: 3
                     spacing: 4
                     readonly property var opts: [
@@ -851,116 +1020,60 @@ PanelWindow {
                     ]
                     Repeater {
                         model: wsStyleRow.opts
-                        delegate: Rectangle {
-                            id: wssTile
+                        delegate: Tile {
                             required property var modelData
-                            readonly property bool on:      root.workspaceStyle === modelData.mode
-                            readonly property bool hovered: wssMa.containsMouse
-                            width: root.evenW((wsStyleRow.width
-                                - wsStyleRow.spacing * (wsStyleRow.columns - 1))
-                                / wsStyleRow.columns)
-                            height: 25; radius: root.panelButtonRadius
-                            color: on ? root.fillActive : hovered ? root.fillHover : root.fillIdle
-                            border.color: (on || hovered) ? root.seal : root.sep
-                            border.width: 1
-                            Behavior on color { ColorAnimation { duration: 120 } }
-                            UiText {
-                                anchors.centerIn: parent
-                                text: wssTile.modelData.label
-                                color: (wssTile.on || wssTile.hovered) ? root.seal : root.ink
-                                font.family: root.barFont; font.pixelSize: 10
-                                font.weight: wssTile.on ? Font.Medium : Font.Normal
-                            }
-                            MouseArea { id: wssMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.workspaceStyle = wssTile.modelData.mode }
+                            width: root.evenW((wsStyleRow.width - wsStyleRow.spacing * (wsStyleRow.columns - 1)) / wsStyleRow.columns)
+                            label: modelData.label
+                            active: root.workspaceStyle === modelData.mode
+                            onActivated: root.workspaceStyle = modelData.mode
                         }
                     }
                 }
             }
 
-            Rectangle { width: parent.width; height: 1; color: root.sep }
-
             // ── BAR SHELL (full-width / floating / attached / winged notch) ──
-            UiText {
-                text: "BAR STYLE"
-                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
-            }
-            Row {
-                id: barStyleRow
-                width: parent.width
-                spacing: 4
-                readonly property var opts: [
-                    { label: "Full",  mode: "full"  },
-                    { label: "Fit",   mode: "fit"   },
-                    { label: "Dock",  mode: "dock"  },
-                    { label: "Notch", mode: "notch" },
-                    { label: "Island", mode: "island" }
-                ]
-                Repeater {
-                    model: barStyleRow.opts
-                    delegate: Tile {
-                        required property var modelData
-                        width: root.evenW((barStyleRow.width
-                            - barStyleRow.spacing * (barStyleRow.opts.length - 1))
-                            / barStyleRow.opts.length)
-                        label: modelData.label
-                        active: root.barShellStyle === modelData.mode
-                        onActivated: root.barShellStyle = modelData.mode
-                    }
+            Card {
+                title: "Bar style"
+                Segmented {
+                    width: parent.width
+                    options: [
+                        { label: "Full",   value: "full"   },
+                        { label: "Fit",    value: "fit"    },
+                        { label: "Dock",   value: "dock"   },
+                        { label: "Notch",  value: "notch"  },
+                        { label: "Island", value: "island" }
+                    ]
+                    current: root.barShellStyle
+                    onChosen: (v) => root.barShellStyle = v
                 }
             }
-            Tile {
-                width: parent.width
-                label: "Bar Border"
-                active: root.barBorderEnabled
-                onActivated: root.barBorderEnabled = !root.barBorderEnabled
-            }
-            Tile {
-                width: parent.width
-                label: "Panel & Tooltip Border"
-                active: root.panelTooltipBorderEnabled
-                onActivated: root.panelTooltipBorderEnabled = !root.panelTooltipBorderEnabled
-            }
-
-            Rectangle { width: parent.width; height: 1; color: root.sep }
-
-            // ── POSITION (bar on top or bottom edge) ──
-            UiText {
-                text: "POSITION"
-                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
-            }
-            Row {
-                width: parent.width; spacing: 4
-                Tile { width: root.evenW((wwCol.width - 8) / 3); label: "Top";    active: root.barPosition === "top";    onActivated: root.barPosition = "top" }
-                Tile { width: root.evenW((wwCol.width - 8) / 3); label: "Bottom"; active: root.barPosition === "bottom"; onActivated: root.barPosition = "bottom" }
-                Tile { width: root.evenW((wwCol.width - 8) / 3); label: "Auto-hide"; active: root.v2AutoHide; onActivated: root.v2AutoHide = !root.v2AutoHide }
-            }
-
-            Rectangle { width: parent.width; height: 1; color: root.sep }
 
             // ── LOGO (launcher text/icon variant) ──
-            UiText {
-                text: "LOGO"
-                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
-            }
-            Row {
-                width: parent.width
-                spacing: 4
-                Tile {
-                    width: root.evenW((wwCol.width - 4) / 2)
-                    label: root.launcherLogoLabel(root.launcherLogoText)
-                    active: root.launcherLogoMode === "text"
-                    onActivated: {
-                        if (root.launcherLogoMode === "text") root.nextLauncherLogoText()
-                        else root.launcherLogoMode = "text"
+            Card {
+                title: "Logo"
+                trailing: "tap again to cycle"
+                Row {
+                    width: parent.width
+                    spacing: 4
+                    Tile {
+                        width: root.evenW((parent.width - 4) / 2)
+                        icon: "title"
+                        label: root.launcherLogoLabel(root.launcherLogoText)
+                        active: root.launcherLogoMode === "text"
+                        onActivated: {
+                            if (root.launcherLogoMode === "text") root.nextLauncherLogoText()
+                            else root.launcherLogoMode = "text"
+                        }
                     }
-                }
-                Tile {
-                    width: root.evenW((wwCol.width - 4) / 2)
-                    label: root.launcherLogoLabel(root.launcherLogoIcon)
-                    active: root.launcherLogoMode === "icon"
-                    onActivated: {
-                        if (root.launcherLogoMode === "icon") root.nextLauncherLogoIcon()
-                        else root.launcherLogoMode = "icon"
+                    Tile {
+                        width: root.evenW((parent.width - 4) / 2)
+                        icon: "category"
+                        label: root.launcherLogoLabel(root.launcherLogoIcon)
+                        active: root.launcherLogoMode === "icon"
+                        onActivated: {
+                            if (root.launcherLogoMode === "icon") root.nextLauncherLogoIcon()
+                            else root.launcherLogoMode = "icon"
+                        }
                     }
                 }
             }

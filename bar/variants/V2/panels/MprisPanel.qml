@@ -41,6 +41,7 @@ PanelWindow {
     property bool showingLyrics: false
 
     property string currentTrackId: mprisPanel.player ? ((mprisPanel.player.trackTitle || "") + "||" + (mprisPanel.player.trackArtist || "")) : ""
+    
     onCurrentTrackIdChanged: {
         var title = mprisPanel.player ? (mprisPanel.player.trackTitle || "") : ""
         var artist = mprisPanel.player ? (mprisPanel.player.trackArtist || "") : ""
@@ -49,35 +50,38 @@ PanelWindow {
         
         if (title === "") return
         
-        var xhr = new XMLHttpRequest();
-        xhr.open("GET", "https://lrclib.net/api/get?track_name=" + encodeURIComponent(title) + "&artist_name=" + encodeURIComponent(artist));
+        var xhr = new XMLHttpRequest()
+        var url = "https://lrclib.net/api/search?q=" + encodeURIComponent(title + " " + artist)
+        xhr.open("GET", url, true)
         xhr.onreadystatechange = function() {
             if (xhr.readyState === XMLHttpRequest.DONE) {
                 if (xhr.status === 200) {
                     try {
-                        var data = JSON.parse(xhr.responseText);
-                        var synced = data.syncedLyrics;
-                        if (synced) {
-                            var lines = synced.split('\n');
-                            var result = [];
+                        var resp = JSON.parse(xhr.responseText)
+                        if (resp.length > 0 && resp[0].syncedLyrics) {
+                            var parsed = []
+                            var lines = resp[0].syncedLyrics.split('\n')
+                            var regex = /^\[(\d{2}):(\d{2}\.\d{2})\]\s(.*)/
                             for (var i = 0; i < lines.length; i++) {
-                                var line = lines[i];
-                                var match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
+                                var match = regex.exec(lines[i])
                                 if (match) {
-                                    var time = parseInt(match[1]) * 60 + parseFloat(match[2]);
-                                    var text = match[3].trim();
-                                    if (text !== "") {
-                                        result.push({time: time, text: text});
+                                    var m = parseFloat(match[1])
+                                    var s = parseFloat(match[2])
+                                    var txt = match[3].trim()
+                                    if (txt.length > 0) {
+                                        parsed.push({ time: (m * 60) + s, text: txt })
                                     }
                                 }
                             }
-                            lyricsList = result;
+                            lyricsList = parsed
                         }
-                    } catch(e) {}
+                    } catch(e) {
+                        lyricsList = []
+                    }
                 }
             }
         }
-        xhr.send();
+        xhr.send()
     }
     
     onCurPosChanged: {
@@ -89,6 +93,11 @@ PanelWindow {
                 break;
             }
         }
+        // If we have lyrics but haven't reached the first one yet, show the first one
+        if (idx === -1 && lyricsList.length > 0) {
+            idx = 0;
+        }
+        
         if (idx !== currentLyricIndex) {
             currentLyricIndex = idx;
         }

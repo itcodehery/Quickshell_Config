@@ -277,7 +277,7 @@ PanelWindow {
                         color: isDef     ? root.fillActive
                              : hovered ? root.fillHover : root.fillIdle
                         border.color: (isDef || hovered) ? root.seal : root.sep
-                        border.width: 1
+                        border.width: 0
                         Behavior on color { ColorAnimation { duration: 120 } }
                         Row {
                             anchors.fill: parent
@@ -321,7 +321,7 @@ PanelWindow {
                     : muteMa.containsMouse ? root.fillHover
                     : root.fillIdle
                 border.color: (muteMa.containsMouse || volPanel.muted) ? root.seal : root.sep
-                border.width: 1
+                border.width: 0
                 Behavior on color { ColorAnimation { duration: 120 } }
                 UiText {
                     anchors.centerIn: parent
@@ -467,7 +467,7 @@ PanelWindow {
                     radius: 2
                     color: root.fillIdle
                     border.color: root.sep
-                    border.width: 1
+                    border.width: 0
 
                     Rectangle {
                         anchors.left: parent.left
@@ -489,7 +489,7 @@ PanelWindow {
                     : micMuteMa.containsMouse ? root.fillHover
                     : root.fillIdle
                 border.color: (micMuteMa.containsMouse || volPanel.micMuted) ? root.seal : root.sep
-                border.width: 1
+                border.width: 0
                 Behavior on color { ColorAnimation { duration: 120 } }
                 UiText {
                     anchors.centerIn: parent

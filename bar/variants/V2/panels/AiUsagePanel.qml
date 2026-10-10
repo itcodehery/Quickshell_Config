@@ -279,7 +279,7 @@ PanelWindow {
                             color: active ? root.fillActive
                                   : segMa.containsMouse ? root.fillHover : root.fillIdle
                             border.color: (active || segMa.containsMouse) ? root.seal : root.sep
-                            border.width: 1
+                            border.width: 0
                             Behavior on color { ColorAnimation { duration: 120 } }
                             UiText {
                                 anchors.centerIn: parent

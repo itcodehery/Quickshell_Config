@@ -4,7 +4,7 @@ import Quickshell
 Item {
     id: rootMod
     required property var root
-    readonly property color contentColor: root.widgetContentColor("G3", root.ink)
+    readonly property color contentColor: root.widgetContentColor("G22", root.ink)
 
     readonly property string tooltipText: root.notifCount > 0
         ? (root.notifCount + (root.notifCount === 1 ? " notification" : " notifications"))
@@ -19,7 +19,7 @@ Item {
         text: "\uE7F4"   // notifications (bell)
         font.pixelSize: 15
         color: root.notifCount > 0
-            ? (root.widgetHasFill("G3") ? rootMod.contentColor : root.seal)
+            ? (root.widgetHasFill("G22") ? rootMod.contentColor : root.seal)
             : Qt.rgba(rootMod.contentColor.r, rootMod.contentColor.g, rootMod.contentColor.b, 0.4)
         Behavior on color { ColorAnimation { duration: 150 } }
     }
@@ -30,7 +30,7 @@ Item {
         width: Math.max(12, badgeTxt.implicitWidth + 6)
         height: 12
         radius: 6
-        color: root.widgetHasFill("G3") ? rootMod.contentColor : root.seal
+        color: root.widgetHasFill("G22") ? rootMod.contentColor : root.seal
         anchors {
             verticalCenter: bellIcon.verticalCenter; verticalCenterOffset: -6
             horizontalCenter: bellIcon.horizontalCenter; horizontalCenterOffset: 7
@@ -39,7 +39,7 @@ Item {
             id: badgeTxt
             anchors.centerIn: parent
             text: root.notifCount > 99 ? "99" : root.notifCount
-            color: root.widgetHasFill("G3") ? root.widgetAssignedColor("G3") : root.paper
+            color: root.widgetHasFill("G22") ? root.widgetAssignedColor("G22") : root.paper
             font.family: root.barFont
             font.pixelSize: 7
             font.weight: Font.Bold

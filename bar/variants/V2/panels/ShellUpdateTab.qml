@@ -191,7 +191,7 @@ Column {
             ? (ma.containsMouse && buttonEnabled ? tab.root.fillPrimaryHover : tab.root.seal)
             : (ma.containsMouse && buttonEnabled ? tab.root.fillHover : tab.root.fillIdle)
         border.color: primary ? "transparent" : (ma.containsMouse && buttonEnabled ? tab.root.seal : tab.root.sep)
-        border.width: primary ? 0 : 1
+        border.width: 0
         Behavior on color { ColorAnimation { duration: 120 } }
         UiText {
             anchors.centerIn: parent

@@ -226,7 +226,7 @@ PanelWindow {
                         radius: root.panelButtonRadius
                         color: newNoteMa.containsMouse ? root.fillHover : root.fillIdle
                         border.color: root.sep
-                        border.width: 1
+                        border.width: 0
                         
                         Row {
                             anchors.centerIn: parent
@@ -281,7 +281,7 @@ PanelWindow {
                         radius: 4
                         color: modelData.color ? modelData.color : root.paper
                         border.color: noteCardMa.containsMouse ? root.seal : Qt.rgba(0,0,0,0.1)
-                        border.width: 1
+                        border.width: 0
                         
                         property real rot: ((index * 37) % 7) - 3
                         rotation: rot * 0.4
@@ -431,7 +431,15 @@ Click 'New' to add one!"
                             radius: 8
                             color: modelData
                             border.color: notesPanel.editingColor === modelData ? root.ink : root.sep
-                            border.width: notesPanel.editingColor === modelData ? 2 : 1
+                            border.width: 0
+                            scale: notesPanel.editingColor === modelData ? 1.2 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 120 } }
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: 6; height: 6; radius: 3
+                                color: root.ink
+                                visible: notesPanel.editingColor === modelData
+                            }
                             MouseArea {
                                 anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor
@@ -463,7 +471,7 @@ Click 'New' to add one!"
                 color: notesPanel.editingColor !== "" ? notesPanel.editingColor : root.paper
                 radius: root.panelRadius - 4
                 border.color: root.sep
-                border.width: 1
+                border.width: 0
 
                 Flickable {
                     anchors.fill: parent
@@ -546,7 +554,7 @@ Click 'New' to add one!"
                 color: root.barBg
                 radius: 8
                 border.color: root.sep
-                border.width: 1
+                border.width: 0
                 
                 layer.enabled: true
                 layer.effect: MultiEffect {
@@ -577,9 +585,9 @@ Click 'New' to add one!"
                         Rectangle {
                             width: 80; height: 32
                             radius: 6
-                            color: cancelMa.containsMouse ? root.fillHover : "transparent"
+                            color: cancelMa.containsMouse ? root.fillHover : root.fillIdle
                             border.color: root.sep
-                            border.width: 1
+                            border.width: 0
                             UiText { text: "Cancel"; color: root.ink; font.family: root.barFont; font.pixelSize: 13; anchors.centerIn: parent }
                             MouseArea {
                                 id: cancelMa

@@ -566,7 +566,7 @@ PanelWindow {
                         radius: root.panelButtonRadius
                         color: speedTestMa.containsMouse ? root.fillHover : root.fillIdle
                         border.color: speedTestMa.containsMouse ? root.seal : root.sep
-                        border.width: 1
+                        border.width: 0
                         Behavior on color { ColorAnimation { duration: 120 } }
 
                         UiText {
@@ -710,7 +710,7 @@ PanelWindow {
                                                  : wifiToggleMa.containsMouse ? root.fillHover
                                                  : root.fillIdle
                     border.color: (wifiToggleMa.containsMouse || !netPanel.wifiBlocked) ? root.seal : root.sep
-                    border.width: 1
+                    border.width: 0
                     Behavior on color { ColorAnimation { duration: 120 } }
                     UiText {
                         anchors.centerIn: parent
@@ -749,7 +749,7 @@ PanelWindow {
                         readonly property bool active: netPanel.savedOnly === modelData.saved
                         color: active ? root.fillActive : tabMa.containsMouse ? root.fillHover : root.fillIdle
                         border.color: active || tabMa.containsMouse ? root.seal : root.sep
-                        border.width: 1
+                        border.width: 0
                         Behavior on color { ColorAnimation { duration: 120 } }
 
                         UiText {
@@ -844,7 +844,7 @@ PanelWindow {
                                 readonly property bool active: nma.containsMouse || netTile.expanded || netTile.keyboardSelected
                                 color: modelData.conn ? root.fillActive : active ? root.fillHover : root.fillIdle
                                 border.color: modelData.conn || active ? root.seal : root.sep
-                                border.width: 1
+                                border.width: 0
                                 Behavior on color { ColorAnimation { duration: 120 } }
 
                                 Row {
@@ -939,7 +939,7 @@ PanelWindow {
                                 radius: root.panelButtonRadius
                                 color: root.fillIdle
                                 border.color: root.sep
-                                border.width: netTile.expanded ? 1 : 0
+                                border.width: 0
                                 Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
                                 Column {
@@ -979,7 +979,7 @@ PanelWindow {
                                             radius: root.panelButtonRadius
                                             color: networkActionMa.containsMouse ? root.fillHover : root.fillIdle
                                             border.color: networkActionMa.containsMouse ? root.seal : root.sep
-                                            border.width: 1
+                                            border.width: 0
                                             UiText {
                                                 anchors.centerIn: parent
                                                 text: netTile.confirmingForget
@@ -1009,7 +1009,7 @@ PanelWindow {
                                             radius: root.panelButtonRadius
                                             color: forgetMa.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18) : root.fillIdle
                                             border.color: forgetMa.containsMouse ? root.seal : root.sep
-                                            border.width: 1
+                                            border.width: 0
                                             UiText {
                                                 anchors.centerIn: parent
                                                 text: netTile.confirmingForget ? "Confirm" : "Forget"
@@ -1055,7 +1055,7 @@ PanelWindow {
                 radius: root.panelButtonRadius
                 color: root.fillIdle
                 border.color: netPanel.nmConnectionError !== "" ? root.sealRaw : root.seal
-                border.width: 1
+                border.width: 0
                 clip: true
 
                 Column {
@@ -1080,7 +1080,7 @@ PanelWindow {
                         radius: root.panelButtonRadius
                         color: root.bg
                         border.color: nmPasswordInput.activeFocus ? root.seal : root.sep
-                        border.width: 1
+                        border.width: 0
 
                         TextInput {
                             id: nmPasswordInput
@@ -1123,7 +1123,7 @@ PanelWindow {
                                 ? (passwordSubmitMa.containsMouse ? root.fillPrimaryHover : root.seal)
                                 : root.fillIdle
                             border.color: passwordSubmitMa.enabled ? root.seal : root.sep
-                            border.width: 1
+                            border.width: 0
                             Behavior on color { ColorAnimation { duration: 120 } }
                             UiText {
                                 anchors.centerIn: parent
@@ -1148,7 +1148,7 @@ PanelWindow {
                             radius: root.panelButtonRadius
                             color: passwordCancelMa.containsMouse ? root.fillHover : root.fillIdle
                             border.color: passwordCancelMa.containsMouse ? root.seal : root.sep
-                            border.width: 1
+                            border.width: 0
                             Behavior on color { ColorAnimation { duration: 120 } }
                             UiText {
                                 anchors.centerIn: parent
@@ -1176,7 +1176,7 @@ PanelWindow {
                 height: 52; radius: 6
                 visible: root.useNM && netPanel.hasWifi && !netPanel.nmAdapterReady
                 color: nmMa.containsMouse ? root.fillHover : root.fillIdle
-                border.color: nmMa.containsMouse ? root.seal : root.sep; border.width: 1
+                border.color: nmMa.containsMouse ? root.seal : root.sep; border.width: 0
                 Behavior on color { ColorAnimation { duration: 120 } }
                 Column {
                     anchors.centerIn: parent; spacing: 3; width: parent.width - 24

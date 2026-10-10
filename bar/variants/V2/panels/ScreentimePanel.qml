@@ -320,7 +320,7 @@ PanelWindow {
                                 height: Math.max(4, h)
                                 radius: 6
                                 color: modelData.dateKey === stPanel.selectedDateKey ? root.seal : (barMa.containsMouse ? root.fillHover : root.fillIdle)
-                                border.width: modelData.dateKey === stPanel.selectedDateKey ? 0 : 1
+                                border.width: 0
                                 border.color: root.sep
                                 
                                 TooltipMixin {
@@ -362,7 +362,7 @@ PanelWindow {
                 height: Math.max(144, Math.min(260, appCol.implicitHeight + 24))
                 radius: 8
                 color: root.fillIdle
-                border.width: 1
+                border.width: 0
                 border.color: root.sep
                 clip: true
                 

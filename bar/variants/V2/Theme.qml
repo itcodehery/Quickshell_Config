@@ -131,8 +131,8 @@ Item {
     // ── interactive fill tokens (button/tile backgrounds) ──
     // One source of truth so every panel uses the same hover/active/idle alpha
     // instead of ad-hoc rgba literals scattered across the panels.
-    readonly property real  fillActiveAlpha: 0.18
-    readonly property real  fillHoverAlpha:  0.10
+    readonly property real  fillActiveAlpha: 0.28
+    readonly property real  fillHoverAlpha:  0.16
     readonly property color fillActive:      Qt.rgba(seal.r, seal.g, seal.b, fillActiveAlpha) // selected/active OR ghost-action hover
     readonly property color fillHover:        Qt.rgba(seal.r, seal.g, seal.b, fillHoverAlpha)  // light-seal hover (idle chip → this → fillActive)
     readonly property color fillIdle:         Qt.rgba(0, 0, 0, 0.12)              // resting chip (slight darken)
@@ -1635,11 +1635,15 @@ Item {
     // ── Bar layout / unlock (drag&drop reorder). barUnlocked is transient. ──
     property bool barUnlocked: false
     property bool barHidden: false
+    // Lock-screen transition (Island only): true slides the bar up off-screen
+    // before hyprlock starts; false drops it back in after unlock.
+    property bool barLockRetracted: false
     property var  fnDefaultLayout: function () { theme.resetAllBarLayouts() }
     property bool wwSubVisible: false   // "Widgets & Workspaces" fly-out
 
     // ── module enable flags (controlled by ControlPanel) ──
     property bool modStatus:     true
+    property bool modNotif:      true
     property bool modMemory:     true
     property bool modCpu:        true
     property bool modScreentime: true
@@ -2048,7 +2052,9 @@ Item {
     // ── bar screen position (persisted) ──
     property string barPosition: "top"   // "top" or "bottom"
     // ── bar auto-hide (persisted) ──
-    property bool v2AutoHide: false
+    // Auto-hide removed. Kept only so the persisted widget-state field (+45)
+    // stays position-stable; it is always written as "0" and never read back.
+    readonly property bool v2AutoHide: false
     // ── outer bar shell (persisted) ──
     // full  = current edge-to-edge strip
     // fit   = centered content-width capsule
@@ -2593,8 +2599,6 @@ Item {
                         theme.barBorderEnabled = parts[wsField + 43] !== "0"
                     if (parts.length > wsField + 44)
                         theme.panelTooltipBorderEnabled = parts[wsField + 44] !== "0"
-                    if (parts.length > wsField + 45)
-                        theme.v2AutoHide = parts[wsField + 45] === "1"
                 }
                 theme._widgetsLoaded = true
             }

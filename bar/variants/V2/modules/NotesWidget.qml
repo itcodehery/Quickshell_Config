@@ -21,7 +21,7 @@ Item {
         
         color: notesMa.containsMouse || notesWidget.isNotesPanelOpen ? root.fillHover : "transparent"
         border.color: notesMa.containsMouse || notesWidget.isNotesPanelOpen ? root.sep : "transparent"
-        border.width: 1
+        border.width: 0
 
         IconText {
             anchors.centerIn: parent

@@ -166,7 +166,7 @@ PanelWindow {
                     width: root.evenW((parent.width - 8) / 2); height: 28; radius: root.panelButtonRadius
                     color: _dn.containsMouse ? root.fillHover : root.fillIdle
                     border.color: _dn.containsMouse ? root.seal : root.sep
-                    border.width: 1
+                    border.width: 0
                     Behavior on color { ColorAnimation { duration: 120 } }
                     UiText {
                         anchors.centerIn: parent
@@ -185,7 +185,7 @@ PanelWindow {
                     width: root.evenW((parent.width - 8) / 2); height: 28; radius: root.panelButtonRadius
                     color: _up.containsMouse ? root.fillHover : root.fillIdle
                     border.color: _up.containsMouse ? root.seal : root.sep
-                    border.width: 1
+                    border.width: 0
                     Behavior on color { ColorAnimation { duration: 120 } }
                     UiText {
                         anchors.centerIn: parent

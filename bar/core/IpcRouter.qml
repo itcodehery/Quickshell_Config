@@ -97,6 +97,14 @@ Item {
         function unlock(): void { router.invoke("layoutUnlock") }
         function togglebar(): void { router.invoke("toggleBar") }
         function toggledashboard(): void { router.invoke("toggleDashboard") }
+        // Lock-screen slide: retract before hyprlock, reveal after unlock.
+        function lockretract(): void { router.invoke("lockRetract") }
+        function lockreveal(): void { router.invoke("lockReveal") }
+        function shellstyle(): string {
+            if (!router.canDispatch()) return ""
+            var fn = router.variantHost.activeItem.currentShellStyle
+            return fn ? String(fn()) : ""
+        }
     }
 
     IpcHandler {

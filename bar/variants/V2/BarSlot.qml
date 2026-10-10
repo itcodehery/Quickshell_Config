@@ -56,7 +56,8 @@ PanelWindow {
     // never slide behind a content-width Fit/Dock/Notch bar.
     exclusiveZone: effectivelyHidden ? 1 : barSlot.root.v2BarHeight + (barSlot.root.barShellStyle === "island" ? 8 : 3)
 
-    readonly property bool effectivelyHidden: barSlot.root.v2AutoHide && !slotHover.hovered && !barSlot.root.barUnlocked && !barSlot.root.anyPopupVisible
+    // Auto-hide was removed; the bar is always shown.
+    readonly property bool effectivelyHidden: false
 
     mask: Region {
         x: barSlot.root.barUnlocked ? 0 : Math.round(continuousBarSurface.x)
@@ -98,10 +99,19 @@ PanelWindow {
         id: continuousBarSurface
         x: barSlot.compactShell ? Math.round((barSlot.width - width) / 2) : 0
         readonly property int islandMargin: barSlot.root.barShellStyle === "island" ? 4 : 0
-        y: barSlot.root.barPosition === "bottom"
+        readonly property bool lockRetracted: barSlot.root.barLockRetracted && barSlot.root.barShellStyle === "island"
+        y: lockRetracted
+            ? (barSlot.root.barPosition === "bottom" ? barSlot.height + 24 : -height - islandMargin - 24)
+            : barSlot.root.barPosition === "bottom"
             ? (barSlot.effectivelyHidden ? barSlot.height : barSlot.height - height - islandMargin)
             : (barSlot.effectivelyHidden ? -height : islandMargin)
-        Behavior on y { NumberAnimation { duration: 400; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+        Behavior on y {
+            NumberAnimation {
+                duration: continuousBarSurface.lockRetracted ? 320 : 400
+                easing.type: continuousBarSurface.lockRetracted ? Easing.InBack : Easing.OutBack
+                easing.overshoot: 1.2
+            }
+        }
         width: barSlot.shellTargetWidth
         Behavior on width {
             enabled: barSlot.root.barShellStyle === "island" && island.islandShrinkProgress > 0.95
@@ -722,7 +732,7 @@ PanelWindow {
     readonly property int rightBaseSlotCount: 7
     // Both side regions can reach the same total capacity. The right side has
     // fewer built-in groups, so it receives three more optional slots.
-    readonly property int sideSlotCapacity: 13
+    readonly property int sideSlotCapacity: 16
     readonly property int leftExtraSlotLimit: sideSlotCapacity - leftBaseSlotCount
     readonly property int rightExtraSlotLimit: sideSlotCapacity - rightBaseSlotCount
     readonly property int centerExtraSlotLimit: 3
@@ -864,9 +874,9 @@ PanelWindow {
     // Restore the confirmed V2 default snapshot, including its intentional
     // empty base cells and the six optional cells on the right.
     function resetOrder() {
-        var dL = ["G1","G2","G3","","G5","G6","G4","G7","",""]
+        var dL = ["G1","G2","G3","G22","","G5","G6","G4","G7","",""]
         var dR = ["G9","G10","G11","G14","G12","G13","G16",
-                  "G18","G17","G19","G15","G20","",""]
+                  "G18","G17","G19","G21","G15","G20","",""]
         resetModel(leftModel, dL, leftBaseSlotCount)
         resetModel(centerModel, ["G8"], centerBaseSlotCount)
         resetModel(rightModel, dR, rightBaseSlotCount)
@@ -936,7 +946,6 @@ PanelWindow {
             readonly property real barContentRightInset: barSlot.root.v2IconGroupPadding
             readonly property real archCaretX: statusRow.x + archWidget.x + archWidget.width / 2
             readonly property real trayCaretX: statusRow.x + statusTrayRow.x + trayWidget.x + trayWidget.width / 2
-            readonly property real notifCaretX: statusRow.x + statusTrayRow.x + notifWidget.x + notifWidget.width / 2
             visible: implicitWidth > 0.5
             implicitWidth: barSlot.root.modStatus
                 ? Math.round(statusRow.implicitWidth) + 2 * barSlot.root.v2IconGroupPadding
@@ -956,8 +965,31 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: barSlot.root.v2IconClusterSpacing
                     TrayWidget         { id: trayWidget; root: barSlot.root; anchors.verticalCenter: parent.verticalCenter }
-                    NotificationWidget { id: notifWidget; root: barSlot.root; anchors.verticalCenter: parent.verticalCenter }
                 }
+            }
+        }
+    }
+    Component {
+        id: compNotification                                   // G22: notif
+        Item {
+            id: notifGroup
+            readonly property real barContentLeftInset: barSlot.root.v2IconGroupPadding
+            readonly property real barContentRightInset: barSlot.root.v2IconGroupPadding
+            readonly property real notifCaretX: notifRow.x + notifWidget.x + notifWidget.width / 2
+            visible: implicitWidth > 0.5
+            implicitWidth: barSlot.root.modNotif
+                ? Math.round(notifRow.implicitWidth) + 2 * barSlot.root.v2IconGroupPadding
+                : 0
+            implicitHeight: 28
+            opacity: barSlot.root.modNotif ? 1 : 0
+            Behavior on implicitWidth { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+            Behavior on opacity      { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+            Row {
+                id: notifRow
+                anchors.verticalCenter: parent.verticalCenter
+                x: Math.round((parent.width - width) / 2)
+                spacing: barSlot.root.v2InlineSpacing
+                NotificationWidget { id: notifWidget; root: barSlot.root; anchors.verticalCenter: parent.verticalCenter }
             }
         }
     }
@@ -1288,7 +1320,7 @@ PanelWindow {
         "G9": compMpris, "G10": compQuick, "G11": compNetwork,
         "G12": compBattery, "G13": compBrightness, "G14": compPower, "G15": compBluetooth,
         "G16": compCpuTemperature, "G17": compGpu, "G18": compStorage,
-        "G21": compScreentime, "G19": compGithubHeatmap, "G20": compNotes
+        "G21": compScreentime, "G19": compGithubHeatmap, "G20": compNotes, "G22": compNotification
     })
 
     // ───────────────────── reusable region row of slots ─────────────────────
@@ -1714,7 +1746,7 @@ PanelWindow {
                     visible: slot.placeholderShown
                     color: removeMa.containsMouse ? barSlot.root.fillHover : barSlot.root.fillIdle
                     border.color: removeMa.containsMouse ? barSlot.root.seal : barSlot.root.sep
-                    border.width: 1
+                    border.width: 0
                     Behavior on color { ColorAnimation { duration: 120 } }
 
                     Text {
@@ -1759,9 +1791,9 @@ PanelWindow {
                 Rectangle {
                     anchors.fill: parent
                     radius: barSlot.root.pillRadius
-                    color: Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.18)
+                    color: Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.30)
                     border.color: barSlot.accent
-                    border.width: 2
+                    border.width: 0
                     z: 26
                     visible: barSlot.dragging
                         && barSlot.dropModel === rmodel && barSlot.dropIndex === slot.index
@@ -1811,7 +1843,7 @@ PanelWindow {
                 && slotRow.extraCount < slotRow.maxExtraCount
             color: addMa.containsMouse ? barSlot.root.fillActive : barSlot.root.fillIdle
             border.color: addMa.containsMouse ? barSlot.root.seal : barSlot.root.sep
-            border.width: 1
+            border.width: 0
             Behavior on color { ColorAnimation { duration: 120 } }
 
             Text {
@@ -2035,7 +2067,7 @@ PanelWindow {
         // ── region models (physical L→R order) ──
         ListModel {
             id: leftModel
-            ListElement { gid: "G1"; extra: false } ListElement { gid: "G3"; extra: false }
+            ListElement { gid: "G1"; extra: false } ListElement { gid: "G2"; extra: false } ListElement { gid: "G3"; extra: false } ListElement { gid: "G22"; extra: false }
             ListElement { gid: ""; extra: false }   ListElement { gid: "G5"; extra: false } ListElement { gid: "G6"; extra: false }
             ListElement { gid: "G4"; extra: false } ListElement { gid: "G7"; extra: false } ListElement { gid: ""; extra: false }
             ListElement { gid: ""; extra: false }
@@ -2050,6 +2082,7 @@ PanelWindow {
             ListElement { gid: "G14"; extra: false } ListElement { gid: "G12"; extra: false } ListElement { gid: "G13"; extra: false }
             ListElement { gid: "G16"; extra: false }  ListElement { gid: "G17"; extra: true }
             ListElement { gid: "G19"; extra: true }  ListElement { gid: "G15"; extra: true }  ListElement { gid: "G20"; extra: true }
+            ListElement { gid: "G21"; extra: true }
             ListElement { gid: ""; extra: true }
             ListElement { gid: ""; extra: true }
         }
@@ -2217,8 +2250,8 @@ PanelWindow {
             return {
                 tray:         island.groupX("G3",  0.0),
                 trayCaret:    island.groupContentX("G3", "trayCaretX", 0.5),
-                notif:        island.groupX("G3",  0.0),
-                notifCaret:   island.groupContentX("G3", "notifCaretX", 0.5),
+                notif:        island.groupX("G22",  0.0),
+                notifCaret:   island.groupContentX("G22", "notifCaretX", 0.5),
                 quickActions: island.groupX("G10", 0.5),
                 volume:       island.groupX("G6",  0.5),
                 network:      island.groupX("G11", 0.5),

@@ -202,7 +202,7 @@ PanelWindow {
                                     radius: root.panelButtonRadius
                                     color: activateMa.containsMouse ? root.fillHover : root.fillIdle
                                     border.color: activateMa.containsMouse ? root.seal : root.sep
-                                    border.width: 1
+                                    border.width: 0
                                     Behavior on color { ColorAnimation { duration: 120 } }
 
                                     Image {
@@ -270,7 +270,7 @@ PanelWindow {
                                     radius: root.panelButtonRadius
                                     color: pinMa.containsMouse ? root.fillHover : root.fillIdle
                                     border.color: pinMa.containsMouse ? root.seal : root.sep
-                                    border.width: 1
+                                    border.width: 0
                                     Behavior on color { ColorAnimation { duration: 120 } }
 
                                     UiText {
@@ -300,11 +300,11 @@ PanelWindow {
                                     radius: root.panelButtonRadius
                                     color: appRow.modelData.hasMenu
                                         ? (menuMa.containsMouse ? root.fillHover : root.fillIdle)
-                                        : "transparent"
+                                        : root.fillIdle
                                     border.color: appRow.modelData.hasMenu
                                         ? (menuMa.containsMouse ? root.seal : root.sep)
                                         : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.10)
-                                    border.width: 1
+                                    border.width: 0
                                     opacity: appRow.modelData.hasMenu ? 1.0 : 0.42
                                     Behavior on color { ColorAnimation { duration: 120 } }
 

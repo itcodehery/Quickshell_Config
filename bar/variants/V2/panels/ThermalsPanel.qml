@@ -249,7 +249,7 @@ PanelWindow {
                             : hovered ? root.fillHover
                             : root.fillIdle
                         border.color: (selected || hovered) ? root.seal : root.sep
-                        border.width: 1
+                        border.width: 0
                         Behavior on color { ColorAnimation { duration: 120 } }
 
                         UiText {

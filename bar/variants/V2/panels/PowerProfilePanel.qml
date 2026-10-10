@@ -130,7 +130,7 @@ PanelWindow {
                         color: isActive ? root.fillActive
                                : ma.containsMouse ? root.fillHover : root.fillIdle
                         border.color: (ma.containsMouse || isActive) ? root.seal : root.sep
-                        border.width: 1
+                        border.width: 0
                         Behavior on color { ColorAnimation { duration: 120 } }
                     }
 
