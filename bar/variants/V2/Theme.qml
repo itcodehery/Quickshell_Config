@@ -1644,7 +1644,7 @@ Item {
     // ── module enable flags (controlled by ControlPanel) ──
     property bool modStatus:     true
     property bool modNotif:      true
-    property bool modMemory:     true
+    property bool modMemory:     false
     property bool modCpu:        true
     property bool modScreentime: true
     property bool screentimeVisible: false
@@ -1654,9 +1654,10 @@ Item {
     property bool modGithubHeatmap: true
     property bool modVolume:     true
     property bool modWeather:    true
-    property bool modNetwork:    true
+    property bool modNetwork:    false
     property bool modBattery:    true
     property bool dashboardExpanded: false
+    property string dashboardDetail: ""
     property string networkMode: "none"   // mirrored from NetworkWidget: wifi/ethernet/none
     // Centralized status indicators. These live on Theme so BarSlot-per-monitor
     // widgets don't each spawn their own status poller.
@@ -2512,7 +2513,7 @@ Item {
             onStreamFinished: {
                 var parts = this.text.trim().split(" ")
                 if (parts.length >= 4) {
-                    theme.modMemory    = parts[0] !== "0"
+                    theme.modMemory    = false
                     theme.modBrightness = parts[1] !== "0"
                     theme.modClaude    = parts[2] !== "0"
                     theme.modPower     = parts[3] !== "0"
@@ -2524,7 +2525,7 @@ Item {
                     if (parts[4] === "5" || parts[4] === "active" || parts[4] === "10") {
                         wsField = 4                         // old format: no bluetooth field
                     } else {
-                        theme.modBluetooth = parts[4] !== "0"
+                        theme.modBluetooth = false
                         wsField = 5
                     }
                 }
@@ -2540,7 +2541,7 @@ Item {
                     // weatherImperial / clock12h follow pickerStyle
                     if (parts.length > wsField + 2) theme.weatherImperial = parts[wsField + 2] === "1"
                     if (parts.length > wsField + 3) theme.clock12h        = parts[wsField + 3] === "1"
-                    if (parts.length > wsField + 4) theme.modNetwork      = parts[wsField + 4] === "1"
+                    if (parts.length > wsField + 4) theme.modNetwork      = false
                     // style tokens — appended after modNetwork, each guarded
                     // +5 is the retired V2 shadow field and is intentionally ignored.
                     // +6..+7 are retired V2 Style fields, retained only so older

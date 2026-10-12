@@ -7,31 +7,53 @@ import subprocess
 
 STATE_FILE = os.path.expanduser("~/.local/share/quickshell_recent_apps.json")
 
+_icon_cache = {}
+
 def find_icon(icon_name):
     if not icon_name:
         return ""
+    if icon_name in _icon_cache:
+        return _icon_cache[icon_name]
     if os.path.isabs(icon_name) and os.path.exists(icon_name):
-        return f"file://{icon_name}"
+        res = f"file://{icon_name}"
+        _icon_cache[icon_name] = res
+        return res
     
     # Check pixmaps
-    for ext in ["png", "svg"]:
+    for ext in ["png", "svg", "xpm"]:
         p = f"/usr/share/pixmaps/{icon_name}.{ext}"
         if os.path.exists(p):
-            return f"file://{p}"
+            res = f"file://{p}"
+            _icon_cache[icon_name] = res
+            return res
             
     # Search hicolor
     for size in ["256x256", "128x128", "scalable", "64x64", "48x48", "32x32"]:
         p1 = f"/usr/share/icons/hicolor/{size}/apps/{icon_name}.png"
         if os.path.exists(p1):
-            return f"file://{p1}"
+            res = f"file://{p1}"
+            _icon_cache[icon_name] = res
+            return res
         p2 = f"/usr/share/icons/hicolor/{size}/apps/{icon_name}.svg"
         if os.path.exists(p2):
-            return f"file://{p2}"
+            res = f"file://{p2}"
+            _icon_cache[icon_name] = res
+            return res
 
-    # Search user icons
-    matches = glob.glob(f"/usr/share/icons/**/{icon_name}.*", recursive=True)
+    # Fast check in other icon themes
+    matches = glob.glob(f"/usr/share/icons/*/*/apps/{icon_name}.*")
     if matches:
-        return f"file://{matches[0]}"
+        res = f"file://{matches[0]}"
+        _icon_cache[icon_name] = res
+        return res
+
+    matches_user = glob.glob(os.path.expanduser(f"~/.local/share/icons/*/*/apps/{icon_name}.*"))
+    if matches_user:
+        res = f"file://{matches_user[0]}"
+        _icon_cache[icon_name] = res
+        return res
+
+    _icon_cache[icon_name] = ""
     return ""
 
 def get_desktop_apps():
@@ -59,11 +81,10 @@ def get_desktop_apps():
                     nodisplay = True
         if not nodisplay and name and exec_cmd:
             clean_exec = exec_cmd.split("%")[0].strip()
-            resolved_icon = find_icon(icon)
             app_map[fn] = {
                 "desktop": fn,
                 "name": name,
-                "icon": resolved_icon or icon or "",
+                "icon": icon or "",
                 "exec": clean_exec,
                 "wmClass": startup_wm or fn.replace(".desktop", "")
             }
@@ -105,11 +126,25 @@ def list_recent():
     mapped_clients.sort(key=lambda x: x.get("focusHistoryID", 999), reverse=True)
     for c in mapped_clients:
         cls = (c.get("initialClass") or c.get("class") or "").lower()
+        if not cls:
+            continue
         matched_fn = None
         for fn, data in app_map.items():
             if cls == data["wmClass"].lower() or cls == fn.replace(".desktop", "").lower() or cls in data["name"].lower():
                 matched_fn = fn
                 break
+        if not matched_fn:
+            synth_fn = f"{cls}.desktop"
+            clean_name = (c.get("title") or cls).split("—")[0].split("-")[0].strip()
+            app_map[synth_fn] = {
+                "desktop": synth_fn,
+                "name": clean_name if clean_name else cls.capitalize(),
+                "icon": cls,
+                "exec": cls,
+                "wmClass": cls
+            }
+            matched_fn = synth_fn
+
         if matched_fn:
             if matched_fn in history:
                 history.remove(matched_fn)
@@ -147,10 +182,11 @@ def list_recent():
                 if act_cls == cls or act_cls == fn_base or fn_base in act_cls or act_cls in fn_base:
                     open_info = act_data
                     break
+            resolved_icon = find_icon(data["icon"]) or data["icon"] or ""
             result.append({
                 "desktop": fn,
                 "name": data["name"],
-                "icon": data["icon"],
+                "icon": resolved_icon,
                 "exec": data["exec"],
                 "isOpen": open_info is not None,
                 "address": open_info["address"] if open_info else "",

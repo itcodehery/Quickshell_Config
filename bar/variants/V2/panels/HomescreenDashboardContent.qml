@@ -62,6 +62,8 @@ Item {
     function getAppIcon(cls) {
         if (!cls) return ""
         var lower = cls.toLowerCase()
+        if (lower.indexOf("file://") === 0) return lower
+        if (lower.indexOf("/") === 0) return "file://" + lower
         if (lower === "zen" || lower === "zen-alpha" || lower.indexOf("zen") >= 0) {
             return "file:///usr/share/icons/hicolor/128x128/apps/zen-browser.png"
         }
@@ -72,7 +74,14 @@ Item {
             var p = Quickshell.iconPath("code", "com.visualstudio.code")
             if (p) return p
         }
-        if (lower.indexOf("chrome") >= 0) {
+        if (lower.indexOf("whatsapp") >= 0) {
+            var p = Quickshell.iconPath("whatsapp", "whatsapp-for-linux")
+            if (p) return p
+        }
+        if (lower.indexOf("azahar") >= 0) {
+            return "file:///usr/share/icons/hicolor/scalable/apps/org.azahar_emu.Azahar.svg"
+        }
+        if (lower.indexOf("chrome") >= 0 || lower.indexOf("chromium") >= 0) {
             var p = Quickshell.iconPath("google-chrome", "chrome")
             if (p) return p
         }
@@ -92,12 +101,19 @@ Item {
             var p = Quickshell.iconPath("steam", "steam")
             if (p) return p
         }
+        if (lower.indexOf("typora") >= 0) {
+            var p = Quickshell.iconPath("typora", "accessories-text-editor")
+            if (p) return p
+        }
         if (lower.indexOf("thunar") >= 0 || lower.indexOf("nautilus") >= 0 || lower.indexOf("dolphin") >= 0) {
             var p = Quickshell.iconPath("system-file-manager", "folder")
             if (p) return p
         }
         var direct = Quickshell.iconPath(lower, "")
         if (direct) return direct
+        var clean = lower.replace(".desktop", "").split("-")[0]
+        var pClean = Quickshell.iconPath(clean, "")
+        if (pClean) return pClean
         return Quickshell.iconPath("application-x-executable", "")
     }
 
@@ -110,12 +126,29 @@ Item {
         if (lower.indexOf("discord") >= 0) return "Discord"
         if (lower.indexOf("spotify") >= 0) return "Spotify"
         if (lower.indexOf("steam") >= 0) return "Steam"
+        if (lower.indexOf("typora") >= 0) return "Typora"
         if (lower.indexOf("thunar") >= 0) return "Thunar"
         return cls.charAt(0).toUpperCase() + cls.slice(1)
     }
 
     property var root
     property var panel
+    property string activeDetailView: root && root.dashboardDetail ? root.dashboardDetail : ""
+
+    Connections {
+        target: root || null
+        function onDashboardDetailChanged() {
+            if (root && dashboardContent.activeDetailView !== root.dashboardDetail) {
+                dashboardContent.activeDetailView = root.dashboardDetail || ""
+            }
+        }
+    }
+
+    onActiveDetailViewChanged: {
+        if (root && root.dashboardDetail !== activeDetailView) {
+            root.dashboardDetail = activeDetailView
+        }
+    }
 
     AudioData { id: audioData }
 
@@ -580,12 +613,25 @@ Item {
                             scale: (wifiMa.pressed || wifiInnerMa.pressed) ? 0.92 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                             
+                            border.width: dashboardContent.activeDetailView === "wifi" ? 2 : 0
+                            border.color: connected ? root.paper : root.seal
+                            Behavior on border.width { NumberAnimation { duration: 150 } }
+                            Behavior on border.color { ColorAnimation { duration: 150 } }
+                            
                             MouseArea {
                                 id: wifiMa
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: root.networkVisible = !root.networkVisible
+                                onClicked: {
+                                    if (dashboardContent.activeDetailView === "wifi") {
+                                        dashboardContent.activeDetailView = ""
+                                        if (root) root.dashboardDetail = ""
+                                    } else {
+                                        dashboardContent.activeDetailView = "wifi"
+                                        if (root) root.dashboardDetail = "wifi"
+                                    }
+                                }
                             }
                             
                             Row {
@@ -669,12 +715,25 @@ Item {
                             scale: (btMa.pressed || btInnerMa.pressed) ? 0.92 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                             
+                            border.width: dashboardContent.activeDetailView === "bluetooth" ? 2 : 0
+                            border.color: connected ? root.paper : root.seal
+                            Behavior on border.width { NumberAnimation { duration: 150 } }
+                            Behavior on border.color { ColorAnimation { duration: 150 } }
+                            
                             MouseArea {
                                 id: btMa
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: root.bluetoothVisible = !root.bluetoothVisible
+                                onClicked: {
+                                    if (dashboardContent.activeDetailView === "bluetooth") {
+                                        dashboardContent.activeDetailView = ""
+                                        if (root) root.dashboardDetail = ""
+                                    } else {
+                                        dashboardContent.activeDetailView = "bluetooth"
+                                        if (root) root.dashboardDetail = "bluetooth"
+                                    }
+                                }
                             }
                             
                             Row {
@@ -746,12 +805,22 @@ Item {
                         // CPU Tile
                         Rectangle {
                             id: cpuTile
+                            property bool active: dashboardContent.activeDetailView === "cpu"
+                            readonly property color fg: active ? root.paper : root.ink
                             width: (parent.width - 12) / 2
                             height: 60
                             radius: 30
-                            color: root.fillIdle
+                            color: active
+                                ? (cpuMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                : (cpuMa.containsMouse ? root.fillHover : root.fillIdle)
+                            Behavior on color { ColorAnimation { duration: 160 } }
                             scale: cpuMa.pressed ? 0.92 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                            
+                            border.width: active ? 2 : 0
+                            border.color: active ? root.paper : root.seal
+                            Behavior on border.width { NumberAnimation { duration: 150 } }
+                            Behavior on border.color { ColorAnimation { duration: 150 } }
                             
                             Row {
                                 anchors.verticalCenter: parent.verticalCenter
@@ -759,49 +828,121 @@ Item {
                                 anchors.leftMargin: 16
                                 spacing: 12
                                 
-                                IconText { text: "memory"; color: root.ink; font.pixelSize: 20 }
+                                IconText {
+                                    text: "memory"
+                                    color: cpuTile.fg
+                                    font.pixelSize: 20
+                                    Behavior on color { ColorAnimation { duration: 160 } }
+                                }
                                 
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    Text { text: "CPU"; color: root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold }
-                                    Text { text: root.systemCpuPercent + "%"; color: root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: 60 }
+                                    Text {
+                                        text: "CPU"
+                                        color: cpuTile.fg
+                                        font.pixelSize: 13
+                                        font.family: root.barFont
+                                        font.weight: Font.DemiBold
+                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                    }
+                                    Text {
+                                        text: root.systemCpuPercent + "%"
+                                        color: cpuTile.fg
+                                        opacity: cpuTile.active ? 0.8 : 0.6
+                                        font.pixelSize: 11
+                                        font.family: root.barFont
+                                        elide: Text.ElideRight
+                                        width: 60
+                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                    }
                                 }
                             }
                             MouseArea {
                                 id: cpuMa
                                 anchors.fill: parent
-                                onClicked: root.cpuVisible = !root.cpuVisible
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    if (dashboardContent.activeDetailView === "cpu") {
+                                        dashboardContent.activeDetailView = ""
+                                        if (root) root.dashboardDetail = ""
+                                    } else {
+                                        dashboardContent.activeDetailView = "cpu"
+                                        if (root) root.dashboardDetail = "cpu"
+                                    }
+                                }
                             }
                         }
 
                         // Memory Tile
                         Rectangle {
                             id: memTile
+                            property bool active: dashboardContent.activeDetailView === "memory"
+                            readonly property color fg: active ? root.paper : root.ink
                             width: (parent.width - 12) / 2
                             height: 60
                             radius: 30
-                            color: root.fillIdle
+                            color: active
+                                ? (memMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                : (memMa.containsMouse ? root.fillHover : root.fillIdle)
+                            Behavior on color { ColorAnimation { duration: 160 } }
                             scale: memMa.pressed ? 0.92 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                             
+                            border.width: active ? 2 : 0
+                            border.color: active ? root.paper : root.seal
+                            Behavior on border.width { NumberAnimation { duration: 150 } }
+                            Behavior on border.color { ColorAnimation { duration: 150 } }
+
                             Row {
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
                                 anchors.leftMargin: 16
                                 spacing: 12
                                 
-                                IconText { text: "dns"; color: root.ink; font.pixelSize: 20 }
+                                IconText {
+                                    text: "dns"
+                                    color: memTile.fg
+                                    font.pixelSize: 20
+                                    Behavior on color { ColorAnimation { duration: 160 } }
+                                }
                                 
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    Text { text: "Memory"; color: root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold }
-                                    Text { text: root.systemMemUsedGiB.toFixed(1) + "/" + root.systemMemTotalGiB.toFixed(0) + "G"; color: root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: 60 }
+                                    Text {
+                                        text: "Memory"
+                                        color: memTile.fg
+                                        font.pixelSize: 13
+                                        font.family: root.barFont
+                                        font.weight: Font.DemiBold
+                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                    }
+                                    Text {
+                                        text: root.systemMemUsedGiB.toFixed(1) + "/" + root.systemMemTotalGiB.toFixed(0) + "G"
+                                        color: memTile.fg
+                                        opacity: memTile.active ? 0.8 : 0.6
+                                        font.pixelSize: 11
+                                        font.family: root.barFont
+                                        elide: Text.ElideRight
+                                        width: 60
+                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                    }
                                 }
                             }
                             MouseArea {
                                 id: memMa
                                 anchors.fill: parent
-                                onClicked: root.memVisible = !root.memVisible
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    if (dashboardContent.activeDetailView === "memory") {
+                                        dashboardContent.activeDetailView = ""
+                                        if (root) root.dashboardDetail = ""
+                                    } else {
+                                        dashboardContent.activeDetailView = "memory"
+                                        if (root) root.dashboardDetail = "memory"
+                                    }
+                                }
                             }
                         }
                     }
@@ -895,46 +1036,70 @@ Item {
                             }
                         }
 
-                        // Power Mode Tile
+                        // Battery & Power Tile
                         Rectangle {
                             id: powerTile
-                            property bool active: false
-                            
-                            Process {
-                                running: true
-                                command: ["powerprofilesctl", "get"]
-                                stdout: StdioCollector {
-                                    onStreamFinished: powerTile.active = (this.text.trim() === "performance")
-                                }
-                            }
-
+                            property bool active: dashboardContent.activeDetailView === "battery"
+                            readonly property color fg: active ? root.paper : root.ink
                             width: (parent.width - 12) / 2
                             height: 60
                             radius: 30
-                            color: active ? root.color02 : root.fillIdle
+                            color: active
+                                ? (powerMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                : (powerMa.containsMouse ? root.fillHover : root.fillIdle)
+                            Behavior on color { ColorAnimation { duration: 160 } }
                             scale: powerMa.pressed ? 0.92 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-                            Behavior on color { ColorAnimation { duration: 200 } }
+
+                            border.width: active ? 2 : 0
+                            border.color: active ? root.paper : root.seal
+                            Behavior on border.width { NumberAnimation { duration: 150 } }
+                            Behavior on border.color { ColorAnimation { duration: 150 } }
                             
                             Row {
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
                                 anchors.leftMargin: 16
                                 spacing: 12
-                                IconText { text: "bolt"; color: powerTile.active ? root.paper : root.ink; font.pixelSize: 20; Behavior on color { ColorAnimation { duration: 200 } } }
+                                IconText {
+                                    text: "bolt"
+                                    color: powerTile.fg
+                                    font.pixelSize: 20
+                                    Behavior on color { ColorAnimation { duration: 160 } }
+                                }
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    Text { text: "Power"; color: powerTile.active ? root.paper : root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold; Behavior on color { ColorAnimation { duration: 200 } } }
-                                    Text { text: powerTile.active ? "Performance" : "Balanced"; color: powerTile.active ? root.paper : root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; Behavior on color { ColorAnimation { duration: 200 } } }
+                                    Text {
+                                        text: "Battery"
+                                        color: powerTile.fg
+                                        font.pixelSize: 13
+                                        font.family: root.barFont
+                                        font.weight: Font.DemiBold
+                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                    }
+                                    Text {
+                                        text: "Power & Health"
+                                        color: powerTile.fg
+                                        opacity: powerTile.active ? 0.8 : 0.6
+                                        font.pixelSize: 11
+                                        font.family: root.barFont
+                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                    }
                                 }
                             }
                             MouseArea {
                                 id: powerMa
                                 anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
                                 onClicked: {
-                                    let newMode = powerTile.active ? "balanced" : "performance"
-                                    Quickshell.execDetached(["powerprofilesctl", "set", newMode])
-                                    powerTile.active = !powerTile.active
+                                    if (dashboardContent.activeDetailView === "battery") {
+                                        dashboardContent.activeDetailView = ""
+                                        if (root) root.dashboardDetail = ""
+                                    } else {
+                                        dashboardContent.activeDetailView = "battery"
+                                        if (root) root.dashboardDetail = "battery"
+                                    }
                                 }
                             }
                         }
@@ -1172,25 +1337,72 @@ Item {
                             height: 132
                             spacing: 12
                             
-                            // Extra 1
+                            // Screentime Tile
                             Rectangle {
+                                id: screentimeTile
+                                property bool active: dashboardContent.activeDetailView === "screentime"
+                                readonly property color fg: active ? root.paper : root.ink
                                 width: parent.width
                                 height: 60
                                 radius: 30
-                                color: root.fillIdle
-                                
+                                color: active
+                                    ? (stMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                    : (stMa.containsMouse ? root.fillHover : root.fillIdle)
+                                Behavior on color { ColorAnimation { duration: 160 } }
+                                scale: stMa.pressed ? 0.92 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+
+                                border.width: active ? 2 : 0
+                                border.color: active ? root.paper : root.seal
+                                Behavior on border.width { NumberAnimation { duration: 150 } }
+                                Behavior on border.color { ColorAnimation { duration: 150 } }
+
                                 Row {
                                     anchors.verticalCenter: parent.verticalCenter
                                     anchors.left: parent.left
                                     anchors.leftMargin: 16
                                     spacing: 12
                                     
-                                    IconText { text: "speed"; color: root.ink; font.pixelSize: 20 }
+                                    IconText {
+                                        text: "hourglass_empty"
+                                        color: screentimeTile.fg
+                                        font.pixelSize: 20
+                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                    }
                                     
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        Text { text: "CPU Clock"; color: root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold }
-                                        Text { text: "3.4 GHz"; color: root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: 60 }
+                                        Text {
+                                            text: "Screen Time"
+                                            color: screentimeTile.fg
+                                            font.pixelSize: 13
+                                            font.family: root.barFont
+                                            font.weight: Font.DemiBold
+                                            Behavior on color { ColorAnimation { duration: 160 } }
+                                        }
+                                        Text {
+                                            text: "Usage & Trends"
+                                            color: screentimeTile.fg
+                                            opacity: screentimeTile.active ? 0.8 : 0.6
+                                            font.pixelSize: 11
+                                            font.family: root.barFont
+                                            Behavior on color { ColorAnimation { duration: 160 } }
+                                        }
+                                    }
+                                }
+                                MouseArea {
+                                    id: stMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        if (dashboardContent.activeDetailView === "screentime") {
+                                            dashboardContent.activeDetailView = ""
+                                            if (root) root.dashboardDetail = ""
+                                        } else {
+                                            dashboardContent.activeDetailView = "screentime"
+                                            if (root) root.dashboardDetail = "screentime"
+                                        }
                                     }
                                 }
                             }
@@ -1716,11 +1928,20 @@ Item {
             }
         }
 
-        // RIGHT COLUMN (60%): Dock (Recent Apps) + Process Monitor
-        Column {
+        // RIGHT COLUMN (60%): Dock (Recent Apps) + Process Monitor OR Detail Section
+        Item {
+            id: rightColumnArea
             width: parent.width * 0.6 - 8
             height: parent.height
-            spacing: 12
+
+            // Overview Mode: Dock + Process Monitor
+            Column {
+                id: overviewCol
+                anchors.fill: parent
+                spacing: 12
+                visible: dashboardContent.activeDetailView === ""
+                opacity: visible ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 160 } }
 
             // SECTION 1: Dock (Recently Opened Apps)
             Rectangle {
@@ -1811,7 +2032,7 @@ Item {
                                         anchors.verticalCenterOffset: -2
                                         width: 28
                                         height: 28
-                                        source: model.icon ? model.icon : dashboardContent.getAppIcon(model.desktop)
+                                        source: (model.icon && (model.icon.indexOf("file://") === 0 || model.icon.indexOf("/") === 0)) ? (model.icon.indexOf("file://") === 0 ? model.icon : ("file://" + model.icon)) : dashboardContent.getAppIcon(model.icon || model.desktop)
                                         fillMode: Image.PreserveAspectFit
                                         smooth: true
                                         asynchronous: true
@@ -2028,6 +2249,97 @@ Item {
                     }
                 }
             }
+            } // end overviewCol
+
+            // Detailed Wi-Fi Section
+            WifiDetailSection {
+                id: wifiDetailSection
+                anchors.fill: parent
+                root: dashboardContent.root
+                panel: dashboardContent.panel
+                visible: dashboardContent.activeDetailView === "wifi"
+                opacity: visible ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 160 } }
+                onCloseRequested: {
+                    dashboardContent.activeDetailView = ""
+                    if (root) root.dashboardDetail = ""
+                }
+            }
+
+            // Detailed Bluetooth Section
+            BluetoothDetailSection {
+                id: btDetailSection
+                anchors.fill: parent
+                root: dashboardContent.root
+                panel: dashboardContent.panel
+                visible: dashboardContent.activeDetailView === "bluetooth"
+                opacity: visible ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 160 } }
+                onCloseRequested: {
+                    dashboardContent.activeDetailView = ""
+                    if (root) root.dashboardDetail = ""
+                }
+            }
+
+            // Detailed CPU Section
+            CpuDetailSection {
+                id: cpuDetailSection
+                anchors.fill: parent
+                root: dashboardContent.root
+                panel: dashboardContent.panel
+                visible: dashboardContent.activeDetailView === "cpu"
+                opacity: visible ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 160 } }
+                onCloseRequested: {
+                    dashboardContent.activeDetailView = ""
+                    if (root) root.dashboardDetail = ""
+                }
+            }
+
+            // Detailed Memory Section
+            MemoryDetailSection {
+                id: memDetailSection
+                anchors.fill: parent
+                root: dashboardContent.root
+                panel: dashboardContent.panel
+                visible: dashboardContent.activeDetailView === "memory"
+                opacity: visible ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 160 } }
+                onCloseRequested: {
+                    dashboardContent.activeDetailView = ""
+                    if (root) root.dashboardDetail = ""
+                }
+            }
+
+            // Detailed Battery Section
+            BatteryDetailSection {
+                id: batDetailSection
+                anchors.fill: parent
+                root: dashboardContent.root
+                panel: dashboardContent.panel
+                visible: dashboardContent.activeDetailView === "battery"
+                opacity: visible ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 160 } }
+                onCloseRequested: {
+                    dashboardContent.activeDetailView = ""
+                    if (root) root.dashboardDetail = ""
+                }
+            }
+
+            // Detailed Screentime Section
+            ScreentimeDetailSection {
+                id: stDetailSection
+                anchors.fill: parent
+                root: dashboardContent.root
+                panel: dashboardContent.panel
+                visible: dashboardContent.activeDetailView === "screentime"
+                opacity: visible ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 160 } }
+                onCloseRequested: {
+                    dashboardContent.activeDetailView = ""
+                    if (root) root.dashboardDetail = ""
+                }
+            }
 
             ListModel { id: recentModel }
             ListModel { id: procModel }
@@ -2035,7 +2347,7 @@ Item {
             Process {
                 id: recentUpdater
                 running: panel.expanded
-                command: ["/home/hery/.config/quickshell/bar/scripts/recent_apps.py"]
+                command: ["python3", "/home/hery/.config/quickshell/bar/scripts/recent_apps.py"]
                 stdout: StdioCollector {
                     onStreamFinished: {
                         try {
@@ -2050,13 +2362,13 @@ Item {
             }
 
             Timer {
-                interval: 2000; repeat: true; running: panel.expanded
+                interval: 3000; repeat: true; running: panel.expanded; triggeredOnStart: true
                 onTriggered: { recentUpdater.running = false; recentUpdater.running = true }
             }
 
             Process {
                 id: procUpdater
-                running: panel.expanded
+                running: panel.expanded && dashboardContent.activeDetailView === ""
                 command: ["bash", "-c", "ps -eo pid,pcpu,comm --sort=-pcpu | head -n 10 | tail -n 9"]
                 stdout: StdioCollector {
                     onStreamFinished: {
@@ -2079,7 +2391,7 @@ Item {
             }
 
             Timer {
-                interval: 3000; repeat: true; running: panel.expanded
+                interval: 3000; repeat: true; running: panel.expanded && dashboardContent.activeDetailView === ""
                 onTriggered: { procUpdater.running = false; procUpdater.running = true }
             }
         }

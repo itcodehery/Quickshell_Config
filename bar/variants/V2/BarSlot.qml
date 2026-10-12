@@ -890,9 +890,9 @@ PanelWindow {
     // Restore the confirmed V2 default snapshot, including its intentional
     // empty base cells and the six optional cells on the right.
     function resetOrder() {
-        var dL = ["G1","G2","G3","G22","","G5","G6","G4","G7","",""]
-        var dR = ["G9","G10","G11","G14","G12","G13","G16",
-                  "G18","G17","G19","G21","G15","G20","",""]
+        var dL = ["G1","G2","G3","G22","","G5","G6","","G7","",""]
+        var dR = ["G9","G10","","G14","G12","G13","G16",
+                  "G18","G17","G19","G21","","G20","",""]
         resetModel(leftModel, dL, leftBaseSlotCount)
         resetModel(centerModel, ["G8"], centerBaseSlotCount)
         resetModel(rightModel, dR, rightBaseSlotCount)
@@ -1331,10 +1331,10 @@ PanelWindow {
     }
     readonly property var registry: ({
         "G1": compLauncher, "G2": compWorkspace, "G3": compStatus,
-        "G4": compMem, "G5": compCpu, "G6": compVol, "G7": compClaude,
+        "G5": compCpu, "G6": compVol, "G7": compClaude,
         "G8": compCenter,
-        "G9": compMpris, "G10": compQuick, "G11": compNetwork,
-        "G12": compBattery, "G13": compBrightness, "G14": compPower, "G15": compBluetooth,
+        "G9": compMpris, "G10": compQuick,
+        "G12": compBattery, "G13": compBrightness, "G14": compPower,
         "G16": compCpuTemperature, "G17": compGpu, "G18": compStorage,
         "G21": compScreentime, "G19": compGithubHeatmap, "G20": compNotes, "G22": compNotification
     })
@@ -2085,7 +2085,7 @@ PanelWindow {
             id: leftModel
             ListElement { gid: "G1"; extra: false } ListElement { gid: "G2"; extra: false } ListElement { gid: "G3"; extra: false } ListElement { gid: "G22"; extra: false }
             ListElement { gid: ""; extra: false }   ListElement { gid: "G5"; extra: false } ListElement { gid: "G6"; extra: false }
-            ListElement { gid: "G4"; extra: false } ListElement { gid: "G7"; extra: false } ListElement { gid: ""; extra: false }
+            ListElement { gid: ""; extra: false } ListElement { gid: "G7"; extra: false } ListElement { gid: ""; extra: false }
             ListElement { gid: ""; extra: false }
         }
         ListModel {
@@ -2094,10 +2094,10 @@ PanelWindow {
         }
         ListModel {
             id: rightModel
-            ListElement { gid: "G9"; extra: false }  ListElement { gid: "G10"; extra: false } ListElement { gid: "G11"; extra: false }
+            ListElement { gid: "G9"; extra: false }  ListElement { gid: "G10"; extra: false } ListElement { gid: ""; extra: false }
             ListElement { gid: "G14"; extra: false } ListElement { gid: "G12"; extra: false } ListElement { gid: "G13"; extra: false }
             ListElement { gid: "G16"; extra: false }  ListElement { gid: "G17"; extra: true }
-            ListElement { gid: "G19"; extra: true }  ListElement { gid: "G15"; extra: true }  ListElement { gid: "G20"; extra: true }
+            ListElement { gid: "G19"; extra: true }  ListElement { gid: ""; extra: true }  ListElement { gid: "G20"; extra: true }
             ListElement { gid: "G21"; extra: true }
             ListElement { gid: ""; extra: true }
             ListElement { gid: ""; extra: true }

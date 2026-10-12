@@ -20,11 +20,11 @@ Item {
         ? "Bluetooth · " + numConnected + " connected"
         : (btOn ? "Bluetooth on" : "Bluetooth off")
 
-    readonly property bool shown: root.modBluetooth
-    visible: implicitWidth > 0.5
-    implicitWidth: shown ? row.implicitWidth + 18 : 0
-    implicitHeight: 28
-    opacity: shown ? 1 : 0
+    readonly property bool shown: false
+    visible: false
+    implicitWidth: 0
+    implicitHeight: 0
+    opacity: 0
 
     Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
@@ -98,7 +98,15 @@ Item {
         onClicked: (e) => {
             tip.hide()
             if (e.button === Qt.RightButton) { clickRunner.running = false; clickRunner.running = true }
-            else root.bluetoothVisible = !root.bluetoothVisible
+            else {
+                if (root.dashboardExpanded && root.dashboardDetail === "bluetooth") {
+                    root.dashboardExpanded = false
+                    root.dashboardDetail = ""
+                } else {
+                    root.dashboardDetail = "bluetooth"
+                    root.dashboardExpanded = true
+                }
+            }
         }
     }
 }

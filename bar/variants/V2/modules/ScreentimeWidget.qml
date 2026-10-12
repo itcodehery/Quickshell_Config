@@ -74,7 +74,15 @@ Item {
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onEntered: tip.show()
-        onExited: { tip.hide() }
-        onClicked: { tip.hide(); root.screentimeVisible = !root.screentimeVisible }
+        onClicked: {
+            tip.hide()
+            if (root.dashboardExpanded && root.dashboardDetail === "screentime") {
+                root.dashboardExpanded = false
+                root.dashboardDetail = ""
+            } else {
+                root.dashboardDetail = "screentime"
+                root.dashboardExpanded = true
+            }
+        }
     }
 }

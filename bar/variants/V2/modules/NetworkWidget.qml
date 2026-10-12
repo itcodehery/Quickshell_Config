@@ -76,11 +76,11 @@ Item {
         return "Offline"
     }
 
-    // hideable via modNetwork
-    implicitWidth: root.modNetwork ? (row.implicitWidth + 18) : 0
+    visible: false
+    implicitWidth: 0
+    implicitHeight: 0
     // mirror the connection type so the ControlPanel can gate the Network toggle
     Binding { target: rootMod.root; property: "networkMode"; value: rootMod.mode }
-    implicitHeight: 28
 
     Row {
         id: row
@@ -257,7 +257,15 @@ Item {
         onClicked: (e) => {
             tip.hide()
             if (e.button === Qt.RightButton) { clickRunner.running = false; clickRunner.running = true }
-            else root.networkVisible = !root.networkVisible
+            else {
+                if (root.dashboardExpanded && root.dashboardDetail === "wifi") {
+                    root.dashboardExpanded = false
+                    root.dashboardDetail = ""
+                } else {
+                    root.dashboardDetail = "wifi"
+                    root.dashboardExpanded = true
+                }
+            }
         }
     }
 }

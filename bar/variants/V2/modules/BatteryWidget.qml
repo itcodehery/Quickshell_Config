@@ -190,7 +190,15 @@ Item {
         anchors.fill: parent
         hoverEnabled: true; cursorShape: Qt.PointingHandCursor
         onEntered: { if (rootMod.hasBattery) tip.show() }
-        onExited:  { tip.hide() }
-        onClicked: { tip.hide(); root.batteryVisible = !root.batteryVisible }
+        onClicked: {
+            tip.hide()
+            if (root.dashboardExpanded && root.dashboardDetail === "battery") {
+                root.dashboardExpanded = false
+                root.dashboardDetail = ""
+            } else {
+                root.dashboardDetail = "battery"
+                root.dashboardExpanded = true
+            }
+        }
     }
 }

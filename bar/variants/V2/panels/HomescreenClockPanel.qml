@@ -108,9 +108,18 @@ PanelWindow {
     Timer {
         id: autoCollapseTimer
         interval: 6500
-        running: expanded && !bgHover.hovered && !hsClock.searchOpen
+        running: expanded && !bgHover.hovered && !hsClock.searchOpen && (!root.dashboardDetail || root.dashboardDetail === "")
         repeat: false
         onTriggered: expanded = false
+    }
+
+    Connections {
+        target: root
+        function onDashboardDetailChanged() {
+            if (root.dashboardDetail && root.dashboardDetail !== "") {
+                autoCollapseTimer.stop()
+            }
+        }
     }
 
     readonly property real pillHeight: clockLayout.height > 0 ? clockLayout.height + 24 : 80
@@ -377,8 +386,13 @@ PanelWindow {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
-                        
-                        root.screentimeVisible = !root.screentimeVisible // Toggle screentime
+                        if (root.dashboardExpanded && root.dashboardDetail === "screentime") {
+                            root.dashboardExpanded = false
+                            root.dashboardDetail = ""
+                        } else {
+                            root.dashboardDetail = "screentime"
+                            root.dashboardExpanded = true
+                        }
                     }
                 }
             }

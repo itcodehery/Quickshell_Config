@@ -6,10 +6,10 @@ Item {
     id: rootMod
     required property var root
 
-    visible: implicitWidth > 0.5
-    implicitWidth: root.modMemory ? row.implicitWidth + 18 : 0
-    implicitHeight: 28
-    opacity: root.modMemory ? 1 : 0
+    visible: false
+    implicitWidth: 0
+    implicitHeight: 0
+    opacity: 0
 
     Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 

@@ -48,6 +48,15 @@ Item {
         cursorShape: Qt.PointingHandCursor
         onEntered: tip.show()
         onExited: { tip.hide() }
-        onClicked: { tip.hide(); root.cpuVisible = !root.cpuVisible }
+        onClicked: {
+            tip.hide()
+            if (root.dashboardExpanded && root.dashboardDetail === "cpu") {
+                root.dashboardExpanded = false
+                root.dashboardDetail = ""
+            } else {
+                root.dashboardDetail = "cpu"
+                root.dashboardExpanded = true
+            }
+        }
     }
 }
