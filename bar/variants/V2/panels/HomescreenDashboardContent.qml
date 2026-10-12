@@ -18,6 +18,16 @@ Item {
         } else if (event.key === Qt.Key_J) {
             pageDown()
             event.accepted = true
+        } else if (event.key === Qt.Key_S) {
+            if (panel) {
+                panel.toggleSearch()
+                event.accepted = true
+            }
+        } else if (event.key === Qt.Key_Tab) {
+            if (panel && panel.searchOpen) {
+                panel.toggleSearchEngine()
+                event.accepted = true
+            }
         }
     }
     
@@ -48,6 +58,62 @@ Item {
             smoothScrollAnim.start()
         }
     }
+
+    function getAppIcon(cls) {
+        if (!cls) return ""
+        var lower = cls.toLowerCase()
+        if (lower === "zen" || lower === "zen-alpha" || lower.indexOf("zen") >= 0) {
+            return "file:///usr/share/icons/hicolor/128x128/apps/zen-browser.png"
+        }
+        if (lower === "kitty") {
+            return "file:///usr/share/icons/hicolor/256x256/apps/kitty.png"
+        }
+        if (lower.indexOf("code") >= 0 || lower === "vscode") {
+            var p = Quickshell.iconPath("code", "com.visualstudio.code")
+            if (p) return p
+        }
+        if (lower.indexOf("chrome") >= 0) {
+            var p = Quickshell.iconPath("google-chrome", "chrome")
+            if (p) return p
+        }
+        if (lower.indexOf("firefox") >= 0) {
+            var p = Quickshell.iconPath("firefox", "firefox-esr")
+            if (p) return p
+        }
+        if (lower.indexOf("discord") >= 0) {
+            var p = Quickshell.iconPath("discord", "discord")
+            if (p) return p
+        }
+        if (lower.indexOf("spotify") >= 0) {
+            var p = Quickshell.iconPath("spotify", "spotify-client")
+            if (p) return p
+        }
+        if (lower.indexOf("steam") >= 0) {
+            var p = Quickshell.iconPath("steam", "steam")
+            if (p) return p
+        }
+        if (lower.indexOf("thunar") >= 0 || lower.indexOf("nautilus") >= 0 || lower.indexOf("dolphin") >= 0) {
+            var p = Quickshell.iconPath("system-file-manager", "folder")
+            if (p) return p
+        }
+        var direct = Quickshell.iconPath(lower, "")
+        if (direct) return direct
+        return Quickshell.iconPath("application-x-executable", "")
+    }
+
+    function getAppDisplayName(cls, title) {
+        if (!cls) return title || "App"
+        var lower = cls.toLowerCase()
+        if (lower === "zen" || lower.indexOf("zen") >= 0) return "Zen Browser"
+        if (lower === "kitty") return "Kitty"
+        if (lower.indexOf("code") >= 0) return "VS Code"
+        if (lower.indexOf("discord") >= 0) return "Discord"
+        if (lower.indexOf("spotify") >= 0) return "Spotify"
+        if (lower.indexOf("steam") >= 0) return "Steam"
+        if (lower.indexOf("thunar") >= 0) return "Thunar"
+        return cls.charAt(0).toUpperCase() + cls.slice(1)
+    }
+
     property var root
     property var panel
 
@@ -125,6 +191,55 @@ Item {
     property string curTitle: mprisSel.player ? (mprisSel.player.trackTitle || "") : ""
     property string curArtist: mprisSel.player ? (mprisSel.player.trackArtist || "") : ""
     property string curArtUrl: mprisArt.source
+    
+    property real curPos: 0
+    property real curLen: 0
+    property real _lastRead: -1
+    
+    function fmtTime(s) {
+        if (!s || s <= 0 || isNaN(s)) return "0:00"
+        var m = Math.floor(s / 60)
+        var sec = Math.floor(s % 60)
+        return m + ":" + (sec < 10 ? "0" + sec : "" + sec)
+    }
+
+    function seekTo(ratio) {
+        if (!mprisSel.player || curLen <= 0) return
+        var target = Math.max(0, Math.min(1, ratio)) * curLen
+        if (typeof mprisSel.player.setPosition === "function") {
+            mprisSel.player.setPosition(target)
+        } else {
+            mprisSel.player.position = target
+        }
+        curPos = target
+    }
+
+    Timer {
+        id: posTimer
+        interval: 500; repeat: true
+        running: mprisSel.active
+        triggeredOnStart: true
+        onTriggered: {
+            if (!mprisSel.player) return
+            var p = mprisSel.player.position || 0
+            dashboardContent.curLen = mprisSel.player.length || 0
+            if (Math.abs(p - dashboardContent._lastRead) > 0.05) {
+                dashboardContent.curPos = p
+                dashboardContent._lastRead = p
+            } else if (mprisSel.playing) {
+                dashboardContent.curPos = Math.min(dashboardContent.curLen, dashboardContent.curPos + 0.5)
+            }
+        }
+    }
+
+    Connections {
+        target: mprisSel
+        function onPlayerChanged() {
+            dashboardContent.curPos = 0
+            dashboardContent._lastRead = -1
+            dashboardContent.curLen = mprisSel.player ? (mprisSel.player.length || 0) : 0
+        }
+    }
     
     onCurTitleChanged: { if (root && curTitle !== "") root.lastMediaTitle = curTitle }
     onCurArtistChanged: { if (root && curArtist !== "") root.lastMediaArtist = curArtist }
@@ -454,16 +569,22 @@ Item {
                         Rectangle {
                             id: wifiTile
                             property bool connected: dashboardContent.currentWifiName !== "Wi-Fi"
+                            readonly property color fg: connected ? root.paper : root.ink
                             width: (parent.width - 12) / 2
                             height: 60
                             radius: 30
-                            color: root.fillIdle
+                            color: connected
+                                ? (wifiMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                : (wifiMa.containsMouse ? root.fillHover : root.fillIdle)
+                            Behavior on color { ColorAnimation { duration: 160 } }
                             scale: (wifiMa.pressed || wifiInnerMa.pressed) ? 0.92 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                             
                             MouseArea {
                                 id: wifiMa
                                 anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
                                 onClicked: root.networkVisible = !root.networkVisible
                             }
                             
@@ -477,20 +598,25 @@ Item {
                                     width: 44
                                     height: 44
                                     radius: 14
-                                    color: wifiTile.connected ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.1)
-                                    Behavior on color { ColorAnimation { duration: 200 } }
+                                    color: wifiTile.connected
+                                        ? (wifiInnerMa.containsMouse ? Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.28) : Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.18))
+                                        : (wifiInnerMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.18) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.1))
+                                    Behavior on color { ColorAnimation { duration: 160 } }
                                     
                                     IconText { 
                                         anchors.centerIn: parent
                                         text: "wifi"
-                                        color: wifiTile.connected ? root.paper : root.ink
+                                        fill: wifiTile.connected ? 1 : 0
+                                        color: wifiTile.fg
                                         font.pixelSize: 20
-                                        Behavior on color { ColorAnimation { duration: 200 } }
+                                        Behavior on color { ColorAnimation { duration: 160 } }
                                     }
                                     
                                     MouseArea {
                                         id: wifiInnerMa
                                         anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
                                         onClicked: {
                                             if (wifiTile.connected) {
                                                 dashboardContent.currentWifiName = "Wi-Fi"
@@ -506,8 +632,24 @@ Item {
                                 
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    Text { text: "Wi-Fi"; color: root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold }
-                                    Text { text: dashboardContent.currentWifiName; color: root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: wifiTile.width - 44 - 8 - 12 - 16 }
+                                    Text {
+                                        text: "Wi-Fi"
+                                        color: wifiTile.fg
+                                        font.pixelSize: 13
+                                        font.family: root.barFont
+                                        font.weight: Font.DemiBold
+                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                    }
+                                    Text {
+                                        text: dashboardContent.currentWifiName
+                                        color: wifiTile.fg
+                                        opacity: wifiTile.connected ? 0.75 : 0.6
+                                        font.pixelSize: 11
+                                        font.family: root.barFont
+                                        elide: Text.ElideRight
+                                        width: wifiTile.width - 44 - 8 - 12 - 16
+                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                    }
                                 }
                             }
                         }
@@ -516,16 +658,22 @@ Item {
                         Rectangle {
                             id: btTile
                             property bool connected: dashboardContent.currentBtName !== "Bluetooth"
+                            readonly property color fg: connected ? root.paper : root.ink
                             width: (parent.width - 12) / 2
                             height: 60
                             radius: 30
-                            color: root.fillIdle
+                            color: connected
+                                ? (btMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                : (btMa.containsMouse ? root.fillHover : root.fillIdle)
+                            Behavior on color { ColorAnimation { duration: 160 } }
                             scale: (btMa.pressed || btInnerMa.pressed) ? 0.92 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                             
                             MouseArea {
                                 id: btMa
                                 anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
                                 onClicked: root.bluetoothVisible = !root.bluetoothVisible
                             }
                             
@@ -539,20 +687,25 @@ Item {
                                     width: 44
                                     height: 44
                                     radius: 14
-                                    color: btTile.connected ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.1)
-                                    Behavior on color { ColorAnimation { duration: 200 } }
+                                    color: btTile.connected
+                                        ? (btInnerMa.containsMouse ? Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.28) : Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.18))
+                                        : (btInnerMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.18) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.1))
+                                    Behavior on color { ColorAnimation { duration: 160 } }
                                     
                                     IconText { 
                                         anchors.centerIn: parent
                                         text: "bluetooth"
-                                        color: btTile.connected ? root.paper : root.ink
+                                        fill: btTile.connected ? 1 : 0
+                                        color: btTile.fg
                                         font.pixelSize: 20
-                                        Behavior on color { ColorAnimation { duration: 200 } }
+                                        Behavior on color { ColorAnimation { duration: 160 } }
                                     }
                                     
                                     MouseArea {
                                         id: btInnerMa
                                         anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
                                         onClicked: {
                                             if (btTile.connected) {
                                                 dashboardContent.currentBtName = "Bluetooth"
@@ -568,8 +721,24 @@ Item {
                                 
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    Text { text: "Bluetooth"; color: root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold }
-                                    Text { text: dashboardContent.currentBtName; color: root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: btTile.width - 44 - 8 - 12 - 16 }
+                                    Text {
+                                        text: "Bluetooth"
+                                        color: btTile.fg
+                                        font.pixelSize: 13
+                                        font.family: root.barFont
+                                        font.weight: Font.DemiBold
+                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                    }
+                                    Text {
+                                        text: dashboardContent.currentBtName
+                                        color: btTile.fg
+                                        opacity: btTile.connected ? 0.75 : 0.6
+                                        font.pixelSize: 11
+                                        font.family: root.barFont
+                                        elide: Text.ElideRight
+                                        width: btTile.width - 44 - 8 - 12 - 16
+                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                    }
                                 }
                             }
                         }
@@ -831,20 +1000,32 @@ Item {
                             y: 0
                             width: (tilesPager.width - 12) / 2
                             height: 132
-                            radius: 30
+                            radius: 26
+                            clip: true
                             
                             property int currentTemp: 45
-                            
-                            color: {
-                                if (currentTemp < 50) return Qt.rgba(0.2, 0.6, 0.8, 0.4) // Cool blue
-                                if (currentTemp < 75) return Qt.rgba(0.9, 0.7, 0.2, 0.4) // Warm yellow/orange
-                                return Qt.rgba(0.9, 0.2, 0.2, 0.4) // Hot red
+
+                            readonly property color tempColor: {
+                                if (currentTemp < 52) return "#22d3ee" // Cyan
+                                if (currentTemp < 72) return "#fbbf24" // Amber
+                                return "#f87171" // Coral red
                             }
-                            Behavior on color { ColorAnimation { duration: 500 } }
+                            
+                            color: root.fillIdle
+                            scale: tempMa.pressed ? 0.94 : (tempMa.containsMouse ? 1.02 : 1.0)
+                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+
+                            // Subtle background thermal tint
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: parent.radius
+                                color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.10)
+                                Behavior on color { ColorAnimation { duration: 400 } }
+                            }
                             
                             Process {
                                 running: true
-                                command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp"]
+                                command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 45000"]
                                 stdout: StdioCollector {
                                     onStreamFinished: {
                                         let t = parseInt(this.text.trim())
@@ -855,17 +1036,9 @@ Item {
                                 }
                             }
                             
-                            Timer {
-                                interval: 3000; repeat: true; running: true
-                                onTriggered: {
-                                    Quickshell.execDetached(["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp > /tmp/qt_temp"])
-                                }
-                            }
-                            
-                            // Better: Let's use a Process that is re-run by a Timer
                             Process {
                                 id: tempUpdater
-                                command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp"]
+                                command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 45000"]
                                 stdout: StdioCollector {
                                     onStreamFinished: {
                                         let t = parseInt(this.text.trim())
@@ -877,27 +1050,117 @@ Item {
                             }
                             
                             Timer {
-                                interval: 2000; repeat: true; running: true
+                                interval: 2500; repeat: true; running: panel.expanded
                                 onTriggered: { tempUpdater.running = false; tempUpdater.running = true }
                             }
                             
-                            Column {
-                                anchors.centerIn: parent
-                                spacing: 16
-                                IconText { 
-                                    text: "thermostat"
-                                    color: root.ink
-                                    font.pixelSize: 42
-                                    anchors.horizontalCenter: parent.horizontalCenter 
+                            Item {
+                                anchors.fill: parent
+                                anchors.margins: 14
+
+                                // Top row: Icon Badge + Category Label
+                                Row {
+                                    anchors.top: parent.top
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    height: 32
+                                    spacing: 8
+
+                                    Rectangle {
+                                        width: 32; height: 32; radius: 16
+                                        color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.22)
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        Behavior on color { ColorAnimation { duration: 300 } }
+
+                                        IconText {
+                                            anchors.centerIn: parent
+                                            text: "thermostat"
+                                            color: tempTile.tempColor
+                                            font.pixelSize: 18
+                                            Behavior on color { ColorAnimation { duration: 300 } }
+                                        }
+                                    }
+
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 1
+
+                                        Text {
+                                            text: "CPU TEMP"
+                                            color: root.ink
+                                            opacity: 0.6
+                                            font.family: root.barFont
+                                            font.pixelSize: 10
+                                            font.weight: Font.Bold
+                                            font.letterSpacing: 0.6
+                                        }
+
+                                        Text {
+                                            text: tempTile.currentTemp < 52 ? "Optimal" : (tempTile.currentTemp < 72 ? "Normal" : "High")
+                                            color: tempTile.tempColor
+                                            font.family: root.barFont
+                                            font.pixelSize: 11
+                                            font.weight: Font.DemiBold
+                                        }
+                                    }
                                 }
-                                Text { 
-                                    text: tempTile.currentTemp + "°C"
-                                    color: root.ink
-                                    font.family: root.barFont
-                                    font.pixelSize: 24
-                                    font.weight: Font.Bold
-                                    anchors.horizontalCenter: parent.horizontalCenter 
+
+                                // Bottom readout
+                                Item {
+                                    anchors.bottom: parent.bottom
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    height: 36
+
+                                    Text {
+                                        anchors.left: parent.left
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: tempTile.currentTemp + "°C"
+                                        color: root.ink
+                                        font.family: root.barFont
+                                        font.pixelSize: 28
+                                        font.weight: Font.Bold
+                                    }
+
+                                    Rectangle {
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        height: 20
+                                        radius: 10
+                                        color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.20)
+                                        border.color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.40)
+                                        border.width: 1
+                                        width: statusText.implicitWidth + 16
+
+                                        Row {
+                                            anchors.centerIn: parent
+                                            spacing: 4
+
+                                            Rectangle {
+                                                width: 5; height: 5; radius: 2.5
+                                                color: tempTile.tempColor
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+
+                                            Text {
+                                                id: statusText
+                                                text: tempTile.currentTemp < 52 ? "COOL" : (tempTile.currentTemp < 72 ? "WARM" : "HOT")
+                                                color: tempTile.tempColor
+                                                font.family: root.barFont
+                                                font.pixelSize: 9
+                                                font.weight: Font.Bold
+                                            }
+                                        }
+                                    }
                                 }
+                            }
+
+                            MouseArea {
+                                id: tempMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: Quickshell.execDetached(["btop"])
                             }
                         }
                         
@@ -980,255 +1243,817 @@ Item {
                 }
             }
 
-            // --- MEDIA PLAYER ---
+            // --- MATERIAL YOU MEDIA PLAYER ---
             Rectangle {
+                id: mediaCard
                 width: parent.width
-                height: 80
-                radius: 30
-                color: (mprisArt.dominantColor && String(mprisArt.dominantColor) !== "#00000000" && String(mprisArt.dominantColor) !== "transparent") 
-                    ? Qt.rgba(mprisArt.dominantColor.r, mprisArt.dominantColor.g, mprisArt.dominantColor.b, 0.2) 
-                    : root.fillIdle
-                
-                Row {
+                height: Math.max(140, parent.height - 256)
+                radius: 24
+                color: mediaCard.hasDominant ? Qt.rgba(mediaCard.domCol.r * 0.45, mediaCard.domCol.g * 0.45, mediaCard.domCol.b * 0.45, 0.5) : root.fillIdle
+                border.color: mediaCard.hasDominant ? Qt.rgba(mediaCard.domCol.r, mediaCard.domCol.g, mediaCard.domCol.b, 0.4) : root.islandBorder
+                border.width: 1
+
+                readonly property bool hasDominant: mprisArt.dominantColor && String(mprisArt.dominantColor) !== "#00000000" && String(mprisArt.dominantColor) !== "transparent"
+                readonly property color domCol: hasDominant ? mprisArt.dominantColor : root.seal
+                // Clean pastel / paper color for the pill play button matching Android Material You
+                readonly property color pillBg: {
+                    if (!hasDominant) return root.paper
+                    var maxC = Math.max(domCol.r, domCol.g, domCol.b)
+                    var minC = Math.min(domCol.r, domCol.g, domCol.b)
+                    var sat = maxC > 0 ? (maxC - minC) / maxC : 0
+                    // If dominant color is murky/dark/grey, fall back to clean, bright root.paper
+                    if (sat < 0.25 || maxC < 0.35) {
+                        return root.paper
+                    }
+                    // Soft pastel tint of root.paper
+                    return Qt.tint(root.paper, Qt.rgba(domCol.r, domCol.g, domCol.b, 0.35))
+                }
+
+                Behavior on color { ColorAnimation { duration: 300 } }
+                Behavior on border.color { ColorAnimation { duration: 300 } }
+
+                // Inner clipping container ensures artwork and overlays are clipped to the 24px rounded corners
+                ClippingRectangle {
                     anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 12
-                    
-                    // Album Art
-                    ClippingRectangle {
-                        width: 56; height: 56; radius: 20
-                        color: "transparent"
-                        Image {
-                            anchors.fill: parent
-                            source: root.lastMediaArtUrl
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
-                            visible: status === Image.Ready
-                        }
-                        IconText {
-                            anchors.centerIn: parent
-                            text: "music_note"
-                            color: root.ink
-                            opacity: 0.3
-                            font.pixelSize: 24
-                            visible: parent.children[0].status !== Image.Ready
+                    radius: 24
+                    color: "transparent"
+
+                    // Full-bleed album art background
+                    Image {
+                        id: cardBgArt
+                        anchors.fill: parent
+                        source: root.lastMediaArtUrl
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                        visible: status === Image.Ready
+                    }
+
+                    // Smooth darkening and tint overlays so text/buttons pop
+                    Rectangle {
+                        anchors.fill: parent
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.35) }
+                            GradientStop { position: 0.5; color: Qt.rgba(0, 0, 0, 0.50) }
+                            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.70) }
                         }
                     }
-                    
-                    // Info
-                    Column {
+
+                    Rectangle {
+                        anchors.fill: parent
+                        color: mediaCard.hasDominant ? Qt.rgba(mediaCard.domCol.r, mediaCard.domCol.g, mediaCard.domCol.b, 0.28) : "transparent"
+                    }
+                }
+
+                // TOP ROW: App Icon + Status Tag (Left) + Output Pill (Right)
+                Item {
+                    id: topRow
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.margins: 14
+                    height: 24
+
+                    Row {
+                        anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - 56 - 12 - 12 - 100 // Space for controls
+                        spacing: 8
+
+                        // App icon (Spotify logo if available, or music icon)
+                        Item {
+                            width: 20; height: 20
+                            anchors.verticalCenter: parent.verticalCenter
+
+                            Image {
+                                id: spotLogo
+                                anchors.fill: parent
+                                source: (mprisSel.player && /spotify/i.test(mprisSel.player.identity || ""))
+                                    ? "file:///home/hery/.config/quickshell/bar/spotify.svg"
+                                    : ""
+                                visible: source !== "" && status === Image.Ready
+                            }
+
+                            IconText {
+                                anchors.centerIn: parent
+                                text: "music_note"
+                                color: "#ffffff"
+                                font.pixelSize: 20
+                                visible: !spotLogo.visible
+                            }
+                        }
+
+                        // Last Played / Now Playing Tag
+                        Rectangle {
+                            id: statusTag
+                            height: 20
+                            radius: 6
+                            color: (dashboardContent.curTitle === "" && root.lastMediaTitle !== "")
+                                ? Qt.rgba(1, 1, 1, 0.30)
+                                : (mprisSel.playing ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(0, 0, 0, 0.30))
+                            border.color: Qt.rgba(1, 1, 1, 0.2)
+                            border.width: 1
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: statusTxt.implicitWidth + 12
+
+                            Text {
+                                id: statusTxt
+                                anchors.centerIn: parent
+                                text: {
+                                    if (dashboardContent.curTitle === "" && root.lastMediaTitle !== "") return "LAST PLAYED"
+                                    if (mprisSel.playing) return "NOW PLAYING"
+                                    return "PAUSED"
+                                }
+                                color: "#ffffff"
+                                font.family: root.barFont
+                                font.pixelSize: 9
+                                font.weight: Font.Bold
+                                font.letterSpacing: 0.8
+                            }
+                        }
+                    }
+
+                    // Output Pill (e.g. "This device" / Audio Sink)
+                    Rectangle {
+                        id: outputPill
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 24
+                        radius: 12
+                        color: Qt.rgba(1, 1, 1, 0.22)
+                        border.color: Qt.rgba(1, 1, 1, 0.15)
+                        border.width: 1
+                        width: outRow.implicitWidth + 14
+
+                        Row {
+                            id: outRow
+                            anchors.centerIn: parent
+                            spacing: 5
+
+                            IconText {
+                                text: "speaker"
+                                font.pixelSize: 13
+                                color: "#ffffff"
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            Text {
+                                text: {
+                                    var desc = (audioData.sink && audioData.sink.description) ? audioData.sink.description : "This device"
+                                    return desc.length > 18 ? desc.substring(0, 16) + "…" : desc
+                                }
+                                font.family: root.barFont
+                                font.pixelSize: 11
+                                font.weight: Font.Medium
+                                color: "#ffffff"
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+                    }
+                }
+
+                // MIDDLE ROW: Title & Artist (Left) + Pill Play/Pause Button (Right)
+                Item {
+                    id: midRow
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.verticalCenterOffset: -2
+                    anchors.leftMargin: 14
+                    anchors.rightMargin: 14
+                    height: 48
+
+                    // Track Title & Artist
+                    Column {
+                        id: textCol
+                        anchors.left: parent.left
+                        anchors.right: playPill.left
+                        anchors.rightMargin: 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 2
+
                         Text {
                             text: root.lastMediaTitle || "No media"
-                            color: root.ink
+                            color: "#ffffff"
                             font.family: root.barFont
-                            font.pixelSize: 14
-                            font.weight: Font.DemiBold
+                            font.pixelSize: 17
+                            font.weight: Font.Bold
                             elide: Text.ElideRight
                             width: parent.width
                         }
-                        Row {
+
+                        Text {
+                            text: root.lastMediaArtist || "Nothing in queue"
+                            color: Qt.rgba(1, 1, 1, 0.80)
+                            font.family: root.barFont
+                            font.pixelSize: 12
+                            elide: Text.ElideRight
                             width: parent.width
-                            spacing: 6
-                            Text {
-                                text: root.lastMediaArtist || "Unknown"
-                                color: root.ink
-                                opacity: 0.7
-                                font.family: root.barFont
-                                font.pixelSize: 12
-                                elide: Text.ElideRight
-                                width: Math.min(implicitWidth, parent.width - (lastPlayedLbl.visible ? lastPlayedLbl.width + 6 : 0))
+                        }
+                    }
+
+                    // Large Squircle / Pill Play/Pause Button (Material You style)
+                    Rectangle {
+                        id: playPill
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 48
+                        height: 48
+                        radius: 16
+                        color: playMa.pressed ? Qt.rgba(1, 1, 1, 0.12) : (playMa.containsMouse ? Qt.rgba(1, 1, 1, 0.28) : Qt.rgba(1, 1, 1, 0.18))
+                        border.color: Qt.rgba(1, 1, 1, 0.20)
+                        border.width: 1
+                        scale: playMa.pressed ? 0.90 : (playMa.containsMouse ? 1.05 : 1.0)
+                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                        Behavior on color { ColorAnimation { duration: 150 } }
+
+                        // Geometric pause bars (100% mathematically centered)
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 4.5
+                            visible: mprisSel.playing
+
+                            Rectangle {
+                                width: 4.5
+                                height: 16
+                                radius: 2.25
+                                color: "#ffffff"
                             }
                             Rectangle {
-                                id: lastPlayedLbl
-                                visible: dashboardContent.curTitle === "" && root.lastMediaTitle !== ""
-                                width: lblTxt.implicitWidth + 8
-                                height: 14
-                                radius: 4
-                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.15)
-                                anchors.verticalCenter: parent.verticalCenter
-                                Text {
-                                    id: lblTxt
-                                    anchors.centerIn: parent
-                                    text: "LAST PLAYED"
-                                    color: root.ink
-                                    opacity: 0.8
-                                    font.family: root.barFont
-                                    font.pixelSize: 9
-                                    font.weight: Font.Bold
+                                width: 4.5
+                                height: 16
+                                radius: 2.25
+                                color: "#ffffff"
+                            }
+                        }
+
+                        // Play arrow icon (when paused)
+                        IconText {
+                            anchors.centerIn: parent
+                            anchors.horizontalCenterOffset: 1.5
+                            text: "play_arrow"
+                            font.pixelSize: 28
+                            color: "#ffffff"
+                            visible: !mprisSel.playing
+                        }
+
+                        MouseArea {
+                            id: playMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: if (mprisSel.player) mprisSel.player.togglePlaying()
+                        }
+                    }
+                }
+
+                // BOTTOM ROW: Prev + Wavy Progress Bar + Next + Song Length
+                Row {
+                    id: bottomRow
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.margins: 14
+                    height: 26
+                    spacing: 10
+
+                    // Previous Button
+                    Item {
+                        width: 24; height: 24
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        IconText {
+                            anchors.centerIn: parent
+                            text: "skip_previous"
+                            font.pixelSize: 22
+                            color: "#ffffff"
+                            opacity: (mprisSel.player && mprisSel.player.canGoPrevious) ? 0.95 : 0.4
+                        }
+
+                        MouseArea {
+                            id: prevMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            scale: pressed ? 0.88 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 100 } }
+                            onClicked: if (mprisSel.player) mprisSel.player.previous()
+                        }
+                    }
+
+                    // Wavy Seekable Progress Bar
+                    Item {
+                        id: wavyBarContainer
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Math.max(80, parent.width - 24 - 24 - (positionTxt ? positionTxt.implicitWidth : 36) - (10 * 3))
+                        height: 24
+
+                        property real progress: dashboardContent.curLen > 0 
+                            ? Math.max(0, Math.min(1, dashboardContent.curPos / dashboardContent.curLen)) 
+                            : 0
+
+                        Canvas {
+                            id: waveCanvas
+                            anchors.fill: parent
+                            property real wavePhase: 0
+                            property real waveAmp: mprisSel.playing ? 3.5 : 0
+
+                            Behavior on waveAmp {
+                                NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
+                            }
+                            onWaveAmpChanged: requestPaint()
+
+                            onPaint: {
+                                var ctx = getContext("2d")
+                                ctx.clearRect(0, 0, width, height)
+                                var cy = height / 2
+                                var p = wavyBarContainer.progress
+                                var progressX = Math.max(0, Math.min(width, width * p))
+                                var scrubberW = 4
+                                var scrubberH = (seekArea.pressed || seekArea.containsMouse) ? 14 : 10
+                                var baseAmp = waveCanvas.waveAmp
+
+                                // 1. Unplayed straight horizontal line (from progressX to width)
+                                if (progressX < width) {
+                                    ctx.beginPath()
+                                    ctx.moveTo(progressX, cy)
+                                    ctx.lineTo(width, cy)
+                                    ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.32)
+                                    ctx.lineWidth = 3
+                                    ctx.lineCap = "round"
+                                    ctx.stroke()
+                                }
+
+                                // 2. Played portion: wavy sine line when playing, flat straight line when paused
+                                if (progressX > 0) {
+                                    var wavelength = 34 // Slightly increased frequency
+                                    ctx.beginPath()
+                                    ctx.moveTo(0, cy)
+                                    if (baseAmp > 0.05) {
+                                        for (var x = 0; x <= progressX; x += 1.5) {
+                                            var distToEnd = progressX - x
+                                            var taper = distToEnd < 14 ? (distToEnd / 14) : 1.0
+                                            var y = cy + baseAmp * taper * Math.sin((x / wavelength) * 2 * Math.PI - wavePhase)
+                                            ctx.lineTo(x, y)
+                                        }
+                                    } else {
+                                        ctx.lineTo(progressX, cy)
+                                    }
+                                    ctx.strokeStyle = "#ffffff"
+                                    ctx.lineWidth = 3
+                                    ctx.lineCap = "round"
+                                    ctx.stroke()
+                                }
+
+                                // 3. Vertical pill scrubber head (fixed vertically in center: stationary at cy)
+                                ctx.beginPath()
+                                ctx.moveTo(progressX, cy - scrubberH / 2)
+                                ctx.lineTo(progressX, cy + scrubberH / 2)
+                                ctx.strokeStyle = "#ffffff"
+                                ctx.lineWidth = scrubberW
+                                ctx.lineCap = "round"
+                                ctx.stroke()
+                            }
+                        }
+
+                        Timer {
+                            interval: 33
+                            running: mprisSel.playing && panel.expanded
+                            repeat: true
+                            onTriggered: {
+                                waveCanvas.wavePhase += 0.08
+                                waveCanvas.requestPaint()
+                            }
+                        }
+
+                        Connections {
+                            target: dashboardContent
+                            function onCurPosChanged() { waveCanvas.requestPaint() }
+                            function onCurLenChanged() { waveCanvas.requestPaint() }
+                        }
+
+                        Connections {
+                            target: mprisSel
+                            function onPlayingChanged() { waveCanvas.requestPaint() }
+                        }
+
+                        // Floating Timestamp Tooltip during scrub / hover
+                        Rectangle {
+                            anchors.bottom: parent.top
+                            anchors.bottomMargin: 4
+                            x: Math.max(0, Math.min(parent.width - width, wavyBarContainer.width * wavyBarContainer.progress - width / 2))
+                            width: timeTxt.implicitWidth + 12
+                            height: 18
+                            radius: 9
+                            color: Qt.rgba(0, 0, 0, 0.85)
+                            border.color: Qt.rgba(1, 1, 1, 0.25)
+                            border.width: 1
+                            visible: (seekArea.containsMouse || seekArea.pressed) && dashboardContent.curLen > 0
+
+                            Text {
+                                id: timeTxt
+                                anchors.centerIn: parent
+                                text: dashboardContent.fmtTime(dashboardContent.curPos) + " / " + dashboardContent.fmtTime(dashboardContent.curLen)
+                                color: "#ffffff"
+                                font.family: root.barFont
+                                font.pixelSize: 10
+                                font.weight: Font.DemiBold
+                            }
+                        }
+
+                        MouseArea {
+                            id: seekArea
+                            anchors.fill: parent
+                            anchors.margins: -6
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: (mouse) => {
+                                dashboardContent.seekTo(mouse.x / width)
+                                waveCanvas.requestPaint()
+                            }
+                            onPositionChanged: (mouse) => {
+                                if (pressed) {
+                                    dashboardContent.seekTo(mouse.x / width)
+                                    waveCanvas.requestPaint()
                                 }
                             }
                         }
                     }
-                    
-                    // Controls
-                    Row {
+
+                    // Next Button
+                    Item {
+                        width: 24; height: 24
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: 8
+
                         IconText {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "skip_previous"
-                            color: root.ink; font.pixelSize: 24
-                            MouseArea { anchors.fill: parent; onClicked: if (mprisSel.player) mprisSel.player.previous() }
-                        }
-                        IconText {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: mprisSel.playing ? "pause" : "play_arrow"
-                            color: root.ink; font.pixelSize: 28
-                            MouseArea { anchors.fill: parent; onClicked: if (mprisSel.player) mprisSel.player.togglePlaying() }
-                        }
-                        IconText {
-                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.centerIn: parent
                             text: "skip_next"
-                            color: root.ink; font.pixelSize: 24
-                            MouseArea { anchors.fill: parent; onClicked: if (mprisSel.player) mprisSel.player.next() }
+                            font.pixelSize: 22
+                            color: "#ffffff"
+                            opacity: (mprisSel.player && mprisSel.player.canGoNext) ? 0.95 : 0.4
                         }
+
+                        MouseArea {
+                            id: nextMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            scale: pressed ? 0.88 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 100 } }
+                            onClicked: if (mprisSel.player) mprisSel.player.next()
+                        }
+                    }
+
+                    // Current Song Position Display
+                    Text {
+                        id: positionTxt
+                        text: dashboardContent.fmtTime(dashboardContent.curPos)
+                        color: Qt.rgba(1, 1, 1, 0.85)
+                        font.family: root.barFont
+                        font.pixelSize: 12
+                        font.weight: Font.Medium
+                        anchors.verticalCenter: parent.verticalCenter
                     }
                 }
             }
         }
 
-        // RIGHT COLUMN (60%): Process Monitor
-        Rectangle {
+        // RIGHT COLUMN (60%): Dock (Recent Apps) + Process Monitor
+        Column {
             width: parent.width * 0.6 - 8
             height: parent.height
-            radius: 20
-            color: root.fillIdle
-            clip: true
-            
-            Column {
-                anchors.fill: parent
-                anchors.margins: 16
-                spacing: 12
-                
-                Text {
-                    text: "PROCESS MONITOR"
-                    color: root.ink
-                    opacity: 0.5
-                    font.family: root.barFont
-                    font.pixelSize: 11
-                    font.weight: Font.Bold
-                }
-                
-                ListView {
-                    width: parent.width
-                    height: parent.height - 20
-                    model: procModel
-                    clip: true
+            spacing: 12
+
+            // SECTION 1: Dock (Recently Opened Apps)
+            Rectangle {
+                id: dockSection
+                width: parent.width
+                height: 96
+                radius: 20
+                color: root.fillIdle
+                clip: true
+
+                Column {
+                    anchors.fill: parent
+                    anchors.margins: 12
                     spacing: 8
-                    delegate: Rectangle {
-                        width: ListView.view.width
-                        height: 48
-                        radius: 12
-                        color: killHover.containsMouse ? Qt.rgba(1, 0, 0, 0.1) : root.fillHover
-                        clip: true
-                        
-                        // Bar chart background
-                        Rectangle {
-                            anchors.top: parent.top
-                            anchors.bottom: parent.bottom
+
+                    Item {
+                        width: parent.width
+                        height: 16
+
+                        Text {
                             anchors.left: parent.left
-                            width: parent.width * (Math.min(100, parseInt(model.cpu)) / 100)
-                            color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.4)
-                            radius: 12
-                            Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutQuint } }
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "RECENT APPS"
+                            color: root.ink
+                            opacity: 0.5
+                            font.family: root.barFont
+                            font.pixelSize: 11
+                            font.weight: Font.Bold
+                            font.letterSpacing: 0.6
                         }
 
-                        // The close button
-                        Rectangle {
-                            id: killBtn
+                        Text {
                             anchors.right: parent.right
-                            anchors.rightMargin: 8
                             anchors.verticalCenter: parent.verticalCenter
-                            width: killRow.width + 16
-                            height: 32; radius: 16
-                            color: killHover.containsMouse ? "#ff4444" : "transparent"
-                            
-                            Row {
-                                id: killRow
-                                anchors.centerIn: parent
-                                spacing: 4
-                                IconText {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: "close"
-                                    color: killHover.containsMouse ? "white" : root.ink
-                                    font.pixelSize: 16
-                                    opacity: killHover.containsMouse ? 1.0 : 0.6
-                                }
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: "Stop"
-                                    color: killHover.containsMouse ? "white" : root.ink
-                                    font.family: root.barFont
-                                    font.pixelSize: 12
-                                    font.weight: Font.DemiBold
-                                    opacity: killHover.containsMouse ? 1.0 : 0.6
-                                }
-                            }
-                            Process {
-                                id: killProc
-                                command: ["kill", "-9", model.pid]
-                                running: false
-                            }
-                            MouseArea {
-                                id: killHover
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                onClicked: { killProc.running = false; killProc.running = true }
-                            }
+                            text: recentModel.count > 0 ? (recentModel.count + " active") : "None"
+                            color: root.ink
+                            opacity: 0.4
+                            font.family: root.barFont
+                            font.pixelSize: 10
                         }
-                        
-                        // Text info
-                        Column {
-                            anchors.left: parent.left
-                            anchors.right: killBtn.left
-                            anchors.leftMargin: 16
-                            anchors.rightMargin: 12
-                            anchors.verticalCenter: parent.verticalCenter
-                            
-                            Row {
-                                width: parent.width
-                                spacing: 6
-                                Text {
-                                    text: model.name
-                                    color: root.ink
-                                    font.family: root.barFont
-                                    font.pixelSize: 13
-                                    font.weight: Font.DemiBold
-                                    elide: Text.ElideRight
-                                    width: Math.min(implicitWidth, parent.width - 55)
+                    }
+
+                    // Dock apps row
+                    Item {
+                        width: parent.width
+                        height: 48
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "No recent apps open"
+                            color: root.ink
+                            opacity: 0.4
+                            font.family: root.barFont
+                            font.pixelSize: 12
+                            visible: recentModel.count === 0
+                        }
+
+                        ListView {
+                            id: dockList
+                            anchors.fill: parent
+                            orientation: ListView.Horizontal
+                            spacing: 8
+                            model: recentModel
+                            clip: false
+                            boundsBehavior: Flickable.StopAtBounds
+
+                            delegate: Item {
+                                width: 48
+                                height: 48
+
+                                Rectangle {
+                                    id: dockTile
+                                    anchors.fill: parent
+                                    radius: 14
+                                    color: dockMa.containsMouse ? root.fillHover : (model.isFocused ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.16) : Qt.rgba(1, 1, 1, 0.04))
+                                    border.color: dockMa.containsMouse 
+                                        ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.45) 
+                                        : (model.isFocused ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.28) : Qt.rgba(1, 1, 1, 0.06))
+                                    border.width: 1
+                                    scale: dockMa.pressed ? 0.90 : (dockMa.containsMouse ? 1.08 : 1.0)
+                                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                                    Behavior on color { ColorAnimation { duration: 150 } }
+                                    Behavior on border.color { ColorAnimation { duration: 150 } }
+
+                                    Image {
+                                        id: appImg
+                                        anchors.centerIn: parent
+                                        anchors.verticalCenterOffset: -2
+                                        width: 28
+                                        height: 28
+                                        source: model.icon ? model.icon : dashboardContent.getAppIcon(model.desktop)
+                                        fillMode: Image.PreserveAspectFit
+                                        smooth: true
+                                        asynchronous: true
+                                        visible: status === Image.Ready
+                                    }
+
+                                    IconText {
+                                        anchors.centerIn: parent
+                                        anchors.verticalCenterOffset: -2
+                                        visible: appImg.status !== Image.Ready
+                                        text: "apps"
+                                        font.pixelSize: 22
+                                        color: root.ink
+                                    }
+
+                                    // Active / focus dot
+                                    Rectangle {
+                                        anchors.bottom: parent.bottom
+                                        anchors.bottomMargin: 3.5
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        width: model.isFocused ? 12 : (model.isOpen ? 5 : 0)
+                                        height: 3
+                                        radius: 1.5
+                                        color: model.isFocused ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
+                                        visible: model.isOpen
+                                        Behavior on width { NumberAnimation { duration: 180 } }
+                                    }
                                 }
-                                Text {
-                                    text: "•"
-                                    color: root.ink
-                                    opacity: 0.6
-                                    font.family: root.barFont
-                                    font.pixelSize: 13
+
+                                // Tooltip on hover
+                                Rectangle {
+                                    anchors.bottom: parent.top
+                                    anchors.bottomMargin: 6
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    width: tipTxt.implicitWidth + 14
+                                    height: 20
+                                    radius: 10
+                                    color: Qt.rgba(0.08, 0.08, 0.09, 0.95)
+                                    border.color: Qt.rgba(1, 1, 1, 0.15)
+                                    border.width: 1
+                                    visible: dockMa.containsMouse
+                                    z: 100
+
+                                    Text {
+                                        id: tipTxt
+                                        anchors.centerIn: parent
+                                        text: (model.name || model.desktop) + (model.isOpen ? " (Running)" : "")
+                                        color: "#ffffff"
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.DemiBold
+                                    }
                                 }
-                                Text {
-                                    text: model.cpu
-                                    color: root.ink
-                                    opacity: 0.8
-                                    font.family: root.barFont
-                                    font.pixelSize: 13
-                                    font.weight: Font.Medium
+
+                                MouseArea {
+                                    id: dockMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        panel.expanded = false
+                                        Quickshell.execDetached([
+                                            "python3",
+                                            "/home/hery/.config/quickshell/bar/scripts/recent_apps.py",
+                                            "activate",
+                                            model.address || "",
+                                            model.desktop || "",
+                                            model.exec || ""
+                                        ])
+                                    }
                                 }
-                            }
-                            Text {
-                                text: "PID: " + model.pid
-                                color: root.ink
-                                opacity: 0.6
-                                font.family: root.barFont
-                                font.pixelSize: 11
                             }
                         }
                     }
                 }
             }
-            
+
+            // SECTION 2: Process Monitor
+            Rectangle {
+                id: procSection
+                width: parent.width
+                height: parent.height - dockSection.height - parent.spacing
+                radius: 20
+                color: root.fillIdle
+                clip: true
+
+                Column {
+                    anchors.fill: parent
+                    anchors.margins: 16
+                    spacing: 12
+
+                    Text {
+                        text: "PROCESS MONITOR"
+                        color: root.ink
+                        opacity: 0.5
+                        font.family: root.barFont
+                        font.pixelSize: 11
+                        font.weight: Font.Bold
+                    }
+
+                    ListView {
+                        width: parent.width
+                        height: parent.height - 28
+                        model: procModel
+                        clip: true
+                        spacing: 8
+                        delegate: Rectangle {
+                            width: ListView.view.width
+                            height: 48
+                            radius: 12
+                            color: killHover.containsMouse ? Qt.rgba(1, 0, 0, 0.1) : root.fillHover
+                            clip: true
+
+                            // Bar chart background
+                            Rectangle {
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                anchors.left: parent.left
+                                width: parent.width * (Math.min(100, parseInt(model.cpu)) / 100)
+                                color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.4)
+                                radius: 12
+                                Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutQuint } }
+                            }
+
+                            // The close button
+                            Rectangle {
+                                id: killBtn
+                                anchors.right: parent.right
+                                anchors.rightMargin: 8
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: killRow.width + 16
+                                height: 32; radius: 16
+                                color: killHover.containsMouse ? "#ff4444" : "transparent"
+
+                                Row {
+                                    id: killRow
+                                    anchors.centerIn: parent
+                                    spacing: 4
+                                    IconText {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "close"
+                                        color: killHover.containsMouse ? "white" : root.ink
+                                        font.pixelSize: 16
+                                        opacity: killHover.containsMouse ? 1.0 : 0.6
+                                    }
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "Stop"
+                                        color: killHover.containsMouse ? "white" : root.ink
+                                        font.family: root.barFont
+                                        font.pixelSize: 12
+                                        font.weight: Font.DemiBold
+                                        opacity: killHover.containsMouse ? 1.0 : 0.6
+                                    }
+                                }
+                                Process {
+                                    id: killProc
+                                    command: ["kill", "-9", model.pid]
+                                    running: false
+                                }
+                                MouseArea {
+                                    id: killHover
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: { killProc.running = false; killProc.running = true }
+                                }
+                            }
+
+                            // Text info
+                            Column {
+                                anchors.left: parent.left
+                                anchors.right: killBtn.left
+                                anchors.leftMargin: 16
+                                anchors.rightMargin: 12
+                                anchors.verticalCenter: parent.verticalCenter
+
+                                Row {
+                                    width: parent.width
+                                    spacing: 6
+                                    Text {
+                                        text: model.name
+                                        color: root.ink
+                                        font.family: root.barFont
+                                        font.pixelSize: 13
+                                        font.weight: Font.DemiBold
+                                        elide: Text.ElideRight
+                                        width: Math.min(implicitWidth, parent.width - 55)
+                                    }
+                                    Text {
+                                        text: "•"
+                                        color: root.ink
+                                        opacity: 0.6
+                                        font.family: root.barFont
+                                        font.pixelSize: 13
+                                    }
+                                    Text {
+                                        text: model.cpu
+                                        color: root.ink
+                                        opacity: 0.8
+                                        font.family: root.barFont
+                                        font.pixelSize: 13
+                                        font.weight: Font.Medium
+                                    }
+                                }
+                                Text {
+                                    text: "PID: " + model.pid
+                                    color: root.ink
+                                    opacity: 0.6
+                                    font.family: root.barFont
+                                    font.pixelSize: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            ListModel { id: recentModel }
             ListModel { id: procModel }
-            
+
+            Process {
+                id: recentUpdater
+                running: panel.expanded
+                command: ["/home/hery/.config/quickshell/bar/scripts/recent_apps.py"]
+                stdout: StdioCollector {
+                    onStreamFinished: {
+                        try {
+                            var list = JSON.parse(this.text.trim())
+                            recentModel.clear()
+                            for (var i = 0; i < list.length; i++) {
+                                recentModel.append(list[i])
+                            }
+                        } catch(e) {}
+                    }
+                }
+            }
+
+            Timer {
+                interval: 2000; repeat: true; running: panel.expanded
+                onTriggered: { recentUpdater.running = false; recentUpdater.running = true }
+            }
+
             Process {
                 id: procUpdater
                 running: panel.expanded
@@ -1252,6 +2077,7 @@ Item {
                     }
                 }
             }
+
             Timer {
                 interval: 3000; repeat: true; running: panel.expanded
                 onTriggered: { procUpdater.running = false; procUpdater.running = true }

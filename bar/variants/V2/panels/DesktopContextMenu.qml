@@ -20,7 +20,12 @@ PanelWindow {
     WlrLayershell.namespace: "omarchy-desktop-menu"
 
     property bool menuVisible: false
-    property bool isListMode: false
+    property bool isListMode: root ? root.desktopMenuListMode : false
+    Binding {
+        target: desktopMenu
+        property: "isListMode"
+        value: root ? root.desktopMenuListMode : false
+    }
     property real menuX: 0
     property real menuY: 0
     
@@ -591,7 +596,10 @@ PanelWindow {
                         case 4: root.ipcOpenPicker("wallpaper"); break;
                         case 5: Quickshell.execDetached(["xdg-open", "https://gemini.google.com"]); break;
                         case 6: Quickshell.execDetached(["xdg-open", "https://claude.ai"]); break;
-                        case 7: desktopMenu.isListMode = true; break;
+                        case 7:
+                            if (root) root.desktopMenuListMode = true;
+                            desktopMenu.isListMode = true;
+                            break;
                         case 8: Quickshell.execDetached(["bash", Quickshell.env("HOME") + "/.config/quickshell/bin/toggle-refresh-rate"]); break;
                         case 9: Quickshell.execDetached(["zen-browser"]); break;
                         case 10: Quickshell.execDetached(["nautilus"]); break;
@@ -663,7 +671,7 @@ PanelWindow {
                 Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
                 property real yOffset: isRevealed ? 0 : -15
                 Behavior on yOffset { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
-                transform: Translate { y: yOffset }
+                transform: Translate { y: quotePill.yOffset }
                 transformOrigin: Item.Top
 
                 width: parent.width
@@ -747,6 +755,7 @@ PanelWindow {
 
             // AI Pill (staggerIndex 1)
             Rectangle {
+                id: aiPill
                 property int staggerIndex: 1
                 property bool isRevealed: listMenuCard.staggeredReveal > staggerIndex
                 opacity: isRevealed ? 1 : 0
@@ -755,7 +764,7 @@ PanelWindow {
                 Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
                 property real yOffset: isRevealed ? 0 : -15
                 Behavior on yOffset { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
-                transform: Translate { y: yOffset }
+                transform: Translate { y: aiPill.yOffset }
                 transformOrigin: Item.Top
 
                 width: parent.width
@@ -839,6 +848,7 @@ PanelWindow {
 
             // Quick Apps Pill (staggerIndex 2)
             Rectangle {
+                id: appsPill
                 property int staggerIndex: 2
                 property bool isRevealed: listMenuCard.staggeredReveal > staggerIndex
                 opacity: isRevealed ? 1 : 0
@@ -847,7 +857,7 @@ PanelWindow {
                 Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
                 property real yOffset: isRevealed ? 0 : -15
                 Behavior on yOffset { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
-                transform: Translate { y: yOffset }
+                transform: Translate { y: appsPill.yOffset }
                 transformOrigin: Item.Top
 
                 width: parent.width
@@ -948,6 +958,7 @@ PanelWindow {
 
             // Wallpaper Picker Pill (staggerIndex 3)
             Rectangle {
+                id: wpPill
                 property int staggerIndex: 3
                 property bool isRevealed: listMenuCard.staggeredReveal > staggerIndex
                 opacity: isRevealed ? 1 : 0
@@ -956,7 +967,7 @@ PanelWindow {
                 Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
                 property real yOffset: isRevealed ? 0 : -15
                 Behavior on yOffset { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
-                transform: Translate { y: yOffset }
+                transform: Translate { y: wpPill.yOffset }
                 transformOrigin: Item.Top
 
                 width: parent.width
@@ -1043,6 +1054,7 @@ PanelWindow {
 
             // System Pill (staggerIndex 4)
             Rectangle {
+                id: sysPill
                 property int staggerIndex: 4
                 property bool isRevealed: listMenuCard.staggeredReveal > staggerIndex
                 opacity: isRevealed ? 1 : 0
@@ -1051,7 +1063,7 @@ PanelWindow {
                 Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
                 property real yOffset: isRevealed ? 0 : -15
                 Behavior on yOffset { NumberAnimation { duration: 300; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
-                transform: Translate { y: yOffset }
+                transform: Translate { y: sysPill.yOffset }
                 transformOrigin: Item.Top
 
                 width: parent.width
@@ -1119,7 +1131,11 @@ PanelWindow {
                             MouseArea {
                                 id: sysItemMouse; anchors.fill: parent; hoverEnabled: true
                                 onClicked: {
-                                    if (idx === 7) { desktopMenu.isListMode = false; return; }
+                                    if (idx === 7) {
+                                        if (root) root.desktopMenuListMode = false;
+                                        desktopMenu.isListMode = false;
+                                        return;
+                                    }
                                     desktopMenu.menuVisible = false;
                                     switch(idx) {
                                         case 3: root.ipcOpenPicker("theme"); break;

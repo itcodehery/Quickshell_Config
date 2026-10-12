@@ -2063,6 +2063,8 @@ Item {
     property string barShellStyle: "full"
     property bool barBorderEnabled: true
     property bool panelTooltipBorderEnabled: true
+    // ── desktop context menu presentation mode (radial vs list, persisted) ──
+    property bool desktopMenuListMode: false
     function barShellStyleValid(value) {
         return value === "full" || value === "fit"
             || value === "dock" || value === "notch" || value === "island"
@@ -2297,6 +2299,8 @@ Item {
     }
 
     readonly property string widgetsCachePath: Quickshell.env("HOME") + "/.cache/quickshell_widgets_v2"
+    readonly property string desktopMenuModeCachePath: Quickshell.env("HOME") + "/.cache/quickshell_desktop_menu_mode"
+    property bool _desktopMenuModeLoaded: false
     property bool _widgetsLoaded: false
 
     onModMemoryChanged:     if (_widgetsLoaded) saveWidgets()
@@ -2334,6 +2338,15 @@ Item {
     onBarColorChanged:         if (_widgetsLoaded) saveWidgets()
     onWidgetIconsForegroundChanged: if (_widgetsLoaded) saveWidgets()
     onBarTemperatureSourceChanged: if (_widgetsLoaded) saveWidgets()
+    onDesktopMenuListModeChanged: {
+        if (_widgetsLoaded) saveWidgets()
+        if (_desktopMenuModeLoaded) {
+            desktopMenuModeSaveProc.command = ["bash", "-c",
+                "printf '%s' '" + (desktopMenuListMode ? "1" : "0") + "' > '" + desktopMenuModeCachePath + "'"]
+            desktopMenuModeSaveProc.running = false
+            desktopMenuModeSaveProc.running = true
+        }
+    }
 
     function saveWidgets() {
         var line = (modMemory    ? "1" : "0") + " "
@@ -2378,7 +2391,8 @@ Item {
                  + barShellStyle + " "                                  // +42 outer bar shell
                  + (barBorderEnabled ? "1" : "0") + " "                 // +43 outer bar border
                  + (panelTooltipBorderEnabled ? "1" : "0") + " "        // +44 panel + tooltip outer border
-                 + (v2AutoHide ? "1" : "0")                             // +45 v2 auto-hide
+                 + (v2AutoHide ? "1" : "0") + " "                       // +45 v2 auto-hide
+                 + (desktopMenuListMode ? "1" : "0")                    // +46 desktop context menu list mode
         widgetSaveProc.command = ["bash", "-c",
             "echo '" + line + "' > '" + widgetsCachePath + "'"]
         widgetSaveProc.running = false
@@ -2599,6 +2613,8 @@ Item {
                         theme.barBorderEnabled = parts[wsField + 43] !== "0"
                     if (parts.length > wsField + 44)
                         theme.panelTooltipBorderEnabled = parts[wsField + 44] !== "0"
+                    if (parts.length > wsField + 46)
+                        theme.desktopMenuListMode = parts[wsField + 46] !== "0"
                 }
                 theme._widgetsLoaded = true
             }
@@ -2606,6 +2622,21 @@ Item {
     }
 
     Process { id: widgetSaveProc }
+
+    Process {
+        id: desktopMenuModeLoadProc
+        command: ["cat", theme.desktopMenuModeCachePath]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var t = this.text.trim()
+                if (t === "1" || t === "list") theme.desktopMenuListMode = true
+                else if (t === "0" || t === "radial") theme.desktopMenuListMode = false
+                theme._desktopMenuModeLoaded = true
+            }
+        }
+    }
+    Process { id: desktopMenuModeSaveProc }
 
     // ── New widget panel states ──
     property bool networkVisible:   false

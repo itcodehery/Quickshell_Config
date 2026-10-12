@@ -22,6 +22,20 @@ PanelWindow {
 
     property bool expanded: root.dashboardExpanded
     property bool isClosing: false
+    property bool searchOpen: false
+
+    function toggleSearch() {
+        searchOpen = !searchOpen
+        if (searchOpen) {
+            petSearch.open()
+        } else {
+            petSearch.close()
+        }
+    }
+
+    function toggleSearchEngine() {
+        if (petSearch) petSearch.toggleEngine()
+    }
 
     Rectangle {
         id: dimmer
@@ -51,6 +65,8 @@ PanelWindow {
             isClosing = false
             if (dashboardLoader.item) dashboardLoader.item.forceActiveFocus()
         } else {
+            hsClock.searchOpen = false
+            if (petSearch) petSearch.close()
             isClosing = true
             closeTimer.restart()
         }
@@ -92,7 +108,7 @@ PanelWindow {
     Timer {
         id: autoCollapseTimer
         interval: 6500
-        running: expanded && !bgHover.hovered
+        running: expanded && !bgHover.hovered && !hsClock.searchOpen
         repeat: false
         onTriggered: expanded = false
     }
@@ -109,7 +125,7 @@ PanelWindow {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: expanded ? 20 : 20 + Math.max(0, (110 - pillHeight) / 2)
         width: expanded ? parent.width * 0.7 : pillWidth
-        height: expanded ? targetScreen.height * 0.55 : pillHeight
+        height: expanded ? (clockLayout.height > 0 ? clockLayout.height + 466 : 534) : pillHeight
         radius: expanded ? 24 : height / 2
         color: root.bg
         border.color: root.islandBorder
@@ -241,30 +257,67 @@ PanelWindow {
             }
         }
         
-        // Top-left: System Pet + Battery
+        // Top-left: System Pet + Cute Search Bar + Battery
         Row {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.margins: 20
-            spacing: 12
+            spacing: 0
             visible: opacity > 0
             opacity: expanded ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 250 } }
 
             // System Pet
             SystemPet {
+                id: systemPet
                 root: hsClock.root
+                curious: hsClock.searchOpen
                 anchors.verticalCenter: parent.verticalCenter
+                onClicked: {
+                    hsClock.toggleSearch()
+                }
             }
 
-            // Battery pill
+            // Fixed spacer between pet and search / battery
+            Item {
+                width: 12
+                height: 1
+            }
+
+            // Cute Search Bar (animates width, pushing/replacing the battery pill)
+            PetSearchBar {
+                id: petSearch
+                root: hsClock.root
+                isOpen: hsClock.searchOpen
+                anchors.verticalCenter: parent.verticalCenter
+                onFocusLostOrClosed: {
+                    hsClock.searchOpen = false
+                    if (dashboardLoader.item) dashboardLoader.item.forceActiveFocus()
+                }
+                onSearchSubmitted: {
+                    root.dashboardExpanded = false
+                }
+            }
+
+            // Battery pill (smoothly fades and shrinks away when search bar is open to avoid crowding the clock)
             Rectangle {
+                id: batteryPill
                 height: 32
-                width: battLoader.item ? battLoader.item.implicitWidth : 0
+                readonly property bool shouldShow: !hsClock.searchOpen && battLoader.item && battLoader.item.shown
+                width: shouldShow ? battLoader.item.implicitWidth : 0
+                opacity: shouldShow ? 1.0 : 0.0
                 radius: 16
                 color: root.fillIdle
-                visible: battLoader.item && battLoader.item.shown
+                clip: true
+                visible: width > 0.1 || opacity > 0.01
                 anchors.verticalCenter: parent.verticalCenter
+
+                Behavior on width {
+                    NumberAnimation { duration: 300; easing.type: Easing.InOutCubic }
+                }
+                Behavior on opacity {
+                    NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                }
 
                 Loader {
                     id: battLoader

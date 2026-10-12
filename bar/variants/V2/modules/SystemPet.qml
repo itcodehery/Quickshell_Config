@@ -5,6 +5,7 @@ import Quickshell.Services.Mpris
 Item {
     id: pet
     required property var root
+    signal clicked()
 
     width: 36
     height: 36
@@ -24,8 +25,10 @@ Item {
         }
     }
 
-    // Priority: annoyed (override) > stressed > vibing > sleeping > daydreaming > bored > happy
+    // Priority: curious (search bar open) > stressed > vibing > sleeping > daydreaming > bored > happy
+    property bool curious: false
     readonly property string mood: {
+        if (curious) return "curious"
         if (cpu > 70) return "stressed"
         if (musicPlaying) return "vibing"
         if (idleSeconds > 120) return "sleeping"
@@ -34,30 +37,24 @@ Item {
         return "happy"
     }
 
-    // ── Poke / annoyed state ────────────────────────────────────────
-    property int pokeCount: 0
-    property bool annoyed: false
+    // ── Poke hop animation ──────────────────────────────────────────
+    property real pokeScale: 1.0
+    SequentialAnimation {
+        id: pokeHopAnim
+        NumberAnimation { target: pet; property: "pokeScale"; to: 1.18; duration: 90; easing.type: Easing.OutQuad }
+        NumberAnimation { target: pet; property: "pokeScale"; to: 0.94; duration: 110; easing.type: Easing.InOutQuad }
+        NumberAnimation { target: pet; property: "pokeScale"; to: 1.0; duration: 100; easing.type: Easing.OutBack }
+    }
 
     function poke() {
-        pokeCount = Math.min(pokeCount + 1, 5)
-        annoyed = true
-        if (!pokeRevertTimer.running) pokeRevertTimer.start()
+        pokeHopAnim.restart()
         idleSeconds = 0
     }
 
-    Timer {
-        id: pokeRevertTimer
-        interval: 1500
-        onTriggered: {
-            pet.annoyed = false
-            pet.pokeCount = 0
-        }
-    }
-
     property string displayMood: "happy"
-    onMoodChanged: { if (!annoyed) moodTransition.restart() }
-    onAnnoyedChanged: {
-        if (annoyed) displayMood = "annoyed"
+    onMoodChanged: moodTransition.restart()
+    onCuriousChanged: {
+        if (curious) displayMood = "curious"
         else moodTransition.restart()
     }
 
@@ -99,7 +96,7 @@ Item {
     SequentialAnimation {
         id: wobbleAnim
         loops: Animation.Infinite
-        running: displayMood === "stressed" || displayMood === "annoyed"
+        running: displayMood === "stressed"
         NumberAnimation { target: pet; property: "wobbleAngle"; to: 3;  duration: 80;  easing.type: Easing.InOutSine }
         NumberAnimation { target: pet; property: "wobbleAngle"; to: -3; duration: 80;  easing.type: Easing.InOutSine }
         NumberAnimation { target: pet; property: "wobbleAngle"; to: 2;  duration: 70;  easing.type: Easing.InOutSine }
@@ -123,13 +120,14 @@ Item {
         anchors.centerIn: parent
         width: 44
         height: 44
-        scale: 36 / 52
+        scale: (36 / 52) * pet.pokeScale
         transform: [
             Translate { y: displayMood === "sleeping" ? 0 : (displayMood === "daydreaming" ? pet.floatY : pet.bounceY) },
             Rotation {
-                angle: pet.wobbleAngle
+                angle: displayMood === "curious" ? 7 : pet.wobbleAngle
                 origin.x: bodyContainer.width / 2
                 origin.y: bodyContainer.height / 2
+                Behavior on angle { NumberAnimation { duration: 240; easing.type: Easing.OutBack } }
             },
             Scale {
                 xScale: displayMood === "sleeping" ? pet.breathScale : 1.0
@@ -160,9 +158,9 @@ Item {
         // Left eye
         Rectangle {
             id: leftEye
-            x: 11; y: (displayMood === "vibing" || displayMood === "bored" || displayMood === "annoyed") ? 17 : (displayMood === "daydreaming" ? 13 : 15)
-            width: displayMood === "sleeping" ? 8 : (displayMood === "daydreaming" ? 10 : 8)
-            height: displayMood === "sleeping" ? 2 : (displayMood === "stressed" || displayMood === "daydreaming" ? 10 : (displayMood === "annoyed" ? 4 : 8))
+            x: 11; y: (displayMood === "vibing" || displayMood === "bored") ? 17 : (displayMood === "daydreaming" ? 13 : (displayMood === "curious" ? 14 : 15))
+            width: displayMood === "sleeping" ? 8 : (displayMood === "daydreaming" || displayMood === "curious" ? 10 : 8)
+            height: displayMood === "sleeping" ? 2 : (displayMood === "stressed" || displayMood === "daydreaming" || displayMood === "curious" ? 10 : 8)
             radius: displayMood === "sleeping" ? 1 : width / 2
             color: pet.eyeColor
 
@@ -171,8 +169,8 @@ Item {
 
             // Pupil
             Rectangle {
-                y: (displayMood === "daydreaming") ? 1 : (parent.height - height) / 2
-                x: (displayMood === "bored") ? 1 : (parent.width - width) / 2
+                y: (displayMood === "daydreaming") ? 1 : ((displayMood === "curious") ? 3 : (parent.height - height) / 2)
+                x: (displayMood === "bored") ? 1 : ((displayMood === "curious") ? 4 : (parent.width - width) / 2)
                 width: 4; height: displayMood === "sleeping" ? 0 : 4
                 radius: 2
                 color: pet.pupilColor
@@ -191,26 +189,14 @@ Item {
                 radius: parent.radius
                 color: pet.bodyColor
             }
-            
-            // Angry brow
-            Rectangle {
-                visible: displayMood === "annoyed"
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.leftMargin: -2
-                width: parent.width + 4
-                height: 3
-                rotation: 20
-                color: pet.bodyColor
-            }
         }
 
         // Right eye
         Rectangle {
             id: rightEye
-            x: 25; y: (displayMood === "vibing" || displayMood === "bored" || displayMood === "annoyed") ? 17 : (displayMood === "daydreaming" ? 13 : 15)
-            width: displayMood === "sleeping" ? 8 : (displayMood === "daydreaming" ? 10 : 8)
-            height: displayMood === "sleeping" ? 2 : (displayMood === "stressed" || displayMood === "daydreaming" ? 10 : (displayMood === "annoyed" ? 4 : 8))
+            x: 25; y: (displayMood === "vibing" || displayMood === "bored") ? 17 : (displayMood === "daydreaming" ? 13 : (displayMood === "curious" ? 12 : 15))
+            width: displayMood === "sleeping" ? 8 : (displayMood === "daydreaming" || displayMood === "curious" ? 10 : 8)
+            height: displayMood === "sleeping" ? 2 : (displayMood === "stressed" || displayMood === "daydreaming" || displayMood === "curious" ? 10 : 8)
             radius: displayMood === "sleeping" ? 1 : width / 2
             color: pet.eyeColor
 
@@ -218,8 +204,8 @@ Item {
             Behavior on y { NumberAnimation { duration: 300; easing.type: Easing.OutBack } }
 
             Rectangle {
-                y: (displayMood === "daydreaming") ? 1 : (parent.height - height) / 2
-                x: (displayMood === "bored") ? 1 : (parent.width - width) / 2
+                y: (displayMood === "daydreaming") ? 1 : ((displayMood === "curious") ? 3 : (parent.height - height) / 2)
+                x: (displayMood === "bored") ? 1 : ((displayMood === "curious") ? 4 : (parent.width - width) / 2)
                 width: 4; height: displayMood === "sleeping" ? 0 : 4
                 radius: 2
                 color: pet.pupilColor
@@ -237,18 +223,6 @@ Item {
                 radius: parent.radius
                 color: pet.bodyColor
             }
-            
-            // Angry brow
-            Rectangle {
-                visible: displayMood === "annoyed"
-                anchors.top: parent.top
-                anchors.right: parent.right
-                anchors.rightMargin: -2
-                width: parent.width + 4
-                height: 3
-                rotation: -20
-                color: pet.bodyColor
-            }
         }
 
         // ── Mouth ───────────────────────────────────────────────────
@@ -257,7 +231,7 @@ Item {
             id: mouthCanvas
             x: 14; y: 26
             width: 16; height: 10
-            visible: displayMood === "happy" || displayMood === "vibing" || displayMood === "daydreaming"
+            visible: displayMood === "happy" || displayMood === "vibing" || displayMood === "daydreaming" || displayMood === "curious"
             onPaint: {
                 var ctx = getContext("2d")
                 ctx.clearRect(0, 0, width, height)
@@ -266,20 +240,20 @@ Item {
                 ctx.lineCap = "round"
                 ctx.beginPath()
                 ctx.moveTo(2, 2)
-                ctx.quadraticCurveTo(8, (pet.displayMood === "daydreaming" ? 12 : 9), 14, 2)
+                ctx.quadraticCurveTo(8, (pet.displayMood === "curious" ? 7 : (pet.displayMood === "daydreaming" ? 12 : 9)), 14, 2)
                 ctx.stroke()
             }
             onVisibleChanged: requestPaint()
         }
         
-        // Bored / Annoyed mouth (straight line or slight frown)
+        // Bored mouth (straight line)
         Rectangle {
             x: 17; y: 27
             width: 10; height: 2
             radius: 1
             color: pet.eyeColor
             opacity: 0.8
-            visible: displayMood === "bored" || displayMood === "annoyed"
+            visible: displayMood === "bored"
         }
 
         // Stressed mouth (small "o")
@@ -335,7 +309,10 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: pet.poke()
+        onClicked: {
+            pet.poke()
+            pet.clicked()
+        }
     }
 
     // ── Floating accessories ────────────────────────────────────────
@@ -455,5 +432,20 @@ Item {
                 PauseAnimation { duration: 300 }
             }
         }
+    }
+
+    // ── Curious indicator (search bar open) ─────────────────────────
+    Text {
+        text: "?"
+        color: root.seal
+        font.family: root.barFont
+        font.pixelSize: 12
+        font.weight: Font.Bold
+        x: 35; y: -3
+        opacity: displayMood === "curious" ? 0.95 : 0
+        scale: displayMood === "curious" ? 1.0 : 0.4
+        visible: opacity > 0.01
+        Behavior on opacity { NumberAnimation { duration: 200 } }
+        Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutBack } }
     }
 }

@@ -727,7 +727,7 @@ PanelWindow {
 
     // ── order persistence (survives restart) ──
     readonly property string orderCachePath: Quickshell.env("HOME") + "/.cache/quickshell_barorder_v2"
-    readonly property int leftBaseSlotCount: 10
+    readonly property int leftBaseSlotCount: 11
     readonly property int centerBaseSlotCount: 1
     readonly property int rightBaseSlotCount: 7
     // Both side regions can reach the same total capacity. The right side has
@@ -791,25 +791,41 @@ PanelWindow {
         var c = parseRegion(parts[1], centerBaseSlotCount, centerExtraSlotLimit, legacy)
         var r = parseRegion(parts[2], rightBaseSlotCount, rightExtraSlotLimit, legacy)
 
-        // Migrate the first V2 slot schema (7/1/7 + optional extras) by adding
-        // the three new compact telemetry base slots after CPU. Existing widget
-        // positions and all user-added slots remain intact.
+        // Migrate older V2 slot schemas by ensuring all base slots are preserved.
         if (!l || !c || !r) {
-            var previousLeft = parseRegion(parts[0], 7, 3, legacy)
+            var previousLeft10 = parseRegion(parts[0], 10, leftExtraSlotLimit + 1, legacy)
             var previousCenter = parseRegion(parts[1], centerBaseSlotCount,
                 centerExtraSlotLimit, legacy)
-            var previousRight = parseRegion(parts[2], rightBaseSlotCount, 3, legacy)
-            if (!previousLeft || !previousCenter || !previousRight) return false
+            var previousRight = parseRegion(parts[2], rightBaseSlotCount, rightExtraSlotLimit, legacy)
+            if (previousLeft10 && previousCenter && previousRight) {
+                var oldBase10 = previousLeft10.slice(0, 10)
+                var oldExtras10 = previousLeft10.slice(10)
+                var hasG22 = false
+                for (var pi = 0; pi < previousLeft10.length; pi++) {
+                    if (previousLeft10[pi].gid === "G22") { hasG22 = true; break; }
+                }
+                if (!hasG22) {
+                    l = oldBase10.slice(0, 3).concat([{ gid: "G22", extra: false }], oldBase10.slice(3), oldExtras10)
+                } else {
+                    l = oldBase10.concat([{ gid: "", extra: false }], oldExtras10)
+                }
+                c = previousCenter
+                r = previousRight
+            } else {
+                var previousLeft = parseRegion(parts[0], 7, 3, legacy)
+                var previousRight7 = parseRegion(parts[2], rightBaseSlotCount, 3, legacy)
+                if (!previousLeft || !previousCenter || (!previousRight && !previousRight7)) return false
 
-            var oldBase = previousLeft.slice(0, 7)
-            var oldExtras = previousLeft.slice(7)
-            l = oldBase.slice(0, 5).concat([
-                { gid: "G16", extra: false },
-                { gid: "G17", extra: false },
-                { gid: "G18", extra: false }
-            ], oldBase.slice(5), oldExtras)
-            c = previousCenter
-            r = previousRight
+                var oldBase = previousLeft.slice(0, 7)
+                var oldExtras = previousLeft.slice(7)
+                l = oldBase.slice(0, 5).concat([
+                    { gid: "G16", extra: false },
+                    { gid: "G17", extra: false },
+                    { gid: "G18", extra: false }
+                ], oldBase.slice(5), oldExtras)
+                c = previousCenter
+                r = previousRight || previousRight7
+            }
         }
 
         // Empty slots are legal, but each registered widget must occur at most once.
