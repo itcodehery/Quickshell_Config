@@ -60,6 +60,22 @@ Item {
         loadSelectedDayApps()
     }
 
+    function nextSubOption() {
+        if (rawDays && rawDays.length > 0 && selectedDayIndex < rawDays.length - 1) {
+            selectDay(selectedDayIndex + 1)
+            return true
+        }
+        return false
+    }
+
+    function prevSubOption() {
+        if (selectedDayIndex > 0) {
+            selectDay(selectedDayIndex - 1)
+            return true
+        }
+        return false
+    }
+
     function loadSelectedDayApps() {
         appModel.clear()
         if (!rawDays || rawDays.length === 0) return

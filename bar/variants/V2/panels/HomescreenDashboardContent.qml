@@ -9,8 +9,77 @@ Item {
     id: dashboardContent
     anchors.fill: parent
     focus: true
+    onVisibleChanged: if (visible) forceActiveFocus()
+    Component.onCompleted: forceActiveFocus()
+
+    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "battery", "screentime"]
+
+    function selectCategoryByIndex(idx) {
+        if (idx < 0) idx = 0
+        if (idx >= detailOrder.length) idx = detailOrder.length - 1
+        let cat = detailOrder[idx]
+        dashboardContent.activeDetailView = cat
+        if (root) root.dashboardDetail = cat
+
+        // Keep left-hand tilesPager in sync so active tile is visible
+        if (cat === "battery" || cat === "screentime") {
+            pageDown()
+        } else if (cat === "wifi" || cat === "bluetooth" || cat === "cpu" || cat === "memory" || cat === "") {
+            pageUp()
+        }
+    }
+
+    function jumpNextCategory() {
+        let curIdx = detailOrder.indexOf(dashboardContent.activeDetailView)
+        let nextIdx = (curIdx + 1) % detailOrder.length
+        selectCategoryByIndex(nextIdx)
+    }
+
+    function jumpPrevCategory() {
+        let curIdx = detailOrder.indexOf(dashboardContent.activeDetailView)
+        if (curIdx <= 0) curIdx = detailOrder.length
+        let prevIdx = curIdx - 1
+        selectCategoryByIndex(prevIdx)
+    }
+
+    function nextOption() {
+        // 1. Check if current active detail section has an internal sub-option to step forward into
+        if (dashboardContent.activeDetailView === "bluetooth" && btDetailSection && btDetailSection.nextSubOption && btDetailSection.nextSubOption()) {
+            return
+        }
+        if (dashboardContent.activeDetailView === "battery" && batDetailSection && batDetailSection.nextSubOption && batDetailSection.nextSubOption()) {
+            return
+        }
+        if (dashboardContent.activeDetailView === "screentime" && stDetailSection && stDetailSection.nextSubOption && stDetailSection.nextSubOption()) {
+            return
+        }
+        // 2. Otherwise advance to next category
+        jumpNextCategory()
+    }
+
+    function prevOption() {
+        // 1. Check if current active detail section has an internal sub-option to step backward into
+        if (dashboardContent.activeDetailView === "screentime" && stDetailSection && stDetailSection.prevSubOption && stDetailSection.prevSubOption()) {
+            return
+        }
+        if (dashboardContent.activeDetailView === "battery" && batDetailSection && batDetailSection.prevSubOption && batDetailSection.prevSubOption()) {
+            return
+        }
+        if (dashboardContent.activeDetailView === "bluetooth" && btDetailSection && btDetailSection.prevSubOption && btDetailSection.prevSubOption()) {
+            return
+        }
+        if (dashboardContent.activeDetailView === "wifi" && wifiDetailSection && wifiDetailSection.speedTestActive) {
+            wifiDetailSection.exitSpeedTest()
+            return
+        }
+        // 2. Otherwise move to previous category
+        jumpPrevCategory()
+    }
+
     Keys.onUpPressed: pageUp()
     Keys.onDownPressed: pageDown()
+    Keys.onLeftPressed: prevOption()
+    Keys.onRightPressed: nextOption()
     Keys.onPressed: (event) => {
         if (event.key === Qt.Key_K) {
             pageUp()
@@ -18,14 +87,51 @@ Item {
         } else if (event.key === Qt.Key_J) {
             pageDown()
             event.accepted = true
+        } else if (event.key === Qt.Key_H) {
+            if (event.modifiers & Qt.ShiftModifier) {
+                jumpPrevCategory()
+            } else {
+                prevOption()
+            }
+            event.accepted = true
+        } else if (event.key === Qt.Key_L) {
+            if (event.modifiers & Qt.ShiftModifier) {
+                jumpNextCategory()
+            } else {
+                nextOption()
+            }
+            event.accepted = true
+        } else if (event.key === Qt.Key_Tab) {
+            if (panel && panel.searchOpen) {
+                panel.toggleSearchEngine()
+            } else if (event.modifiers & Qt.ShiftModifier) {
+                jumpPrevCategory()
+            } else {
+                jumpNextCategory()
+            }
+            event.accepted = true
+        } else if (event.key === Qt.Key_Backtab) {
+            jumpPrevCategory()
+            event.accepted = true
+        } else if (event.key === Qt.Key_Escape) {
+            if (dashboardContent.activeDetailView !== "") {
+                dashboardContent.activeDetailView = ""
+                if (root) root.dashboardDetail = ""
+            } else if (panel) {
+                panel.expanded = false
+            }
+            event.accepted = true
         } else if (event.key === Qt.Key_S) {
             if (panel) {
                 panel.toggleSearch()
                 event.accepted = true
             }
-        } else if (event.key === Qt.Key_Tab) {
-            if (panel && panel.searchOpen) {
-                panel.toggleSearchEngine()
+        } else if (event.key === Qt.Key_Space || event.key === Qt.Key_Return) {
+            if (dashboardContent.activeDetailView === "wifi" && wifiDetailSection) {
+                wifiDetailSection.startSpeedTestWithSweep()
+                event.accepted = true
+            } else if (dashboardContent.activeDetailView === "bluetooth" && btDetailSection) {
+                btDetailSection.doTogglePower()
                 event.accepted = true
             }
         }

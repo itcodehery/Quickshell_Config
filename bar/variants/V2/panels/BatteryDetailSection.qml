@@ -77,6 +77,28 @@ Item {
         p.running = true
     }
 
+    readonly property var profileList: ["power-saver", "balanced", "performance"]
+
+    function nextSubOption() {
+        let cur = batObj.profile || "balanced"
+        let idx = profileList.indexOf(cur)
+        if (idx < profileList.length - 1 && idx >= 0) {
+            doSetProfile(profileList[idx + 1])
+            return true
+        }
+        return false
+    }
+
+    function prevSubOption() {
+        let cur = batObj.profile || "balanced"
+        let idx = profileList.indexOf(cur)
+        if (idx > 0) {
+            doSetProfile(profileList[idx - 1])
+            return true
+        }
+        return false
+    }
+
     Component {
         id: setProfileProcComp
         Process {

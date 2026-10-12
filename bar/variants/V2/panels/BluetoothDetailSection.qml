@@ -26,6 +26,22 @@ Item {
     property string actionError: ""
     property bool working: false
 
+    function nextSubOption() {
+        if (currentTab === "paired") {
+            currentTab = "all"
+            return true
+        }
+        return false
+    }
+
+    function prevSubOption() {
+        if (currentTab === "all") {
+            currentTab = "paired"
+            return true
+        }
+        return false
+    }
+
     ListModel { id: pairedModel }
     ListModel { id: allModel }
     ListModel { id: connectedModel }
