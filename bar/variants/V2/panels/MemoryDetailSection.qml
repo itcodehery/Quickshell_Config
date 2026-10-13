@@ -35,7 +35,7 @@ Item {
 
     ListModel { id: topProcModel }
 
-    // Polling process for live Memory telemetry
+    // Live polling for memory info
     Process {
         id: memStatusProc
         command: ["python3", "/home/hery/.config/quickshell/bar/scripts/memory_info.py", "status"]
@@ -45,7 +45,6 @@ Item {
                     let d = JSON.parse(this.text.trim())
                     memSection.memObj = d
 
-                    // Update top processes list
                     topProcModel.clear()
                     let procs = d.topProcesses || []
                     for (let i = 0; i < procs.length; i++) {
@@ -70,8 +69,8 @@ Item {
     }
 
     onVisibleChanged: {
-        if (visible) {
-            if (!memStatusProc.running) memStatusProc.running = true
+        if (visible && !memStatusProc.running) {
+            memStatusProc.running = true
         }
     }
 
@@ -98,7 +97,7 @@ Item {
         anchors.fill: parent
         spacing: 10
 
-        // ================= HEADER BAR (outside any container) =================
+        // ================= HEADER BAR =================
         Item {
             width: parent.width
             height: 36
@@ -128,7 +127,7 @@ Item {
                     spacing: 1
 
                     Text {
-                        text: "MEMORY & SWAP"
+                        text: "MEMORY & PERFORMANCE"
                         color: root.ink
                         font.family: root.barFont
                         font.pixelSize: 12
@@ -146,8 +145,8 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                         }
                         Text {
-                            text: (memSection.memObj.total_gib > 0 ? (memSection.memObj.total_gib + " GB Total RAM") : "RAM Monitor")
-                                + (memSection.memObj.swap_total_gib > 0 ? (" • " + memSection.memObj.swap_total_gib + " GB Swap") : "")
+                            text: (memSection.memObj.used_gib > 0 ? (memSection.memObj.used_gib + " GB in use of " + memSection.memObj.total_gib + " GB RAM") : "RAM & Swap Monitor")
+                                + (memSection.memObj.swap_total_gib > 0 ? (" • " + memSection.memObj.swap_used_gib + " / " + memSection.memObj.swap_total_gib + " GB Swap") : "")
                             color: root.ink
                             opacity: 0.6
                             font.family: root.barFont
@@ -166,7 +165,7 @@ Item {
 
                 // Refresh Button Pill
                 Rectangle {
-                    width: 80
+                    width: 84
                     height: 28
                     radius: 14
                     color: memRefMa.containsMouse ? root.fillHover : root.fillIdle
@@ -175,7 +174,7 @@ Item {
 
                     Row {
                         anchors.centerIn: parent
-                        spacing: 4
+                        spacing: 5
                         IconText {
                             text: "refresh"
                             color: root.ink
@@ -204,481 +203,612 @@ Item {
             }
         }
 
-        // ================= DUAL CARD CONTENT (borderless) =================
+        // ================= DUAL CARD CONTENT =================
         Row {
             width: parent.width
             height: parent.height - 46
             spacing: 12
 
-            // ---------------- CARD 1: RAM & SWAP UTILIZATION (46%) ----------------
+            // ---------------- CARD 1: RAM & SWAP TELEMETRY (46%) ----------------
             Rectangle {
                 width: Math.round((parent.width - 12) * 0.46)
                 height: parent.height
                 radius: 20
                 color: root.fillIdle
-                border.width: 0
                 clip: true
 
                 Column {
                     anchors.fill: parent
-                    anchors.margins: 14
-                    spacing: 12
+                    anchors.margins: 16
+                    spacing: 14
 
-                // RAM Gauge Section
-                Column {
-                    width: parent.width
-                    spacing: 8
-
-                    Item {
-                        width: parent.width
-                        height: 16
-                        Text {
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "RAM UTILIZATION"
-                            color: root.ink
-                            opacity: 0.7
-                            font.family: root.barFont
-                            font.pixelSize: 10
-                            font.weight: Font.Bold
-                            font.letterSpacing: 0.6
-                        }
-                        Text {
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: memSection.memPercent + "% (" + memSection.memObj.used_gib + " / " + memSection.memObj.total_gib + " GB)"
-                            color: root.seal
-                            font.family: root.barFont
-                            font.pixelSize: 11
-                            font.weight: Font.Bold
-                        }
-                    }
-
-                    // Stacked Memory Breakdown Bar
-                    Rectangle {
-                        width: parent.width
-                        height: 8
-                        radius: 4
-                        color: Qt.rgba(1, 1, 1, 0.08)
-                        clip: true
-
-                        Row {
-                            anchors.fill: parent
-
-                            // Used / Active Fill
-                            Rectangle {
-                                height: parent.height
-                                width: {
-                                    let tot = memSection.memObj.total_gib || 1
-                                    let u = memSection.memObj.used_gib || 0
-                                    return parent.width * Math.max(0, Math.min(1.0, u / tot))
-                                }
-                                color: memSection.memPercent > 85 ? "#f87171" : root.seal
-                                Behavior on width { NumberAnimation { duration: 250 } }
-                            }
-
-                            // Cached Fill
-                            Rectangle {
-                                height: parent.height
-                                width: {
-                                    let tot = memSection.memObj.total_gib || 1
-                                    let c = memSection.memObj.cached_gib || 0
-                                    return parent.width * Math.max(0, Math.min(1.0 - ((memSection.memObj.used_gib || 0) / tot), c / tot))
-                                }
-                                color: Qt.rgba(root.color02.r, root.color02.g, root.color02.b, 0.8)
-                                Behavior on width { NumberAnimation { duration: 250 } }
-                            }
-                        }
-                    }
-
-                    // Legend Row - Contained 3-part pill layout with icons
-                    Row {
-                        width: parent.width
-                        spacing: 6
-
-                        // Used
-                        Rectangle {
-                            width: (parent.width - 12) / 3
-                            height: 28
-                            radius: 8
-                            color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.12)
-                            Row {
-                                anchors.centerIn: parent
-                                spacing: 5
-                                IconText {
-                                    text: "layers"
-                                    color: root.seal
-                                    font.pixelSize: 12
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-                                Text {
-                                    text: "Used " + memSection.memObj.used_gib + "G"
-                                    color: root.ink
-                                    font.family: root.barFont
-                                    font.pixelSize: 10
-                                    font.weight: Font.Medium
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-                            }
-                        }
-
-                        // Cached
-                        Rectangle {
-                            width: (parent.width - 12) / 3
-                            height: 28
-                            radius: 8
-                            color: Qt.rgba(root.color02.r, root.color02.g, root.color02.b, 0.12)
-                            Row {
-                                anchors.centerIn: parent
-                                spacing: 5
-                                IconText {
-                                    text: "cached"
-                                    color: root.color02
-                                    font.pixelSize: 12
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-                                Text {
-                                    text: "Cache " + memSection.memObj.cached_gib + "G"
-                                    color: root.ink
-                                    font.family: root.barFont
-                                    font.pixelSize: 10
-                                    font.weight: Font.Medium
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-                            }
-                        }
-
-                        // Free
-                        Rectangle {
-                            width: (parent.width - 12) / 3
-                            height: 28
-                            radius: 8
-                            color: Qt.rgba(1, 1, 1, 0.05)
-                            Row {
-                                anchors.centerIn: parent
-                                spacing: 5
-                                IconText {
-                                    text: "check_circle"
-                                    color: root.ink
-                                    opacity: 0.6
-                                    font.pixelSize: 12
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-                                Text {
-                                    text: "Free " + memSection.memObj.free_gib + "G"
-                                    color: root.ink
-                                    font.family: root.barFont
-                                    font.pixelSize: 10
-                                    font.weight: Font.Medium
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Swap Gauge Section
-                Column {
-                    width: parent.width
-                    spacing: 8
-
-                    Item {
-                        width: parent.width
-                        height: 16
-                        Text {
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "SWAP UTILIZATION"
-                            color: root.ink
-                            opacity: 0.7
-                            font.family: root.barFont
-                            font.pixelSize: 10
-                            font.weight: Font.Bold
-                            font.letterSpacing: 0.6
-                        }
-                        Text {
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: memSection.memObj.swap_percent + "% (" + memSection.memObj.swap_used_gib + " / " + memSection.memObj.swap_total_gib + " GB)"
-                            color: root.sumiHi
-                            font.family: root.barFont
-                            font.pixelSize: 11
-                            font.weight: Font.Bold
-                        }
-                    }
-
-                    Rectangle {
-                        width: parent.width
-                        height: 6
-                        radius: 3
-                        color: Qt.rgba(1, 1, 1, 0.08)
-
-                        Rectangle {
-                            width: parent.width * Math.min(1.0, (memSection.memObj.swap_percent || 0) / 100)
-                            height: parent.height
-                            radius: 3
-                            color: memSection.memObj.swap_percent > 70 ? "#f87171" : root.sumiHi
-                            Behavior on width { NumberAnimation { duration: 250 } }
-                        }
-                    }
-                }
-
-                // Divider
-                Rectangle {
-                    width: parent.width
-                    height: 1
-                    color: Qt.rgba(1, 1, 1, 0.06)
-                }
-
-                // Key-Value Rows with Icons
-                Column {
-                    width: parent.width
-                    spacing: 8
-
-                    Row {
+                    // SECTION 1: PHYSICAL RAM HERO
+                    Column {
                         width: parent.width
                         spacing: 8
-                        IconText { text: "check_circle"; color: root.seal; font.pixelSize: 13; opacity: 0.7; anchors.verticalCenter: parent.verticalCenter }
-                        Text { text: "Available"; color: root.ink; opacity: 0.6; font.family: root.barFont; font.pixelSize: 11; width: 95; anchors.verticalCenter: parent.verticalCenter }
-                        Text { text: memSection.memObj.avail_gib + " GB"; color: root.ink; font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium; elide: Text.ElideRight; width: parent.width - 95 - 21; anchors.verticalCenter: parent.verticalCenter }
-                    }
-
-                    Row {
-                        width: parent.width
-                        spacing: 8
-                        IconText { text: "bolt"; color: root.color02; font.pixelSize: 13; opacity: 0.7; anchors.verticalCenter: parent.verticalCenter }
-                        Text { text: "Active / Inactive"; color: root.ink; opacity: 0.6; font.family: root.barFont; font.pixelSize: 11; width: 95; anchors.verticalCenter: parent.verticalCenter }
-                        Text { 
-                            text: (memSection.memObj.active_bytes > 0 ? (Math.round(memSection.memObj.active_bytes / (1024*1024*1024)*10)/10 + " GB / ") : "")
-                                + (memSection.memObj.inactive_bytes > 0 ? (Math.round(memSection.memObj.inactive_bytes / (1024*1024*1024)*10)/10 + " GB") : "—")
-                            color: root.ink; font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium; elide: Text.ElideRight; width: parent.width - 95 - 21; anchors.verticalCenter: parent.verticalCenter 
-                        }
-                    }
-
-                    Row {
-                        width: parent.width
-                        spacing: 8
-                        IconText { text: "inventory_2"; color: root.ink; font.pixelSize: 13; opacity: 0.5; anchors.verticalCenter: parent.verticalCenter }
-                        Text { text: "Buffers"; color: root.ink; opacity: 0.6; font.family: root.barFont; font.pixelSize: 11; width: 95; anchors.verticalCenter: parent.verticalCenter }
-                        Text { text: memSection.memObj.buffers_gib + " GB"; color: root.ink; font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium; elide: Text.ElideRight; width: parent.width - 95 - 21; anchors.verticalCenter: parent.verticalCenter }
-                    }
-
-                    Row {
-                        width: parent.width
-                        spacing: 8
-                        IconText { text: "share"; color: root.ink; font.pixelSize: 13; opacity: 0.5; anchors.verticalCenter: parent.verticalCenter }
-                        Text { text: "Shared (Shmem)"; color: root.ink; opacity: 0.6; font.family: root.barFont; font.pixelSize: 11; width: 95; anchors.verticalCenter: parent.verticalCenter }
-                        Text { 
-                            text: (memSection.memObj.shmem_bytes > 0 ? Math.round(memSection.memObj.shmem_bytes / (1024*1024)) + " MB" : "0 MB")
-                            color: root.ink; font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium; elide: Text.ElideRight; width: parent.width - 95 - 21; anchors.verticalCenter: parent.verticalCenter 
-                        }
-                    }
-
-                    Row {
-                        width: parent.width
-                        spacing: 8
-                        IconText { text: "swap_horiz"; color: root.sumiHi; font.pixelSize: 13; opacity: 0.7; anchors.verticalCenter: parent.verticalCenter }
-                        Text { text: "Swap Free"; color: root.ink; opacity: 0.6; font.family: root.barFont; font.pixelSize: 11; width: 95; anchors.verticalCenter: parent.verticalCenter }
-                        Text { text: memSection.memObj.swap_free_gib + " GB"; color: root.ink; font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium; elide: Text.ElideRight; width: parent.width - 95 - 21; anchors.verticalCenter: parent.verticalCenter }
-                    }
-                }
-            }
-        }
-
-        // ==========================================
-        // RIGHT CARD: Top Memory Processes (54%, borderless)
-        // ==========================================
-        Rectangle {
-            width: Math.round((parent.width - 12) * 0.54)
-            height: parent.height
-            radius: 20
-            color: root.fillIdle
-            border.width: 0
-            clip: true
-
-            Column {
-                anchors.fill: parent
-                anchors.margins: 14
-                spacing: 10
-
-                // SUBHEADER: Processes
-                Item {
-                    width: parent.width
-                    height: 16
-                    Text {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "TOP CONSUMERS"
-                        color: root.ink
-                        opacity: 0.5
-                        font.family: root.barFont
-                        font.pixelSize: 10
-                        font.weight: Font.Bold
-                        font.letterSpacing: 0.6
-                    }
-                    Text {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: topProcModel.count + " active"
-                        color: root.ink
-                        opacity: 0.5
-                        font.family: root.barFont
-                        font.pixelSize: 10
-                    }
-                }
-
-                // Divider
-                Rectangle {
-                    width: parent.width
-                    height: 1
-                    color: Qt.rgba(1, 1, 1, 0.06)
-                }
-
-                // Process List
-                ListView {
-                    id: memProcListView
-                    width: parent.width
-                    height: parent.height - 34
-                    clip: true
-                    spacing: 6
-                    model: topProcModel
-                    boundsBehavior: Flickable.StopAtBounds
-
-                    delegate: Rectangle {
-                        width: memProcListView.width
-                        height: 44
-                        radius: 12
-                        color: memProcMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.03)
-                        border.width: 1
-                        border.color: memProcMa.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25) : Qt.rgba(1, 1, 1, 0.04)
-
-                        MouseArea {
-                            id: memProcMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                        }
 
                         Item {
-                            anchors.fill: parent
-                            anchors.leftMargin: 10
-                            anchors.rightMargin: 10
+                            width: parent.width
+                            height: 18
 
-                            // Mini Process Icon
-                            Rectangle {
-                                id: procIconRect
-                                width: 28
-                                height: 28
-                                radius: 8
-                                color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15)
+                            Text {
                                 anchors.left: parent.left
                                 anchors.verticalCenter: parent.verticalCenter
-
-                                IconText {
-                                    anchors.centerIn: parent
-                                    text: "memory"
-                                    color: root.seal
-                                    font.pixelSize: 14
-                                }
+                                text: "PHYSICAL RAM"
+                                color: root.ink
+                                opacity: 0.6
+                                font.family: root.barFont
+                                font.pixelSize: 10
+                                font.weight: Font.Bold
+                                font.letterSpacing: 0.8
                             }
 
-                            // Badges & Actions (strictly anchored to right edge inside card)
-                            Row {
-                                id: actionsRow
+                            // Percentage Badge
+                            Rectangle {
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
-                                spacing: 6
+                                height: 20
+                                width: ramPctTxt.implicitWidth + 14
+                                radius: 10
+                                color: memSection.memPercent > 85 ? Qt.rgba(0.97, 0.44, 0.44, 0.2) : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18)
+                                border.width: 1
+                                border.color: memSection.memPercent > 85 ? "#f87171" : root.seal
 
-                                // RSS Memory Badge
+                                Text {
+                                    id: ramPctTxt
+                                    anchors.centerIn: parent
+                                    text: memSection.memPercent + "%"
+                                    color: memSection.memPercent > 85 ? "#f87171" : root.seal
+                                    font.family: root.barFont
+                                    font.pixelSize: 11
+                                    font.weight: Font.Bold
+                                }
+                            }
+                        }
+
+                        // Stacked Memory Breakdown Bar
+                        Rectangle {
+                            width: parent.width
+                            height: 10
+                            radius: 5
+                            color: Qt.rgba(1, 1, 1, 0.08)
+                            clip: true
+
+                            Row {
+                                anchors.fill: parent
+
+                                // In-Use / Active Fill
                                 Rectangle {
-                                    width: 64
-                                    height: 22
-                                    radius: 6
-                                    color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18)
-                                    anchors.verticalCenter: parent.verticalCenter
+                                    height: parent.height
+                                    width: {
+                                        let tot = memSection.memObj.total_gib || 1
+                                        let u = memSection.memObj.used_gib || 0
+                                        return parent.width * Math.max(0, Math.min(1.0, u / tot))
+                                    }
+                                    color: memSection.memPercent > 85 ? "#f87171" : root.seal
+                                    radius: 5
+                                    Behavior on width { NumberAnimation { duration: 250 } }
+                                }
 
+                                // Cached Fill
+                                Rectangle {
+                                    height: parent.height
+                                    width: {
+                                        let tot = memSection.memObj.total_gib || 1
+                                        let c = memSection.memObj.cached_gib || 0
+                                        return parent.width * Math.max(0, Math.min(1.0 - ((memSection.memObj.used_gib || 0) / tot), c / tot))
+                                    }
+                                    color: Qt.rgba(root.color02.r, root.color02.g, root.color02.b, 0.85)
+                                    radius: 5
+                                    Behavior on width { NumberAnimation { duration: 250 } }
+                                }
+                            }
+                        }
+
+                        // 3 Clean, Spaced-Out Metric Cards
+                        Row {
+                            width: parent.width
+                            spacing: 8
+
+                            // In-Use Card
+                            Rectangle {
+                                width: (parent.width - 16) / 3
+                                height: 54
+                                radius: 12
+                                color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.12)
+                                border.width: 1
+                                border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22)
+
+                                Column {
+                                    anchors.centerIn: parent
+                                    spacing: 3
+                                    Row {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        spacing: 4
+                                        IconText {
+                                            text: "layers"
+                                            color: root.seal
+                                            font.pixelSize: 12
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                        Text {
+                                            text: "In Use"
+                                            color: root.ink
+                                            opacity: 0.7
+                                            font.family: root.barFont
+                                            font.pixelSize: 10
+                                            font.weight: Font.Medium
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                    }
                                     Text {
-                                        anchors.centerIn: parent
-                                        text: model.rss_human || (model.rss_mb + " MB")
-                                        color: root.seal
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        text: memSection.memObj.used_gib + " GB"
+                                        color: root.ink
                                         font.family: root.barFont
-                                        font.pixelSize: 10
+                                        font.pixelSize: 12
                                         font.weight: Font.Bold
                                     }
                                 }
+                            }
 
-                                // %MEM Badge
-                                Rectangle {
-                                    width: 40
-                                    height: 22
-                                    radius: 6
-                                    color: Qt.rgba(1, 1, 1, 0.05)
-                                    anchors.verticalCenter: parent.verticalCenter
+                            // Available Card
+                            Rectangle {
+                                width: (parent.width - 16) / 3
+                                height: 54
+                                radius: 12
+                                color: Qt.rgba(0.29, 0.87, 0.5, 0.10)
+                                border.width: 1
+                                border.color: Qt.rgba(0.29, 0.87, 0.5, 0.22)
 
+                                Column {
+                                    anchors.centerIn: parent
+                                    spacing: 3
+                                    Row {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        spacing: 4
+                                        IconText {
+                                            text: "check_circle"
+                                            color: "#4ade80"
+                                            font.pixelSize: 12
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                        Text {
+                                            text: "Available"
+                                            color: root.ink
+                                            opacity: 0.7
+                                            font.family: root.barFont
+                                            font.pixelSize: 10
+                                            font.weight: Font.Medium
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                    }
                                     Text {
-                                        anchors.centerIn: parent
-                                        text: model.pmem || "0%"
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        text: memSection.memObj.avail_gib + " GB"
                                         color: root.ink
-                                        opacity: 0.8
                                         font.family: root.barFont
-                                        font.pixelSize: 10
-                                        font.weight: Font.Medium
+                                        font.pixelSize: 12
+                                        font.weight: Font.Bold
                                     }
                                 }
+                            }
 
-                                // Kill Button
+                            // Cached Card
+                            Rectangle {
+                                width: (parent.width - 16) / 3
+                                height: 54
+                                radius: 12
+                                color: Qt.rgba(root.color02.r, root.color02.g, root.color02.b, 0.12)
+                                border.width: 1
+                                border.color: Qt.rgba(root.color02.r, root.color02.g, root.color02.b, 0.22)
+
+                                Column {
+                                    anchors.centerIn: parent
+                                    spacing: 3
+                                    Row {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        spacing: 4
+                                        IconText {
+                                            text: "cached"
+                                            color: root.color02
+                                            font.pixelSize: 12
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                        Text {
+                                            text: "Cached"
+                                            color: root.ink
+                                            opacity: 0.7
+                                            font.family: root.barFont
+                                            font.pixelSize: 10
+                                            font.weight: Font.Medium
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                    }
+                                    Text {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        text: memSection.memObj.cached_gib + " GB"
+                                        color: root.ink
+                                        font.family: root.barFont
+                                        font.pixelSize: 12
+                                        font.weight: Font.Bold
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Divider
+                    Rectangle {
+                        width: parent.width
+                        height: 1
+                        color: Qt.rgba(1, 1, 1, 0.06)
+                    }
+
+                    // SECTION 2: SWAP MEMORY
+                    Column {
+                        width: parent.width
+                        spacing: 8
+
+                        Item {
+                            width: parent.width
+                            height: 18
+
+                            Text {
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "SWAP MEMORY"
+                                color: root.ink
+                                opacity: 0.6
+                                font.family: root.barFont
+                                font.pixelSize: 10
+                                font.weight: Font.Bold
+                                font.letterSpacing: 0.8
+                            }
+
+                            Rectangle {
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                height: 20
+                                width: swapPctTxt.implicitWidth + 14
+                                radius: 10
+                                color: memSection.memObj.swap_percent > 70 ? Qt.rgba(0.97, 0.44, 0.44, 0.2) : Qt.rgba(root.sumiHi.r, root.sumiHi.g, root.sumiHi.b, 0.16)
+                                border.width: 1
+                                border.color: memSection.memObj.swap_percent > 70 ? "#f87171" : root.sumiHi
+
+                                Text {
+                                    id: swapPctTxt
+                                    anchors.centerIn: parent
+                                    text: memSection.memObj.swap_percent + "%"
+                                    color: memSection.memObj.swap_percent > 70 ? "#f87171" : root.sumiHi
+                                    font.family: root.barFont
+                                    font.pixelSize: 11
+                                    font.weight: Font.Bold
+                                }
+                            }
+                        }
+
+                        // Swap Progress Bar
+                        Rectangle {
+                            width: parent.width
+                            height: 8
+                            radius: 4
+                            color: Qt.rgba(1, 1, 1, 0.08)
+
+                            Rectangle {
+                                width: parent.width * Math.min(1.0, (memSection.memObj.swap_percent || 0) / 100)
+                                height: parent.height
+                                radius: 4
+                                color: memSection.memObj.swap_percent > 70 ? "#f87171" : root.sumiHi
+                                Behavior on width { NumberAnimation { duration: 250 } }
+                            }
+                        }
+
+                        // Swap Stats Row
+                        Row {
+                            width: parent.width
+                            spacing: 8
+
+                            Rectangle {
+                                width: (parent.width - 8) / 2
+                                height: 34
+                                radius: 8
+                                color: Qt.rgba(1, 1, 1, 0.04)
+                                border.width: 1
+                                border.color: Qt.rgba(1, 1, 1, 0.06)
+
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: 6
+                                    IconText {
+                                        text: "swap_horiz"
+                                        color: root.sumiHi
+                                        font.pixelSize: 13
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                    Text {
+                                        text: "Used " + memSection.memObj.swap_used_gib + " GB"
+                                        color: root.ink
+                                        font.family: root.barFont
+                                        font.pixelSize: 11
+                                        font.weight: Font.Medium
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                width: (parent.width - 8) / 2
+                                height: 34
+                                radius: 8
+                                color: Qt.rgba(1, 1, 1, 0.04)
+                                border.width: 1
+                                border.color: Qt.rgba(1, 1, 1, 0.06)
+
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: 6
+                                    IconText {
+                                        text: "storage"
+                                        color: root.ink
+                                        opacity: 0.5
+                                        font.pixelSize: 13
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                    Text {
+                                        text: "Free " + memSection.memObj.swap_free_gib + " GB"
+                                        color: root.ink
+                                        font.family: root.barFont
+                                        font.pixelSize: 11
+                                        font.weight: Font.Medium
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Divider
+                    Rectangle {
+                        width: parent.width
+                        height: 1
+                        color: Qt.rgba(1, 1, 1, 0.06)
+                    }
+
+                    // SECTION 3: SYSTEM SUMMARY STATUS
+                    Rectangle {
+                        width: parent.width
+                        height: 38
+                        radius: 10
+                        color: Qt.rgba(1, 1, 1, 0.03)
+                        border.width: 1
+                        border.color: Qt.rgba(1, 1, 1, 0.05)
+
+                        Row {
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            spacing: 8
+
+                            IconText {
+                                text: memSection.memPercent > 85 ? "warning" : "info"
+                                color: memSection.memPercent > 85 ? "#f87171" : root.seal
+                                font.pixelSize: 14
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width - 24
+                                elide: Text.ElideRight
+                                text: memSection.memPercent > 85
+                                    ? "High memory pressure. Heavy background tasks active."
+                                    : (memSection.memPercent > 65
+                                        ? "Moderate load. Memory headroom is stable."
+                                        : "Memory pressure is low. System running smoothly.")
+                                color: root.ink
+                                opacity: 0.7
+                                font.family: root.barFont
+                                font.pixelSize: 11
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ---------------- CARD 2: TOP MEMORY CONSUMERS (54%) ----------------
+            Rectangle {
+                width: Math.round((parent.width - 12) * 0.54)
+                height: parent.height
+                radius: 20
+                color: root.fillIdle
+                clip: true
+
+                Column {
+                    anchors.fill: parent
+                    anchors.margins: 16
+                    spacing: 10
+
+                    // Subheader
+                    Item {
+                        width: parent.width
+                        height: 16
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "TOP MEMORY CONSUMERS"
+                            color: root.ink
+                            opacity: 0.5
+                            font.family: root.barFont
+                            font.pixelSize: 10
+                            font.weight: Font.Bold
+                            font.letterSpacing: 0.6
+                        }
+
+                        Text {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: topProcModel.count + " active"
+                            color: root.ink
+                            opacity: 0.5
+                            font.family: root.barFont
+                            font.pixelSize: 10
+                        }
+                    }
+
+                    // Divider
+                    Rectangle {
+                        width: parent.width
+                        height: 1
+                        color: Qt.rgba(1, 1, 1, 0.06)
+                    }
+
+                    // Process List
+                    ListView {
+                        id: memProcListView
+                        width: parent.width
+                        height: parent.height - 34
+                        clip: true
+                        spacing: 6
+                        model: topProcModel
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        delegate: Rectangle {
+                            width: memProcListView.width
+                            height: 44
+                            radius: 12
+                            color: memProcMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.03)
+                            border.width: 1
+                            border.color: memProcMa.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25) : Qt.rgba(1, 1, 1, 0.04)
+
+                            MouseArea {
+                                id: memProcMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                            }
+
+                            Item {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
+                                anchors.rightMargin: 10
+
+                                // Mini Process Icon
                                 Rectangle {
-                                    width: 22
-                                    height: 22
-                                    radius: 6
-                                    color: memKillMa.containsMouse ? Qt.rgba(0.9, 0.2, 0.2, 0.25) : Qt.rgba(1, 1, 1, 0.05)
-                                    border.width: memKillMa.containsMouse ? 1 : 0
-                                    border.color: "#ef4444"
+                                    id: procIconRect
+                                    width: 28
+                                    height: 28
+                                    radius: 8
+                                    color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15)
+                                    anchors.left: parent.left
                                     anchors.verticalCenter: parent.verticalCenter
 
                                     IconText {
                                         anchors.centerIn: parent
-                                        text: "close"
-                                        color: memKillMa.containsMouse ? "#fca5a5" : root.ink
-                                        opacity: memKillMa.containsMouse ? 1.0 : 0.4
+                                        text: "memory"
+                                        color: root.seal
+                                        font.pixelSize: 14
+                                    }
+                                }
+
+                                // Badges & Actions (anchored to right)
+                                Row {
+                                    id: actionsRow
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 6
+
+                                    // RSS Memory Badge
+                                    Rectangle {
+                                        width: 68
+                                        height: 22
+                                        radius: 6
+                                        color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18)
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: model.rss_human || (model.rss_mb + " MB")
+                                            color: root.seal
+                                            font.family: root.barFont
+                                            font.pixelSize: 10
+                                            font.weight: Font.Bold
+                                        }
+                                    }
+
+                                    // %MEM Badge
+                                    Rectangle {
+                                        width: 42
+                                        height: 22
+                                        radius: 6
+                                        color: Qt.rgba(1, 1, 1, 0.05)
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: model.pmem || "0%"
+                                            color: root.ink
+                                            opacity: 0.8
+                                            font.family: root.barFont
+                                            font.pixelSize: 10
+                                            font.weight: Font.Medium
+                                        }
+                                    }
+
+                                    // Kill Button
+                                    Rectangle {
+                                        width: 22
+                                        height: 22
+                                        radius: 6
+                                        color: memKillMa.containsMouse ? Qt.rgba(0.9, 0.2, 0.2, 0.25) : Qt.rgba(1, 1, 1, 0.05)
+                                        border.width: memKillMa.containsMouse ? 1 : 0
+                                        border.color: "#ef4444"
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        IconText {
+                                            anchors.centerIn: parent
+                                            text: "close"
+                                            color: memKillMa.containsMouse ? "#fca5a5" : root.ink
+                                            opacity: memKillMa.containsMouse ? 1.0 : 0.4
+                                            font.pixelSize: 12
+                                        }
+
+                                        MouseArea {
+                                            id: memKillMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: memSection.doKillProcess(model.pid)
+                                        }
+                                    }
+                                }
+
+                                // Name & PID
+                                Column {
+                                    anchors.left: procIconRect.right
+                                    anchors.leftMargin: 8
+                                    anchors.right: actionsRow.left
+                                    anchors.rightMargin: 8
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 1
+
+                                    Text {
+                                        text: model.name || "Unknown"
+                                        color: root.ink
+                                        font.family: root.barFont
                                         font.pixelSize: 12
+                                        font.weight: Font.Medium
+                                        elide: Text.ElideRight
+                                        width: parent.width
                                     }
-
-                                    MouseArea {
-                                        id: memKillMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: memSection.doKillProcess(model.pid)
+                                    Text {
+                                        text: "PID " + model.pid
+                                        color: root.ink
+                                        opacity: 0.4
+                                        font.family: root.barFont
+                                        font.pixelSize: 9
+                                        elide: Text.ElideRight
+                                        width: parent.width
                                     }
-                                }
-                            }
-
-                            // Name & PID (fills space between icon and actions)
-                            Column {
-                                anchors.left: procIconRect.right
-                                anchors.leftMargin: 8
-                                anchors.right: actionsRow.left
-                                anchors.rightMargin: 8
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 1
-
-                                Text {
-                                    text: model.name || "Unknown"
-                                    color: root.ink
-                                    font.family: root.barFont
-                                    font.pixelSize: 12
-                                    font.weight: Font.Medium
-                                    elide: Text.ElideRight
-                                    width: parent.width
-                                }
-                                Text {
-                                    text: "PID " + model.pid
-                                    color: root.ink
-                                    opacity: 0.4
-                                    font.family: root.barFont
-                                    font.pixelSize: 9
-                                    elide: Text.ElideRight
-                                    width: parent.width
                                 }
                             }
                         }
@@ -688,5 +818,3 @@ Item {
         }
     }
 }
-}
-

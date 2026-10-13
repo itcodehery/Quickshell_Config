@@ -9,10 +9,30 @@ Item {
     id: dashboardContent
     anchors.fill: parent
     focus: true
-    onVisibleChanged: if (visible) forceActiveFocus()
-    Component.onCompleted: forceActiveFocus()
+    onVisibleChanged: {
+        if (visible) {
+            forceActiveFocus()
+            if (!root || !root.dashboardDetail) {
+                activeDetailView = ""
+                selectCategoryByIndex(0)
+            }
+        }
+    }
+    Component.onCompleted: {
+        forceActiveFocus()
+        if (!root || !root.dashboardDetail) {
+            activeDetailView = ""
+            selectCategoryByIndex(0)
+        }
+    }
 
-    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "battery", "screentime"]
+    MouseArea {
+        anchors.fill: parent
+        // Prevent clicks anywhere on the dashboard background from closing the dashboard
+        onClicked: {}
+    }
+
+    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "battery", "screentime", "volume"]
 
     function selectCategoryByIndex(idx) {
         if (idx < 0) idx = 0
@@ -254,6 +274,9 @@ Item {
         if (root && root.dashboardDetail !== activeDetailView) {
             root.dashboardDetail = activeDetailView
         }
+        if (activeDetailView === "") {
+            pageUp()
+        }
     }
 
     AudioData { id: audioData }
@@ -287,12 +310,48 @@ Item {
     property string currentWifiName: "Wi-Fi"
     property string currentBtName: "Bluetooth"
 
+    property int nightMode: 0 // 0: Off, 1: Soft (4500K), 2: Intense (3000K)
+    property real lastNightChange: 0
+
+    function cycleNightMode() {
+        let nextMode = (nightMode + 1) % 3
+        setNightMode(nextMode)
+    }
+
+    function setNightMode(mode) {
+        lastNightChange = Date.now()
+        nightMode = mode
+        if (mode === 0) {
+            Quickshell.execDetached(["bash", "-c", "pkill -x hyprsunset"])
+        } else if (mode === 1) {
+            Quickshell.execDetached(["bash", "-c", "pkill -x hyprsunset; while pgrep -x hyprsunset > /dev/null; do sleep 0.02; done; exec hyprsunset -t 4500"])
+        } else if (mode === 2) {
+            Quickshell.execDetached(["bash", "-c", "pkill -x hyprsunset; while pgrep -x hyprsunset > /dev/null; do sleep 0.02; done; exec hyprsunset -t 3000"])
+        }
+    }
+
+    Process {
+        id: nightUpdater
+        running: true
+        command: ["bash", "-c", "out=$(pgrep -a hyprsunset); if [ -z \"$out\" ]; then echo 'off'; elif echo \"$out\" | grep -q '3000'; then echo 'intense'; else echo 'soft'; fi"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (Date.now() - dashboardContent.lastNightChange < 1500) return
+                let s = this.text.trim()
+                if (s === "intense") dashboardContent.nightMode = 2
+                else if (s === "soft") dashboardContent.nightMode = 1
+                else dashboardContent.nightMode = 0
+            }
+        }
+    }
+
     Timer {
         id: statusTimer
         interval: 3000; repeat: true; running: panel.expanded; triggeredOnStart: true
         onTriggered: {
             wifiUpdater.running = false; wifiUpdater.running = true
             btUpdater.running = false; btUpdater.running = true
+            nightUpdater.running = false; nightUpdater.running = true
         }
     }
     
@@ -512,39 +571,81 @@ Item {
                         }
                     }
                     
-                    // Night Light Toggle
+                    // Night Light Toggle (Circular 40x40, dual-mode: Soft / Intense)
                     Rectangle {
                         id: localNightToggle
                         width: 40
                         height: 40
                         radius: 20
-                        property bool active: false
                         
-                        Process {
-                            running: true
-                            command: ["bash", "-c", "pgrep -x hyprsunset > /dev/null && echo 'on' || echo 'off'"]
-                            stdout: StdioCollector {
-                                onStreamFinished: localNightToggle.active = (this.text.trim() === "on")
+                        readonly property int mode: dashboardContent.nightMode
+                        
+                        color: mode === 2 ? root.color01 : (mode === 1 ? root.color03 : root.fillIdle)
+                        scale: localNightMa.pressed ? 0.92 : (localNightHov.hovered ? 1.05 : 1.0)
+                        
+                        Behavior on color { ColorAnimation { duration: 200 } }
+                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+
+                        HoverHandler {
+                            id: localNightHov
+                        }
+                        
+                        IconText { 
+                            anchors.centerIn: parent
+                            anchors.verticalCenterOffset: -3
+                            text: "nightlight_round"
+                            color: localNightToggle.mode > 0 ? root.paper : root.ink
+                            opacity: localNightToggle.mode > 0 ? 1.0 : 0.6
+                            font.pixelSize: 17
+                            Behavior on color { ColorAnimation { duration: 200 } }
+                            Behavior on opacity { NumberAnimation { duration: 200 } }
+                        }
+
+                        // Dual toggle indicator dashes (Off: 0 lit, Soft: 1 lit, Intense: 2 lit)
+                        Row {
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: 6
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: 3
+
+                            Rectangle {
+                                width: 5
+                                height: 3
+                                radius: 1.5
+                                color: localNightToggle.mode > 0 ? root.paper : root.ink
+                                opacity: localNightToggle.mode >= 1 ? 0.95 : 0.25
+                                Behavior on color { ColorAnimation { duration: 200 } }
+                                Behavior on opacity { NumberAnimation { duration: 200 } }
+                            }
+
+                            Rectangle {
+                                width: 5
+                                height: 3
+                                radius: 1.5
+                                color: localNightToggle.mode > 0 ? root.paper : root.ink
+                                opacity: localNightToggle.mode === 2 ? 0.95 : 0.25
+                                Behavior on color { ColorAnimation { duration: 200 } }
+                                Behavior on opacity { NumberAnimation { duration: 200 } }
                             }
                         }
                         
-                        color: active ? root.color01 : root.fillIdle
-                        IconText { 
-                            anchors.centerIn: parent
-                            text: "nightlight_round"
-                            color: localNightToggle.active ? root.paper : root.ink
-                            font.pixelSize: 18
-                            Behavior on color { ColorAnimation { duration: 200 } }
-                        }
                         MouseArea {
+                            id: localNightMa
                             anchors.fill: parent
-                            onClicked: {
-                                if (localNightToggle.active) {
-                                    Quickshell.execDetached(["killall", "hyprsunset"])
-                                    localNightToggle.active = false
+                            cursorShape: Qt.PointingHandCursor
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                            onClicked: (mouse) => {
+                                if (mouse.button === Qt.RightButton) {
+                                    dashboardContent.setNightMode(0)
                                 } else {
-                                    Quickshell.execDetached(["hyprsunset", "-t", "4000"])
-                                    localNightToggle.active = true
+                                    dashboardContent.cycleNightMode()
+                                }
+                            }
+                            onWheel: (wheel) => {
+                                if (wheel.angleDelta.y > 0) {
+                                    if (dashboardContent.nightMode < 2) dashboardContent.setNightMode(dashboardContent.nightMode + 1)
+                                } else if (wheel.angleDelta.y < 0) {
+                                    if (dashboardContent.nightMode > 0) dashboardContent.setNightMode(dashboardContent.nightMode - 1)
                                 }
                             }
                         }
@@ -653,23 +754,42 @@ Item {
                         }
                     }
                     
-                    // Audio Menu Toggle
+                    // Audio Settings / Detail Toggle
                     Rectangle {
+                        id: audSettingsToggle
                         width: 40
                         height: 40
                         radius: 20
-                        color: root.volVisible ? root.color02 : root.fillIdle
+                        color: dashboardContent.activeDetailView === "volume" ? root.seal : root.fillIdle
+                        scale: audTuneMa.pressed ? 0.92 : (audTuneHov.hovered ? 1.05 : 1.0)
+                        
+                        Behavior on color { ColorAnimation { duration: 200 } }
+                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+
+                        HoverHandler {
+                            id: audTuneHov
+                        }
                         
                         IconText { 
                             anchors.centerIn: parent
                             text: "tune"
-                            color: root.volVisible ? root.paper : root.ink
+                            color: dashboardContent.activeDetailView === "volume" ? root.paper : root.ink
                             font.pixelSize: 18
                             Behavior on color { ColorAnimation { duration: 200 } }
                         }
                         MouseArea {
+                            id: audTuneMa
                             anchors.fill: parent
-                            onClicked: root.volVisible = !root.volVisible
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (dashboardContent.activeDetailView === "volume") {
+                                    dashboardContent.activeDetailView = ""
+                                    if (root) root.dashboardDetail = ""
+                                } else {
+                                    dashboardContent.activeDetailView = "volume"
+                                    if (root) root.dashboardDetail = "volume"
+                                }
+                            }
                         }
                     }
                 }
@@ -708,19 +828,21 @@ Item {
                         Rectangle {
                             id: wifiTile
                             property bool connected: dashboardContent.currentWifiName !== "Wi-Fi"
-                            readonly property color fg: connected ? root.paper : root.ink
+                            property bool active: dashboardContent.activeDetailView === "wifi"
+                            readonly property bool isLit: active || connected
+                            readonly property color fg: isLit ? root.paper : root.ink
                             width: (parent.width - 12) / 2
                             height: 60
                             radius: 30
-                            color: connected
+                            color: isLit
                                 ? (wifiMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                 : (wifiMa.containsMouse ? root.fillHover : root.fillIdle)
                             Behavior on color { ColorAnimation { duration: 160 } }
                             scale: (wifiMa.pressed || wifiInnerMa.pressed) ? 0.92 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                             
-                            border.width: dashboardContent.activeDetailView === "wifi" ? 2 : 0
-                            border.color: connected ? root.paper : root.seal
+                            border.width: active ? 2 : 0
+                            border.color: isLit ? root.paper : root.seal
                             Behavior on border.width { NumberAnimation { duration: 150 } }
                             Behavior on border.color { ColorAnimation { duration: 150 } }
                             
@@ -750,7 +872,7 @@ Item {
                                     width: 44
                                     height: 44
                                     radius: 14
-                                    color: wifiTile.connected
+                                    color: wifiTile.isLit
                                         ? (wifiInnerMa.containsMouse ? Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.28) : Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.18))
                                         : (wifiInnerMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.18) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.1))
                                     Behavior on color { ColorAnimation { duration: 160 } }
@@ -758,7 +880,7 @@ Item {
                                     IconText { 
                                         anchors.centerIn: parent
                                         text: "wifi"
-                                        fill: wifiTile.connected ? 1 : 0
+                                        fill: (wifiTile.connected || wifiTile.active) ? 1 : 0
                                         color: wifiTile.fg
                                         font.pixelSize: 20
                                         Behavior on color { ColorAnimation { duration: 160 } }
@@ -810,19 +932,21 @@ Item {
                         Rectangle {
                             id: btTile
                             property bool connected: dashboardContent.currentBtName !== "Bluetooth"
-                            readonly property color fg: connected ? root.paper : root.ink
+                            property bool active: dashboardContent.activeDetailView === "bluetooth"
+                            readonly property bool isLit: active || connected
+                            readonly property color fg: isLit ? root.paper : root.ink
                             width: (parent.width - 12) / 2
                             height: 60
                             radius: 30
-                            color: connected
+                            color: isLit
                                 ? (btMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                 : (btMa.containsMouse ? root.fillHover : root.fillIdle)
                             Behavior on color { ColorAnimation { duration: 160 } }
                             scale: (btMa.pressed || btInnerMa.pressed) ? 0.92 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                             
-                            border.width: dashboardContent.activeDetailView === "bluetooth" ? 2 : 0
-                            border.color: connected ? root.paper : root.seal
+                            border.width: active ? 2 : 0
+                            border.color: isLit ? root.paper : root.seal
                             Behavior on border.width { NumberAnimation { duration: 150 } }
                             Behavior on border.color { ColorAnimation { duration: 150 } }
                             
@@ -852,7 +976,7 @@ Item {
                                     width: 44
                                     height: 44
                                     radius: 14
-                                    color: btTile.connected
+                                    color: btTile.isLit
                                         ? (btInnerMa.containsMouse ? Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.28) : Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.18))
                                         : (btInnerMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.18) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.1))
                                     Behavior on color { ColorAnimation { duration: 160 } }
@@ -860,7 +984,7 @@ Item {
                                     IconText { 
                                         anchors.centerIn: parent
                                         text: "bluetooth"
-                                        fill: btTile.connected ? 1 : 0
+                                        fill: (btTile.connected || btTile.active) ? 1 : 0
                                         color: btTile.fg
                                         font.pixelSize: 20
                                         Behavior on color { ColorAnimation { duration: 160 } }
@@ -1097,21 +1221,14 @@ Item {
                         // Eye Comfort Tile
                         Rectangle {
                             id: nightTile
-                            property bool active: false
-                            
-                            Process {
-                                running: true
-                                command: ["bash", "-c", "pgrep -x hyprsunset > /dev/null && echo 'on' || echo 'off'"]
-                                stdout: StdioCollector {
-                                    onStreamFinished: nightTile.active = (this.text.trim() === "on")
-                                }
-                            }
+                            readonly property int mode: dashboardContent.nightMode
+                            property bool active: mode > 0
 
                             width: (parent.width - 12) / 2
                             height: 60
                             radius: 30
-                            color: active ? root.color01 : root.fillIdle
-                            scale: nightMa.pressed ? 0.92 : 1.0
+                            color: mode === 2 ? root.color01 : (mode === 1 ? root.color03 : root.fillIdle)
+                            scale: nightTileMa.pressed ? 0.92 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                             Behavior on color { ColorAnimation { duration: 200 } }
                             
@@ -1120,23 +1237,42 @@ Item {
                                 anchors.left: parent.left
                                 anchors.leftMargin: 16
                                 spacing: 12
-                                IconText { text: "nightlight_round"; color: nightTile.active ? root.paper : root.ink; font.pixelSize: 20; Behavior on color { ColorAnimation { duration: 200 } } }
+                                IconText { 
+                                    text: "nightlight_round"
+                                    color: nightTile.active ? root.paper : root.ink
+                                    font.pixelSize: 20
+                                    Behavior on color { ColorAnimation { duration: 200 } } 
+                                }
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    Text { text: "Night Light"; color: nightTile.active ? root.paper : root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold; Behavior on color { ColorAnimation { duration: 200 } } }
-                                    Text { text: nightTile.active ? "Warm" : "Off"; color: nightTile.active ? root.paper : root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; Behavior on color { ColorAnimation { duration: 200 } } }
+                                    Text { 
+                                        text: "Night Light"
+                                        color: nightTile.active ? root.paper : root.ink
+                                        font.pixelSize: 13
+                                        font.family: root.barFont
+                                        font.weight: Font.DemiBold
+                                        Behavior on color { ColorAnimation { duration: 200 } } 
+                                    }
+                                    Text { 
+                                        text: nightTile.mode === 2 ? "Intense" : (nightTile.mode === 1 ? "Soft" : "Off")
+                                        color: nightTile.active ? root.paper : root.ink
+                                        opacity: 0.6
+                                        font.pixelSize: 11
+                                        font.family: root.barFont
+                                        Behavior on color { ColorAnimation { duration: 200 } } 
+                                    }
                                 }
                             }
                             MouseArea {
-                                id: nightMa
+                                id: nightTileMa
                                 anchors.fill: parent
-                                onClicked: {
-                                    if (nightTile.active) {
-                                        Quickshell.execDetached(["killall", "hyprsunset"])
-                                        nightTile.active = false
+                                cursorShape: Qt.PointingHandCursor
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                onClicked: (mouse) => {
+                                    if (mouse.button === Qt.RightButton) {
+                                        dashboardContent.setNightMode(0)
                                     } else {
-                                        Quickshell.execDetached(["hyprsunset", "-t", "4000"])
-                                        nightTile.active = true
+                                        dashboardContent.cycleNightMode()
                                     }
                                 }
                             }
@@ -1748,14 +1884,49 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: 2
 
-                        Text {
-                            text: root.lastMediaTitle || "No media"
-                            color: "#ffffff"
-                            font.family: root.barFont
-                            font.pixelSize: 17
-                            font.weight: Font.Bold
-                            elide: Text.ElideRight
+                        // Song Title with Marquee
+                        Item {
+                            id: marqueeTitleContainer
                             width: parent.width
+                            height: 22
+                            clip: true
+
+                            Text {
+                                id: marqueeTitleText
+                                text: root.lastMediaTitle || "No media"
+                                color: "#ffffff"
+                                font.family: root.barFont
+                                font.pixelSize: 17
+                                font.weight: Font.Bold
+                                anchors.verticalCenter: parent.verticalCenter
+
+                                onTextChanged: {
+                                    x = 0
+                                    marqueeAnim.restart()
+                                }
+
+                                SequentialAnimation on x {
+                                    id: marqueeAnim
+                                    loops: Animation.Infinite
+                                    running: marqueeTitleText.implicitWidth > marqueeTitleContainer.width
+                                    onRunningChanged: {
+                                        if (!running) marqueeTitleText.x = 0
+                                    }
+                                    PauseAnimation { duration: 2000 }
+                                    NumberAnimation {
+                                        from: 0
+                                        to: -(marqueeTitleText.implicitWidth - marqueeTitleContainer.width + 16)
+                                        duration: Math.max(1200, (marqueeTitleText.implicitWidth - marqueeTitleContainer.width) * 25)
+                                        easing.type: Easing.Linear
+                                    }
+                                    PauseAnimation { duration: 1800 }
+                                    NumberAnimation {
+                                        to: 0
+                                        duration: 400
+                                        easing.type: Easing.OutQuad
+                                    }
+                                }
+                            }
                         }
 
                         Text {
@@ -2439,6 +2610,21 @@ Item {
                 root: dashboardContent.root
                 panel: dashboardContent.panel
                 visible: dashboardContent.activeDetailView === "screentime"
+                opacity: visible ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 160 } }
+                onCloseRequested: {
+                    dashboardContent.activeDetailView = ""
+                    if (root) root.dashboardDetail = ""
+                }
+            }
+
+            // Detailed Volume Section
+            VolumeDetailSection {
+                id: volDetailSection
+                anchors.fill: parent
+                root: dashboardContent.root
+                panel: dashboardContent.panel
+                visible: dashboardContent.activeDetailView === "volume"
                 opacity: visible ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 160 } }
                 onCloseRequested: {

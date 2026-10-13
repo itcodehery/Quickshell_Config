@@ -144,12 +144,6 @@ PanelWindow {
         acceptedButtons: Qt.RightButton | Qt.LeftButton
         hoverEnabled: true
 
-        onPositionChanged: (mouse) => {
-            if (!root.dashboardExpanded && desktopMenu.cursorInClockZone(mouse.x, mouse.y)) {
-                root.dashboardExpanded = true
-            }
-        }
-
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
                 menuX = Math.min(Math.max(mouse.x, 130), parent.width - 130)
@@ -174,7 +168,13 @@ PanelWindow {
             } else {
                 menuVisible = false
                 animatedReveal = 0
-                root.dashboardExpanded = false
+                if (!root.dashboardExpanded && desktopMenu.cursorInClockZone(mouse.x, mouse.y)) {
+                    root.dashboardDetail = ""
+                    root.dashboardExpanded = true
+                } else if (root.dashboardExpanded) {
+                    root.dashboardDetail = ""
+                    root.dashboardExpanded = false
+                }
             }
         }
     }

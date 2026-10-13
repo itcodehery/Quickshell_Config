@@ -192,9 +192,12 @@ Item {
         onEntered: { if (rootMod.hasBattery) tip.show() }
         onClicked: {
             tip.hide()
-            if (root.dashboardExpanded && root.dashboardDetail === "battery") {
-                root.dashboardExpanded = false
-                root.dashboardDetail = ""
+            if (root.dashboardExpanded) {
+                if (root.dashboardDetail === "battery") {
+                    root.dashboardDetail = ""
+                } else {
+                    root.dashboardDetail = "battery"
+                }
             } else {
                 root.dashboardDetail = "battery"
                 root.dashboardExpanded = true

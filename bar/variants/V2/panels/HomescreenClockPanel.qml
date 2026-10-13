@@ -63,12 +63,23 @@ PanelWindow {
         if (expanded) {
             closeTimer.stop()
             isClosing = false
-            if (dashboardLoader.item) dashboardLoader.item.forceActiveFocus()
+            if (dashboardLoader.item) {
+                if (!root.dashboardDetail) {
+                    dashboardLoader.item.activeDetailView = ""
+                    dashboardLoader.item.selectCategoryByIndex(0)
+                }
+                dashboardLoader.item.forceActiveFocus()
+            }
         } else {
             hsClock.searchOpen = false
             if (petSearch) petSearch.close()
             isClosing = true
             closeTimer.restart()
+            root.dashboardDetail = ""
+            if (dashboardLoader.item) {
+                dashboardLoader.item.activeDetailView = ""
+                dashboardLoader.item.selectCategoryByIndex(0)
+            }
         }
         if (root.dashboardExpanded !== expanded) {
             root.dashboardExpanded = expanded
@@ -105,22 +116,7 @@ PanelWindow {
     readonly property var days: ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
     readonly property string dateStr: days[now.getDay()] + ", " + now.getDate() + " " + months[now.getMonth()]
 
-    Timer {
-        id: autoCollapseTimer
-        interval: 6500
-        running: expanded && !bgHover.hovered && !hsClock.searchOpen && (!root.dashboardDetail || root.dashboardDetail === "")
-        repeat: false
-        onTriggered: expanded = false
-    }
 
-    Connections {
-        target: root
-        function onDashboardDetailChanged() {
-            if (root.dashboardDetail && root.dashboardDetail !== "") {
-                autoCollapseTimer.stop()
-            }
-        }
-    }
 
     readonly property real pillHeight: clockLayout.height > 0 ? clockLayout.height + 24 : 80
     readonly property real pillWidth: clockLayout.width > 0 ? clockLayout.width + 48 : 220
@@ -172,6 +168,16 @@ PanelWindow {
 
         HoverHandler {
             id: bgHover
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {
+                if (!hsClock.expanded) {
+                    root.dashboardDetail = ""
+                    root.dashboardExpanded = true
+                }
+            }
         }
         
         // Header / Compact Clock
@@ -262,6 +268,12 @@ PanelWindow {
             onLoaded: {
                 item.root = hsClock.root
                 item.panel = hsClock
+                if (!hsClock.root.dashboardDetail) {
+                    item.activeDetailView = ""
+                    item.selectCategoryByIndex(0)
+                } else {
+                    item.activeDetailView = hsClock.root.dashboardDetail
+                }
                 if (expanded) item.forceActiveFocus()
             }
         }
@@ -316,7 +328,11 @@ PanelWindow {
                 width: shouldShow ? battLoader.item.implicitWidth : 0
                 opacity: shouldShow ? 1.0 : 0.0
                 radius: 16
-                color: root.fillIdle
+                color: root.dashboardDetail === "battery"
+                    ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22)
+                    : (batteryPillMa.containsMouse ? root.fillHover : root.fillIdle)
+                border.width: root.dashboardDetail === "battery" ? 1.5 : 0
+                border.color: root.seal
                 clip: true
                 visible: width > 0.1 || opacity > 0.01
                 anchors.verticalCenter: parent.verticalCenter
@@ -327,12 +343,28 @@ PanelWindow {
                 Behavior on opacity {
                     NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
                 }
+                Behavior on color { ColorAnimation { duration: 150 } }
 
                 Loader {
                     id: battLoader
                     anchors.centerIn: parent
                     active: expanded || isClosing
                     sourceComponent: BatteryWidget { root: hsClock.root }
+                }
+
+                MouseArea {
+                    id: batteryPillMa
+                    anchors.fill: parent
+                    z: 10
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (root.dashboardDetail === "battery") {
+                            root.dashboardDetail = ""
+                        } else {
+                            root.dashboardDetail = "battery"
+                        }
+                    }
                 }
             }
         }
@@ -366,7 +398,11 @@ PanelWindow {
                 height: 32
                 width: uptimeTxt.implicitWidth + 24
                 radius: 16
-                color: uptimeMa.containsMouse ? root.fillHover : root.fillIdle
+                color: root.dashboardDetail === "screentime"
+                    ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22)
+                    : (uptimeMa.containsMouse ? root.fillHover : root.fillIdle)
+                border.width: root.dashboardDetail === "screentime" ? 1.5 : 0
+                border.color: root.seal
                 Behavior on color { ColorAnimation { duration: 150 } }
                 Text {
                     id: uptimeTxt
@@ -386,12 +422,10 @@ PanelWindow {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
-                        if (root.dashboardExpanded && root.dashboardDetail === "screentime") {
-                            root.dashboardExpanded = false
+                        if (root.dashboardDetail === "screentime") {
                             root.dashboardDetail = ""
                         } else {
                             root.dashboardDetail = "screentime"
-                            root.dashboardExpanded = true
                         }
                     }
                 }

@@ -34,7 +34,12 @@ Item {
     function layoutLock() { theme.barUnlocked = false }
     function layoutUnlock() { theme.barUnlocked = true }
     function toggleBar() { theme.barHidden = !theme.barHidden }
-    function toggleDashboard() { theme.dashboardExpanded = !theme.dashboardExpanded }
+    function toggleDashboard() {
+        if (!theme.dashboardExpanded) {
+            theme.dashboardDetail = ""
+        }
+        theme.dashboardExpanded = !theme.dashboardExpanded
+    }
     function lockRetract() { theme.barLockRetracted = true }
     function lockReveal() { theme.barLockRetracted = false }
     function currentShellStyle() { return theme.barShellStyle }
