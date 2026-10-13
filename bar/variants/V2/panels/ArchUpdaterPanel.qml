@@ -664,10 +664,195 @@ PanelWindow {
         }
     }
 
+    // ── Android-shade surface tokens (in line with Control Center) ──
+    readonly property int   cardRadius: 18
+    readonly property int   cardPad: 12
+    readonly property color cardBg:    root.fillIdle
+    readonly property color chipBg:    Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.07)
+    readonly property color chipHover: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.13)
+
+    // ── rounded section card ──
+    component Card: Rectangle {
+        id: _card
+        default property alias content: _cardBody.data
+        property string title: ""
+        property string trailing: ""
+        width: parent ? parent.width : 0
+        implicitHeight: _cardHead.height + (_cardHead.visible ? 8 : 0) + _cardBody.implicitHeight + archPanel.cardPad * 2
+        height: implicitHeight
+        radius: archPanel.cardRadius
+        color: archPanel.cardBg
+
+        Item {
+            id: _cardHead
+            visible: _card.title !== ""
+            x: archPanel.cardPad + 2
+            y: archPanel.cardPad
+            width: _card.width - archPanel.cardPad * 2 - 4
+            height: visible ? 16 : 0
+            UiText {
+                anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
+                text: _card.title
+                color: root.sumiHi; font.family: root.barFont
+                font.pixelSize: 11; font.weight: Font.Medium
+            }
+            UiText {
+                anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+                text: _card.trailing
+                visible: text !== ""
+                color: root.sumi; font.family: root.barFont; font.pixelSize: 10
+            }
+        }
+        Column {
+            id: _cardBody
+            x: archPanel.cardPad
+            y: archPanel.cardPad + _cardHead.height + (_cardHead.visible ? 8 : 0)
+            width: _card.width - archPanel.cardPad * 2
+            spacing: 6
+        }
+    }
+
+    // ── pill action button (Control Center style) ──
+    component PillButton: Rectangle {
+        id: _pb
+        property string label
+        property string icon: ""
+        property bool primary: false
+        property bool active: false
+        property bool btnEnabled: true
+        property color accent: root.seal
+        signal clicked()
+        height: 36
+        radius: height / 2
+        opacity: btnEnabled ? 1.0 : 0.45
+        color: primary
+            ? (_pbMa.containsMouse && btnEnabled ? root.fillPrimaryHover : accent)
+            : active
+                ? (_pbMa.containsMouse ? Qt.lighter(accent, 1.12) : accent)
+                : (_pbMa.containsMouse && btnEnabled ? archPanel.chipHover : archPanel.chipBg)
+        Behavior on color { ColorAnimation { duration: 120 } }
+        readonly property color fgColor: (primary || active) ? root.paper : (_pbMa.containsMouse && btnEnabled ? root.seal : root.ink)
+        Row {
+            anchors.centerIn: parent
+            spacing: 6
+            IconText {
+                visible: _pb.icon !== ""
+                anchors.verticalCenter: parent.verticalCenter
+                text: _pb.icon
+                color: _pb.fgColor
+                font.pixelSize: 16
+            }
+            UiText {
+                anchors.verticalCenter: parent.verticalCenter
+                text: _pb.label
+                color: _pb.fgColor
+                font.family: root.barFont
+                font.pixelSize: 12
+                font.weight: (primary || active) ? Font.DemiBold : Font.Medium
+                elide: Text.ElideRight
+            }
+        }
+        MouseArea {
+            id: _pbMa
+            anchors.fill: parent
+            hoverEnabled: true
+            enabled: _pb.btnEnabled
+            cursorShape: _pb.btnEnabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onClicked: _pb.clicked()
+        }
+    }
+
+    // ── badge toggle chip ──
+    component BadgeChip: Rectangle {
+        id: _bc
+        property string label
+        property bool active: false
+        signal toggled()
+        height: 26
+        radius: height / 2
+        color: active
+            ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, _bcMa.containsMouse ? 0.35 : 0.22)
+            : (_bcMa.containsMouse ? archPanel.chipHover : archPanel.chipBg)
+        Behavior on color { ColorAnimation { duration: 120 } }
+        Row {
+            anchors.centerIn: parent
+            spacing: 5
+            Rectangle {
+                width: 6; height: 6; radius: 3
+                anchors.verticalCenter: parent.verticalCenter
+                color: _bc.active ? root.seal : root.sumi
+                Behavior on color { ColorAnimation { duration: 120 } }
+            }
+            UiText {
+                anchors.verticalCenter: parent.verticalCenter
+                text: _bc.label
+                color: _bc.active ? root.ink : root.sumi
+                font.family: root.barFont
+                font.pixelSize: 11
+                font.weight: _bc.active ? Font.DemiBold : Font.Normal
+            }
+        }
+        MouseArea {
+            id: _bcMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: _bc.toggled()
+        }
+    }
+
+    // ── status pill chip ──
+    component StatusPill: Rectangle {
+        id: _sp
+        property string label
+        property string icon: ""
+        property color textColor: root.ink
+        property color bgTint: Qt.rgba(textColor.r, textColor.g, textColor.b, 0.14)
+        property bool clickable: false
+        signal clicked()
+        height: 24
+        radius: 12
+        color: _spMa.containsMouse && clickable
+            ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.25)
+            : bgTint
+        Behavior on color { ColorAnimation { duration: 120 } }
+        Row {
+            anchors.centerIn: parent
+            spacing: 5
+            leftPadding: 8
+            rightPadding: 8
+            UiText {
+                visible: _sp.icon !== ""
+                anchors.verticalCenter: parent.verticalCenter
+                text: _sp.icon
+                color: _sp.textColor
+                font.family: root.barFont
+                font.pixelSize: 11
+                font.weight: Font.Bold
+            }
+            UiText {
+                anchors.verticalCenter: parent.verticalCenter
+                text: _sp.label
+                color: _sp.textColor
+                font.family: root.barFont
+                font.pixelSize: 11
+                font.weight: Font.Medium
+            }
+        }
+        MouseArea {
+            id: _spMa
+            anchors.fill: parent
+            hoverEnabled: _sp.clickable
+            enabled: _sp.clickable
+            cursorShape: _sp.clickable ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onClicked: _sp.clicked()
+        }
+    }
+
     Rectangle {
         id: card
-        width: 520
-        height: Math.min(col.implicitHeight + 24, 460)
+        width: 560
+        height: Math.min(col.implicitHeight + 28, 540)
         radius: reveal > 0.001 ? root.panelRadius : 0
         color: "transparent"
         border.color: root.panelBorder
@@ -699,415 +884,573 @@ PanelWindow {
         Column {
             id: col
             anchors.fill: parent
-            anchors.margins: 12
-            spacing: 8
+            anchors.margins: 14
+            spacing: 10
 
             // ── header ──
             Item {
                 width: parent.width
-                height: 24
-                UiText {
+                height: 40
+
+                // Left: Squircle Icon + Title & Subtitle (Control Center style)
+                Row {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Updates"
-                    color: root.ink
-                    font.family: root.barFont
-                    font.pixelSize: 13
-                    font.letterSpacing: 2
-                    font.weight: Font.Medium
+                    spacing: 10
+
+                    Rectangle {
+                        width: 38; height: 38; radius: 13
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: archPanel.chipBg
+                        IconText {
+                            anchors.centerIn: parent
+                            text: "system_update"
+                            color: root.seal
+                            font.pixelSize: 20
+                        }
+                    }
+
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 1
+                        UiText {
+                            text: "Updates"
+                            color: root.ink
+                            font.family: root.barFont
+                            font.pixelSize: 15
+                            font.weight: Font.DemiBold
+                        }
+                        UiText {
+                            text: "Software & system updates"
+                            color: root.sumiHi
+                            font.family: root.barFont
+                            font.pixelSize: 10
+                        }
+                    }
                 }
-                UiText {
+
+                // Right: Badge toggles + Close Button
+                Row {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    id: closeX
-                    text: "\u2715"
-                    color: closeMa.containsMouse ? root.seal : root.sumi
-                    font.pixelSize: 12
-                    Behavior on color { ColorAnimation { duration: 120 } }
-                    MouseArea {
-                        id: closeMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: archPanel.closeOrCancelRemove()
-                    }
-                }
-                Row {
-                    anchors.right: closeX.left
-                    anchors.rightMargin: 10
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: 18
-                    spacing: 8
+                    spacing: 6
+
                     UiText {
-                        id: badgeToggleLabel
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Badge Toggle:"
-                        color: root.ink
+                        text: "Badges:"
+                        color: root.sumiHi
                         font.family: root.barFont
-                        font.pixelSize: 11
+                        font.pixelSize: 10
+                        font.weight: Font.Medium
+                        rightPadding: 2
                     }
-                    Repeater {
-                        model: [
-                            { id: "packages", label: "PKG" },
-                            { id: "themes",   label: "Themes" },
-                            { id: "shell",    label: "Shell" }
-                        ]
-                        Item {
-                            id: badgeToggleItem
-                            required property var modelData
-                            readonly property bool active: modelData.id === "packages" ? root.archBadgePackages
-                                : modelData.id === "themes" ? root.archBadgeThemes
-                                : root.archBadgeShell
-                            width: badgeToggleText.implicitWidth + 36
-                            height: 18
-                            UiText {
-                                id: badgeToggleText
-                                anchors.left: parent.left
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: badgeToggleItem.modelData.label
-                                color: root.ink
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                            }
-                            Rectangle {
-                                anchors.right: parent.right
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: 30
-                                height: 16
-                                radius: 8
-                                color: badgeToggleItem.active
-                                    ? root.fillActive
-                                    : badgeToggleMa.containsMouse ? root.fillHover : root.fillIdle
-                                border.color: (badgeToggleItem.active || badgeToggleMa.containsMouse) ? root.seal : root.sep
-                                border.width: 0
-                                Behavior on color { ColorAnimation { duration: 120 } }
-                                Rectangle {
-                                    width: 10
-                                    height: 10
-                                    radius: 5
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    x: badgeToggleItem.active ? parent.width - width - 3 : 3
-                                    color: badgeToggleItem.active ? root.seal : root.sumi
-                                    Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
-                                }
-                            }
-                            MouseArea {
-                                id: badgeToggleMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (badgeToggleItem.modelData.id === "packages")
-                                        root.archBadgePackages = !root.archBadgePackages
-                                    else if (badgeToggleItem.modelData.id === "themes")
-                                        root.archBadgeThemes = !root.archBadgeThemes
-                                    else
-                                        root.archBadgeShell = !root.archBadgeShell
-                                }
-                            }
-                        }
+
+                    BadgeChip {
+                        width: 50
+                        label: "PKG"
+                        active: root.archBadgePackages
+                        onToggled: root.archBadgePackages = !root.archBadgePackages
                     }
-                }
-            }
+                    BadgeChip {
+                        width: 68
+                        label: "Themes"
+                        active: root.archBadgeThemes
+                        onToggled: root.archBadgeThemes = !root.archBadgeThemes
+                    }
+                    BadgeChip {
+                        width: 56
+                        label: "Shell"
+                        active: root.archBadgeShell
+                        onToggled: root.archBadgeShell = !root.archBadgeShell
+                    }
 
-            Rectangle { width: parent.width; height: 1; color: root.sep }
+                    Item { width: 4; height: 1 }
 
-            // ── Packages ⟷ Themes ⟷ Shell tab switch (segmented, AiUsagePanel style) ──
-            Row {
-                width: parent.width
-                height: 26
-                spacing: 6
-                Repeater {
-                    model: [
-                        { id: "packages", label: "Packages" },
-                        { id: "themes", label: "Themes" },
-                        { id: "shell", label: "Shell" }
-                    ]
                     Rectangle {
-                        required property var modelData
-                        width: (parent.width - 12) / 3
-                        height: 26; radius: root.panelButtonRadius
-                        readonly property bool active: root.activeUpdateTab === modelData.id
-                        color: active ? root.fillActive : tabMa.containsMouse ? root.fillHover : root.fillIdle
-                        border.color: (active || tabMa.containsMouse) ? root.seal : root.sep
-                        border.width: 0
+                        id: closeBtn
+                        width: 32; height: 32; radius: 16
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: closeMa.containsMouse ? archPanel.chipHover : archPanel.chipBg
                         Behavior on color { ColorAnimation { duration: 120 } }
-                        UiText {
+                        IconText {
                             anchors.centerIn: parent
-                            text: modelData.label
-                            color: (parent.active || tabMa.containsMouse) ? root.seal : root.ink
-                            font.family: root.barFont; font.pixelSize: 11
-                            font.weight: parent.active ? Font.Medium : Font.Normal
+                            text: "close"
+                            color: closeMa.containsMouse ? root.seal : root.ink
+                            font.pixelSize: 16
                         }
                         MouseArea {
-                            id: tabMa
+                            id: closeMa
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: root.activeUpdateTab = parent.modelData.id
+                            onClicked: archPanel.closeOrCancelRemove()
                         }
                     }
                 }
             }
 
-            // ══════════ PACKAGES TAB (existing content, unchanged) ══════════
+            // ── Segmented Tab Switcher (Control Center style) ──
+            Rectangle {
+                width: parent.width
+                height: 38
+                radius: 19
+                color: archPanel.cardBg
+
+                Row {
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    spacing: 4
+
+                    Repeater {
+                        model: [
+                            { id: "packages", label: "Packages", badge: root.archUpdates.length },
+                            { id: "themes",   label: "Themes",   badge: root.themeUpdOutdated },
+                            { id: "shell",    label: "Shell",    badge: root.shellUpdateBehind }
+                        ]
+
+                        Rectangle {
+                            id: tabBtn
+                            required property var modelData
+                            width: root.evenW((parent.width - 8) / 3)
+                            height: parent.height
+                            radius: height / 2
+
+                            readonly property bool active: root.activeUpdateTab === modelData.id
+                            readonly property color fgColor: active ? root.paper : (tabMa.containsMouse ? root.seal : root.ink)
+
+                            color: active
+                                ? (tabMa.containsMouse ? Qt.lighter(root.seal, 1.08) : root.seal)
+                                : (tabMa.containsMouse ? archPanel.chipHover : "transparent")
+                            Behavior on color { ColorAnimation { duration: 140 } }
+
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: 6
+
+                                UiText {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: tabBtn.modelData.label
+                                    color: tabBtn.fgColor
+                                    font.family: root.barFont
+                                    font.pixelSize: 13
+                                    font.weight: tabBtn.active ? Font.DemiBold : Font.Medium
+                                }
+
+                                Rectangle {
+                                    visible: tabBtn.modelData.badge > 0
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: Math.max(18, badgeTxt.implicitWidth + 8)
+                                    height: 18
+                                    radius: 9
+                                    color: tabBtn.active
+                                        ? Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.22)
+                                        : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.2)
+                                    UiText {
+                                        id: badgeTxt
+                                        anchors.centerIn: parent
+                                        text: String(tabBtn.modelData.badge)
+                                        color: tabBtn.fgColor
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.Bold
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: tabMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.activeUpdateTab = tabBtn.modelData.id
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ══════════ PACKAGES TAB ══════════
             Column {
                 id: packagesTab
                 width: parent.width
                 spacing: 8
                 visible: root.activeUpdateTab === "packages"
 
-            // ── one status line: counts + protection, "·"-separated, colored.
-            //    A single RichText Text (NOT a Repeater) so it re-renders reliably
-            //    whenever the gate state changes — a Repeater over a JS-array model
-            //    failed to update segments when the array changed in place. The
-            //    blacklist part is a link that opens the local list. ──
-            Text {
-                id: statusLine   // RichText, native-rendered
-                width: parent.width
-                visible: text.length > 0
-                textFormat: Text.RichText
-                renderType: Text.NativeRendering
-                wrapMode: Text.NoWrap
-                elide: Text.ElideRight
-                font.family: root.barFont; font.pixelSize: 10
-                linkColor: root.ink
-                text: {
-                    function hx(c) {
-                        function h(v) { var x = Math.round(v * 255).toString(16); return x.length < 2 ? "0" + x : x }
-                        return "#" + h(c.r) + h(c.g) + h(c.b)
-                    }
-                    function seg(t, c) { return '<font color="' + hx(c) + '">' + t + '</font>' }
-                    var p = []
-                    if (root.archUpdates.length > 0) {
-                        p.push(seg("✓ " + root.archGateOk + " OK", root.green))
-                        if (root.archGateWarn > 0) p.push(seg("⚠ " + root.archGateWarn + " review", root.inkDeep))
-                        if (root.archGateFail > 0) p.push(seg("✗ " + root.archGateFail + " blocked", root.seal))
-                    }
-                    if (root.archGateDegraded) p.push(seg("⚠ protection limited", root.seal))
-                    if (root.archGateStale) p.push(seg("⚠ source stale", root.seal))
-                    if (root.archGateMirrorsAgree && !root.archGateDegraded) p.push(seg("mirrors ✓", root.green))
-                    if (root.archGateMirrorMismatch) p.push(seg("⚠ mirror mismatch", root.seal))
-                    if (root.archGateBlacklist > 0) {
-                        var b = "blacklist " + root.archGateBlacklist
-                        if (root.archGateListDate !== "") b += " · " + root.archGateListDate
-                        p.push('<a href="bl">' + seg(b, root.ink) + '</a>')   // only this part is clickable
-                    }
-                    return p.join(' <font color="' + hx(root.sumi) + '">·</font> ')
-                }
-                onLinkActivated: Quickshell.execDetached(["bash", "-c",
-                    "omarchy-launch-floating-terminal-with-presentation 'less ~/.local/share/qs-aur-blacklist.txt'"])
-                MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.NoButton   // cursor only — the Text handles the link click
-                    hoverEnabled: true
-                    cursorShape: statusLine.hoveredLink !== "" ? Qt.PointingHandCursor : Qt.ArrowCursor
-                }
-            }
-
-            // ── escalation: a FAIL means the INSTALLED copy is on the list, i.e.
-            // possibly already compromised; the full repo upgrade stays blocked ──
-            UiText {
-                visible: root.archGateFail > 0
-                width: parent.width
-                text: "⚠ installed copy may be compromised — run the infection checker"
-                color: root.seal
-                font.family: root.barFont; font.pixelSize: 10
-                wrapMode: Text.WordWrap
-            }
-
-            // ── column headers ──
-            Row {
-                width: parent.width
-                spacing: 4
-                UiText {
-                    width: parent.width * 0.4
-                    text: "Package"
-                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
-                    font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
-                }
-                UiText {
-                    width: parent.width * 0.3
-                    text: "Installed"
-                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
-                    font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
-                }
-                UiText {
-                    width: parent.width * 0.3
-                    text: "Available"
-                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
-                    font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1
-                }
-            }
-
-            // ── update list ──
-            Item {
-                width: parent.width
-                height: Math.min(updatesCol.implicitHeight, 240)
-                Flickable {
-                    id: packagesFlick
-                    anchors.fill: parent
-                    contentHeight: updatesCol.implicitHeight
-                    clip: true
-                    interactive: updatesCol.implicitHeight > 240
-
-                Column {
-                    id: updatesCol
+                // ── Status pills row ──
+                Flow {
                     width: parent.width
-                    spacing: 2
+                    spacing: 6
 
-                    Repeater {
-                        model: root.archUpdates
+                    // OK count
+                    StatusPill {
+                        visible: root.archUpdates.length > 0
+                        icon: "✓"
+                        label: root.archGateOk + " OK"
+                        textColor: root.green
+                    }
 
-                        delegate: Item {
-                            required property var modelData
-                            required property int index
+                    // Review count
+                    StatusPill {
+                        visible: root.archGateWarn > 0
+                        icon: "⚠"
+                        label: root.archGateWarn + " review"
+                        textColor: root.inkDeep
+                    }
 
-                            readonly property color srcColor: {
-                                if (modelData.source === "system") return root.seal;
-                                if (modelData.source === "aur") return root.indigo;
-                                return root.sumi;
-                            }
+                    // Blocked count
+                    StatusPill {
+                        visible: root.archGateFail > 0
+                        icon: "✗"
+                        label: root.archGateFail + " blocked"
+                        textColor: root.sealRaw
+                    }
 
-                            readonly property var gv: archPanel.gateMap[modelData.name]
-                            readonly property bool vBlocked: gv !== undefined && gv.verdict === "FAIL"
-                            readonly property bool vReview:  gv !== undefined && gv.verdict === "WARN"
-                            readonly property bool vOk:      gv !== undefined && gv.verdict === "OK"
-                            readonly property string vReason: (gv !== undefined && gv.reason) ? gv.reason : ""
-                            readonly property bool showReason: vReason !== "" && (vBlocked || vReview)
+                    // Degraded
+                    StatusPill {
+                        visible: root.archGateDegraded
+                        icon: "⚠"
+                        label: "protection limited"
+                        textColor: root.sealRaw
+                    }
 
+                    // Stale
+                    StatusPill {
+                        visible: root.archGateStale
+                        icon: "⚠"
+                        label: "source stale"
+                        textColor: root.sealRaw
+                    }
+
+                    // Mirrors agree
+                    StatusPill {
+                        visible: root.archGateMirrorsAgree && !root.archGateDegraded
+                        icon: "✓"
+                        label: "mirrors synced"
+                        textColor: root.green
+                    }
+
+                    // Mirror mismatch
+                    StatusPill {
+                        visible: root.archGateMirrorMismatch
+                        icon: "⚠"
+                        label: "mirror mismatch"
+                        textColor: root.sealRaw
+                    }
+
+                    // Blacklist pill (clickable link)
+                    StatusPill {
+                        visible: root.archGateBlacklist > 0
+                        icon: "shield"
+                        label: "blacklist " + root.archGateBlacklist + (root.archGateListDate !== "" ? " · " + root.archGateListDate : "")
+                        textColor: root.ink
+                        bgTint: archPanel.chipBg
+                        clickable: true
+                        onClicked: Quickshell.execDetached(["bash", "-c",
+                            "omarchy-launch-floating-terminal-with-presentation 'less ~/.local/share/qs-aur-blacklist.txt'"])
+                    }
+                }
+
+                // Escalation warning banner
+                Rectangle {
+                    visible: root.archGateFail > 0
+                    width: parent.width
+                    height: 32
+                    radius: 12
+                    color: Qt.rgba(root.sealRaw.r, root.sealRaw.g, root.sealRaw.b, 0.15)
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 6
+                        IconText { text: "warning"; color: root.sealRaw; font.pixelSize: 16 }
+                        UiText {
+                            text: "Installed copy may be compromised — run the infection checker"
+                            color: root.sealRaw; font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium
+                        }
+                    }
+                }
+
+                // ── Package List Card ──
+                Card {
+                    title: "Packages"
+                    trailing: root.archUpdates.length > 0
+                        ? (root.archUpdates.length + (root.archUpdates.length === 1 ? " package" : " packages"))
+                        : ""
+
+                    // Column headers
+                    Item {
+                        width: parent.width
+                        height: 22
+
+                        Row {
                             width: parent.width
-                            height: showReason ? 34 : 22
-                            opacity: vBlocked ? 0.55 : 1.0
-
-                            Row {
-                                id: rowTop
-                                width: parent.width
-                                height: 22
-                                spacing: 4
-                                UiText {
-                                    width: 14
-                                    // neutral · until the gate has actually vouched —
-                                    // unknown/scanning must NOT look like a green pass
-                                    text: vBlocked ? "✗" : vReview ? "⚠" : vOk ? "✓" : "·"
-                                    color: vBlocked ? root.seal : vReview ? root.inkDeep : vOk ? root.green : root.sumi
-                                    font.family: root.barFont; font.pixelSize: 11
-                                    horizontalAlignment: Text.AlignHCenter
-                                }
-                                UiText {
-                                    width: parent.width * 0.4 - 18
-                                    text: modelData.name
-                                    color: vBlocked ? root.seal : srcColor
-                                    font.family: root.barFont; font.pixelSize: 11
-                                    elide: Text.ElideRight
-                                }
-                                UiText {
-                                    width: parent.width * 0.3
-                                    text: modelData.oldVer
-                                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.7)
-                                    font.family: root.barFont; font.pixelSize: 11
-                                    elide: Text.ElideRight
-                                }
-                                UiText {
-                                    width: parent.width * 0.3
-                                    text: modelData.newVer
-                                    color: srcColor
-                                    font.family: root.barFont; font.pixelSize: 11
-                                    font.weight: Font.Medium
-                                    elide: Text.ElideRight
-                                }
-                            }
+                            spacing: 8
+                            leftPadding: 6
+                            rightPadding: 6
 
                             UiText {
-                                visible: showReason
-                                anchors.top: rowTop.bottom
-                                x: 18
-                                width: parent.width - 18
-                                text: vReason
-                                color: vBlocked ? root.seal : root.ink
-                                font.family: root.barFont; font.pixelSize: 9
-                                elide: Text.ElideRight
+                                width: (parent.width - 12) * 0.44
+                                text: "PACKAGE"
+                                color: root.sumiHi
+                                font.family: root.barFont
+                                font.pixelSize: 10
+                                font.weight: Font.DemiBold
+                                font.letterSpacing: 0.8
                             }
-
-                            Rectangle {
-                                anchors.bottom: parent.bottom
-                                width: parent.width - 16; height: 1
-                                color: root.sep
-                                visible: index < root.archUpdates.length - 1
+                            UiText {
+                                width: (parent.width - 12) * 0.28
+                                text: "INSTALLED"
+                                color: root.sumiHi
+                                font.family: root.barFont
+                                font.pixelSize: 10
+                                font.weight: Font.DemiBold
+                                font.letterSpacing: 0.8
+                            }
+                            UiText {
+                                width: (parent.width - 12) * 0.28
+                                text: "AVAILABLE"
+                                color: root.sumiHi
+                                font.family: root.barFont
+                                font.pixelSize: 10
+                                font.weight: Font.DemiBold
+                                font.letterSpacing: 0.8
                             }
                         }
                     }
 
-                    UiText {
+                    // Update list
+                    Item {
                         width: parent.width
-                        visible: root.archUpdates.length === 0
-                        text: "No updates available"
-                        color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.5)
-                        font.family: root.barFont; font.pixelSize: 11
-                        horizontalAlignment: Text.AlignHCenter
-                        topPadding: 20
+                        height: Math.min(updatesCol.implicitHeight, 260)
+
+                        Flickable {
+                            id: packagesFlick
+                            anchors.fill: parent
+                            contentHeight: updatesCol.implicitHeight
+                            clip: true
+                            interactive: updatesCol.implicitHeight > height
+
+                            Column {
+                                id: updatesCol
+                                width: parent.width
+                                spacing: 3
+
+                                Repeater {
+                                    model: root.archUpdates
+
+                                    delegate: Rectangle {
+                                        id: pkgItem
+                                        required property var modelData
+                                        required property int index
+
+                                        readonly property color srcColor: {
+                                            if (modelData.source === "system") return root.seal;
+                                            if (modelData.source === "aur") return root.indigo;
+                                            return root.sumi;
+                                        }
+
+                                        readonly property var gv: archPanel.gateMap[modelData.name]
+                                        readonly property bool vBlocked: gv !== undefined && gv.verdict === "FAIL"
+                                        readonly property bool vReview:  gv !== undefined && gv.verdict === "WARN"
+                                        readonly property bool vOk:      gv !== undefined && gv.verdict === "OK"
+                                        readonly property string vReason: (gv !== undefined && gv.reason) ? gv.reason : ""
+                                        readonly property bool showReason: vReason !== "" && (vBlocked || vReview)
+
+                                        width: parent.width
+                                        height: showReason ? 52 : 36
+                                        radius: 10
+                                        color: pkgRowMa.containsMouse
+                                            ? archPanel.chipHover
+                                            : (index % 2 === 1 ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.03) : "transparent")
+                                        opacity: vBlocked ? 0.55 : 1.0
+                                        Behavior on color { ColorAnimation { duration: 100 } }
+
+                                        MouseArea {
+                                            id: pkgRowMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                        }
+
+                                        Column {
+                                            anchors.fill: parent
+                                            anchors.margins: 6
+                                            spacing: 2
+
+                                            Row {
+                                                width: parent.width
+                                                height: 24
+                                                spacing: 8
+
+                                                // Package column: Squircle badge + Name
+                                                Row {
+                                                    width: (parent.width - 16) * 0.44
+                                                    height: parent.height
+                                                    spacing: 6
+
+                                                    Rectangle {
+                                                        width: 22; height: 22; radius: 7
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        color: vBlocked
+                                                            ? Qt.rgba(root.sealRaw.r, root.sealRaw.g, root.sealRaw.b, 0.2)
+                                                            : vReview
+                                                                ? Qt.rgba(root.inkDeep.r, root.inkDeep.g, root.inkDeep.b, 0.2)
+                                                                : vOk
+                                                                    ? Qt.rgba(root.green.r, root.green.g, root.green.b, 0.2)
+                                                                    : Qt.rgba(root.sumi.r, root.sumi.g, root.sumi.b, 0.15)
+                                                        UiText {
+                                                            anchors.centerIn: parent
+                                                            text: vBlocked ? "✗" : vReview ? "⚠" : vOk ? "✓" : "·"
+                                                            color: vBlocked ? root.sealRaw : vReview ? root.inkDeep : vOk ? root.green : root.sumi
+                                                            font.family: root.barFont
+                                                            font.pixelSize: 12
+                                                            font.weight: Font.Bold
+                                                        }
+                                                    }
+
+                                                    UiText {
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        width: parent.width - 28
+                                                        text: modelData.name
+                                                        color: vBlocked ? root.sealRaw : root.ink
+                                                        font.family: root.barFont
+                                                        font.pixelSize: 13
+                                                        font.weight: Font.DemiBold
+                                                        elide: Text.ElideRight
+                                                    }
+                                                }
+
+                                                // Installed column
+                                                UiText {
+                                                    width: (parent.width - 16) * 0.28
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    text: modelData.oldVer
+                                                    color: root.sumiHi
+                                                    font.family: root.mono
+                                                    font.pixelSize: 12
+                                                    elide: Text.ElideRight
+                                                }
+
+                                                // Available column
+                                                Row {
+                                                    width: (parent.width - 16) * 0.28
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    spacing: 6
+
+                                                    UiText {
+                                                        width: parent.width - (modelData.source === "aur" ? 34 : 0)
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        text: modelData.newVer
+                                                        color: pkgItem.srcColor
+                                                        font.family: root.mono
+                                                        font.pixelSize: 12
+                                                        font.weight: Font.DemiBold
+                                                        elide: Text.ElideRight
+                                                    }
+
+                                                    Rectangle {
+                                                        visible: modelData.source === "aur"
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        width: 28; height: 16; radius: 5
+                                                        color: Qt.rgba(root.indigo.r, root.indigo.g, root.indigo.b, 0.2)
+                                                        UiText {
+                                                            anchors.centerIn: parent
+                                                            text: "AUR"
+                                                            color: root.indigo
+                                                            font.family: root.barFont
+                                                            font.pixelSize: 9
+                                                            font.weight: Font.Bold
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            // Reason row
+                                            Row {
+                                                visible: pkgItem.showReason
+                                                width: parent.width
+                                                spacing: 5
+                                                leftPadding: 28
+
+                                                IconText {
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    text: "info"
+                                                    color: vBlocked ? root.sealRaw : root.sumiHi
+                                                    font.pixelSize: 12
+                                                }
+
+                                                UiText {
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    width: parent.width - 48
+                                                    text: pkgItem.vReason
+                                                    color: vBlocked ? root.sealRaw : root.sumiHi
+                                                    font.family: root.barFont
+                                                    font.pixelSize: 11
+                                                    elide: Text.ElideRight
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Empty state
+                                Item {
+                                    width: parent.width
+                                    height: 100
+                                    visible: root.archUpdates.length === 0
+
+                                    Column {
+                                        anchors.centerIn: parent
+                                        spacing: 6
+                                        IconText {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: "check_circle"
+                                            color: root.green
+                                            font.pixelSize: 32
+                                        }
+                                        UiText {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: "All packages up to date"
+                                            color: root.ink
+                                            font.family: root.barFont
+                                            font.pixelSize: 13
+                                            font.weight: Font.Medium
+                                        }
+                                        UiText {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: "No system or AUR updates pending"
+                                            color: root.sumi
+                                            font.family: root.barFont
+                                            font.pixelSize: 11
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        ScrollThumb { flick: packagesFlick }
                     }
                 }
-                }
-                ScrollThumb { flick: packagesFlick }
-            }
 
-            Rectangle { width: parent.width; height: 1; color: root.sep }
+                // ── Buttons ──
+                Row {
+                    width: parent.width
+                    spacing: 8
 
-            // ── buttons ──
-            Row {
-                width: parent.width
-                spacing: 8
-
-                // Refresh
-                Rectangle {
-                    width: (parent.width - 8 * (archPanel.btnCount - 1)) / archPanel.btnCount
-                    height: 28; radius: root.panelButtonRadius
-                    color: refreshMa.containsMouse ? root.fillHover : root.fillIdle
-                    border.color: refreshMa.containsMouse ? root.seal : root.sep
-                    border.width: 0
-                    Behavior on color { ColorAnimation { duration: 120 } }
-                    UiText {
-                        anchors.centerIn: parent
-                        text: "Refresh"
-                        color: refreshMa.containsMouse ? root.seal : root.ink
-                        font.family: root.barFont; font.pixelSize: 11
-                    }
-                    MouseArea {
-                        id: refreshMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
+                    // Refresh
+                    PillButton {
+                        width: root.evenW((parent.width - 8 * (archPanel.btnCount - 1)) / archPanel.btnCount)
+                        icon: "refresh"
+                        label: "Refresh"
                         onClicked: root.archRefreshTick++
                     }
-                }
 
-                // Update — Omarchy owns its full pipeline when present; plain Arch
-                // keeps the checked all-or-nothing repository transaction.
-                Rectangle {
-                    width: (parent.width - 8 * (archPanel.btnCount - 1)) / archPanel.btnCount
-                    height: 28; radius: root.panelButtonRadius
-                    opacity: archPanel.canUpdate ? 1.0 : 0.45
-                    color: (updateMa.containsMouse && archPanel.canUpdate) ? root.fillPrimaryHover : root.seal
-                    border.color: "transparent"
-                    Behavior on color { ColorAnimation { duration: 120 } }
-                    UiText {
-                        anchors.centerIn: parent
-                        text: archPanel.canUpdate
+                    // Update (primary)
+                    PillButton {
+                        width: root.evenW((parent.width - 8 * (archPanel.btnCount - 1)) / archPanel.btnCount)
+                        primary: true
+                        icon: "upgrade"
+                        btnEnabled: archPanel.canUpdate
+                        label: archPanel.canUpdate
                             ? archPanel.packageUpdateButtonText
                             : archPanel.repoBlockButtonText
-                        width: parent.width - 16
-                        horizontalAlignment: Text.AlignHCenter
-                        color: root.paper
-                        font.family: root.barFont; font.pixelSize: 11
-                        elide: Text.ElideRight
-                    }
-                    MouseArea {
-                        id: updateMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        enabled: archPanel.canUpdate
-                        cursorShape: archPanel.canUpdate ? Qt.PointingHandCursor : Qt.ArrowCursor
                         onClicked: {
                             var command = [archPanel.packageUpdateCommand]
                             if (archPanel.usesOmarchyUpdater) {
@@ -1125,30 +1468,14 @@ PanelWindow {
                             archPanel.launchPackageUpdate(command)
                         }
                     }
-                }
 
-                // Review — AUR needs a manual PKGBUILD look; this view installs nothing.
-                Rectangle {
-                    visible: archPanel.aurReviewPackages > 0
-                    width: (parent.width - 8 * (archPanel.btnCount - 1)) / archPanel.btnCount
-                    height: 28; radius: root.panelButtonRadius
-                    color: reviewMa.containsMouse ? root.fillHover : root.fillIdle
-                    border.color: reviewMa.containsMouse ? root.seal : root.sep
-                    border.width: 0
-                    Behavior on color { ColorAnimation { duration: 120 } }
-                    UiText {
-                        anchors.centerIn: parent
-                        text: "Review " + archPanel.aurReviewPackages + " AUR"
-                        color: reviewMa.containsMouse ? root.seal : root.ink
-                        font.family: root.barFont; font.pixelSize: 11
-                    }
-                    MouseArea {
-                        id: reviewMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
+                    // Review AUR
+                    PillButton {
+                        visible: archPanel.aurReviewPackages > 0
+                        width: root.evenW((parent.width - 8 * (archPanel.btnCount - 1)) / archPanel.btnCount)
+                        icon: "visibility"
+                        label: "Review " + archPanel.aurReviewPackages + " AUR"
                         onClicked: {
-                            // Display-only: list AUR updates, install nothing.
                             panelUpdateRunner.command = ["bash", "-c",
                                 "omarchy-launch-floating-terminal-with-presentation 'echo \"AUR review — no packages are installed by this view.\"; echo; AUR=$(command -v paru || command -v yay || echo yay); \"$AUR\" -Qum; echo; echo \"Review each PKGBUILD before building these manually.\"'"];
                             root.archVisible = false;
@@ -1157,7 +1484,6 @@ PanelWindow {
                         }
                     }
                 }
-            }
             }
             // ══════════ END PACKAGES TAB ══════════
 
@@ -1168,91 +1494,138 @@ PanelWindow {
                 spacing: 8
                 visible: root.activeUpdateTab === "themes"
 
-                // ── status line: counts + freshness (RichText, native) ──
-                Text {
+                // ── Status pills row ──
+                Flow {
                     width: parent.width
-                    textFormat: Text.RichText
-                    renderType: Text.NativeRendering
-                    wrapMode: Text.NoWrap
-                    elide: Text.ElideRight
-                    font.family: root.barFont; font.pixelSize: 10
-                    text: {
-                        function hx(c) { function h(v){var x=Math.round(v*255).toString(16); return x.length<2?"0"+x:x} return "#"+h(c.r)+h(c.g)+h(c.b) }
-                        function seg(t,c){ return '<font color="'+hx(c)+'">'+t+'</font>' }
-                        if (root.themeUpdChecked === "") return seg("never checked — run a scan", root.sumi)
-                        var p = []
-                        p.push(seg(root.themeUpdOutdated + (root.themeUpdOutdated === 1 ? " update found" : " updates found"),
-                                   root.themeUpdOutdated>0?root.ink:root.sumi))
-                        if (root.themeUpdLocalEdits>0) p.push(seg(root.themeUpdLocalEdits + " with local edits", root.inkDeep))
-                        if (root.themeUpdDegraded) p.push(seg("⚠ check incomplete", root.seal))
-                        var d = new Date(root.themeUpdChecked)
-                        if (!isNaN(d.getTime())) p.push(seg("checked " + Qt.formatDateTime(d, "HH:mm"), root.sumi))
-                        return p.join(' <font color="'+hx(root.sumi)+'">·</font> ')
+                    spacing: 6
+
+                    StatusPill {
+                        visible: root.themeUpdChecked === ""
+                        icon: "info"
+                        label: "Never checked — run a scan"
+                        textColor: root.sumi
+                    }
+
+                    StatusPill {
+                        visible: root.themeUpdChecked !== ""
+                        icon: root.themeUpdOutdated > 0 ? "update" : "check"
+                        label: root.themeUpdOutdated + (root.themeUpdOutdated === 1 ? " update found" : " updates found")
+                        textColor: root.themeUpdOutdated > 0 ? root.ink : root.sumi
+                        bgTint: root.themeUpdOutdated > 0 ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15) : archPanel.chipBg
+                    }
+
+                    StatusPill {
+                        visible: root.themeUpdLocalEdits > 0
+                        icon: "edit"
+                        label: root.themeUpdLocalEdits + " with local edits"
+                        textColor: root.inkDeep
+                    }
+
+                    StatusPill {
+                        visible: root.themeUpdDegraded
+                        icon: "warning"
+                        label: "Check incomplete"
+                        textColor: root.sealRaw
+                    }
+
+                    StatusPill {
+                        visible: {
+                            if (root.themeUpdChecked === "") return false
+                            var d = new Date(root.themeUpdChecked)
+                            return !isNaN(d.getTime())
+                        }
+                        icon: "schedule"
+                        label: {
+                            var d = new Date(root.themeUpdChecked)
+                            return "Checked " + Qt.formatDateTime(d, "HH:mm")
+                        }
+                        textColor: root.sumiHi
+                        bgTint: archPanel.chipBg
                     }
                 }
 
-                UiText {
+                // Error banner
+                Rectangle {
                     visible: archPanel.removeError !== ""
                     width: parent.width
-                    text: "Remove failed · " + archPanel.removeError
-                    color: root.seal
-                    font.family: root.barFont
-                    font.pixelSize: 10
-                    elide: Text.ElideRight
+                    height: 32
+                    radius: 12
+                    color: Qt.rgba(root.sealRaw.r, root.sealRaw.g, root.sealRaw.b, 0.15)
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 6
+                        IconText { text: "error"; color: root.sealRaw; font.pixelSize: 16 }
+                        UiText {
+                            text: "Remove failed · " + archPanel.removeError
+                            color: root.sealRaw; font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium
+                        }
+                    }
                 }
 
-                // ── current theme became stale after its repo advanced ──
-                Item {
+                // Current theme stale banner
+                Rectangle {
                     visible: root.themeUpdCurrentStale
                     width: parent.width
-                    height: 18
-                    UiText {
-                        anchors.left: parent.left
+                    height: 42
+                    radius: 14
+                    color: archPanel.chipBg
+                    Row {
+                        anchors.left: parent.left; anchors.leftMargin: 12
                         anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - 84
-                        text: "⟳ current theme updated — live copy is stale"
-                        color: root.inkDeep
-                        font.family: root.barFont; font.pixelSize: 10
-                        elide: Text.ElideRight
-                    }
-                    Rectangle {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.verticalCenterOffset: -2   // match the update chip: onto the text's optical centre
-                        width: 78; height: 18; radius: root.panelButtonRadius
-                        color: reapplyMa.containsMouse ? root.fillHover : root.fillIdle
-                        border.color: reapplyMa.containsMouse ? root.seal : root.sep
-                        border.width: 0
-                        Behavior on color { ColorAnimation { duration: 120 } }
+                        spacing: 8
+                        IconText { text: "sync_problem"; color: root.inkDeep; font.pixelSize: 18 }
                         UiText {
-                            anchors.centerIn: parent
-                            text: "Re-apply"
-                            color: reapplyMa.containsMouse ? root.seal : root.ink
-                            font.family: root.barFont; font.pixelSize: 9
+                            text: "Current theme updated — live copy is stale"
+                            color: root.ink; font.family: root.barFont; font.pixelSize: 12; font.weight: Font.Medium
                         }
-                        MouseArea {
-                            id: reapplyMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: archPanel.reapplyCurrentTheme()
-                        }
+                    }
+                    PillButton {
+                        anchors.right: parent.right; anchors.rightMargin: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 28; radius: 14
+                        label: "Re-apply"
+                        icon: "sync"
+                        onClicked: archPanel.reapplyCurrentTheme()
                     }
                 }
 
-                // ── column headers ──
-                Row {
-                    width: parent.width
-                    spacing: archPanel.themeGridGap
-                    UiText { width: parent.width - archPanel.themeRightBlockWidth - archPanel.themeGridGap; text: "Theme";  color: Qt.rgba(root.ink.r,root.ink.g,root.ink.b,0.6); font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1 }
-                    // Intentionally blank: row actions (update, reinstall, remove).
-                    Item { width: archPanel.themeActionsWidth; height: 1 }
-                    UiText { width: archPanel.themeBehindWidth; text: "Behind"; color: Qt.rgba(root.ink.r,root.ink.g,root.ink.b,0.6); font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1 }
-                    UiText { width: archPanel.themeStateWidth; text: "State"; color: Qt.rgba(root.ink.r,root.ink.g,root.ink.b,0.6); font.family: root.barFont; font.pixelSize: 10; font.letterSpacing: 1 }
-                }
+                // ── Theme List Card ──
+                Card {
+                    title: "Themes"
+                    trailing: root.themeUpdList.length > 0
+                        ? (root.themeUpdList.length + (root.themeUpdList.length === 1 ? " theme" : " themes"))
+                        : ""
 
-                // ── theme list (only outdated + unreachable themes are in the model) ──
-                Item {
+                    // Column headers
+                    Item {
+                        width: parent.width
+                        height: 22
+                        Row {
+                            width: parent.width
+                            spacing: archPanel.themeGridGap
+                            leftPadding: 6
+                            rightPadding: 6
+                            UiText {
+                                width: parent.width - archPanel.themeRightBlockWidth - archPanel.themeGridGap - 12
+                                text: "THEME"
+                                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.weight: Font.DemiBold; font.letterSpacing: 0.8
+                            }
+                            Item { width: archPanel.themeActionsWidth; height: 1 }
+                            UiText {
+                                width: archPanel.themeBehindWidth
+                                text: "BEHIND"
+                                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.weight: Font.DemiBold; font.letterSpacing: 0.8
+                            }
+                            UiText {
+                                width: archPanel.themeStateWidth
+                                text: "STATE"
+                                color: root.sumiHi; font.family: root.barFont; font.pixelSize: 10; font.weight: Font.DemiBold; font.letterSpacing: 0.8
+                            }
+                        }
+                    }
+
+                    // Theme list
+                    Item {
                     width: parent.width
                     height: Math.min(themesCol.implicitHeight, 240)
                     Flickable {
@@ -1596,8 +1969,7 @@ PanelWindow {
                     }
                     ScrollThumb { flick: themesFlick }
                 }
-
-                Rectangle { width: parent.width; height: 1; color: root.sep }
+            }
 
                 // ── buttons ──
                 Row {
