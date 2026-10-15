@@ -50,6 +50,8 @@ PanelWindow {
             onReleased: { cursorShape = Qt.OpenHandCursor }
         }
 
+        readonly property bool hasLyrics: mprisPanel.lyricsTrackId !== "" && mprisPanel.lyricsTrackId === mprisPanel.currentTrackId && mprisPanel.lyricsList && mprisPanel.lyricsList.length > 0
+
         Row {
             id: lyricsContentRow
             anchors.centerIn: parent
@@ -64,7 +66,7 @@ PanelWindow {
 
             UiText {
                 id: lyricsText
-                text: mprisPanel.currentLyricIndex >= 0 && mprisPanel.currentLyricIndex < mprisPanel.lyricsList.length ? mprisPanel.lyricsList[mprisPanel.currentLyricIndex].text : (mprisPanel.lyricsList.length > 0 ? "..." : "No lyrics found")
+                text: (lyricsCard.hasLyrics && mprisPanel.currentLyricIndex >= 0 && mprisPanel.currentLyricIndex < mprisPanel.lyricsList.length) ? mprisPanel.lyricsList[mprisPanel.currentLyricIndex].text : (lyricsCard.hasLyrics ? "..." : "No lyrics found")
                 color: root.ink
                 font.family: root.barFont
                 font.pixelSize: 14

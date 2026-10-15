@@ -19,11 +19,24 @@ PanelWindow {
     readonly property string screenName: barSlot.screen ? barSlot.screen.name : ""
     readonly property bool compactShell: barSlot.root.barShellStyle !== "full"
     readonly property int shellOuterMargin: 5
-    readonly property int shellRadius: barSlot.root.barShellStyle === "dock"
-        ? 8
-        : barSlot.root.barShellStyle === "island"
-            ? shellVisibleHeight / 2
-            : barSlot.root.barShellStyle === "notch" ? 0 : barSlot.root.panelRadius
+
+    readonly property bool isDashboardTargetScreen: !barSlot.root.activePopupScreenName || barSlot.root.isActivePopupScreenName(barSlot.screenName)
+    readonly property bool isDashboardActive: barSlot.root.dashboardExpanded && isDashboardTargetScreen
+    property bool dashboardEverActivated: false
+
+    readonly property real dashboardExpandedWidth: Math.min(440, barSlot.width - 32)
+    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - (barSlot.root.barShellStyle === "island" ? 40 : 20), (barSlot.root.dashboardDetail !== "") ? 520 : 500)
+
+    readonly property real dashboardTopRadius: barSlot.root.barPosition === "bottom" ? 24 : 10
+    readonly property real dashboardBottomRadius: barSlot.root.barPosition === "bottom" ? 10 : 24
+
+    readonly property int shellRadius: isDashboardActive
+        ? 24
+        : (barSlot.root.barShellStyle === "dock"
+            ? 8
+            : barSlot.root.barShellStyle === "island"
+                ? shellVisibleHeight / 2
+                : barSlot.root.barShellStyle === "notch" ? 0 : barSlot.root.panelRadius)
     // The Notch is a content-width lobe flowing directly out of the screen edge.
     // One continuous cubic per side creates the soft diagonal run-out without
     // a neck, step or frame around the rest of the output.
@@ -31,12 +44,16 @@ PanelWindow {
     readonly property int notchShoulderWidth: notchFrameRadius
     readonly property int notchBodyRadius: 9
     readonly property real notchCurveKappa: 0.55228475
-    readonly property int shellVisibleHeight: barSlot.root.v2BarHeight
-    readonly property real shellTargetWidth: compactShell
-        ? Math.max(80,
-            Math.min(barSlot.width - 2 * shellOuterMargin,
-                island.fitNaturalWidth))
-        : barSlot.width
+    readonly property int shellVisibleHeight: isDashboardActive
+        ? Math.round(dashboardExpandedHeight)
+        : barSlot.root.v2BarHeight
+    readonly property real shellTargetWidth: isDashboardActive
+        ? dashboardExpandedWidth
+        : (compactShell
+            ? Math.max(80,
+                Math.min(barSlot.width - 2 * shellOuterMargin,
+                    island.fitNaturalWidth))
+            : barSlot.width)
 
     visible: !barSlot.root.barHidden
     color: "transparent"
@@ -60,17 +77,17 @@ PanelWindow {
     readonly property bool effectivelyHidden: false
 
     mask: Region {
-        x: barSlot.root.barUnlocked ? 0 : Math.round(continuousBarSurface.x)
-        y: barSlot.root.barUnlocked ? 0
+        x: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? 0 : Math.round(continuousBarSurface.x)
+        y: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? 0
            : barSlot.effectivelyHidden
                ? (barSlot.root.barPosition === "bottom" ? barSlot.height - 1 : 0)
-               : (barSlot.root.barPosition === "bottom" ? barSlot.height - barSlot.shellVisibleHeight - (barSlot.root.barShellStyle === "island" ? 4 : 0) : (barSlot.root.barShellStyle === "island" ? 4 : 0))
-        width: barSlot.root.barUnlocked ? barSlot.width : Math.round(continuousBarSurface.width)
-        height: barSlot.root.barUnlocked ? barSlot.height
-           : barSlot.effectivelyHidden ? 1 : barSlot.shellVisibleHeight
+               : (barSlot.root.barPosition === "bottom" ? barSlot.height - Math.round(continuousBarSurface.height) - (barSlot.root.barShellStyle === "island" ? 4 : 0) : (barSlot.root.barShellStyle === "island" ? 4 : 0))
+        width: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? barSlot.width : Math.round(continuousBarSurface.width)
+        height: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? barSlot.height
+           : barSlot.effectivelyHidden ? 1 : Math.round(continuousBarSurface.height)
     }
-    // grab keyboard while unlocked so ESC can exit
-    WlrLayershell.keyboardFocus: barSlot.root.barUnlocked ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    // grab keyboard while unlocked or dashboard is expanded so ESC / typing can work
+    WlrLayershell.keyboardFocus: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     HoverHandler {
         id: slotHover
@@ -97,9 +114,9 @@ PanelWindow {
     // bottom placement mirrors it so the shadow still opens toward the desktop.
     Rectangle {
         id: continuousBarSurface
-        x: barSlot.compactShell ? Math.round((barSlot.width - width) / 2) : 0
+        x: (barSlot.compactShell || barSlot.isDashboardActive) ? Math.round((barSlot.width - width) / 2) : 0
         readonly property int islandMargin: barSlot.root.barShellStyle === "island" ? 4 : 0
-        readonly property bool lockRetracted: barSlot.root.barLockRetracted && barSlot.root.barShellStyle === "island"
+        readonly property bool lockRetracted: !barSlot.isDashboardActive && barSlot.root.barLockRetracted && barSlot.root.barShellStyle === "island"
         y: lockRetracted
             ? (barSlot.root.barPosition === "bottom" ? barSlot.height + 24 : -height - islandMargin - 24)
             : barSlot.root.barPosition === "bottom"
@@ -114,24 +131,43 @@ PanelWindow {
         }
         width: barSlot.shellTargetWidth
         Behavior on width {
-            enabled: barSlot.root.barShellStyle === "island" && island.islandShrinkProgress > 0.95
-            NumberAnimation { duration: 400; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
+            enabled: (barSlot.root.barShellStyle === "island" && island.islandShrinkProgress > 0.95) || barSlot.isDashboardActive || width !== barSlot.shellTargetWidth
+            NumberAnimation {
+                duration: 420
+                easing.type: barSlot.isDashboardActive ? Easing.OutBack : Easing.OutCubic
+                easing.overshoot: 1.15
+            }
         }
         height: barSlot.shellVisibleHeight
-        radius: barSlot.compactShell ? barSlot.shellRadius : 0
+        Behavior on height {
+            NumberAnimation {
+                duration: 420
+                easing.type: barSlot.isDashboardActive ? Easing.OutBack : Easing.OutCubic
+                easing.overshoot: 1.15
+            }
+        }
+        radius: (barSlot.compactShell || barSlot.isDashboardActive) ? barSlot.shellRadius : 0
+        Behavior on radius { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
         color: "transparent"
-        z: 0
+        z: barSlot.isDashboardActive ? 20 : 0
 
-
-
-        readonly property real topCornerRadius:
-            !barSlot.compactShell ? 0
+        readonly property real targetTopCornerRadius:
+            (!barSlot.compactShell && !barSlot.isDashboardActive) ? 0
+            : barSlot.isDashboardActive ? barSlot.dashboardTopRadius
             : (barSlot.root.barShellStyle === "fit" || barSlot.root.barShellStyle === "island") ? radius
             : barSlot.root.barPosition === "bottom" ? radius : 0
-        readonly property real bottomCornerRadius:
-            !barSlot.compactShell ? 0
+        readonly property real targetBottomCornerRadius:
+            (!barSlot.compactShell && !barSlot.isDashboardActive) ? 0
+            : barSlot.isDashboardActive ? barSlot.dashboardBottomRadius
             : (barSlot.root.barShellStyle === "fit" || barSlot.root.barShellStyle === "island") ? radius
             : barSlot.root.barPosition === "top" ? radius : 0
+
+        property real topCornerRadius: targetTopCornerRadius
+        Behavior on topCornerRadius { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+
+        property real bottomCornerRadius: targetBottomCornerRadius
+        Behavior on bottomCornerRadius { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+
         readonly property real insetProgress: edgeBorder.curvedInsetRendering
             ? edgeBorder.curvedInsetReveal
             : 0
@@ -145,13 +181,62 @@ PanelWindow {
 
         RectangularShadow {
             anchors.fill: parent
-            visible: barSlot.root.barShellStyle !== "notch"
-            radius: continuousBarSurface.radius
-            blur: 9
+            visible: barSlot.root.barShellStyle !== "notch" || barSlot.isDashboardActive
+            radius: continuousBarSurface.bottomCornerRadius
+            blur: barSlot.isDashboardActive ? 24 : 9
             spread: 0
             offset: Qt.vector2d(0, barSlot.root.barPosition === "bottom" ? -2 : 2)
             color: barSlot.root.v2BarShadow
             z: -1
+        }
+
+        Shape {
+            id: islandSurfaceBorder
+            anchors.fill: parent
+            visible: barSlot.isDashboardActive || (barSlot.compactShell && barSlot.root.barBorderEnabled && barSlot.root.barShellStyle === "island")
+            antialiasing: true
+            preferredRendererType: Shape.CurveRenderer
+            z: 15
+
+            readonly property real topR: continuousBarSurface.topCornerRadius
+            readonly property real botR: continuousBarSurface.bottomCornerRadius
+            readonly property real w: width
+            readonly property real h: height
+
+            ShapePath {
+                strokeColor: barSlot.root.islandBorder
+                strokeWidth: 1
+                fillColor: "transparent"
+                capStyle: ShapePath.RoundCap
+                joinStyle: ShapePath.RoundJoin
+
+                startX: islandSurfaceBorder.topR
+                startY: 0.5
+                PathLine { x: islandSurfaceBorder.w - islandSurfaceBorder.topR; y: 0.5 }
+                PathQuad {
+                    x: islandSurfaceBorder.w - 0.5; y: islandSurfaceBorder.topR
+                    controlX: islandSurfaceBorder.w - 0.5; controlY: 0.5
+                }
+                PathLine {
+                    x: islandSurfaceBorder.w - 0.5
+                    y: islandSurfaceBorder.h - islandSurfaceBorder.botR
+                }
+                PathQuad {
+                    x: islandSurfaceBorder.w - islandSurfaceBorder.botR
+                    y: islandSurfaceBorder.h - 0.5
+                    controlX: islandSurfaceBorder.w - 0.5; controlY: islandSurfaceBorder.h - 0.5
+                }
+                PathLine { x: islandSurfaceBorder.botR; y: islandSurfaceBorder.h - 0.5 }
+                PathQuad {
+                    x: 0.5; y: islandSurfaceBorder.h - islandSurfaceBorder.botR
+                    controlX: 0.5; controlY: islandSurfaceBorder.h - 0.5
+                }
+                PathLine { x: 0.5; y: islandSurfaceBorder.topR }
+                PathQuad {
+                    x: islandSurfaceBorder.topR; y: 0.5
+                    controlX: 0.5; controlY: 0.5
+                }
+            }
         }
 
         // The panel indentation is part of the filled silhouette, not merely a
@@ -160,7 +245,7 @@ PanelWindow {
         Shape {
             id: topSurfaceFill
             visible: barSlot.root.barPosition === "top"
-                && barSlot.root.barShellStyle !== "notch"
+                && (barSlot.root.barShellStyle !== "notch" || barSlot.isDashboardActive)
             anchors.fill: parent
             antialiasing: true
             preferredRendererType: Shape.CurveRenderer
@@ -220,7 +305,7 @@ PanelWindow {
         Shape {
             id: bottomSurfaceFill
             visible: barSlot.root.barPosition === "bottom"
-                && barSlot.root.barShellStyle !== "notch"
+                && (barSlot.root.barShellStyle !== "notch" || barSlot.isDashboardActive)
             anchors.fill: parent
             antialiasing: true
             preferredRendererType: Shape.CurveRenderer
@@ -450,7 +535,7 @@ PanelWindow {
             width: parent.width + (barSlot.root.barShellStyle === "notch"
                 ? barSlot.width - parent.width : 0)
             height: parent.height
-            visible: barSlot.compactShell && barSlot.root.barBorderEnabled
+            visible: !barSlot.isDashboardActive && barSlot.compactShell && barSlot.root.barBorderEnabled
             antialiasing: true
             preferredRendererType: Shape.CurveRenderer
             z: 2
@@ -623,7 +708,7 @@ PanelWindow {
             id: edgeBorder
             readonly property bool popupScreenActive:
                 barSlot.root.isActivePopupScreenName(barSlot.screen ? barSlot.screen.name : "")
-            readonly property real curvedInsetReveal: popupScreenActive
+            readonly property real curvedInsetReveal: (!barSlot.isDashboardActive && popupScreenActive)
                 ? barSlot.root.panelInsetReveal
                 : 0
             readonly property real curvedInsetAnchor: barSlot.root.panelInsetX
@@ -648,18 +733,24 @@ PanelWindow {
         }
     }
 
-    // ── dim backdrop while unlocked (edit mode); click empty → lock ──
+    // ── dim backdrop while unlocked (edit mode) or dashboard expanded; click empty → dismiss ──
     Rectangle {
         anchors.fill: parent
         color: "#000000"
-        opacity: barSlot.root.barUnlocked ? 0.4 : 0.0
+        opacity: barSlot.root.barUnlocked ? 0.4 : (barSlot.isDashboardActive ? 0.65 : 0.0)
         visible: opacity > 0.001
-        z: 1
-        Behavior on opacity { NumberAnimation { duration: 180 } }
+        z: 10
+        Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
         MouseArea {
             anchors.fill: parent
-            enabled: barSlot.root.barUnlocked
-            onClicked: barSlot.root.barUnlocked = false
+            enabled: barSlot.root.barUnlocked || barSlot.isDashboardActive
+            onClicked: {
+                if (barSlot.root.barUnlocked) {
+                    barSlot.root.barUnlocked = false
+                } else if (barSlot.isDashboardActive) {
+                    barSlot.root.dashboardExpanded = false
+                }
+            }
         }
     }
 
@@ -1890,9 +1981,19 @@ PanelWindow {
         width: continuousBarSurface.width
         height: barSlot.root.v2BarHeight
         y: continuousBarSurface.y
-        z: 2                                  // above the dim backdrop
-        focus: barSlot.root.barUnlocked       // receive keys while unlocked
-        Keys.onEscapePressed: barSlot.root.barUnlocked = false
+        z: 22
+        opacity: barSlot.isDashboardActive ? 0.0 : 1.0
+        visible: opacity > 0.001
+        enabled: !barSlot.isDashboardActive
+        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+        focus: barSlot.root.barUnlocked || barSlot.isDashboardActive
+        Keys.onEscapePressed: {
+            if (barSlot.isDashboardActive) {
+                barSlot.root.dashboardExpanded = false
+            } else {
+                barSlot.root.barUnlocked = false
+            }
+        }
 
         property bool isHovered: islandHover.hovered
         HoverHandler {
@@ -2142,7 +2243,7 @@ PanelWindow {
                 : island.centerTargetX
             
             readonly property bool mediaActive: barSlot.mprisPanel && barSlot.mprisPanel.active
-            readonly property bool hasLyrics: mediaActive && barSlot.mprisPanel.lyricsList && barSlot.mprisPanel.lyricsList.length > 0 && barSlot.mprisPanel.currentLyricIndex >= 0
+            readonly property bool hasLyrics: mediaActive && barSlot.mprisPanel.lyricsTrackId !== "" && barSlot.mprisPanel.lyricsTrackId === barSlot.mprisPanel.currentTrackId && barSlot.mprisPanel.lyricsList && barSlot.mprisPanel.lyricsList.length > 0 && barSlot.mprisPanel.currentLyricIndex >= 0
             readonly property string lyricText: hasLyrics ? barSlot.mprisPanel.lyricsList[barSlot.mprisPanel.currentLyricIndex].text : ""
             
             readonly property string windowTitle: Hyprland && Hyprland.activeToplevel ? Hyprland.activeToplevel.title : ""
@@ -2307,7 +2408,7 @@ PanelWindow {
         y: continuousBarSurface.y
         width: continuousBarSurface.width
         height: barSlot.root.v2BarHeight
-        visible: barSlot.root.barBorderEnabled && barSlot.root.barShellStyle !== "island"
+        visible: barSlot.root.barBorderEnabled && barSlot.root.barShellStyle !== "island" && !barSlot.isDashboardActive
         z: 3
 
         Rectangle {
@@ -2338,6 +2439,291 @@ PanelWindow {
             y: barSlot.root.barPosition === "bottom"
                 ? 0
                 : foregroundEdgeBorder.height - height
+        }
+    }
+
+    // ── In-place expanded Island Dock dashboard ──
+    Item {
+        id: expandedDashboardContainer
+        x: continuousBarSurface.x
+        y: continuousBarSurface.y
+        width: continuousBarSurface.width
+        height: continuousBarSurface.height
+        z: 25
+        clip: true
+        opacity: barSlot.isDashboardActive ? 1.0 : 0.0
+        visible: opacity > 0.001
+        enabled: barSlot.isDashboardActive
+        Behavior on opacity {
+            NumberAnimation {
+                duration: barSlot.isDashboardActive ? 250 : 160
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        property date now: new Date()
+        Timer {
+            interval: 1000
+            running: barSlot.isDashboardActive
+            repeat: true
+            onTriggered: expandedDashboardContainer.now = new Date()
+        }
+
+        function pad(n) { return n < 10 ? "0" + n : String(n) }
+
+        readonly property string hourStr: {
+            var h = barSlot.root.clock12h ? now.getHours() % 12 : now.getHours()
+            if (barSlot.root.clock12h && h === 0) h = 12
+            return pad(h)
+        }
+        readonly property string minStr: pad(now.getMinutes())
+        readonly property string amPmStr: barSlot.root.clock12h ? (now.getHours() < 12 ? "AM" : "PM") : ""
+
+        readonly property var months: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+        readonly property var days: ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
+        readonly property var shortDays: ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
+        readonly property string dateStr: days[now.getDay()] + ", " + now.getDate() + " " + months[now.getMonth()]
+        readonly property string dateShortStr: shortDays[now.getDay()] + ", " + months[now.getMonth()] + " " + now.getDate()
+
+        QtObject {
+            id: dashboardAdapter
+            property bool expanded: barSlot.root.dashboardExpanded
+            onExpandedChanged: {
+                if (barSlot.root.dashboardExpanded !== expanded) {
+                    barSlot.root.dashboardExpanded = expanded
+                }
+            }
+            property bool searchOpen: false
+            function toggleSearch() {
+                searchOpen = !searchOpen
+                if (searchOpen) {
+                    petSearch.open()
+                } else {
+                    petSearch.close()
+                }
+            }
+            function toggleSearchEngine() {
+                if (petSearch) petSearch.toggleEngine()
+            }
+        }
+
+        Connections {
+            target: barSlot
+            function onIsDashboardActiveChanged() {
+                if (barSlot.isDashboardActive) {
+                    barSlot.dashboardEverActivated = true
+                    if (dashboardLoader.item) {
+                        if (!barSlot.root.dashboardDetail) {
+                            dashboardLoader.item.activeDetailView = ""
+                            dashboardLoader.item.selectCategoryByIndex(0)
+                        } else {
+                            dashboardLoader.item.activeDetailView = barSlot.root.dashboardDetail
+                        }
+                        dashboardLoader.item.forceActiveFocus()
+                    }
+                } else {
+                    dashboardAdapter.searchOpen = false
+                    if (petSearch) petSearch.close()
+                    barSlot.root.dashboardDetail = ""
+                    if (dashboardLoader.item) {
+                        dashboardLoader.item.activeDetailView = ""
+                        dashboardLoader.item.selectCategoryByIndex(0)
+                    }
+                }
+            }
+        }
+
+        // Unified Top Header Bar
+        Item {
+            id: topHeaderBar
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.topMargin: 14
+            anchors.leftMargin: 14
+            anchors.rightMargin: 14
+            height: 32
+            z: 10
+
+            // Left Side: System Pet + Cute Search Bar + Clock Pill + Battery Pill
+            Row {
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
+
+                SystemPet {
+                    id: systemPet
+                    root: barSlot.root
+                    curious: dashboardAdapter.searchOpen
+                    height: 32
+                    anchors.verticalCenter: parent.verticalCenter
+                    onClicked: dashboardAdapter.toggleSearch()
+                }
+
+                PetSearchBar {
+                    id: petSearch
+                    root: barSlot.root
+                    isOpen: dashboardAdapter.searchOpen
+                    maxContentWidth: Math.max(160, Math.min(260, topHeaderBar.width - systemPet.width - topHeaderRightRow.width - 24))
+                    anchors.verticalCenter: parent.verticalCenter
+                    onFocusLostOrClosed: {
+                        dashboardAdapter.searchOpen = false
+                        if (dashboardLoader.item) dashboardLoader.item.forceActiveFocus()
+                    }
+                    onSearchSubmitted: {
+                        barSlot.root.dashboardExpanded = false
+                    }
+                }
+
+                // Battery Pill
+                Rectangle {
+                    id: batteryPill
+                    height: 28
+                    readonly property bool shouldShow: !dashboardAdapter.searchOpen && battLoader.item && battLoader.item.shown
+                    width: shouldShow ? battLoader.item.implicitWidth : 0
+                    opacity: shouldShow ? 1.0 : 0.0
+                    radius: 14
+                    color: barSlot.root.dashboardDetail === "battery"
+                        ? Qt.rgba(barSlot.root.seal.r, barSlot.root.seal.g, barSlot.root.seal.b, 0.22)
+                        : (batteryPillMa.containsMouse ? barSlot.root.fillHover : barSlot.root.fillIdle)
+                    border.width: barSlot.root.dashboardDetail === "battery" ? 1.5 : 0
+                    border.color: barSlot.root.seal
+                    clip: true
+                    visible: width > 0.1 || opacity > 0.01
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.InOutCubic } }
+                    Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                    Behavior on color { ColorAnimation { duration: 150 } }
+
+                    Loader {
+                        id: battLoader
+                        anchors.centerIn: parent
+                        active: barSlot.dashboardEverActivated
+                        sourceComponent: BatteryWidget { root: barSlot.root }
+                    }
+
+                    MouseArea {
+                        id: batteryPillMa
+                        anchors.fill: parent
+                        z: 10
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (barSlot.root.dashboardDetail === "battery") {
+                                barSlot.root.dashboardDetail = ""
+                            } else {
+                                barSlot.root.dashboardDetail = "battery"
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Right Side: Screentime/Uptime Pill + Restart Button + Power Off Button
+            Row {
+                id: topHeaderRightRow
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
+
+                Process {
+                    id: uptimeProc
+                    command: ["bash", "-c", "awk '{print int($1/3600)\"h \"int(($1%3600)/60)\"m\"}' /proc/uptime"]
+                    running: barSlot.isDashboardActive
+                    stdout: StdioCollector {
+                        onStreamFinished: {
+                            uptimeTxt.text = this.text.trim()
+                        }
+                    }
+                }
+                Timer {
+                    interval: 60000; repeat: true; running: barSlot.isDashboardActive
+                    onTriggered: { uptimeProc.running = false; uptimeProc.running = true }
+                }
+
+                // Screentime / Uptime Pill
+                Rectangle {
+                    height: 28
+                    width: uptimeRow.implicitWidth + 20
+                    radius: 14
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: barSlot.root.dashboardDetail === "screentime"
+                        ? Qt.rgba(barSlot.root.seal.r, barSlot.root.seal.g, barSlot.root.seal.b, 0.22)
+                        : (uptimeMa.containsMouse ? barSlot.root.fillHover : barSlot.root.fillIdle)
+                    border.width: barSlot.root.dashboardDetail === "screentime" ? 1.5 : 0
+                    border.color: barSlot.root.seal
+                    Behavior on color { ColorAnimation { duration: 150 } }
+
+                    Row {
+                        id: uptimeRow
+                        anchors.centerIn: parent
+                        spacing: 5
+
+                        IconText {
+                            text: "timelapse"
+                            color: barSlot.root.ink
+                            font.pixelSize: 13
+                            opacity: 0.75
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        Text {
+                            id: uptimeTxt
+                            text: "--"
+                            color: barSlot.root.ink
+                            opacity: 0.85
+                            font.family: barSlot.root.barFont
+                            font.pixelSize: 11
+                            font.weight: Font.Medium
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+
+                    MouseArea {
+                        id: uptimeMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (barSlot.root.dashboardDetail === "screentime") {
+                                barSlot.root.dashboardDetail = ""
+                            } else {
+                                barSlot.root.dashboardDetail = "screentime"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Expanded Dashboard Content
+        Loader {
+            id: dashboardLoader
+            anchors.top: topHeaderBar.bottom
+            anchors.topMargin: 12
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 14
+            anchors.left: parent.left
+            anchors.leftMargin: 14
+            anchors.right: parent.right
+            anchors.rightMargin: 14
+            active: barSlot.dashboardEverActivated
+            source: Qt.resolvedUrl("panels/HomescreenDashboardContent.qml")
+            z: 5
+
+            onLoaded: {
+                item.root = barSlot.root
+                item.panel = dashboardAdapter
+                item.mprisPanel = barSlot.mprisPanel
+                if (!barSlot.root.dashboardDetail) {
+                    item.activeDetailView = ""
+                    item.selectCategoryByIndex(0)
+                } else {
+                    item.activeDetailView = barSlot.root.dashboardDetail
+                }
+                if (barSlot.isDashboardActive) item.forceActiveFocus()
+            }
         }
     }
 }

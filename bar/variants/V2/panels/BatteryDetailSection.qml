@@ -12,6 +12,8 @@ Item {
     property var panel: null
 
     signal closeRequested()
+    property int currentTab: 0 // 0: Power & Health, 1: App Usage
+
 
     property var batObj: ({
         batteryId: "BAT1",
@@ -80,21 +82,30 @@ Item {
     readonly property var profileList: ["power-saver", "balanced", "performance"]
 
     function nextSubOption() {
-        let cur = batObj.profile || "balanced"
-        let idx = profileList.indexOf(cur)
-        if (idx < profileList.length - 1 && idx >= 0) {
-            doSetProfile(profileList[idx + 1])
+        if (currentTab === 0) {
+            let cur = batObj.profile || "balanced"
+            let idx = profileList.indexOf(cur)
+            if (idx < profileList.length - 1 && idx >= 0) {
+                doSetProfile(profileList[idx + 1])
+                return true
+            }
+            currentTab = 1
             return true
         }
         return false
     }
 
     function prevSubOption() {
-        let cur = batObj.profile || "balanced"
-        let idx = profileList.indexOf(cur)
-        if (idx > 0) {
-            doSetProfile(profileList[idx - 1])
+        if (currentTab === 1) {
+            currentTab = 0
             return true
+        } else if (currentTab === 0) {
+            let cur = batObj.profile || "balanced"
+            let idx = profileList.indexOf(cur)
+            if (idx > 0) {
+                doSetProfile(profileList[idx - 1])
+                return true
+            }
         }
         return false
     }
@@ -213,16 +224,86 @@ Item {
             }
         }
 
-        // ================= DUAL CARD CONTENT =================
+        // ================= SEGMENTED TAB SWITCHER =================
         Row {
             width: parent.width
-            height: parent.height - 46
-            spacing: 12
+            height: 32
+            spacing: 8
 
-            // ---------------- CARD 1: BATTERY & POWER MANAGEMENT (46%) ----------------
             Rectangle {
-                width: Math.round((parent.width - 12) * 0.46)
-                height: parent.height
+                width: (parent.width - 8) / 2
+                height: 32
+                radius: 16
+                color: batSection.currentTab === 0 ? root.seal : root.fillIdle
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 6
+                    IconText {
+                        text: "bolt"
+                        color: batSection.currentTab === 0 ? root.paper : root.ink
+                        font.pixelSize: 15
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Text {
+                        text: "Power & Health"
+                        color: batSection.currentTab === 0 ? root.paper : root.ink
+                        font.family: root.barFont
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: batSection.currentTab = 0
+                }
+            }
+
+            Rectangle {
+                width: (parent.width - 8) / 2
+                height: 32
+                radius: 16
+                color: batSection.currentTab === 1 ? root.seal : root.fillIdle
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 6
+                    IconText {
+                        text: "list_alt"
+                        color: batSection.currentTab === 1 ? root.paper : root.ink
+                        font.pixelSize: 15
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Text {
+                        text: "App Usage"
+                        color: batSection.currentTab === 1 ? root.paper : root.ink
+                        font.family: root.barFont
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: batSection.currentTab = 1
+                }
+            }
+        }
+
+        // ================= FULL-WIDTH SINGLE COLUMN CARD CONTENT =================
+        Item {
+            width: parent.width
+            height: parent.height - 36 - 32 - 20
+            clip: true
+
+            // ---------------- CARD 1: BATTERY & POWER MANAGEMENT (Full Width) ----------------
+            Rectangle {
+                id: card1
+                anchors.fill: parent
+                visible: batSection.currentTab === 0
                 radius: 20
                 color: root.fillIdle
                 clip: true
@@ -320,19 +401,19 @@ Item {
                             }
                         }
 
-                        // 3 Spaced-Out Profile Cards
-                        Column {
+                        // 3 Profile Toggles in One Horizontal Line
+                        Row {
                             width: parent.width
                             spacing: 6
 
                             // Performance Card
                             Rectangle {
-                                width: parent.width
+                                width: Math.floor((parent.width - 12) / 3)
                                 height: 38
                                 radius: 10
                                 property bool selected: batSection.batObj.profile === "performance"
                                 color: selected
-                                    ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.16)
+                                    ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18)
                                     : (perfMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.03))
                                 border.width: selected ? 1.5 : 1
                                 border.color: selected
@@ -342,61 +423,25 @@ Item {
                                 Behavior on color { ColorAnimation { duration: 150 } }
                                 Behavior on border.color { ColorAnimation { duration: 150 } }
 
-                                Item {
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 10
-                                    anchors.rightMargin: 10
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: 6
 
-                                    Row {
-                                        anchors.left: parent.left
+                                    IconText {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 10
-
-                                        Rectangle {
-                                            width: 24
-                                            height: 24
-                                            radius: 6
-                                            color: parent.parent.parent.selected ? root.seal : Qt.rgba(1, 1, 1, 0.06)
-                                            anchors.verticalCenter: parent.verticalCenter
-
-                                            IconText {
-                                                anchors.centerIn: parent
-                                                text: "bolt"
-                                                color: parent.parent.parent.parent.selected ? root.paper : "#f59e0b"
-                                                font.pixelSize: 13
-                                            }
-                                        }
-
-                                        Column {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            spacing: 1
-                                            Text {
-                                                text: "Performance"
-                                                color: parent.parent.parent.parent.selected ? root.seal : root.ink
-                                                font.family: root.barFont
-                                                font.pixelSize: 12
-                                                font.weight: Font.DemiBold
-                                            }
-                                            Text {
-                                                text: "Maximum CPU clocks & speed"
-                                                color: root.ink
-                                                opacity: 0.5
-                                                font.family: root.barFont
-                                                font.pixelSize: 10
-                                            }
-                                        }
+                                        text: "bolt"
+                                        color: parent.parent.selected ? root.seal : "#f59e0b"
+                                        font.pixelSize: 14
                                     }
 
-                                    // Active indicator dot
-                                    Rectangle {
-                                        anchors.right: parent.right
+                                    Text {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        width: 14
-                                        height: 14
-                                        radius: 7
-                                        color: parent.parent.selected ? root.seal : "transparent"
-                                        border.width: 1.5
-                                        border.color: parent.parent.selected ? root.seal : Qt.rgba(1, 1, 1, 0.2)
+                                        text: "Performance"
+                                        color: parent.parent.selected ? root.seal : root.ink
+                                        font.family: root.barFont
+                                        font.pixelSize: 11
+                                        font.weight: parent.parent.selected ? Font.Bold : Font.DemiBold
+                                        elide: Text.ElideRight
                                     }
                                 }
 
@@ -411,12 +456,12 @@ Item {
 
                             // Balanced Card
                             Rectangle {
-                                width: parent.width
+                                width: Math.floor((parent.width - 12) / 3)
                                 height: 38
                                 radius: 10
                                 property bool selected: batSection.batObj.profile === "balanced"
                                 color: selected
-                                    ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.16)
+                                    ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18)
                                     : (balMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.03))
                                 border.width: selected ? 1.5 : 1
                                 border.color: selected
@@ -426,61 +471,25 @@ Item {
                                 Behavior on color { ColorAnimation { duration: 150 } }
                                 Behavior on border.color { ColorAnimation { duration: 150 } }
 
-                                Item {
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 10
-                                    anchors.rightMargin: 10
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: 6
 
-                                    Row {
-                                        anchors.left: parent.left
+                                    IconText {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 10
-
-                                        Rectangle {
-                                            width: 24
-                                            height: 24
-                                            radius: 6
-                                            color: parent.parent.parent.selected ? root.seal : Qt.rgba(1, 1, 1, 0.06)
-                                            anchors.verticalCenter: parent.verticalCenter
-
-                                            IconText {
-                                                anchors.centerIn: parent
-                                                text: "balance"
-                                                color: parent.parent.parent.parent.selected ? root.paper : root.seal
-                                                font.pixelSize: 13
-                                            }
-                                        }
-
-                                        Column {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            spacing: 1
-                                            Text {
-                                                text: "Balanced"
-                                                color: parent.parent.parent.parent.selected ? root.seal : root.ink
-                                                font.family: root.barFont
-                                                font.pixelSize: 12
-                                                font.weight: Font.DemiBold
-                                            }
-                                            Text {
-                                                text: "Smart balance of speed and power"
-                                                color: root.ink
-                                                opacity: 0.5
-                                                font.family: root.barFont
-                                                font.pixelSize: 10
-                                            }
-                                        }
+                                        text: "balance"
+                                        color: parent.parent.selected ? root.seal : root.ink
+                                        font.pixelSize: 14
                                     }
 
-                                    // Active indicator dot
-                                    Rectangle {
-                                        anchors.right: parent.right
+                                    Text {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        width: 14
-                                        height: 14
-                                        radius: 7
-                                        color: parent.parent.selected ? root.seal : "transparent"
-                                        border.width: 1.5
-                                        border.color: parent.parent.selected ? root.seal : Qt.rgba(1, 1, 1, 0.2)
+                                        text: "Balanced"
+                                        color: parent.parent.selected ? root.seal : root.ink
+                                        font.family: root.barFont
+                                        font.pixelSize: 11
+                                        font.weight: parent.parent.selected ? Font.Bold : Font.DemiBold
+                                        elide: Text.ElideRight
                                     }
                                 }
 
@@ -495,12 +504,12 @@ Item {
 
                             // Power Saver Card
                             Rectangle {
-                                width: parent.width
+                                width: parent.width - 2 * Math.floor((parent.width - 12) / 3) - 12
                                 height: 38
                                 radius: 10
                                 property bool selected: batSection.batObj.profile === "power-saver"
                                 color: selected
-                                    ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.16)
+                                    ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18)
                                     : (savMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.03))
                                 border.width: selected ? 1.5 : 1
                                 border.color: selected
@@ -510,61 +519,25 @@ Item {
                                 Behavior on color { ColorAnimation { duration: 150 } }
                                 Behavior on border.color { ColorAnimation { duration: 150 } }
 
-                                Item {
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 10
-                                    anchors.rightMargin: 10
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: 6
 
-                                    Row {
-                                        anchors.left: parent.left
+                                    IconText {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 10
-
-                                        Rectangle {
-                                            width: 24
-                                            height: 24
-                                            radius: 6
-                                            color: parent.parent.parent.selected ? root.seal : Qt.rgba(1, 1, 1, 0.06)
-                                            anchors.verticalCenter: parent.verticalCenter
-
-                                            IconText {
-                                                anchors.centerIn: parent
-                                                text: "eco"
-                                                color: parent.parent.parent.parent.selected ? root.paper : "#10b981"
-                                                font.pixelSize: 13
-                                            }
-                                        }
-
-                                        Column {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            spacing: 1
-                                            Text {
-                                                text: "Power Saver"
-                                                color: parent.parent.parent.parent.selected ? root.seal : root.ink
-                                                font.family: root.barFont
-                                                font.pixelSize: 12
-                                                font.weight: Font.DemiBold
-                                            }
-                                            Text {
-                                                text: "Throttles power to extend battery"
-                                                color: root.ink
-                                                opacity: 0.5
-                                                font.family: root.barFont
-                                                font.pixelSize: 10
-                                            }
-                                        }
+                                        text: "eco"
+                                        color: parent.parent.selected ? root.seal : "#10b981"
+                                        font.pixelSize: 14
                                     }
 
-                                    // Active indicator dot
-                                    Rectangle {
-                                        anchors.right: parent.right
+                                    Text {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        width: 14
-                                        height: 14
-                                        radius: 7
-                                        color: parent.parent.selected ? root.seal : "transparent"
-                                        border.width: 1.5
-                                        border.color: parent.parent.selected ? root.seal : Qt.rgba(1, 1, 1, 0.2)
+                                        text: "Power Saver"
+                                        color: parent.parent.selected ? root.seal : root.ink
+                                        font.family: root.barFont
+                                        font.pixelSize: 11
+                                        font.weight: parent.parent.selected ? Font.Bold : Font.DemiBold
+                                        elide: Text.ElideRight
                                     }
                                 }
 
@@ -735,10 +708,11 @@ Item {
                 }
             }
 
-            // ---------------- CARD 2: TOP POWER CONSUMERS (54%) ----------------
+            // ---------------- CARD 2: TOP POWER CONSUMERS (Full Width) ----------------
             Rectangle {
-                width: Math.round((parent.width - 12) * 0.54)
-                height: parent.height
+                id: card2
+                anchors.fill: parent
+                visible: batSection.currentTab === 1
                 radius: 20
                 color: root.fillIdle
                 clip: true

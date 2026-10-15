@@ -11,6 +11,7 @@ PanelWindow {
 
     screen: targetScreen
     color: "transparent"
+    visible: false
 
     // Fill the screen to allow dimming the entire screen (including the bar)
     anchors { bottom: true; left: true; right: true; top: true }

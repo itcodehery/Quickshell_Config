@@ -14,6 +14,23 @@ Item {
     readonly property int memPercent: (memObj && memObj.percent !== undefined) ? memObj.percent : ((root && root.systemMemPercent !== undefined) ? root.systemMemPercent : 0)
 
     signal closeRequested()
+    property int currentTab: 0 // 0: Telemetry, 1: Processes
+
+    function nextSubOption() {
+        if (currentTab < 1) {
+            currentTab++
+            return true
+        }
+        return false
+    }
+
+    function prevSubOption() {
+        if (currentTab > 0) {
+            currentTab--
+            return true
+        }
+        return false
+    }
 
     property var memObj: ({
         percent: 0,
@@ -203,16 +220,86 @@ Item {
             }
         }
 
-        // ================= DUAL CARD CONTENT =================
+        // ================= SEGMENTED TAB SWITCHER =================
         Row {
             width: parent.width
-            height: parent.height - 46
-            spacing: 12
+            height: 32
+            spacing: 8
 
-            // ---------------- CARD 1: RAM & SWAP TELEMETRY (46%) ----------------
             Rectangle {
-                width: Math.round((parent.width - 12) * 0.46)
-                height: parent.height
+                width: (parent.width - 8) / 2
+                height: 32
+                radius: 16
+                color: memSection.currentTab === 0 ? root.seal : root.fillIdle
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 6
+                    IconText {
+                        text: "dns"
+                        color: memSection.currentTab === 0 ? root.paper : root.ink
+                        font.pixelSize: 15
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Text {
+                        text: "RAM & Swap Telemetry"
+                        color: memSection.currentTab === 0 ? root.paper : root.ink
+                        font.family: root.barFont
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: memSection.currentTab = 0
+                }
+            }
+
+            Rectangle {
+                width: (parent.width - 8) / 2
+                height: 32
+                radius: 16
+                color: memSection.currentTab === 1 ? root.seal : root.fillIdle
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 6
+                    IconText {
+                        text: "list_alt"
+                        color: memSection.currentTab === 1 ? root.paper : root.ink
+                        font.pixelSize: 15
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Text {
+                        text: "Top Consumers"
+                        color: memSection.currentTab === 1 ? root.paper : root.ink
+                        font.family: root.barFont
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: memSection.currentTab = 1
+                }
+            }
+        }
+
+        // ================= FULL-WIDTH SINGLE COLUMN CARD CONTENT =================
+        Item {
+            width: parent.width
+            height: parent.height - 36 - 32 - 20
+            clip: true
+
+            // ---------------- CARD 1: RAM & SWAP TELEMETRY (Full Width) ----------------
+            Rectangle {
+                id: card1
+                anchors.fill: parent
+                visible: memSection.currentTab === 0
                 radius: 20
                 color: root.fillIdle
                 clip: true
@@ -615,10 +702,11 @@ Item {
                 }
             }
 
-            // ---------------- CARD 2: TOP MEMORY CONSUMERS (54%) ----------------
+            // ---------------- CARD 2: TOP MEMORY CONSUMERS (Full Width) ----------------
             Rectangle {
-                width: Math.round((parent.width - 12) * 0.54)
-                height: parent.height
+                id: card2
+                anchors.fill: parent
+                visible: memSection.currentTab === 1
                 radius: 20
                 color: root.fillIdle
                 clip: true

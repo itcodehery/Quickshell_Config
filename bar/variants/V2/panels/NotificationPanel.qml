@@ -53,6 +53,7 @@ PanelWindow {
     // grouped = pending collapsed by appName; each group has:
     //   {appName, count, latest (the first/newest entry), items, keys}
     property var expandedGroups: ({})   // appName -> true when expanded
+    property int expandSeq: 0
 
     readonly property var grouped: {
         var order = []
@@ -236,7 +237,16 @@ PanelWindow {
         for (var ek in notifPanel.expandedGroups) eg[ek] = notifPanel.expandedGroups[ek]
         delete eg[group.appName]
         notifPanel.expandedGroups = eg
+        notifPanel.expandSeq += 1
         notifPanel.saveCache()
+    }
+
+    function toggleGroup(appName) {
+        var eg = {}
+        for (var k in notifPanel.expandedGroups) eg[k] = notifPanel.expandedGroups[k]
+        eg[appName] = !eg[appName]
+        notifPanel.expandedGroups = eg
+        notifPanel.expandSeq += 1
     }
 
     function dismissAll() {
@@ -337,9 +347,9 @@ PanelWindow {
                             width: listCol.width
                             height: groupRow.height
 
+                            readonly property bool isExpanded: notifPanel.expandSeq >= 0 && !!notifPanel.expandedGroups[delegateContainer.modelData.appName]
+
                             onModelDataChanged: {
-                                // When the Repeater re-uses this delegate for a different notification,
-                                // we must reset its position and opacity in case it was previously swiped away!
                                 groupRow.x = 0
                                 groupRow.opacity = 1
                             }
@@ -347,8 +357,8 @@ PanelWindow {
                             Rectangle {
                                 id: groupRow
                                 width: delegateContainer.width
-                                height: groupEntryCol.implicitHeight + 24
-                                radius: 24
+                                height: groupMainCol.implicitHeight + 20
+                                radius: 20
                                 x: 0
 
                                 Behavior on x {
@@ -358,9 +368,15 @@ PanelWindow {
                                 Behavior on opacity {
                                     NumberAnimation { duration: 200 }
                                 }
-                                
+                                Behavior on height {
+                                    NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+                                }
+
                                 property bool isFirst: delegateContainer.index === 0
                                 color: isFirst ? root.fillActive : root.fillIdle
+                                border.width: 1
+                                border.color: delegateContainer.isExpanded ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.3) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                                Behavior on border.color { ColorAnimation { duration: 180 } }
 
                                 MouseArea {
                                     id: swipeMa
@@ -369,6 +385,14 @@ PanelWindow {
                                     drag.axis: Drag.XAxis
                                     drag.minimumX: -parent.width
                                     drag.maximumX: parent.width
+                                    hoverEnabled: true
+                                    cursorShape: delegateContainer.modelData.count > 1 ? Qt.PointingHandCursor : Qt.ArrowCursor
+
+                                    onClicked: {
+                                        if (delegateContainer.modelData.count > 1) {
+                                            notifPanel.toggleGroup(delegateContainer.modelData.appName)
+                                        }
+                                    }
 
                                     onReleased: {
                                         if (Math.abs(groupRow.x) > parent.width * 0.35) {
@@ -388,133 +412,332 @@ PanelWindow {
                                         if (notifPanel.showingHistory) {
                                             var d = {}
                                             for (var k in notifPanel.dismissed) {
-                                                if (k !== delegateContainer.delegateContainer.modelData.latest.key) d[k] = true
+                                                if (k !== delegateContainer.modelData.latest.key) d[k] = true
                                             }
                                             notifPanel.dismissed = d
                                             notifPanel.saveCache()
                                         } else {
-                                            notifPanel.dismissOne(delegateContainer.delegateContainer.modelData.latest)
+                                            notifPanel.dismissOne(delegateContainer.modelData.latest)
                                         }
                                     }
                                 }
 
-                            readonly property bool expanded: notifPanel.expandedGroups[delegateContainer.modelData.appName] === true
-
-                            Row {
-                                anchors.fill: parent
-                                anchors.margins: 12
-                                spacing: 12
-
-                                // Left Icon Circle
-                                Rectangle {
-                                    width: 36; height: 36; radius: 18
-                                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    IconText {
-                                        anchors.centerIn: parent
-                                        text: delegateContainer.modelData.appName.toLowerCase().indexOf("record") !== -1 ? "radio_button_checked" : "notifications"
-                                        color: root.ink
-                                        font.pixelSize: 18
-                                    }
-                                }
-
-                                // Text Content
                                 Column {
-                                    id: groupEntryCol
-                                    width: parent.width - 36 - 12 - 28 - 12
-                                    spacing: 2
-                                    anchors.verticalCenter: parent.verticalCenter
+                                    id: groupMainCol
+                                    width: parent.width - 20
+                                    anchors.centerIn: parent
+                                    spacing: 8
 
+                                    // Top Main Row
                                     Row {
-                                        spacing: 6
-                                        UiText {
-                                            text: delegateContainer.modelData.appName || "Notification"
-                                            color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.7)
-                                            font.family: root.barFont
-                                            font.pixelSize: 10
-                                            font.weight: Font.Medium
-                                        }
-                                        UiText {
-                                            text: "• " + (delegateContainer.modelData.latest.firstSeen ? (new Date(delegateContainer.modelData.latest.firstSeen)).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "now")
-                                            color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.4)
-                                            font.family: root.barFont
-                                            font.pixelSize: 10
-                                        }
-                                    }
-
-                                    // Marquee Title
-                                    Item {
-                                        id: marqueeContainer
                                         width: parent.width
-                                        height: 16
-                                        clip: true
+                                        spacing: 10
 
-                                        UiText {
-                                            id: titleText
-                                            text: delegateContainer.modelData.latest.summary || ""
-                                            color: root.ink
-                                            font.family: root.barFont
-                                            font.pixelSize: 12
-                                            font.weight: Font.DemiBold
-                                            
-                                            SequentialAnimation on x {
-                                                loops: Animation.Infinite
-                                                running: titleText.implicitWidth > marqueeContainer.width
-                                                PauseAnimation { duration: 1500 }
-                                                NumberAnimation {
-                                                    from: 0
-                                                    to: -(titleText.implicitWidth - marqueeContainer.width + 10)
-                                                    duration: Math.max(1000, (titleText.implicitWidth - marqueeContainer.width) * 20)
+                                        // Left Icon Circle
+                                        Rectangle {
+                                            width: 34; height: 34; radius: 17
+                                            color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            IconText {
+                                                anchors.centerIn: parent
+                                                text: delegateContainer.modelData.appName.toLowerCase().indexOf("record") !== -1 ? "radio_button_checked" : "notifications"
+                                                color: root.ink
+                                                font.pixelSize: 17
+                                            }
+                                        }
+
+                                        // Center Text Content
+                                        Column {
+                                            id: groupEntryCol
+                                            width: parent.width - 34 - 10 - actionRow.width - 10
+                                            spacing: 2
+                                            anchors.verticalCenter: parent.verticalCenter
+
+                                            Row {
+                                                spacing: 6
+                                                UiText {
+                                                    text: delegateContainer.modelData.appName || "Notification"
+                                                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.75)
+                                                    font.family: root.barFont
+                                                    font.pixelSize: 10
+                                                    font.weight: Font.DemiBold
+                                                    anchors.verticalCenter: parent.verticalCenter
                                                 }
-                                                PauseAnimation { duration: 1500 }
-                                                NumberAnimation {
-                                                    to: 0
-                                                    duration: 0
+
+                                                // Group Count Badge (Visible when count > 1)
+                                                Rectangle {
+                                                    visible: delegateContainer.modelData.count > 1
+                                                    height: 18
+                                                    radius: 9
+                                                    width: groupCountRow.implicitWidth + 12
+                                                    color: delegateContainer.isExpanded ? root.seal : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22)
+                                                    border.width: 1
+                                                    border.color: root.seal
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    Behavior on color { ColorAnimation { duration: 150 } }
+
+                                                    Row {
+                                                        id: groupCountRow
+                                                        anchors.centerIn: parent
+                                                        spacing: 3
+
+                                                        IconText {
+                                                            text: "layers"
+                                                            font.pixelSize: 11
+                                                            color: delegateContainer.isExpanded ? "#FFFFFF" : root.seal
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                        }
+
+                                                        Text {
+                                                            text: delegateContainer.modelData.count
+                                                            font.family: root.barFont
+                                                            font.pixelSize: 10
+                                                            font.weight: Font.Bold
+                                                            color: delegateContainer.isExpanded ? "#FFFFFF" : root.seal
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                        }
+                                                    }
+                                                }
+
+                                                UiText {
+                                                    text: "• " + (delegateContainer.modelData.latest.firstSeen ? (new Date(delegateContainer.modelData.latest.firstSeen)).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "now")
+                                                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.4)
+                                                    font.family: root.barFont
+                                                    font.pixelSize: 9
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                }
+                                            }
+
+                                            // Marquee Title
+                                            Item {
+                                                id: marqueeContainer
+                                                width: parent.width
+                                                height: 16
+                                                clip: true
+
+                                                UiText {
+                                                    id: titleText
+                                                    text: delegateContainer.modelData.latest.summary || ""
+                                                    color: root.ink
+                                                    font.family: root.barFont
+                                                    font.pixelSize: 12
+                                                    font.weight: Font.DemiBold
+
+                                                    SequentialAnimation on x {
+                                                        loops: Animation.Infinite
+                                                        running: titleText.implicitWidth > marqueeContainer.width
+                                                        PauseAnimation { duration: 1500 }
+                                                        NumberAnimation {
+                                                            from: 0
+                                                            to: -(titleText.implicitWidth - marqueeContainer.width + 10)
+                                                            duration: Math.max(1000, (titleText.implicitWidth - marqueeContainer.width) * 20)
+                                                        }
+                                                        PauseAnimation { duration: 1500 }
+                                                        NumberAnimation {
+                                                            to: 0
+                                                            duration: 0
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            UiText {
+                                                text: delegateContainer.modelData.latest.body || ""
+                                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
+                                                font.family: root.barFont
+                                                font.pixelSize: 11
+                                                width: parent.width
+                                                elide: Text.ElideRight
+                                                maximumLineCount: 2
+                                                wrapMode: Text.WordWrap
+                                                visible: text !== ""
+                                            }
+                                        }
+
+                                        // Action Buttons (Expand Chevron when count > 1)
+                                        Row {
+                                            id: actionRow
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            visible: delegateContainer.modelData.count > 1
+
+                                            // Expand / Collapse Chevron Button (for grouped notifications)
+                                            Rectangle {
+                                                width: 28; height: 28; radius: 14
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                color: expandMa.containsMouse
+                                                    ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.28)
+                                                    : (delegateContainer.isExpanded ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.20) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08))
+                                                border.width: 1
+                                                border.color: delegateContainer.isExpanded ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.16)
+                                                Behavior on color { ColorAnimation { duration: 120 } }
+
+                                                IconText {
+                                                    anchors.centerIn: parent
+                                                    text: delegateContainer.isExpanded ? "expand_less" : "expand_more"
+                                                    color: delegateContainer.isExpanded ? root.seal : root.ink
+                                                    font.pixelSize: 18
+                                                }
+
+                                                MouseArea {
+                                                    id: expandMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: notifPanel.toggleGroup(delegateContainer.modelData.appName)
                                                 }
                                             }
                                         }
                                     }
 
-                                    UiText {
-                                        text: delegateContainer.modelData.latest.body || ""
-                                        color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
-                                        font.family: root.barFont
-                                        font.pixelSize: 11
+                                    // Expanded Sub-items List (for remaining notifications in this group)
+                                    Column {
+                                        id: subItemsCol
+                                        visible: delegateContainer.isExpanded && delegateContainer.modelData.count > 1
                                         width: parent.width
-                                        elide: Text.ElideRight
-                                        maximumLineCount: 2
-                                        wrapMode: Text.WordWrap
-                                        visible: text !== ""
-                                    }
-                                }
+                                        spacing: 6
 
-                                // Dismiss/Restore button
-                                Rectangle {
-                                    width: 28; height: 28; radius: 14
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, btnMa.containsMouse ? 0.15 : 0.08)
-                                    Behavior on color { ColorAnimation { duration: 120 } }
-                                    IconText {
-                                        anchors.centerIn: parent
-                                        text: notifPanel.showingHistory ? "restore" : "close"
-                                        color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.7)
-                                        font.pixelSize: 16
-                                    }
-                                    MouseArea {
-                                        id: btnMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: {
-                                            if (notifPanel.showingHistory) {
-                                                var d = {}
-                                                for (var k in notifPanel.dismissed) {
-                                                    if (k !== delegateContainer.modelData.latest.key) d[k] = true
+                                        // Divider
+                                        Rectangle {
+                                            width: parent.width
+                                            height: 1
+                                            color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.10)
+                                        }
+
+                                        Repeater {
+                                            model: (delegateContainer.isExpanded && delegateContainer.modelData.items) ? delegateContainer.modelData.items.slice(1) : []
+
+                                            delegate: Rectangle {
+                                                id: subItemBox
+                                                required property var modelData
+                                                required property int index
+                                                width: subItemsCol.width
+                                                height: subItemRow.implicitHeight + 12
+                                                radius: 12
+                                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.04)
+                                                border.width: 1
+                                                border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                                                x: 0
+
+                                                Behavior on x {
+                                                    enabled: !subSwipeMa.drag.active
+                                                    NumberAnimation { duration: 220; easing.type: Easing.OutQuart }
                                                 }
-                                                notifPanel.dismissed = d
-                                                notifPanel.saveCache()
-                                            } else {
-                                                notifPanel.dismissOne(delegateContainer.modelData.latest)
+                                                Behavior on opacity { NumberAnimation { duration: 180 } }
+
+                                                MouseArea {
+                                                    id: subSwipeMa
+                                                    anchors.fill: parent
+                                                    drag.target: subItemBox
+                                                    drag.axis: Drag.XAxis
+                                                    drag.minimumX: -parent.width
+                                                    drag.maximumX: parent.width
+
+                                                    onReleased: {
+                                                        if (Math.abs(subItemBox.x) > parent.width * 0.35) {
+                                                            subItemBox.x = subItemBox.x > 0 ? parent.width : -parent.width
+                                                            subItemBox.opacity = 0
+                                                            subDismissTimer.start()
+                                                        } else {
+                                                            subItemBox.x = 0
+                                                        }
+                                                    }
+                                                }
+
+                                                Timer {
+                                                    id: subDismissTimer
+                                                    interval: 180
+                                                    onTriggered: {
+                                                        if (notifPanel.showingHistory) {
+                                                            var d = {}
+                                                            for (var k in notifPanel.dismissed) {
+                                                                if (k !== subItemBox.modelData.key) d[k] = true
+                                                            }
+                                                            notifPanel.dismissed = d
+                                                            notifPanel.saveCache()
+                                                        } else {
+                                                            notifPanel.dismissOne(subItemBox.modelData)
+                                                        }
+                                                    }
+                                                }
+
+                                                Row {
+                                                    id: subItemRow
+                                                    width: parent.width - 16
+                                                    anchors.centerIn: parent
+
+                                                    Column {
+                                                        width: parent.width
+                                                        spacing: 2
+                                                        anchors.verticalCenter: parent.verticalCenter
+
+                                                        Row {
+                                                            spacing: 6
+                                                            UiText {
+                                                                text: subItemBox.modelData.summary || ""
+                                                                color: root.ink
+                                                                font.family: root.barFont
+                                                                font.pixelSize: 11
+                                                                font.weight: Font.DemiBold
+                                                                elide: Text.ElideRight
+                                                                width: Math.min(implicitWidth, parent.parent.width - 60)
+                                                            }
+                                                            UiText {
+                                                                text: subItemBox.modelData.firstSeen ? (new Date(subItemBox.modelData.firstSeen)).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ""
+                                                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.4)
+                                                                font.family: root.barFont
+                                                                font.pixelSize: 9
+                                                                anchors.verticalCenter: parent.verticalCenter
+                                                            }
+                                                        }
+
+                                                        UiText {
+                                                            text: subItemBox.modelData.body || ""
+                                                            color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
+                                                            font.family: root.barFont
+                                                            font.pixelSize: 10
+                                                            width: parent.width
+                                                            elide: Text.ElideRight
+                                                            maximumLineCount: 2
+                                                            wrapMode: Text.WordWrap
+                                                            visible: text !== ""
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // Dismiss Group Button
+                                        Rectangle {
+                                            width: parent.width
+                                            height: 26
+                                            radius: 13
+                                            color: groupClearMa.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.05)
+                                            border.width: 1
+                                            border.color: groupClearMa.containsMouse ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.10)
+
+                                            Row {
+                                                anchors.centerIn: parent
+                                                spacing: 4
+                                                IconText {
+                                                    text: "clear_all"
+                                                    font.pixelSize: 13
+                                                    color: groupClearMa.containsMouse ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
+                                                }
+                                                Text {
+                                                    text: "Dismiss group (" + delegateContainer.modelData.count + ")"
+                                                    font.family: root.barFont
+                                                    font.pixelSize: 10
+                                                    font.weight: Font.Medium
+                                                    color: groupClearMa.containsMouse ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.7)
+                                                }
+                                            }
+
+                                            MouseArea {
+                                                id: groupClearMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: notifPanel.dismissGroup(delegateContainer.modelData)
                                             }
                                         }
                                     }
@@ -522,7 +745,6 @@ PanelWindow {
                             }
                         }
                     }
-                        }
 
                     UiText {
                         visible: notifPanel.grouped.length === 0
@@ -537,22 +759,36 @@ PanelWindow {
                 }
             }
 
-            // ── bottom buttons (History & DND) ──
+            // ── bottom buttons (History, Clear all, DND pills) ──
             Item {
                 width: parent.width
-                height: 48
-                
-                // History button (Left)
+                height: 40
+
+                // History Pill (Left)
                 Rectangle {
-                    width: 48; height: 48; radius: 24
+                    id: histPill
+                    width: 52
+                    height: 40
+                    radius: 20
                     anchors.left: parent.left
-                    color: histMa.containsMouse ? root.fillHover : root.fillIdle
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: notifPanel.showingHistory
+                        ? root.seal
+                        : (histMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.16) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.09))
+                    border.width: 1.5
+                    border.color: notifPanel.showingHistory
+                        ? root.seal
+                        : (histMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.35) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.18))
+                    scale: histMa.pressed ? 0.94 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 120 } }
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                    Behavior on border.color { ColorAnimation { duration: 150 } }
+
                     IconText {
                         anchors.centerIn: parent
                         text: "history"
-                        color: notifPanel.showingHistory ? root.seal : root.ink
-                        font.pixelSize: 20
+                        color: notifPanel.showingHistory ? "#FFFFFF" : root.ink
+                        font.pixelSize: 18
                     }
                     MouseArea {
                         id: histMa
@@ -563,24 +799,96 @@ PanelWindow {
                     }
                 }
 
-                // DND / Settings button (Right)
+                // Clear all Pill (Center)
                 Rectangle {
-                    width: 48; height: 48; radius: 24
+                    id: clearAllPill
+                    anchors.left: histPill.right
+                    anchors.right: dndPill.left
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 40
+                    radius: 20
+                    readonly property bool hasItems: notifPanel.pending.length > 0 || notifPanel.recent.length > 0
+                    color: hasItems
+                        ? (clearMa.containsMouse ? Qt.darker(root.seal, 1.1) : root.seal)
+                        : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                    border.width: hasItems ? 0 : 1
+                    border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.15)
+                    scale: clearMa.pressed ? 0.96 : 1.0
+                    opacity: hasItems ? 1.0 : 0.4
+                    enabled: hasItems
+                    Behavior on scale { NumberAnimation { duration: 120 } }
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                    Behavior on border.color { ColorAnimation { duration: 150 } }
+                    Behavior on opacity { NumberAnimation { duration: 150 } }
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 6
+
+                        IconText {
+                            text: "delete_sweep"
+                            font.pixelSize: 18
+                            color: clearAllPill.hasItems ? "#FFFFFF" : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.4)
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        Text {
+                            text: "Clear all"
+                            color: clearAllPill.hasItems ? "#FFFFFF" : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.4)
+                            font.family: root.barFont
+                            font.pixelSize: 12
+                            font.weight: Font.Bold
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+
+                    MouseArea {
+                        id: clearMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: notifPanel.dismissAll()
+                    }
+                }
+
+                // DND / Alert Pill (Right)
+                Rectangle {
+                    id: dndPill
+                    width: 52
+                    height: 40
+                    radius: 20
                     anchors.right: parent.right
-                    color: dndMa.containsMouse ? root.fillHover : root.fillIdle
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: notifPanel.isDnd
+                        ? root.seal
+                        : (dndMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.16) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.09))
+                    border.width: 1.5
+                    border.color: notifPanel.isDnd
+                        ? root.seal
+                        : (dndMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.35) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.18))
+                    scale: dndMa.pressed ? 0.94 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 120 } }
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                    Behavior on border.color { ColorAnimation { duration: 150 } }
+
                     IconText {
                         anchors.centerIn: parent
                         text: notifPanel.isDnd ? "notifications_off" : "notifications_active"
-                        color: notifPanel.isDnd ? root.seal : root.ink
-                        font.pixelSize: 20
+                        color: notifPanel.isDnd ? "#FFFFFF" : root.ink
+                        font.pixelSize: 18
                     }
                     MouseArea {
                         id: dndMa
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: notifPanel.runMako("quickshell -p /usr/share/omarchy/shell ipc call notifications toggleDnd")
+                        onClicked: {
+                            notifPanel.runMako("quickshell -p /usr/share/omarchy/shell ipc call notifications toggleDnd")
+                            notifPanel.isDnd = !notifPanel.isDnd
+                            if (root) root.notifSilenced = notifPanel.isDnd
+                        }
                     }
                 }
             }

@@ -16,7 +16,7 @@ Item {
     IconText {
         id: bellIcon
         anchors.centerIn: parent
-        text: "\uE7F4"   // notifications (bell)
+        text: root.notifSilenced ? "\uE7F6" : "\uE7F4"   // notifications_off (slashed bell) or notifications (bell)
         font.pixelSize: 15
         color: root.notifCount > 0
             ? (root.widgetHasFill("G22") ? rootMod.contentColor : root.seal)

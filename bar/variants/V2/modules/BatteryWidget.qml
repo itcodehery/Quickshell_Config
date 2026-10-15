@@ -179,7 +179,8 @@ Item {
             text: rootMod.percent + "%"
             color: rootMod.battColor
             font.family: root.barFont
-            font.pixelSize: 12
+            font.pixelSize: 11
+            font.weight: Font.Medium
             Behavior on color { ColorAnimation { duration: 200 } }
         }
     }

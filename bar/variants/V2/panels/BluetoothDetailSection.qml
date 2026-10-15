@@ -21,12 +21,17 @@ Item {
         devices: []
     })
 
+    property string activeView: "adapter" // "adapter" or "devices"
     property string currentTab: "paired" // "paired" or "all"
     property bool scanning: false
     property string actionError: ""
     property bool working: false
 
     function nextSubOption() {
+        if (activeView === "adapter") {
+            activeView = "devices"
+            return true
+        }
         if (currentTab === "paired") {
             currentTab = "all"
             return true
@@ -37,6 +42,10 @@ Item {
     function prevSubOption() {
         if (currentTab === "all") {
             currentTab = "paired"
+            return true
+        }
+        if (activeView === "devices") {
+            activeView = "adapter"
             return true
         }
         return false
@@ -332,16 +341,86 @@ Item {
             }
         }
 
-        // ================= DUAL CARD CONTENT =================
+        // ================= SEGMENTED TAB SWITCHER =================
         Row {
             width: parent.width
-            height: parent.height - 46
-            spacing: 12
+            height: 32
+            spacing: 8
 
-            // ---------------- CARD 1: ADAPTER STATUS & CONNECTED DEVICES (46%) ----------------
             Rectangle {
-                width: Math.round((parent.width - 12) * 0.46)
-                height: parent.height
+                width: (parent.width - 8) / 2
+                height: 32
+                radius: 16
+                color: btSection.activeView === "adapter" ? root.seal : root.fillIdle
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 6
+                    IconText {
+                        text: "bluetooth"
+                        color: btSection.activeView === "adapter" ? root.paper : root.ink
+                        font.pixelSize: 15
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Text {
+                        text: "Status & Connected"
+                        color: btSection.activeView === "adapter" ? root.paper : root.ink
+                        font.family: root.barFont
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: btSection.activeView = "adapter"
+                }
+            }
+
+            Rectangle {
+                width: (parent.width - 8) / 2
+                height: 32
+                radius: 16
+                color: btSection.activeView === "devices" ? root.seal : root.fillIdle
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 6
+                    IconText {
+                        text: "devices"
+                        color: btSection.activeView === "devices" ? root.paper : root.ink
+                        font.pixelSize: 15
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Text {
+                        text: "Device List"
+                        color: btSection.activeView === "devices" ? root.paper : root.ink
+                        font.family: root.barFont
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: btSection.activeView = "devices"
+                }
+            }
+        }
+
+        // ================= FULL-WIDTH SINGLE COLUMN CARD CONTENT =================
+        Item {
+            width: parent.width
+            height: parent.height - 36 - 32 - 20
+            clip: true
+
+            // ---------------- CARD 1: ADAPTER STATUS & CONNECTED DEVICES (Full Width) ----------------
+            Rectangle {
+                id: card1
+                anchors.fill: parent
+                visible: btSection.activeView === "adapter"
                 radius: 20
                 color: root.fillIdle
                 clip: true
@@ -563,10 +642,11 @@ Item {
                 }
             }
 
-            // ---------------- CARD 2: PAIRED & AVAILABLE DEVICES (54%) ----------------
+            // ---------------- CARD 2: PAIRED & AVAILABLE DEVICES (Full Width) ----------------
             Rectangle {
-                width: Math.round((parent.width - 12) * 0.54)
-                height: parent.height
+                id: card2
+                anchors.fill: parent
+                visible: btSection.activeView === "devices"
                 radius: 20
                 color: root.fillIdle
                 clip: true

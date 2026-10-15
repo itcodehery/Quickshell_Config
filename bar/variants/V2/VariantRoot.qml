@@ -318,17 +318,5 @@ Item {
             }
         }
     }
-
-    Variants {
-        model: root.barScreens
-
-        delegate: Component {
-            HomescreenClockPanel {
-                required property var modelData
-
-                root: theme
-                targetScreen: modelData
-            }
-        }
-    }
+    // Note: Homescreen dashboard is now integrated into BarSlot.qml as an in-place expandable Island Dock.
 }

@@ -39,69 +39,116 @@ PanelWindow {
     property var lyricsList: []
     property int currentLyricIndex: -1
     property bool showingLyrics: false
+    property string lyricsTrackId: ""
+    property int _lyricsFetchSeq: 0
 
-    property string currentTrackId: mprisPanel.player ? ((mprisPanel.player.trackTitle || "") + "||" + (mprisPanel.player.trackArtist || "")) : ""
-    
-    onCurrentTrackIdChanged: {
-        var title = mprisPanel.player ? (mprisPanel.player.trackTitle || "") : ""
-        var artist = mprisPanel.player ? (mprisPanel.player.trackArtist || "") : ""
+    readonly property string currentTrackId: {
+        if (!player) return ""
+        var t = player.trackTitle || ""
+        var a = player.trackArtist || ""
+        return (t || a) ? (t.trim() + "||" + a.trim()) : ""
+    }
+
+    Connections {
+        target: mprisPanel.player
+        ignoreUnknownSignals: true
+        function onTrackTitleChanged() { mprisPanel.fetchLyrics() }
+        function onTrackArtistChanged() { mprisPanel.fetchLyrics() }
+    }
+
+    onPlayerChanged: fetchLyrics()
+    onCurrentTrackIdChanged: fetchLyrics()
+
+    function syncLyricIndex() {
+        if (!lyricsList || lyricsList.length === 0) {
+            if (currentLyricIndex !== -1) currentLyricIndex = -1
+            return
+        }
+        var idx = -1
+        for (var i = 0; i < lyricsList.length; i++) {
+            if (mprisPanel.curPos >= lyricsList[i].time) {
+                idx = i
+            } else {
+                break
+            }
+        }
+        // If we have lyrics but haven't reached the first one yet, show the first one
+        if (idx === -1 && lyricsList.length > 0) {
+            idx = 0
+        }
+        if (idx !== currentLyricIndex) {
+            currentLyricIndex = idx
+        }
+    }
+
+    function fetchLyrics() {
+        var p = mprisPanel.player
+        var title = p ? (p.trackTitle || "").trim() : ""
+        var artist = p ? (p.trackArtist || "").trim() : ""
+        var trackId = (title || artist) ? (title + "||" + artist) : ""
+
+        var seq = ++_lyricsFetchSeq
         lyricsList = []
         currentLyricIndex = -1
-        
-        if (title === "") return
-        
+        lyricsTrackId = ""
+
+        if (!p || title === "") return
+
         var xhr = new XMLHttpRequest()
         var url = "https://lrclib.net/api/search?q=" + encodeURIComponent(title + " " + artist)
         xhr.open("GET", url, true)
         xhr.onreadystatechange = function() {
             if (xhr.readyState === XMLHttpRequest.DONE) {
+                if (seq !== mprisPanel._lyricsFetchSeq || mprisPanel.currentTrackId !== trackId) {
+                    return
+                }
                 if (xhr.status === 200) {
                     try {
                         var resp = JSON.parse(xhr.responseText)
-                        if (resp.length > 0 && resp[0].syncedLyrics) {
-                            var parsed = []
-                            var lines = resp[0].syncedLyrics.split('\n')
-                            var regex = /^\[(\d{2}):(\d{2}\.\d{2})\]\s(.*)/
-                            for (var i = 0; i < lines.length; i++) {
-                                var match = regex.exec(lines[i])
-                                if (match) {
-                                    var m = parseFloat(match[1])
-                                    var s = parseFloat(match[2])
-                                    var txt = match[3].trim()
-                                    if (txt.length > 0) {
-                                        parsed.push({ time: (m * 60) + s, text: txt })
-                                    }
+                        if (Array.isArray(resp) && resp.length > 0) {
+                            var foundLyrics = null
+                            for (var r = 0; r < resp.length; r++) {
+                                if (resp[r] && resp[r].syncedLyrics && typeof resp[r].syncedLyrics === "string" && resp[r].syncedLyrics.trim().length > 0) {
+                                    foundLyrics = resp[r].syncedLyrics
+                                    break
                                 }
                             }
-                            lyricsList = parsed
+                            if (foundLyrics) {
+                                var parsed = []
+                                var lines = foundLyrics.split('\n')
+                                var regex = /^\[(\d{2}):(\d{2}\.\d{2})\]\s(.*)/
+                                for (var i = 0; i < lines.length; i++) {
+                                    var match = regex.exec(lines[i])
+                                    if (match) {
+                                        var m = parseFloat(match[1])
+                                        var s = parseFloat(match[2])
+                                        var txt = match[3].trim()
+                                        if (txt.length > 0) {
+                                            parsed.push({ time: (m * 60) + s, text: txt })
+                                        }
+                                    }
+                                }
+                                if (parsed.length > 0) {
+                                    mprisPanel.lyricsTrackId = trackId
+                                    mprisPanel.lyricsList = parsed
+                                    mprisPanel.syncLyricIndex()
+                                    return
+                                }
+                            }
                         }
                     } catch(e) {
-                        lyricsList = []
+                        // ignore error
                     }
                 }
+                mprisPanel.lyricsTrackId = ""
+                mprisPanel.lyricsList = []
+                mprisPanel.currentLyricIndex = -1
             }
         }
         xhr.send()
     }
-    
-    onCurPosChanged: {
-        var idx = -1;
-        for (var i = 0; i < lyricsList.length; i++) {
-            if (mprisPanel.curPos >= lyricsList[i].time) {
-                idx = i;
-            } else {
-                break;
-            }
-        }
-        // If we have lyrics but haven't reached the first one yet, show the first one
-        if (idx === -1 && lyricsList.length > 0) {
-            idx = 0;
-        }
-        
-        if (idx !== currentLyricIndex) {
-            currentLyricIndex = idx;
-        }
-    }
+
+    onCurPosChanged: syncLyricIndex()
 
     // ── live position polling (for the progress bar) ────────────────
     // Quickshell only refreshes `position` sporadically, so we extrapolate
@@ -166,6 +213,7 @@ PanelWindow {
         for (var i = 0; i < bands; i++) { a.push(0.06); b.push(0.0) }
         levels = a; targets = b
         fallbackCavaPalette()
+        fetchLyrics()
     }
 
     FileView {
@@ -485,17 +533,19 @@ PanelWindow {
                 }
                 
                 UiText {
+                    id: lrcToggleText
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     text: "LRC"
                     font.family: root.barFont; font.pixelSize: 12; font.weight: Font.Bold
-                    color: lyricsList.length > 0 
+                    readonly property bool hasTrackLyrics: lyricsTrackId !== "" && lyricsTrackId === currentTrackId && lyricsList && lyricsList.length > 0
+                    color: hasTrackLyrics 
                            ? (showingLyrics ? root.ink : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.4))
                            : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.1)
                     MouseArea { 
                         anchors.fill: parent; 
-                        cursorShape: Qt.PointingHandCursor; 
-                        onClicked: { if(lyricsList.length > 0) showingLyrics = !showingLyrics }
+                        cursorShape: lrcToggleText.hasTrackLyrics ? Qt.PointingHandCursor : Qt.ArrowCursor; 
+                        onClicked: { if (lrcToggleText.hasTrackLyrics) showingLyrics = !showingLyrics }
                     }
                 }
             }

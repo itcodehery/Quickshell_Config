@@ -7,8 +7,15 @@ Item {
     required property var root
     signal clicked()
 
-    width: 36
-    height: 36
+    height: 32
+    readonly property real baseWidth: height
+    property bool isHovered: petMa.containsMouse
+    property bool showCuteWord: Math.random() < 0.5
+    readonly property real cuteWordWidth: (showCuteWord && currentCuteWord !== "") ? (cuteWordLabel.implicitWidth + 4) : 0
+    readonly property real pillTargetWidth: isHovered ? (6 + moodPill.implicitWidth) : 0
+    readonly property real cuteWordTargetWidth: (showCuteWord && currentCuteWord !== "") ? (6 + cuteWordWidth) : 0
+    width: baseWidth + pillTargetWidth + cuteWordTargetWidth
+    Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
 
     // ── State detection ─────────────────────────────────────────────
     MprisSelect { id: mprisSel }
@@ -37,6 +44,110 @@ Item {
         return "happy"
     }
 
+    readonly property string stateTitle: {
+        switch (displayMood) {
+            case "curious": return "Curious"
+            case "stressed": return "Stressed"
+            case "vibing": return "Vibing"
+            case "sleeping": return "Sleeping"
+            case "daydreaming": return "Daydreaming"
+            case "bored": return "Bored"
+            case "happy":
+            default: return "Happy"
+        }
+    }
+
+    readonly property string stateDescription: {
+        switch (displayMood) {
+            case "curious": return "Search bar is open"
+            case "stressed": return "High system CPU load (" + cpu + "%)"
+            case "vibing": return "Jamming to media player"
+            case "sleeping": return "System idle for " + Math.round(idleSeconds / 60) + "m"
+            case "daydreaming": return "System idle for over 1 minute"
+            case "bored": return "System idle for over 30 seconds"
+            case "happy":
+            default: return "System running smoothly (CPU " + cpu + "%)"
+        }
+    }
+
+    readonly property string stateIcon: {
+        switch (displayMood) {
+            case "curious": return "search"
+            case "stressed": return "bolt"
+            case "vibing": return "music_note"
+            case "sleeping": return "bedtime"
+            case "daydreaming": return "cloud"
+            case "bored": return "hourglass_empty"
+            case "happy":
+            default: return "sentiment_satisfied"
+        }
+    }
+
+    property string currentCuteWord: "bouncing"
+
+    readonly property var allCuteWords: [
+        "beaming", "booping", "bouncing", "brewing", "bubbling",
+        "chasing", "churning", "conjuring", "cooking", "crafting",
+        "cuddling", "dancing", "dazzling", "discovering", "doodling",
+        "dreaming", "drifting", "exploring", "floating", "fluttering",
+        "frolicking", "giggling", "gliding", "hopping", "hugging",
+        "humming", "imagining", "jingling", "napping", "nibbling",
+        "orbiting", "purring", "prancing", "roaming", "shimmying",
+        "singing", "skipping", "snuggling", "soaring", "sparking",
+        "spinning", "stargazing", "twirling", "waddling", "wiggling",
+        "wobbling", "yawning", "zooming"
+    ]
+
+    function pickCuteWord() {
+        var pool = allCuteWords
+        switch (displayMood) {
+            case "vibing":
+                pool = ["dancing", "humming", "singing", "shimmying", "twirling", "bouncing", "jingling", "spinning"]
+                break
+            case "sleeping":
+                pool = ["napping", "dreaming", "drifting", "snuggling", "cuddling", "yawning", "floating"]
+                break
+            case "daydreaming":
+                pool = ["stargazing", "dreaming", "floating", "drifting", "imagining", "doodling", "wandering", "wishing"]
+                break
+            case "stressed":
+                pool = ["churning", "brewing", "cooking", "orbiting", "spinning", "zooming", "launching"]
+                break
+            case "curious":
+                pool = ["exploring", "discovering", "finding", "roaming", "chasing", "mapping"]
+                break
+            case "bored":
+                pool = ["wobbling", "wibbling", "waddling", "nibbling", "yawning", "doodling"]
+                break
+            case "happy":
+            default:
+                pool = ["beaming", "booping", "bouncing", "bubbling", "giggling", "frolicking", "hopping", "purring", "sparking", "wiggling"]
+                break
+        }
+        var filtered = pool.filter(function(w) { return w !== currentCuteWord; })
+        var choices = filtered.length > 0 ? filtered : pool
+        currentCuteWord = choices[Math.floor(Math.random() * choices.length)]
+    }
+
+    function rollCuteWord() {
+        showCuteWord = (Math.random() < 0.5)
+        if (showCuteWord) {
+            pickCuteWord()
+        }
+    }
+
+    Timer {
+        id: wordCycleTimer
+        interval: 35000
+        repeat: true
+        running: true
+        onTriggered: {
+            if (!pet.isHovered) {
+                pet.rollCuteWord()
+            }
+        }
+    }
+
     // ── Poke hop animation ──────────────────────────────────────────
     property real pokeScale: 1.0
     SequentialAnimation {
@@ -49,6 +160,7 @@ Item {
     function poke() {
         pokeHopAnim.restart()
         idleSeconds = 0
+        rollCuteWord()
     }
 
     property string displayMood: "happy"
@@ -57,6 +169,7 @@ Item {
         if (curious) displayMood = "curious"
         else moodTransition.restart()
     }
+    onDisplayMoodChanged: rollCuteWord()
 
     Timer {
         id: moodTransition
@@ -64,7 +177,10 @@ Item {
         onTriggered: pet.displayMood = pet.mood
     }
 
-    Component.onCompleted: displayMood = mood
+    Component.onCompleted: {
+        displayMood = mood
+        rollCuteWord()
+    }
 
     // ── Theme colors ────────────────────────────────────────────────
     readonly property color bodyColor: root.seal
@@ -117,7 +233,9 @@ Item {
     // ── Main body container ─────────────────────────────────────────
     Item {
         id: bodyContainer
-        anchors.centerIn: parent
+        anchors.left: parent.left
+        anchors.leftMargin: (pet.baseWidth - width) / 2
+        anchors.verticalCenter: parent.verticalCenter
         width: 44
         height: 44
         scale: (36 / 52) * pet.pokeScale
@@ -304,14 +422,107 @@ Item {
         }
     }
     
-    // Hitbox for poke
+    // Hitbox for poke & hover detection
     MouseArea {
-        anchors.fill: parent
+        id: petMa
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: isHovered ? parent.width : pet.baseWidth
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
+        onEntered: {
+            pet.rollMood()
+        }
+        onExited: {
+        }
         onClicked: {
             pet.poke()
             pet.clicked()
+        }
+    }
+
+    // ── Cute Mood Pill to the Right (Opens on hover showing State only) ──
+    Rectangle {
+        id: moodPill
+        z: 25
+        anchors.left: parent.left
+        anchors.leftMargin: pet.baseWidth + 6
+        anchors.verticalCenter: parent.verticalCenter
+        height: 24
+        radius: 12
+        clip: true
+
+        implicitWidth: pillRow.implicitWidth + 18
+        width: isHovered ? implicitWidth : 0
+        opacity: isHovered ? 1.0 : 0.0
+        scale: isHovered ? 1.0 : 0.85
+
+        color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.16)
+        border.width: 1
+        border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.35)
+
+        Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
+
+        Row {
+            id: pillRow
+            anchors.centerIn: parent
+            spacing: 5
+
+            IconText {
+                anchors.verticalCenter: parent.verticalCenter
+                text: pet.stateIcon
+                color: root.seal
+                font.pixelSize: 13
+            }
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: pet.stateTitle
+                color: root.seal
+                font.family: root.barFont
+                font.pixelSize: 11
+                font.weight: Font.Bold
+            }
+        }
+    }
+
+    // ── Static Cute Mood Word outside the pill (~50% probability) ───
+    Item {
+        id: cuteWordItem
+        z: 20
+        anchors.left: moodPill.right
+        anchors.leftMargin: pet.isHovered ? 6 : 0
+        anchors.verticalCenter: parent.verticalCenter
+        height: 24
+        width: (pet.showCuteWord && pet.currentCuteWord !== "") ? cuteWordLabel.implicitWidth : 0
+        opacity: (pet.showCuteWord && pet.currentCuteWord !== "") ? 0.75 : 0.0
+        visible: opacity > 0.01
+
+        Behavior on anchors.leftMargin { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: 250 } }
+        Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+
+        Text {
+            id: cuteWordLabel
+            anchors.verticalCenter: parent.verticalCenter
+            text: pet.currentCuteWord
+            color: root.ink
+            font.family: root.barFont
+            font.pixelSize: 11
+            font.italic: true
+            font.weight: Font.Medium
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+                pet.poke()
+                pet.clicked()
+            }
         }
     }
 

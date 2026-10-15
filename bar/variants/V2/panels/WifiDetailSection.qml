@@ -26,6 +26,21 @@ Item {
     })
 
     property bool speedTestActive: false
+    property string activeView: "status" // "status" or "networks"
+    function nextSubOption() {
+        if (activeView === "status") {
+            activeView = "networks"
+            return true
+        }
+        return false
+    }
+    function prevSubOption() {
+        if (activeView === "networks") {
+            activeView = "status"
+            return true
+        }
+        return false
+    }
     property string currentTab: "available" // "available" or "saved"
     property bool scanning: false
     property string selectedSsid: ""
@@ -461,21 +476,88 @@ Item {
             }
         }
 
-        // =================================================================
-        // MODE A: NORMAL WI-FI VIEW (Shows when speed test has NOT started)
-        // =================================================================
+        // ================= SEGMENTED TAB SWITCHER =================
         Row {
-            id: normalWifiRow
             width: parent.width
-            height: parent.height - 46
-            spacing: 12
+            height: 32
+            spacing: 8
             visible: !wifiSection.speedTestActive
 
-            // Card 1: Connection & Telemetry (44%)
             Rectangle {
-                width: Math.round((parent.width - 12) * 0.44)
-                height: parent.height
-                radius: 24
+                width: (parent.width - 8) / 2
+                height: 32
+                radius: 16
+                color: wifiSection.activeView === "status" ? root.seal : root.fillIdle
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 6
+                    IconText {
+                        text: "info"
+                        color: wifiSection.activeView === "status" ? root.paper : root.ink
+                        font.pixelSize: 15
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Text {
+                        text: "Connection Info"
+                        color: wifiSection.activeView === "status" ? root.paper : root.ink
+                        font.family: root.barFont
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: wifiSection.activeView = "status"
+                }
+            }
+
+            Rectangle {
+                width: (parent.width - 8) / 2
+                height: 32
+                radius: 16
+                color: wifiSection.activeView === "networks" ? root.seal : root.fillIdle
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 6
+                    IconText {
+                        text: "wifi_find"
+                        color: wifiSection.activeView === "networks" ? root.paper : root.ink
+                        font.pixelSize: 15
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Text {
+                        text: "Networks (" + (availableModel.count || 0) + ")"
+                        color: wifiSection.activeView === "networks" ? root.paper : root.ink
+                        font.family: root.barFont
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: wifiSection.activeView = "networks"
+                }
+            }
+        }
+
+        // ================= FULL-WIDTH SINGLE COLUMN CARD CONTENT =================
+        Item {
+            id: normalWifiRow
+            width: parent.width
+            height: parent.height - 36 - 32 - 20
+            visible: !wifiSection.speedTestActive
+
+            // Card 1: Connection & Telemetry (Full Width)
+            Rectangle {
+                anchors.fill: parent
+                visible: wifiSection.activeView === "status"
+                radius: 20
                 color: root.fillIdle
                 border.width: 1
                 border.color: Qt.rgba(1, 1, 1, 0.06)
@@ -729,11 +811,12 @@ Item {
                 }
             }
 
-            // Card 2: Networks Browser (56%)
+            // Card 2: Networks Browser (Full Width)
             Rectangle {
-                width: Math.round((parent.width - 12) * 0.56)
-                height: parent.height
-                radius: 24
+                id: card2
+                anchors.fill: parent
+                visible: wifiSection.activeView === "networks"
+                radius: 20
                 color: root.fillIdle
                 border.width: 1
                 border.color: Qt.rgba(1, 1, 1, 0.06)

@@ -185,78 +185,6 @@ Item {
         }
     }
 
-    function getAppIcon(cls) {
-        if (!cls) return ""
-        var lower = cls.toLowerCase()
-        if (lower.indexOf("file://") === 0) return lower
-        if (lower.indexOf("/") === 0) return "file://" + lower
-        if (lower === "zen" || lower === "zen-alpha" || lower.indexOf("zen") >= 0) {
-            return "file:///usr/share/icons/hicolor/128x128/apps/zen-browser.png"
-        }
-        if (lower === "kitty") {
-            return "file:///usr/share/icons/hicolor/256x256/apps/kitty.png"
-        }
-        if (lower.indexOf("code") >= 0 || lower === "vscode") {
-            var p = Quickshell.iconPath("code", "com.visualstudio.code")
-            if (p) return p
-        }
-        if (lower.indexOf("whatsapp") >= 0) {
-            var p = Quickshell.iconPath("whatsapp", "whatsapp-for-linux")
-            if (p) return p
-        }
-        if (lower.indexOf("azahar") >= 0) {
-            return "file:///usr/share/icons/hicolor/scalable/apps/org.azahar_emu.Azahar.svg"
-        }
-        if (lower.indexOf("chrome") >= 0 || lower.indexOf("chromium") >= 0) {
-            var p = Quickshell.iconPath("google-chrome", "chrome")
-            if (p) return p
-        }
-        if (lower.indexOf("firefox") >= 0) {
-            var p = Quickshell.iconPath("firefox", "firefox-esr")
-            if (p) return p
-        }
-        if (lower.indexOf("discord") >= 0) {
-            var p = Quickshell.iconPath("discord", "discord")
-            if (p) return p
-        }
-        if (lower.indexOf("spotify") >= 0) {
-            var p = Quickshell.iconPath("spotify", "spotify-client")
-            if (p) return p
-        }
-        if (lower.indexOf("steam") >= 0) {
-            var p = Quickshell.iconPath("steam", "steam")
-            if (p) return p
-        }
-        if (lower.indexOf("typora") >= 0) {
-            var p = Quickshell.iconPath("typora", "accessories-text-editor")
-            if (p) return p
-        }
-        if (lower.indexOf("thunar") >= 0 || lower.indexOf("nautilus") >= 0 || lower.indexOf("dolphin") >= 0) {
-            var p = Quickshell.iconPath("system-file-manager", "folder")
-            if (p) return p
-        }
-        var direct = Quickshell.iconPath(lower, "")
-        if (direct) return direct
-        var clean = lower.replace(".desktop", "").split("-")[0]
-        var pClean = Quickshell.iconPath(clean, "")
-        if (pClean) return pClean
-        return Quickshell.iconPath("application-x-executable", "")
-    }
-
-    function getAppDisplayName(cls, title) {
-        if (!cls) return title || "App"
-        var lower = cls.toLowerCase()
-        if (lower === "zen" || lower.indexOf("zen") >= 0) return "Zen Browser"
-        if (lower === "kitty") return "Kitty"
-        if (lower.indexOf("code") >= 0) return "VS Code"
-        if (lower.indexOf("discord") >= 0) return "Discord"
-        if (lower.indexOf("spotify") >= 0) return "Spotify"
-        if (lower.indexOf("steam") >= 0) return "Steam"
-        if (lower.indexOf("typora") >= 0) return "Typora"
-        if (lower.indexOf("thunar") >= 0) return "Thunar"
-        return cls.charAt(0).toUpperCase() + cls.slice(1)
-    }
-
     property var root
     property var panel
     property string activeDetailView: root && root.dashboardDetail ? root.dashboardDetail : ""
@@ -436,13 +364,142 @@ Item {
             dashboardContent.curPos = 0
             dashboardContent._lastRead = -1
             dashboardContent.curLen = mprisSel.player ? (mprisSel.player.length || 0) : 0
+            dashboardContent.fetchLocalLyrics()
         }
     }
-    
-    onCurTitleChanged: { if (root && curTitle !== "") root.lastMediaTitle = curTitle }
-    onCurArtistChanged: { if (root && curArtist !== "") root.lastMediaArtist = curArtist }
+
+    readonly property string currentTrackId: {
+        var t = curTitle ? curTitle.trim() : ""
+        var a = curArtist ? curArtist.trim() : ""
+        return (t || a) ? (t + "||" + a) : ""
+    }
+
+    property var mprisPanel: null
+    property var localLyricsList: []
+    property int localLyricIndex: -1
+    property string localLyricsTrackId: ""
+    property int _localLyricsFetchSeq: 0
+
+    readonly property bool mprisHasTrackLyrics: mprisPanel !== null && mprisPanel !== undefined && mprisPanel.lyricsTrackId !== "" && mprisPanel.lyricsTrackId === currentTrackId && mprisPanel.lyricsList && mprisPanel.lyricsList.length > 0
+    readonly property bool localHasTrackLyrics: localLyricsTrackId !== "" && localLyricsTrackId === currentTrackId && localLyricsList && localLyricsList.length > 0
+
+    readonly property var activeLyricsList: mprisHasTrackLyrics ? mprisPanel.lyricsList : (localHasTrackLyrics ? localLyricsList : [])
+    readonly property int activeLyricIndex: mprisHasTrackLyrics ? mprisPanel.currentLyricIndex : (localHasTrackLyrics ? localLyricIndex : -1)
+    readonly property bool hasSyncedLyrics: mprisSel.active && activeLyricsList && activeLyricsList.length > 0 && activeLyricIndex >= 0 && activeLyricIndex < activeLyricsList.length
+    readonly property string activeLyricText: hasSyncedLyrics ? activeLyricsList[activeLyricIndex].text : ""
+    readonly property string nextLyricText: (hasSyncedLyrics && (activeLyricIndex + 1) < activeLyricsList.length) ? activeLyricsList[activeLyricIndex + 1].text : ""
+
+    function syncLocalLyricIndex() {
+        if (!localLyricsList || localLyricsList.length === 0) {
+            if (localLyricIndex !== -1) localLyricIndex = -1
+            return
+        }
+        var idx = -1
+        for (var i = 0; i < localLyricsList.length; i++) {
+            if (dashboardContent.curPos >= localLyricsList[i].time) {
+                idx = i
+            } else {
+                break
+            }
+        }
+        if (idx === -1 && localLyricsList.length > 0) idx = 0
+        if (idx !== localLyricIndex) localLyricIndex = idx
+    }
+
+    function fetchLocalLyrics() {
+        var title = curTitle ? curTitle.trim() : ""
+        var artist = curArtist ? curArtist.trim() : ""
+        var trackId = (title || artist) ? (title + "||" + artist) : ""
+
+        var seq = ++_localLyricsFetchSeq
+        localLyricsList = []
+        localLyricIndex = -1
+        localLyricsTrackId = ""
+
+        if (!title || !mprisSel.active) {
+            return
+        }
+
+        // If mprisPanel is provided and actively managing lyrics for this track, let it handle it
+        if (mprisPanel && mprisPanel.currentTrackId === trackId) {
+            return
+        }
+
+        var xhr = new XMLHttpRequest()
+        var url = "https://lrclib.net/api/search?q=" + encodeURIComponent(title + " " + artist)
+        xhr.open("GET", url, true)
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === XMLHttpRequest.DONE) {
+                if (seq !== dashboardContent._localLyricsFetchSeq || dashboardContent.currentTrackId !== trackId) {
+                    return
+                }
+                if (xhr.status === 200) {
+                    try {
+                        var resp = JSON.parse(xhr.responseText)
+                        if (Array.isArray(resp) && resp.length > 0) {
+                            var foundLyrics = null
+                            for (var r = 0; r < resp.length; r++) {
+                                if (resp[r] && resp[r].syncedLyrics && typeof resp[r].syncedLyrics === "string" && resp[r].syncedLyrics.trim().length > 0) {
+                                    foundLyrics = resp[r].syncedLyrics
+                                    break
+                                }
+                            }
+                            if (foundLyrics) {
+                                var parsed = []
+                                var lines = foundLyrics.split('\n')
+                                var regex = /^\[(\d{2}):(\d{2}\.\d{2})\]\s(.*)/
+                                for (var i = 0; i < lines.length; i++) {
+                                    var match = regex.exec(lines[i])
+                                    if (match) {
+                                        var m = parseFloat(match[1])
+                                        var s = parseFloat(match[2])
+                                        var txt = match[3].trim()
+                                        if (txt.length > 0) parsed.push({ time: (m * 60) + s, text: txt })
+                                    }
+                                }
+                                if (parsed.length > 0) {
+                                    dashboardContent.localLyricsTrackId = trackId
+                                    dashboardContent.localLyricsList = parsed
+                                    dashboardContent.syncLocalLyricIndex()
+                                    return
+                                }
+                            }
+                        }
+                    } catch(e) {
+                        // parse error
+                    }
+                }
+                dashboardContent.localLyricsTrackId = ""
+                dashboardContent.localLyricsList = []
+                dashboardContent.localLyricIndex = -1
+            }
+        }
+        xhr.send()
+    }
+
+    onCurTitleChanged: {
+        if (root && curTitle !== "") root.lastMediaTitle = curTitle
+        fetchLocalLyrics()
+    }
+    onCurArtistChanged: {
+        if (root && curArtist !== "") root.lastMediaArtist = curArtist
+        fetchLocalLyrics()
+    }
     onCurArtUrlChanged: { if (root && curArtUrl !== "") root.lastMediaArtUrl = curArtUrl }
-    
+
+    Connections {
+        target: mprisSel.player
+        ignoreUnknownSignals: true
+        function onTrackTitleChanged() { dashboardContent.fetchLocalLyrics() }
+        function onTrackArtistChanged() { dashboardContent.fetchLocalLyrics() }
+    }
+
+    onCurPosChanged: {
+        if (localLyricsList && localLyricsList.length > 0) {
+            syncLocalLyricIndex()
+        }
+    }
+
     onRootChanged: {
         if (root) {
             if (mprisSel.player && mprisSel.player.trackTitle) {
@@ -453,32 +510,37 @@ Item {
         }
     }
 
-    Row {
+    // ── MAIN CONTROLS (Single Column, phone-style scaled to 0.8x) ──
+    Item {
+        id: mainControls
         anchors.fill: parent
-        spacing: 16
+        visible: opacity > 0.001
+        opacity: dashboardContent.activeDetailView === "" ? 1.0 : 0.0
+        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
-        // LEFT COLUMN (40%): Sliders, Tiles & Media Player
         Column {
-            width: parent.width * 0.4 - 8
-            height: parent.height
-            spacing: 16
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            spacing: 12
 
-            // --- SLIDERS ---
+            // --- SLIDERS (Full Material You size) ---
             Column {
+                id: slidersCol
                 width: parent.width
-                spacing: 12
+                spacing: 10
                 
                 // Brightness Container
                 Row {
                     width: parent.width
-                    spacing: 12
+                    spacing: 10
                     
                     // Brightness Slider
                     Rectangle {
                         id: briSlider
-                        width: parent.width - 40 - 12
-                        height: 40
-                        radius: 20
+                        width: parent.width - 38 - 8
+                        height: 38
+                        radius: 19
                         color: root.fillIdle
                         
                         property bool sliding: false
@@ -487,7 +549,7 @@ Item {
                         Item {
                             id: briFillItem
                             property real val: briSlider.sliding ? briSlider.localValue : dashboardContent.currentBrightness
-                            property real gap: val > 85 ? 23 * (100 - val) / 15 : 23
+                            property real gap: val > 85 ? 19 * (100 - val) / 15 : 19
                             property real barOpacity: val > 85 ? (100 - val) / 15 : 1
                             
                             width: Math.max(parent.height, parent.width * (val / 100))
@@ -500,7 +562,7 @@ Item {
                                 anchors.top: parent.top
                                 anchors.bottom: parent.bottom
                                 width: Math.max(parent.height, parent.width - briFillItem.gap)
-                                radius: 10 + (10 * (1 - briFillItem.barOpacity))
+                                radius: 9.5 + (9.5 * (1 - briFillItem.barOpacity))
                                 color: root.seal
                                 
                                 // fully rounded on the left
@@ -517,7 +579,7 @@ Item {
                             Rectangle {
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 23 // 10px gap + 3px line + 10px gap
+                                width: 20
                                 height: parent.height
                                 color: "transparent"
                                 opacity: briFillItem.barOpacity
@@ -525,7 +587,7 @@ Item {
                                 Rectangle {
                                     anchors.centerIn: parent
                                     width: 3
-                                    height: parent.height - 16
+                                    height: parent.height - 14
                                     radius: 1.5
                                     color: root.seal
                                 }
@@ -536,7 +598,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.left: parent.left
                             anchors.leftMargin: 16
-                            spacing: 12
+                            spacing: 10
                             IconText { 
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "light_mode"
@@ -546,8 +608,8 @@ Item {
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: Math.round(briFillItem.val) + "%"
-                                color: briFillItem.width > 70 ? root.paper : root.ink
-                                font.pixelSize: 13
+                                color: briFillItem.width > 64 ? root.paper : root.ink
+                                font.pixelSize: 12
                                 font.family: root.barFont
                                 font.weight: Font.DemiBold
                                 opacity: briSlider.sliding ? 1 : 0
@@ -571,12 +633,12 @@ Item {
                         }
                     }
                     
-                    // Night Light Toggle (Circular 40x40, dual-mode: Soft / Intense)
+                    // Night Light Toggle (44x44, dual-mode: Soft / Intense)
                     Rectangle {
                         id: localNightToggle
-                        width: 40
-                        height: 40
-                        radius: 20
+                        width: 38
+                        height: 38
+                        radius: 19
                         
                         readonly property int mode: dashboardContent.nightMode
                         
@@ -592,16 +654,16 @@ Item {
                         
                         IconText { 
                             anchors.centerIn: parent
-                            anchors.verticalCenterOffset: -3
+                            anchors.verticalCenterOffset: -2
                             text: "nightlight_round"
                             color: localNightToggle.mode > 0 ? root.paper : root.ink
                             opacity: localNightToggle.mode > 0 ? 1.0 : 0.6
-                            font.pixelSize: 17
+                            font.pixelSize: 16
                             Behavior on color { ColorAnimation { duration: 200 } }
                             Behavior on opacity { NumberAnimation { duration: 200 } }
                         }
 
-                        // Dual toggle indicator dashes (Off: 0 lit, Soft: 1 lit, Intense: 2 lit)
+                        // Dual toggle indicator dashes
                         Row {
                             anchors.bottom: parent.bottom
                             anchors.bottomMargin: 6
@@ -655,14 +717,14 @@ Item {
                 // Audio Container
                 Row {
                     width: parent.width
-                    spacing: 12
+                    spacing: 10
                     
                     // Audio Slider
                     Rectangle {
                         id: audSlider
-                        width: parent.width - 40 - 12
-                        height: 40
-                        radius: 20
+                        width: parent.width - 38 - 8
+                        height: 38
+                        radius: 19
                         color: root.fillIdle
                         
                         property bool sliding: false
@@ -671,7 +733,7 @@ Item {
                         Item {
                             id: audFillItem
                             property real val: audSlider.sliding ? audSlider.localValue : audioData.volume
-                            property real gap: val > 85 ? 23 * (100 - val) / 15 : 23
+                            property real gap: val > 85 ? 19 * (100 - val) / 15 : 19
                             property real barOpacity: val > 85 ? (100 - val) / 15 : 1
                             
                             width: Math.max(parent.height, parent.width * (val / 100))
@@ -684,7 +746,7 @@ Item {
                                 anchors.top: parent.top
                                 anchors.bottom: parent.bottom
                                 width: Math.max(parent.height, parent.width - audFillItem.gap)
-                                radius: 10 + (10 * (1 - audFillItem.barOpacity))
+                                radius: 9.5 + (9.5 * (1 - audFillItem.barOpacity))
                                 color: audioData.muted ? root.fillHover : root.seal
                                 
                                 // fully rounded on the left
@@ -701,7 +763,7 @@ Item {
                             Rectangle {
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 23 // 10px gap + 3px line + 10px gap
+                                width: 20
                                 height: parent.height
                                 color: "transparent"
                                 opacity: audFillItem.barOpacity
@@ -709,7 +771,7 @@ Item {
                                 Rectangle {
                                     anchors.centerIn: parent
                                     width: 3
-                                    height: parent.height - 16
+                                    height: parent.height - 14
                                     radius: 1.5
                                     color: audioData.muted ? root.fillHover : root.seal
                                 }
@@ -720,7 +782,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.left: parent.left
                             anchors.leftMargin: 16
-                            spacing: 12
+                            spacing: 10
                             IconText { 
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: audioData.muted ? "volume_off" : "volume_up"
@@ -730,8 +792,8 @@ Item {
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: Math.round(audFillItem.val) + "%"
-                                color: audioData.muted ? root.ink : (audFillItem.width > 70 ? root.paper : root.ink)
-                                font.pixelSize: 13
+                                color: audioData.muted ? root.ink : (audFillItem.width > 64 ? root.paper : root.ink)
+                                font.pixelSize: 12
                                 font.family: root.barFont
                                 font.weight: Font.DemiBold
                                 opacity: audSlider.sliding ? 1 : 0
@@ -754,12 +816,12 @@ Item {
                         }
                     }
                     
-                    // Audio Settings / Detail Toggle
+                    // Audio Settings / Detail Toggle (38x38)
                     Rectangle {
                         id: audSettingsToggle
-                        width: 40
-                        height: 40
-                        radius: 20
+                        width: 38
+                        height: 38
+                        radius: 19
                         color: dashboardContent.activeDetailView === "volume" ? root.seal : root.fillIdle
                         scale: audTuneMa.pressed ? 0.92 : (audTuneHov.hovered ? 1.05 : 1.0)
                         
@@ -774,7 +836,7 @@ Item {
                             anchors.centerIn: parent
                             text: "tune"
                             color: dashboardContent.activeDetailView === "volume" ? root.paper : root.ink
-                            font.pixelSize: 18
+                            font.pixelSize: 16
                             Behavior on color { ColorAnimation { duration: 200 } }
                         }
                         MouseArea {
@@ -795,16 +857,16 @@ Item {
                 }
             }
 
-            // --- MATERIAL YOU TILES ---
+            // --- MATERIAL YOU TILES (Full Material You size) ---
             ListView {
                 id: tilesPager
                 width: parent.width
-                height: 132
+                height: 122
                 clip: true
                 snapMode: ListView.SnapToItem
                 orientation: ListView.Vertical
                 boundsBehavior: Flickable.StopAtBounds
-                spacing: 24
+                spacing: 12
                 
                 WheelHandler {
                     onWheel: (event) => {
@@ -822,7 +884,7 @@ Item {
                         width: tilesPager.width
                         height: tilesPager.height
                         columns: 2
-                        spacing: 12
+                        spacing: 10
 
                         // Wi-Fi Tile
                         Rectangle {
@@ -831,9 +893,9 @@ Item {
                             property bool active: dashboardContent.activeDetailView === "wifi"
                             readonly property bool isLit: active || connected
                             readonly property color fg: isLit ? root.paper : root.ink
-                            width: (parent.width - 12) / 2
-                            height: 60
-                            radius: 30
+                            width: (parent.width - 10) / 2
+                            height: 56
+                            radius: 28
                             color: isLit
                                 ? (wifiMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                 : (wifiMa.containsMouse ? root.fillHover : root.fillIdle)
@@ -866,11 +928,11 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
                                 anchors.leftMargin: 8
-                                spacing: 12
+                                spacing: 10
                                 
                                 Rectangle {
-                                    width: 44
-                                    height: 44
+                                    width: 40
+                                    height: 40
                                     radius: 14
                                     color: wifiTile.isLit
                                         ? (wifiInnerMa.containsMouse ? Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.28) : Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.18))
@@ -906,6 +968,7 @@ Item {
                                 
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 2
                                     Text {
                                         text: "Wi-Fi"
                                         color: wifiTile.fg
@@ -921,7 +984,7 @@ Item {
                                         font.pixelSize: 11
                                         font.family: root.barFont
                                         elide: Text.ElideRight
-                                        width: wifiTile.width - 44 - 8 - 12 - 16
+                                        width: wifiTile.width - 40 - 8 - 10 - 12
                                         Behavior on color { ColorAnimation { duration: 160 } }
                                     }
                                 }
@@ -935,9 +998,9 @@ Item {
                             property bool active: dashboardContent.activeDetailView === "bluetooth"
                             readonly property bool isLit: active || connected
                             readonly property color fg: isLit ? root.paper : root.ink
-                            width: (parent.width - 12) / 2
-                            height: 60
-                            radius: 30
+                            width: (parent.width - 10) / 2
+                            height: 56
+                            radius: 28
                             color: isLit
                                 ? (btMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                 : (btMa.containsMouse ? root.fillHover : root.fillIdle)
@@ -970,11 +1033,11 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
                                 anchors.leftMargin: 8
-                                spacing: 12
+                                spacing: 10
                                 
                                 Rectangle {
-                                    width: 44
-                                    height: 44
+                                    width: 40
+                                    height: 40
                                     radius: 14
                                     color: btTile.isLit
                                         ? (btInnerMa.containsMouse ? Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.28) : Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.18))
@@ -1010,6 +1073,7 @@ Item {
                                 
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 2
                                     Text {
                                         text: "Bluetooth"
                                         color: btTile.fg
@@ -1025,7 +1089,7 @@ Item {
                                         font.pixelSize: 11
                                         font.family: root.barFont
                                         elide: Text.ElideRight
-                                        width: btTile.width - 44 - 8 - 12 - 16
+                                        width: btTile.width - 40 - 8 - 10 - 12
                                         Behavior on color { ColorAnimation { duration: 160 } }
                                     }
                                 }
@@ -1037,9 +1101,9 @@ Item {
                             id: cpuTile
                             property bool active: dashboardContent.activeDetailView === "cpu"
                             readonly property color fg: active ? root.paper : root.ink
-                            width: (parent.width - 12) / 2
-                            height: 60
-                            radius: 30
+                            width: (parent.width - 10) / 2
+                            height: 56
+                            radius: 28
                             color: active
                                 ? (cpuMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                 : (cpuMa.containsMouse ? root.fillHover : root.fillIdle)
@@ -1055,18 +1119,19 @@ Item {
                             Row {
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
-                                anchors.leftMargin: 16
-                                spacing: 12
+                                anchors.leftMargin: 14
+                                spacing: 10
                                 
                                 IconText {
                                     text: "memory"
                                     color: cpuTile.fg
-                                    font.pixelSize: 20
+                                    font.pixelSize: 22
                                     Behavior on color { ColorAnimation { duration: 160 } }
                                 }
                                 
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 2
                                     Text {
                                         text: "CPU"
                                         color: cpuTile.fg
@@ -1082,7 +1147,7 @@ Item {
                                         font.pixelSize: 11
                                         font.family: root.barFont
                                         elide: Text.ElideRight
-                                        width: 60
+                                        width: 70
                                         Behavior on color { ColorAnimation { duration: 160 } }
                                     }
                                 }
@@ -1109,9 +1174,9 @@ Item {
                             id: memTile
                             property bool active: dashboardContent.activeDetailView === "memory"
                             readonly property color fg: active ? root.paper : root.ink
-                            width: (parent.width - 12) / 2
-                            height: 60
-                            radius: 30
+                            width: (parent.width - 10) / 2
+                            height: 56
+                            radius: 28
                             color: active
                                 ? (memMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                 : (memMa.containsMouse ? root.fillHover : root.fillIdle)
@@ -1127,18 +1192,19 @@ Item {
                             Row {
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
-                                anchors.leftMargin: 16
-                                spacing: 12
+                                anchors.leftMargin: 14
+                                spacing: 10
                                 
                                 IconText {
                                     text: "dns"
                                     color: memTile.fg
-                                    font.pixelSize: 20
+                                    font.pixelSize: 22
                                     Behavior on color { ColorAnimation { duration: 160 } }
                                 }
                                 
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 2
                                     Text {
                                         text: "Memory"
                                         color: memTile.fg
@@ -1154,7 +1220,7 @@ Item {
                                         font.pixelSize: 11
                                         font.family: root.barFont
                                         elide: Text.ElideRight
-                                        width: 60
+                                        width: 70
                                         Behavior on color { ColorAnimation { duration: 160 } }
                                     }
                                 }
@@ -1182,15 +1248,15 @@ Item {
                         width: tilesPager.width
                         height: tilesPager.height
                         columns: 2
-                        spacing: 12
+                        spacing: 10
 
                         // DND Tile
                         Rectangle {
                             id: dndTile
                             property bool active: root.notifSilenced
-                            width: (parent.width - 12) / 2
-                            height: 60
-                            radius: 30
+                            width: (parent.width - 10) / 2
+                            height: 56
+                            radius: 28
                             color: active ? root.color04 : root.fillIdle
                             scale: dndMa.pressed ? 0.92 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
@@ -1199,11 +1265,12 @@ Item {
                             Row {
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
-                                anchors.leftMargin: 16
-                                spacing: 12
-                                IconText { text: dndTile.active ? "notifications_off" : "notifications_active"; color: dndTile.active ? root.paper : root.ink; font.pixelSize: 20; Behavior on color { ColorAnimation { duration: 200 } } }
+                                anchors.leftMargin: 14
+                                spacing: 10
+                                IconText { text: dndTile.active ? "notifications_off" : "notifications_active"; color: dndTile.active ? root.paper : root.ink; font.pixelSize: 22; Behavior on color { ColorAnimation { duration: 200 } } }
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 2
                                     Text { text: "DND"; color: dndTile.active ? root.paper : root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold; Behavior on color { ColorAnimation { duration: 200 } } }
                                     Text { text: dndTile.active ? "Silenced" : "Alerts On"; color: dndTile.active ? root.paper : root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; Behavior on color { ColorAnimation { duration: 200 } } }
                                 }
@@ -1224,9 +1291,9 @@ Item {
                             readonly property int mode: dashboardContent.nightMode
                             property bool active: mode > 0
 
-                            width: (parent.width - 12) / 2
-                            height: 60
-                            radius: 30
+                            width: (parent.width - 10) / 2
+                            height: 56
+                            radius: 28
                             color: mode === 2 ? root.color01 : (mode === 1 ? root.color03 : root.fillIdle)
                             scale: nightTileMa.pressed ? 0.92 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
@@ -1235,16 +1302,17 @@ Item {
                             Row {
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
-                                anchors.leftMargin: 16
-                                spacing: 12
+                                anchors.leftMargin: 14
+                                spacing: 10
                                 IconText { 
                                     text: "nightlight_round"
                                     color: nightTile.active ? root.paper : root.ink
-                                    font.pixelSize: 20
+                                    font.pixelSize: 22
                                     Behavior on color { ColorAnimation { duration: 200 } } 
                                 }
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 2
                                     Text { 
                                         text: "Night Light"
                                         color: nightTile.active ? root.paper : root.ink
@@ -1283,9 +1351,9 @@ Item {
                             id: powerTile
                             property bool active: dashboardContent.activeDetailView === "battery"
                             readonly property color fg: active ? root.paper : root.ink
-                            width: (parent.width - 12) / 2
-                            height: 60
-                            radius: 30
+                            width: (parent.width - 10) / 2
+                            height: 56
+                            radius: 28
                             color: active
                                 ? (powerMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                 : (powerMa.containsMouse ? root.fillHover : root.fillIdle)
@@ -1301,16 +1369,17 @@ Item {
                             Row {
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
-                                anchors.leftMargin: 16
-                                spacing: 12
+                                anchors.leftMargin: 14
+                                spacing: 10
                                 IconText {
                                     text: "bolt"
                                     color: powerTile.fg
-                                    font.pixelSize: 20
+                                    font.pixelSize: 22
                                     Behavior on color { ColorAnimation { duration: 160 } }
                                 }
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 2
                                     Text {
                                         text: "Battery"
                                         color: powerTile.fg
@@ -1359,9 +1428,9 @@ Item {
                                 }
                             }
 
-                            width: (parent.width - 12) / 2
-                            height: 60
-                            radius: 30
+                            width: (parent.width - 10) / 2
+                            height: 56
+                            radius: 28
                             color: active ? root.color03 : root.fillIdle
                             scale: coffeeMa.pressed ? 0.92 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
@@ -1370,11 +1439,12 @@ Item {
                             Row {
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
-                                anchors.leftMargin: 16
-                                spacing: 12
-                                IconText { text: "local_cafe"; color: coffeeTile.active ? root.paper : root.ink; font.pixelSize: 20; Behavior on color { ColorAnimation { duration: 200 } } }
+                                anchors.leftMargin: 14
+                                spacing: 10
+                                IconText { text: "local_cafe"; color: coffeeTile.active ? root.paper : root.ink; font.pixelSize: 22; Behavior on color { ColorAnimation { duration: 200 } } }
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 2
                                     Text { text: "Caffeine"; color: coffeeTile.active ? root.paper : root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold; Behavior on color { ColorAnimation { duration: 200 } } }
                                     Text { text: coffeeTile.active ? "Awake" : "Sleepy"; color: coffeeTile.active ? root.paper : root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; Behavior on color { ColorAnimation { duration: 200 } } }
                                 }
@@ -1395,19 +1465,18 @@ Item {
                         }
                     }
 
-                    // --- PAGE 3 ---
-                    Item {
+                    // --- PAGE 3 (1h x 2w Temperature Pill + Quick Share & Screen Time) ---
+                    Column {
                         width: tilesPager.width
                         height: tilesPager.height
-                        
-                        // Big Pill (Temp)
+                        spacing: 10
+
+                        // 1h x 2w Temperature Pill (Full Row Width)
                         Rectangle {
                             id: tempTile
-                            x: 0
-                            y: 0
-                            width: (tilesPager.width - 12) / 2
-                            height: 132
-                            radius: 26
+                            width: parent.width
+                            height: 56
+                            radius: 28
                             clip: true
                             
                             property int currentTemp: 45
@@ -1419,14 +1488,12 @@ Item {
                             }
                             
                             color: root.fillIdle
-                            scale: tempMa.pressed ? 0.94 : (tempMa.containsMouse ? 1.02 : 1.0)
-                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
 
                             // Subtle background thermal tint
                             Rectangle {
                                 anchors.fill: parent
                                 radius: parent.radius
-                                color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.10)
+                                color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.12)
                                 Behavior on color { ColorAnimation { duration: 400 } }
                             }
                             
@@ -1436,9 +1503,7 @@ Item {
                                 stdout: StdioCollector {
                                     onStreamFinished: {
                                         let t = parseInt(this.text.trim())
-                                        if (!isNaN(t)) {
-                                            tempTile.currentTemp = Math.round(t / 1000)
-                                        }
+                                        if (!isNaN(t)) tempTile.currentTemp = Math.round(t / 1000)
                                     }
                                 }
                             }
@@ -1449,9 +1514,7 @@ Item {
                                 stdout: StdioCollector {
                                     onStreamFinished: {
                                         let t = parseInt(this.text.trim())
-                                        if (!isNaN(t)) {
-                                            tempTile.currentTemp = Math.round(t / 1000)
-                                        }
+                                        if (!isNaN(t)) tempTile.currentTemp = Math.round(t / 1000)
                                     }
                                 }
                             }
@@ -1460,133 +1523,168 @@ Item {
                                 interval: 2500; repeat: true; running: panel.expanded
                                 onTriggered: { tempUpdater.running = false; tempUpdater.running = true }
                             }
-                            
-                            Item {
-                                anchors.fill: parent
-                                anchors.margins: 14
 
-                                // Top row: Icon Badge + Category Label
-                                Row {
-                                    anchors.top: parent.top
-                                    anchors.left: parent.left
-                                    anchors.right: parent.right
-                                    height: 32
-                                    spacing: 8
+                            // Content: Left badge + Title, Right Temperature + Status Badge
+                            Row {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 10
 
-                                    Rectangle {
-                                        width: 32; height: 32; radius: 16
-                                        color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.22)
-                                        anchors.verticalCenter: parent.verticalCenter
+                                Rectangle {
+                                    width: 40
+                                    height: 40
+                                    radius: 14
+                                    color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.22)
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    Behavior on color { ColorAnimation { duration: 300 } }
+
+                                    IconText {
+                                        anchors.centerIn: parent
+                                        text: "thermostat"
+                                        color: tempTile.tempColor
+                                        font.pixelSize: 22
                                         Behavior on color { ColorAnimation { duration: 300 } }
+                                    }
+                                }
 
-                                        IconText {
-                                            anchors.centerIn: parent
-                                            text: "thermostat"
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 2
+
+                                    Text {
+                                        text: "CPU TEMPERATURE"
+                                        color: root.ink
+                                        opacity: 0.6
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.Bold
+                                        font.letterSpacing: 0.8
+                                    }
+
+                                    Text {
+                                        text: tempTile.currentTemp < 52 ? "Optimal Condition" : (tempTile.currentTemp < 72 ? "Normal Operating Temp" : "High Temperature Warning")
+                                        color: tempTile.tempColor
+                                        font.family: root.barFont
+                                        font.pixelSize: 12
+                                        font.weight: Font.DemiBold
+                                    }
+                                }
+                            }
+
+                            Row {
+                                anchors.right: parent.right
+                                anchors.rightMargin: 14
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 10
+
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: tempTile.currentTemp + "°C"
+                                    color: root.ink
+                                    font.family: root.barFont
+                                    font.pixelSize: 20
+                                    font.weight: Font.Bold
+                                }
+
+                                Rectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    height: 26
+                                    radius: 13
+                                    color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.20)
+                                    border.color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.40)
+                                    border.width: 1
+                                    width: statusText.implicitWidth + 16
+
+                                    Row {
+                                        anchors.centerIn: parent
+                                        spacing: 4
+
+                                        Rectangle {
+                                            width: 6; height: 6; radius: 3
                                             color: tempTile.tempColor
-                                            font.pixelSize: 18
-                                            Behavior on color { ColorAnimation { duration: 300 } }
+                                            anchors.verticalCenter: parent.verticalCenter
                                         }
+
+                                        Text {
+                                            id: statusText
+                                            text: tempTile.currentTemp < 52 ? "COOL" : (tempTile.currentTemp < 72 ? "WARM" : "HOT")
+                                            color: tempTile.tempColor
+                                            font.family: root.barFont
+                                            font.pixelSize: 10
+                                            font.weight: Font.Bold
+                                        }
+                                    }
+                                }
+                            }
+
+                        }
+
+                        // Row 2: Quick Share Pill (opens LocalSend) + Screen Time Pill
+                        Row {
+                            width: parent.width
+                            spacing: 10
+
+                            // Quick Share Pill
+                            Rectangle {
+                                id: quickShareTile
+                                width: (parent.width - 10) / 2
+                                height: 56
+                                radius: 28
+                                color: quickShareMa.containsMouse ? root.fillHover : root.fillIdle
+                                scale: quickShareMa.pressed ? 0.92 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                                Behavior on color { ColorAnimation { duration: 160 } }
+
+                                Row {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 14
+                                    spacing: 10
+
+                                    IconText {
+                                        text: "share"
+                                        color: root.ink
+                                        font.pixelSize: 22
                                     }
 
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 1
-
+                                        spacing: 2
                                         Text {
-                                            text: "CPU TEMP"
+                                            text: "Quick Share"
                                             color: root.ink
-                                            opacity: 0.6
+                                            font.pixelSize: 13
                                             font.family: root.barFont
-                                            font.pixelSize: 10
-                                            font.weight: Font.Bold
-                                            font.letterSpacing: 0.6
-                                        }
-
-                                        Text {
-                                            text: tempTile.currentTemp < 52 ? "Optimal" : (tempTile.currentTemp < 72 ? "Normal" : "High")
-                                            color: tempTile.tempColor
-                                            font.family: root.barFont
-                                            font.pixelSize: 11
                                             font.weight: Font.DemiBold
                                         }
-                                    }
-                                }
-
-                                // Bottom readout
-                                Item {
-                                    anchors.bottom: parent.bottom
-                                    anchors.left: parent.left
-                                    anchors.right: parent.right
-                                    height: 36
-
-                                    Text {
-                                        anchors.left: parent.left
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: tempTile.currentTemp + "°C"
-                                        color: root.ink
-                                        font.family: root.barFont
-                                        font.pixelSize: 28
-                                        font.weight: Font.Bold
-                                    }
-
-                                    Rectangle {
-                                        anchors.right: parent.right
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        height: 20
-                                        radius: 10
-                                        color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.20)
-                                        border.color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.40)
-                                        border.width: 1
-                                        width: statusText.implicitWidth + 16
-
-                                        Row {
-                                            anchors.centerIn: parent
-                                            spacing: 4
-
-                                            Rectangle {
-                                                width: 5; height: 5; radius: 2.5
-                                                color: tempTile.tempColor
-                                                anchors.verticalCenter: parent.verticalCenter
-                                            }
-
-                                            Text {
-                                                id: statusText
-                                                text: tempTile.currentTemp < 52 ? "COOL" : (tempTile.currentTemp < 72 ? "WARM" : "HOT")
-                                                color: tempTile.tempColor
-                                                font.family: root.barFont
-                                                font.pixelSize: 9
-                                                font.weight: Font.Bold
-                                            }
+                                        Text {
+                                            text: "LocalSend"
+                                            color: root.ink
+                                            opacity: 0.6
+                                            font.pixelSize: 11
+                                            font.family: root.barFont
                                         }
                                     }
                                 }
+
+                                MouseArea {
+                                    id: quickShareMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: Quickshell.execDetached(["localsend"])
+                                }
                             }
 
-                            MouseArea {
-                                id: tempMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: Quickshell.execDetached(["btop"])
-                            }
-                        }
-                        
-                        // Two small pills
-                        Column {
-                            x: (tilesPager.width + 12) / 2
-                            y: 0
-                            width: (tilesPager.width - 12) / 2
-                            height: 132
-                            spacing: 12
-                            
                             // Screentime Tile
                             Rectangle {
                                 id: screentimeTile
                                 property bool active: dashboardContent.activeDetailView === "screentime"
                                 readonly property color fg: active ? root.paper : root.ink
-                                width: parent.width
-                                height: 60
-                                radius: 30
+                                width: (parent.width - 10) / 2
+                                height: 56
+                                radius: 28
                                 color: active
                                     ? (stMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                     : (stMa.containsMouse ? root.fillHover : root.fillIdle)
@@ -1602,18 +1700,19 @@ Item {
                                 Row {
                                     anchors.verticalCenter: parent.verticalCenter
                                     anchors.left: parent.left
-                                    anchors.leftMargin: 16
-                                    spacing: 12
+                                    anchors.leftMargin: 14
+                                    spacing: 10
                                     
                                     IconText {
                                         text: "hourglass_empty"
                                         color: screentimeTile.fg
-                                        font.pixelSize: 20
+                                        font.pixelSize: 22
                                         Behavior on color { ColorAnimation { duration: 160 } }
                                     }
                                     
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 2
                                         Text {
                                             text: "Screen Time"
                                             color: screentimeTile.fg
@@ -1648,885 +1747,1020 @@ Item {
                                     }
                                 }
                             }
-                            
-                            // Extra 2
-                            Rectangle {
-                                id: storageTile
-                                width: parent.width
-                                height: 60
-                                radius: 30
-                                color: root.fillIdle
-                                scale: storageMa.pressed ? 0.92 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-                                
-                                Process {
-                                    running: true
-                                    command: ["bash", "-c", "df -h / | awk 'NR==2{print $4}'"]
-                                    stdout: StdioCollector {
-                                        onStreamFinished: {
-                                            storageVal.text = this.text.trim() + " Free"
-                                        }
-                                    }
-                                }
-                                
-                                Row {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 16
-                                    spacing: 12
-                                    
-                                    IconText { text: "storage"; color: root.ink; font.pixelSize: 20 }
-                                    
-                                    Column {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        Text { text: "Disk Space"; color: root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold }
-                                        Text { id: storageVal; text: "Loading..."; color: root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; elide: Text.ElideRight; width: 60 }
-                                    }
-                                }
-                                
-                                MouseArea {
-                                    id: storageMa
-                                    anchors.fill: parent
-                                    onClicked: {
-                                        Quickshell.execDetached(["xdg-open", "/"])
-                                    }
-                                }
-                            }
                         }
                     }
                 }
             }
 
-            // --- MATERIAL YOU MEDIA PLAYER ---
-            Rectangle {
-                id: mediaCard
+            // --- MATERIAL YOU MEDIA PLAYER WITH EXTENDED LYRICS SECTION ---
+            Item {
+                id: mediaWithLyricsGroup
                 width: parent.width
-                height: Math.max(140, parent.height - 256)
-                radius: 24
-                color: mediaCard.hasDominant ? Qt.rgba(mediaCard.domCol.r * 0.45, mediaCard.domCol.g * 0.45, mediaCard.domCol.b * 0.45, 0.5) : root.fillIdle
-                border.color: mediaCard.hasDominant ? Qt.rgba(mediaCard.domCol.r, mediaCard.domCol.g, mediaCard.domCol.b, 0.4) : root.islandBorder
-                border.width: 1
+                readonly property real lyricsVisibleHeight: 60
+                height: mediaCard.height + lyricsVisibleHeight
 
-                readonly property bool hasDominant: mprisArt.dominantColor && String(mprisArt.dominantColor) !== "#00000000" && String(mprisArt.dominantColor) !== "transparent"
-                readonly property color domCol: hasDominant ? mprisArt.dominantColor : root.seal
-                // Clean pastel / paper color for the pill play button matching Android Material You
-                readonly property color pillBg: {
-                    if (!hasDominant) return root.paper
-                    var maxC = Math.max(domCol.r, domCol.g, domCol.b)
-                    var minC = Math.min(domCol.r, domCol.g, domCol.b)
-                    var sat = maxC > 0 ? (maxC - minC) / maxC : 0
-                    // If dominant color is murky/dark/grey, fall back to clean, bright root.paper
-                    if (sat < 0.25 || maxC < 0.35) {
-                        return root.paper
-                    }
-                    // Soft pastel tint of root.paper
-                    return Qt.tint(root.paper, Qt.rgba(domCol.r, domCol.g, domCol.b, 0.35))
-                }
-
-                Behavior on color { ColorAnimation { duration: 300 } }
-                Behavior on border.color { ColorAnimation { duration: 300 } }
-
-                // Inner clipping container ensures artwork and overlays are clipped to the 24px rounded corners
-                ClippingRectangle {
-                    anchors.fill: parent
-                    radius: 24
-                    color: "transparent"
-
-                    // Full-bleed album art background
-                    Image {
-                        id: cardBgArt
-                        anchors.fill: parent
-                        source: root.lastMediaArtUrl
-                        fillMode: Image.PreserveAspectCrop
-                        asynchronous: true
-                        visible: status === Image.Ready
-                    }
-
-                    // Smooth darkening and tint overlays so text/buttons pop
-                    Rectangle {
-                        anchors.fill: parent
-                        gradient: Gradient {
-                            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.35) }
-                            GradientStop { position: 0.5; color: Qt.rgba(0, 0, 0, 0.50) }
-                            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.70) }
-                        }
-                    }
-
-                    Rectangle {
-                        anchors.fill: parent
-                        color: mediaCard.hasDominant ? Qt.rgba(mediaCard.domCol.r, mediaCard.domCol.g, mediaCard.domCol.b, 0.28) : "transparent"
-                    }
-                }
-
-                // TOP ROW: App Icon + Status Tag (Left) + Output Pill (Right)
-                Item {
-                    id: topRow
+                // Extended Lyrics Drawer (Starts from the back of the media player and extends down)
+                Rectangle {
+                    id: lyricsExtender
+                    z: 1
                     anchors.top: parent.top
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.margins: 14
-                    height: 24
+                    anchors.bottom: parent.bottom
+                    radius: 22
 
-                    Row {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 8
+                    readonly property bool hasBrightDom: mediaCard.hasDominant && (mediaCard.domCol.r * 0.299 + mediaCard.domCol.g * 0.587 + mediaCard.domCol.b * 0.114 > 0.15)
+                    color: mediaCard.hasDominant
+                        ? Qt.rgba(mediaCard.domCol.r * 0.32, mediaCard.domCol.g * 0.32, mediaCard.domCol.b * 0.32, lyricsMa.containsMouse ? 0.75 : 0.60)
+                        : (lyricsMa.containsMouse ? root.fillHover : root.fillIdle)
+                    border.color: mediaCard.hasDominant
+                        ? Qt.rgba(mediaCard.domCol.r, mediaCard.domCol.g, mediaCard.domCol.b, lyricsMa.containsMouse ? 0.50 : 0.32)
+                        : (lyricsMa.containsMouse ? root.islandBorder : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.16))
+                    border.width: 1
 
-                        // App icon (Spotify logo if available, or music icon)
-                        Item {
-                            width: 20; height: 20
-                            anchors.verticalCenter: parent.verticalCenter
+                    scale: lyricsMa.pressed ? 0.99 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 120 } }
+                    Behavior on color { ColorAnimation { duration: 250 } }
+                    Behavior on border.color { ColorAnimation { duration: 250 } }
 
-                            Image {
-                                id: spotLogo
-                                anchors.fill: parent
-                                source: (mprisSel.player && /spotify/i.test(mprisSel.player.identity || ""))
-                                    ? "file:///home/hery/.config/quickshell/bar/spotify.svg"
-                                    : ""
-                                visible: source !== "" && status === Image.Ready
-                            }
+                    // Frosted acrylic glass styling with ambient dominant glow
+                    ClippingRectangle {
+                        anchors.fill: parent
+                        radius: 22
+                        color: "transparent"
 
-                            IconText {
-                                anchors.centerIn: parent
-                                text: "music_note"
-                                color: "#ffffff"
-                                font.pixelSize: 20
-                                visible: !spotLogo.visible
-                            }
-                        }
-
-                        // Last Played / Now Playing Tag
+                        // Specular glass gradient
                         Rectangle {
-                            id: statusTag
-                            height: 20
-                            radius: 6
-                            color: (dashboardContent.curTitle === "" && root.lastMediaTitle !== "")
-                                ? Qt.rgba(1, 1, 1, 0.30)
-                                : (mprisSel.playing ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(0, 0, 0, 0.30))
-                            border.color: Qt.rgba(1, 1, 1, 0.2)
-                            border.width: 1
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: statusTxt.implicitWidth + 12
-
-                            Text {
-                                id: statusTxt
-                                anchors.centerIn: parent
-                                text: {
-                                    if (dashboardContent.curTitle === "" && root.lastMediaTitle !== "") return "LAST PLAYED"
-                                    if (mprisSel.playing) return "NOW PLAYING"
-                                    return "PAUSED"
+                            anchors.fill: parent
+                            gradient: Gradient {
+                                GradientStop {
+                                    position: 0.0
+                                    color: Qt.rgba(1, 1, 1, lyricsMa.containsMouse ? 0.08 : 0.04)
                                 }
-                                color: "#ffffff"
-                                font.family: root.barFont
-                                font.pixelSize: 9
-                                font.weight: Font.Bold
-                                font.letterSpacing: 0.8
+                                GradientStop {
+                                    position: 0.40
+                                    color: Qt.rgba(1, 1, 1, 0.01)
+                                }
+                                GradientStop {
+                                    position: 1.0
+                                    color: "transparent"
+                                }
+                            }
+                        }
+
+                        // Subtle dominant ambient glow
+                        Rectangle {
+                            anchors.fill: parent
+                            visible: mediaCard.hasDominant
+                            opacity: lyricsMa.containsMouse ? 0.30 : 0.18
+                            gradient: Gradient {
+                                GradientStop {
+                                    position: 0.0
+                                    color: mediaCard.domCol
+                                }
+                                GradientStop {
+                                    position: 0.85
+                                    color: "transparent"
+                                }
+                            }
+                            Behavior on opacity { NumberAnimation { duration: 200 } }
+                        }
+                    }
+
+                    MouseArea {
+                        id: lyricsMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (dashboardContent.mprisPanel) {
+                                dashboardContent.mprisPanel.showingLyrics = !dashboardContent.mprisPanel.showingLyrics
+                                Quickshell.execDetached(["pw-play", Quickshell.env("HOME") + "/.config/quickshell/bar/pop.wav"])
                             }
                         }
                     }
 
-                    // Output Pill (e.g. "This device" / Audio Sink)
-                    Rectangle {
-                        id: outputPill
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        height: 24
-                        radius: 12
-                        color: Qt.rgba(1, 1, 1, 0.22)
-                        border.color: Qt.rgba(1, 1, 1, 0.15)
-                        border.width: 1
-                        width: outRow.implicitWidth + 14
-
-                        Row {
-                            id: outRow
-                            anchors.centerIn: parent
-                            spacing: 5
-
-                            IconText {
-                                text: "speaker"
-                                font.pixelSize: 13
-                                color: "#ffffff"
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            Text {
-                                text: {
-                                    var desc = (audioData.sink && audioData.sink.description) ? audioData.sink.description : "This device"
-                                    return desc.length > 18 ? desc.substring(0, 16) + "…" : desc
-                                }
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: Font.Medium
-                                color: "#ffffff"
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-                    }
-                }
-
-                // MIDDLE ROW: Title & Artist (Left) + Pill Play/Pause Button (Right)
-                Item {
-                    id: midRow
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.verticalCenterOffset: -2
-                    anchors.leftMargin: 14
-                    anchors.rightMargin: 14
-                    height: 48
-
-                    // Track Title & Artist
-                    Column {
-                        id: textCol
+                    // Visible extension area extending below mediaCard
+                    Item {
+                        id: lyricVisibleArea
                         anchors.left: parent.left
-                        anchors.right: playPill.left
-                        anchors.rightMargin: 12
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 2
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        height: mediaWithLyricsGroup.lyricsVisibleHeight
 
-                        // Song Title with Marquee
+                        // Floating Pill Toggle Tag (Right aligned)
+                        Rectangle {
+                            id: lyricsPillTag
+                            anchors.right: parent.right
+                            anchors.rightMargin: 12
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: 24
+                            radius: 12
+                            readonly property bool isShowing: (dashboardContent.mprisPanel && dashboardContent.mprisPanel.showingLyrics)
+                            color: isShowing
+                                ? (mediaCard.hasDominant ? mediaCard.domCol : root.seal)
+                                : (lyricsMa.containsMouse ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(1, 1, 1, 0.14))
+                            border.color: isShowing
+                                ? (mediaCard.hasDominant ? mediaCard.domCol : root.seal)
+                                : Qt.rgba(1, 1, 1, 0.28)
+                            border.width: 1
+                            width: tagRow.implicitWidth + 14
+
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                            Behavior on border.color { ColorAnimation { duration: 150 } }
+
+                            Row {
+                                id: tagRow
+                                anchors.centerIn: parent
+                                spacing: 5
+
+                                IconText {
+                                    text: lyricsPillTag.isShowing ? "visibility" : "subtitles"
+                                    font.pixelSize: 12
+                                    color: lyricsPillTag.isShowing ? (mediaCard.hasDominant ? "#000000" : root.paper) : "#FFFFFF"
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+
+                                Text {
+                                    text: lyricsPillTag.isShowing ? "FLOAT ON" : "LYRICS"
+                                    font.family: root.barFont
+                                    font.pixelSize: 9
+                                    font.weight: Font.Bold
+                                    font.letterSpacing: 0.8
+                                    color: lyricsPillTag.isShowing ? (mediaCard.hasDominant ? "#000000" : root.paper) : "#FFFFFF"
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+                        }
+
+                        // Realtime Animated Multi-line Lyrics Viewport (Vertically centered)
                         Item {
-                            id: marqueeTitleContainer
-                            width: parent.width
-                            height: 22
+                            id: lyricTextContainer
+                            anchors.left: parent.left
+                            anchors.leftMargin: 16
+                            anchors.right: lyricsPillTag.left
+                            anchors.rightMargin: 12
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: parent.height - 12
                             clip: true
 
-                            Text {
-                                id: marqueeTitleText
-                                text: root.lastMediaTitle || "No media"
-                                color: "#ffffff"
-                                font.family: root.barFont
-                                font.pixelSize: 17
-                                font.weight: Font.Bold
+                            // Fallback container when no synced lyrics available
+                            Column {
+                                id: fallbackLyricsCol
+                                anchors.left: parent.left
+                                anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
+                                spacing: 2
+                                visible: !dashboardContent.hasSyncedLyrics
 
-                                onTextChanged: {
-                                    x = 0
-                                    marqueeAnim.restart()
+                                Text {
+                                    text: mprisSel.active ? (curTitle !== "" ? curTitle : "No synced lyrics available") : "Play music to see lyrics"
+                                    color: "#FFFFFF"
+                                    font.family: root.barFont
+                                    font.pixelSize: 13
+                                    font.weight: Font.DemiBold
+                                    wrapMode: Text.WordWrap
+                                    width: parent.width
                                 }
 
-                                SequentialAnimation on x {
-                                    id: marqueeAnim
-                                    loops: Animation.Infinite
-                                    running: marqueeTitleText.implicitWidth > marqueeTitleContainer.width
-                                    onRunningChanged: {
-                                        if (!running) marqueeTitleText.x = 0
+                                Text {
+                                    text: mprisSel.active
+                                        ? (curArtist !== "" ? curArtist + "  •  No synced lyrics" : "No synced lyrics available")
+                                        : "Tap to open lyrics panel"
+                                    color: Qt.rgba(1, 1, 1, 0.50)
+                                    font.family: root.barFont
+                                    font.pixelSize: 10
+                                    font.weight: Font.Medium
+                                    wrapMode: Text.WordWrap
+                                    width: parent.width
+                                    visible: text !== ""
+                                }
+                            }
+
+                            // Reel column when synced lyrics are available - max 2 lines visible at a time
+                            Item {
+                                id: syncedReelViewport
+                                anchors.fill: parent
+                                visible: dashboardContent.hasSyncedLyrics
+                                clip: true
+
+                                Column {
+                                    id: lyricReelCol
+                                    width: parent.width
+                                    spacing: 4
+
+                                    property real glideOffset: 0
+                                    readonly property real baseRestingY: {
+                                        var twoLinesH = line1Text.implicitHeight + (lyricReelCol.nextText !== "" ? (spacing + line2Text.implicitHeight) : 0)
+                                        return Math.max(0, Math.round((syncedReelViewport.height - twoLinesH) / 2))
                                     }
-                                    PauseAnimation { duration: 2000 }
+
+                                    y: baseRestingY + glideOffset
+
+                                    property int curIdx: -1
+                                    property string activeText: ""
+                                    property string nextText: ""
+                                    property string thirdText: ""
+                                    property string pendingActiveText: ""
+                                    property string pendingNextText: ""
+
+                                    function resetImmediate() {
+                                        glideOffset = 0
+                                        line1Text.opacity = 1.0
+                                        line2Text.opacity = lyricReelCol.nextText !== "" ? 0.50 : 0.0
+                                        line3Text.opacity = 0.0
+                                        line3Text.text = ""
+                                    }
+
+                                    // Active lyric (Current line) - multi-line WordWrap with comfortable spacing
+                                    Text {
+                                        id: line1Text
+                                        width: parent.width
+                                        text: lyricReelCol.activeText
+                                        color: "#FFFFFF"
+                                        font.family: root.barFont
+                                        font.pixelSize: 13
+                                        font.weight: Font.DemiBold
+                                        wrapMode: Text.WordWrap
+                                        lineHeight: 1.15
+                                        opacity: 1.0
+                                    }
+
+                                    // Upcoming preview lyric (Next line) - glides up to line 1 during reel animation
+                                    Text {
+                                        id: line2Text
+                                        width: parent.width
+                                        text: lyricReelCol.nextText
+                                        color: "#FFFFFF"
+                                        font.family: root.barFont
+                                        font.pixelSize: 13
+                                        font.weight: Font.DemiBold
+                                        wrapMode: Text.WordWrap
+                                        lineHeight: 1.15
+                                        opacity: text !== "" ? 0.50 : 0.0
+                                    }
+
+                                    // Incoming preview lyric (Only fades in as next line during reel animation, invisible at rest)
+                                    Text {
+                                        id: line3Text
+                                        width: parent.width
+                                        text: lyricReelCol.thirdText
+                                        color: "#FFFFFF"
+                                        font.family: root.barFont
+                                        font.pixelSize: 13
+                                        font.weight: Font.DemiBold
+                                        wrapMode: Text.WordWrap
+                                        lineHeight: 1.15
+                                        opacity: 0.0
+                                    }
+                                }
+
+                                // High-performance, silky smooth vertical glide animation
+                                ParallelAnimation {
+                                    id: lyricReelAnim
+                                    property real shiftDistance: -(line1Text.implicitHeight + lyricReelCol.spacing)
+
                                     NumberAnimation {
+                                        target: lyricReelCol
+                                        property: "glideOffset"
                                         from: 0
-                                        to: -(marqueeTitleText.implicitWidth - marqueeTitleContainer.width + 16)
-                                        duration: Math.max(1200, (marqueeTitleText.implicitWidth - marqueeTitleContainer.width) * 25)
-                                        easing.type: Easing.Linear
+                                        to: lyricReelAnim.shiftDistance
+                                        duration: 340
+                                        easing.type: Easing.OutCubic
                                     }
-                                    PauseAnimation { duration: 1800 }
                                     NumberAnimation {
-                                        to: 0
-                                        duration: 400
+                                        target: line1Text
+                                        property: "opacity"
+                                        to: 0.0
+                                        duration: 260
                                         easing.type: Easing.OutQuad
                                     }
+                                    NumberAnimation {
+                                        target: line2Text
+                                        property: "opacity"
+                                        to: 1.0
+                                        duration: 320
+                                        easing.type: Easing.OutQuad
+                                    }
+                                    NumberAnimation {
+                                        target: line3Text
+                                        property: "opacity"
+                                        to: 0.50
+                                        duration: 320
+                                        easing.type: Easing.OutQuad
+                                    }
+
+                                    onFinished: {
+                                        lyricReelCol.activeText = lyricReelCol.pendingActiveText
+                                        lyricReelCol.nextText = lyricReelCol.pendingNextText
+                                        lyricReelCol.thirdText = ""
+                                        lyricReelCol.glideOffset = 0
+                                        line1Text.opacity = 1.0
+                                        line2Text.opacity = lyricReelCol.nextText !== "" ? 0.50 : 0.0
+                                        line3Text.opacity = 0.0
+                                    }
+                                }
+
+                                function updateFromIndex(idx) {
+                                    if (!dashboardContent.hasSyncedLyrics || idx < 0) {
+                                        if (lyricReelAnim.running) lyricReelAnim.stop()
+                                        lyricReelCol.curIdx = -1
+                                        lyricReelCol.activeText = ""
+                                        lyricReelCol.nextText = ""
+                                        lyricReelCol.thirdText = ""
+                                        lyricReelCol.resetImmediate()
+                                        return
+                                    }
+
+                                    var list = dashboardContent.activeLyricsList
+                                    var newAct = (list && list[idx]) ? list[idx].text : ""
+                                    var newNext = (list && idx + 1 < list.length) ? list[idx + 1].text : ""
+                                    var newThird = (list && idx + 2 < list.length) ? list[idx + 2].text : ""
+
+                                    if (lyricReelCol.curIdx >= 0 && idx === lyricReelCol.curIdx + 1 && !lyricReelAnim.running) {
+                                        // Sequential advance: smoothly glide next lyric into current container
+                                        lyricReelCol.pendingActiveText = newAct
+                                        lyricReelCol.pendingNextText = newNext
+                                        lyricReelCol.thirdText = newThird
+                                        lyricReelCol.curIdx = idx
+                                        lyricReelAnim.shiftDistance = -(line1Text.implicitHeight + lyricReelCol.spacing)
+                                        lyricReelAnim.restart()
+                                    } else {
+                                        // Non-sequential change (seek, track skip, initial load): update directly
+                                        if (lyricReelAnim.running) lyricReelAnim.stop()
+                                        lyricReelCol.curIdx = idx
+                                        lyricReelCol.activeText = newAct
+                                        lyricReelCol.nextText = newNext
+                                        lyricReelCol.thirdText = ""
+                                        lyricReelCol.resetImmediate()
+                                    }
+                                }
+
+                                Connections {
+                                    target: dashboardContent
+                                    function onCurrentTrackIdChanged() {
+                                        syncedReelViewport.updateFromIndex(-1)
+                                    }
+                                    function onActiveLyricIndexChanged() {
+                                        syncedReelViewport.updateFromIndex(dashboardContent.activeLyricIndex)
+                                    }
+                                    function onHasSyncedLyricsChanged() {
+                                        syncedReelViewport.updateFromIndex(dashboardContent.activeLyricIndex)
+                                    }
+                                }
+
+                                Component.onCompleted: {
+                                    syncedReelViewport.updateFromIndex(dashboardContent.activeLyricIndex)
                                 }
                             }
-                        }
-
-                        Text {
-                            text: root.lastMediaArtist || "Nothing in queue"
-                            color: Qt.rgba(1, 1, 1, 0.80)
-                            font.family: root.barFont
-                            font.pixelSize: 12
-                            elide: Text.ElideRight
-                            width: parent.width
-                        }
-                    }
-
-                    // Large Squircle / Pill Play/Pause Button (Material You style)
-                    Rectangle {
-                        id: playPill
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 48
-                        height: 48
-                        radius: 16
-                        color: playMa.pressed ? Qt.rgba(1, 1, 1, 0.12) : (playMa.containsMouse ? Qt.rgba(1, 1, 1, 0.28) : Qt.rgba(1, 1, 1, 0.18))
-                        border.color: Qt.rgba(1, 1, 1, 0.20)
-                        border.width: 1
-                        scale: playMa.pressed ? 0.90 : (playMa.containsMouse ? 1.05 : 1.0)
-                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-                        Behavior on color { ColorAnimation { duration: 150 } }
-
-                        // Geometric pause bars (100% mathematically centered)
-                        Row {
-                            anchors.centerIn: parent
-                            spacing: 4.5
-                            visible: mprisSel.playing
-
-                            Rectangle {
-                                width: 4.5
-                                height: 16
-                                radius: 2.25
-                                color: "#ffffff"
-                            }
-                            Rectangle {
-                                width: 4.5
-                                height: 16
-                                radius: 2.25
-                                color: "#ffffff"
-                            }
-                        }
-
-                        // Play arrow icon (when paused)
-                        IconText {
-                            anchors.centerIn: parent
-                            anchors.horizontalCenterOffset: 1.5
-                            text: "play_arrow"
-                            font.pixelSize: 28
-                            color: "#ffffff"
-                            visible: !mprisSel.playing
-                        }
-
-                        MouseArea {
-                            id: playMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: if (mprisSel.player) mprisSel.player.togglePlaying()
                         }
                     }
                 }
 
-                // BOTTOM ROW: Prev + Wavy Progress Bar + Next + Song Length
-                Row {
-                    id: bottomRow
+                // --- MATERIAL YOU MEDIA PLAYER (Front Card) ---
+                Rectangle {
+                    id: mediaCard
+                    z: 2
+                    anchors.top: parent.top
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    anchors.margins: 14
-                    height: 26
-                    spacing: 10
+                    height: 136
+                    radius: 22
+                    readonly property bool hasDominant: mprisArt.dominantColor && String(mprisArt.dominantColor) !== "#00000000" && String(mprisArt.dominantColor) !== "transparent"
+                    readonly property color domCol: hasDominant ? mprisArt.dominantColor : root.seal
+                    readonly property bool hasVibrantDom: hasDominant && (domCol.r * 0.299 + domCol.g * 0.587 + domCol.b * 0.114 > 0.18)
+                    color: mediaCard.hasDominant ? Qt.rgba(mediaCard.domCol.r * 0.45, mediaCard.domCol.g * 0.45, mediaCard.domCol.b * 0.45, 0.5) : root.fillIdle
+                    border.color: hasVibrantDom ? Qt.rgba(mediaCard.domCol.r, mediaCard.domCol.g, mediaCard.domCol.b, 0.45) : root.islandBorder
+                    border.width: 1
+                    // Clean pastel / paper color for the pill play button matching Android Material You
+                    readonly property color pillBg: {
+                        if (!hasDominant) return root.paper
+                        var maxC = Math.max(domCol.r, domCol.g, domCol.b)
+                        var minC = Math.min(domCol.r, domCol.g, domCol.b)
+                        var sat = maxC > 0 ? (maxC - minC) / maxC : 0
+                        // If dominant color is murky/dark/grey, fall back to clean, bright root.paper
+                        if (sat < 0.25 || maxC < 0.35) {
+                            return root.paper
+                        }
+                        // Soft pastel tint of root.paper
+                        return Qt.tint(root.paper, Qt.rgba(domCol.r, domCol.g, domCol.b, 0.35))
+                    }
 
-                    // Previous Button
-                    Item {
-                        width: 24; height: 24
-                        anchors.verticalCenter: parent.verticalCenter
+                    Behavior on color { ColorAnimation { duration: 300 } }
+                    Behavior on border.color { ColorAnimation { duration: 300 } }
 
-                        IconText {
-                            anchors.centerIn: parent
-                            text: "skip_previous"
-                            font.pixelSize: 22
-                            color: "#ffffff"
-                            opacity: (mprisSel.player && mprisSel.player.canGoPrevious) ? 0.95 : 0.4
+                    // Inner clipping container ensures artwork and overlays are clipped to the rounded corners
+                    ClippingRectangle {
+                        anchors.fill: parent
+                        radius: 22
+                        color: "transparent"
+
+                        // Full-bleed album art background
+                        Image {
+                            id: cardBgArt
+                            anchors.fill: parent
+                            source: root.lastMediaArtUrl
+                            fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                            visible: status === Image.Ready
                         }
 
-                        MouseArea {
-                            id: prevMa
+                        // Smooth darkening and tint overlays so text/buttons pop
+                        Rectangle {
                             anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            scale: pressed ? 0.88 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 100 } }
-                            onClicked: if (mprisSel.player) mprisSel.player.previous()
+                            gradient: Gradient {
+                                GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.35) }
+                                GradientStop { position: 0.5; color: Qt.rgba(0, 0, 0, 0.50) }
+                                GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.70) }
+                            }
+                        }
+
+                        Rectangle {
+                            anchors.fill: parent
+                            color: mediaCard.hasDominant ? Qt.rgba(mediaCard.domCol.r, mediaCard.domCol.g, mediaCard.domCol.b, 0.28) : "transparent"
                         }
                     }
 
-                    // Wavy Seekable Progress Bar
+                    // TOP ROW: App Icon + Status Tag (Left) + Output Pill (Right)
                     Item {
-                        id: wavyBarContainer
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Math.max(80, parent.width - 24 - 24 - (positionTxt ? positionTxt.implicitWidth : 36) - (10 * 3))
-                        height: 24
+                        id: topRow
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.margins: 12
+                        height: 22
 
-                        property real progress: dashboardContent.curLen > 0 
-                            ? Math.max(0, Math.min(1, dashboardContent.curPos / dashboardContent.curLen)) 
-                            : 0
+                        Row {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 8
 
-                        Canvas {
-                            id: waveCanvas
-                            anchors.fill: parent
-                            property real wavePhase: 0
-                            property real waveAmp: mprisSel.playing ? 3.5 : 0
+                            // App icon (Spotify logo if available, or music icon)
+                            Item {
+                                width: 20; height: 20
+                                anchors.verticalCenter: parent.verticalCenter
 
-                            Behavior on waveAmp {
-                                NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
-                            }
-                            onWaveAmpChanged: requestPaint()
-
-                            onPaint: {
-                                var ctx = getContext("2d")
-                                ctx.clearRect(0, 0, width, height)
-                                var cy = height / 2
-                                var p = wavyBarContainer.progress
-                                var progressX = Math.max(0, Math.min(width, width * p))
-                                var scrubberW = 4
-                                var scrubberH = (seekArea.pressed || seekArea.containsMouse) ? 14 : 10
-                                var baseAmp = waveCanvas.waveAmp
-
-                                // 1. Unplayed straight horizontal line (from progressX to width)
-                                if (progressX < width) {
-                                    ctx.beginPath()
-                                    ctx.moveTo(progressX, cy)
-                                    ctx.lineTo(width, cy)
-                                    ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.32)
-                                    ctx.lineWidth = 3
-                                    ctx.lineCap = "round"
-                                    ctx.stroke()
+                                Image {
+                                    id: spotLogo
+                                    anchors.fill: parent
+                                    source: (mprisSel.player && /spotify/i.test(mprisSel.player.identity || ""))
+                                        ? "file:///home/hery/.config/quickshell/bar/spotify.svg"
+                                        : ""
+                                    visible: source !== "" && status === Image.Ready
                                 }
 
-                                // 2. Played portion: wavy sine line when playing, flat straight line when paused
-                                if (progressX > 0) {
-                                    var wavelength = 34 // Slightly increased frequency
-                                    ctx.beginPath()
-                                    ctx.moveTo(0, cy)
-                                    if (baseAmp > 0.05) {
-                                        for (var x = 0; x <= progressX; x += 1.5) {
-                                            var distToEnd = progressX - x
-                                            var taper = distToEnd < 14 ? (distToEnd / 14) : 1.0
-                                            var y = cy + baseAmp * taper * Math.sin((x / wavelength) * 2 * Math.PI - wavePhase)
-                                            ctx.lineTo(x, y)
-                                        }
-                                    } else {
-                                        ctx.lineTo(progressX, cy)
+                                IconText {
+                                    anchors.centerIn: parent
+                                    text: "music_note"
+                                    color: "#ffffff"
+                                    font.pixelSize: 20
+                                    visible: !spotLogo.visible
+                                }
+                            }
+
+                            // Last Played / Now Playing Tag
+                            Rectangle {
+                                id: statusTag
+                                height: 20
+                                radius: 6
+                                color: (dashboardContent.curTitle === "" && root.lastMediaTitle !== "")
+                                    ? Qt.rgba(1, 1, 1, 0.30)
+                                    : (mprisSel.playing ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(0, 0, 0, 0.30))
+                                border.color: Qt.rgba(1, 1, 1, 0.2)
+                                border.width: 1
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: statusTxt.implicitWidth + 12
+
+                                Text {
+                                    id: statusTxt
+                                    anchors.centerIn: parent
+                                    text: {
+                                        if (dashboardContent.curTitle === "" && root.lastMediaTitle !== "") return "LAST PLAYED"
+                                        if (mprisSel.playing) return "NOW PLAYING"
+                                        return "PAUSED"
                                     }
-                                    ctx.strokeStyle = "#ffffff"
-                                    ctx.lineWidth = 3
-                                    ctx.lineCap = "round"
-                                    ctx.stroke()
+                                    color: "#ffffff"
+                                    font.family: root.barFont
+                                    font.pixelSize: 9
+                                    font.weight: Font.Bold
+                                    font.letterSpacing: 0.8
+                                }
+                            }
+                        }
+
+                        // Output Pill (e.g. "This device" / Audio Sink)
+                        Rectangle {
+                            id: outputPill
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: 22
+                            radius: 11
+                            color: Qt.rgba(1, 1, 1, 0.22)
+                            border.color: Qt.rgba(1, 1, 1, 0.15)
+                            border.width: 1
+                            width: outRow.implicitWidth + 14
+
+                            Row {
+                                id: outRow
+                                anchors.centerIn: parent
+                                spacing: 5
+
+                                IconText {
+                                    text: "speaker"
+                                    font.pixelSize: 13
+                                    color: "#ffffff"
+                                    anchors.verticalCenter: parent.verticalCenter
                                 }
 
-                                // 3. Vertical pill scrubber head (fixed vertically in center: stationary at cy)
-                                ctx.beginPath()
-                                ctx.moveTo(progressX, cy - scrubberH / 2)
-                                ctx.lineTo(progressX, cy + scrubberH / 2)
-                                ctx.strokeStyle = "#ffffff"
-                                ctx.lineWidth = scrubberW
-                                ctx.lineCap = "round"
-                                ctx.stroke()
+                                Text {
+                                    text: {
+                                        var desc = (audioData.sink && audioData.sink.description) ? audioData.sink.description : "This device"
+                                        return desc.length > 18 ? desc.substring(0, 16) + "…" : desc
+                                    }
+                                    font.family: root.barFont
+                                    font.pixelSize: 11
+                                    font.weight: Font.Medium
+                                    color: "#ffffff"
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
                             }
                         }
+                    }
 
-                        Timer {
-                            interval: 33
-                            running: mprisSel.playing && panel.expanded
-                            repeat: true
-                            onTriggered: {
-                                waveCanvas.wavePhase += 0.08
-                                waveCanvas.requestPaint()
+                    // MIDDLE ROW: Title & Artist (Left) + Pill Play/Pause Button (Right)
+                    Item {
+                        id: midRow
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenterOffset: -1
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 12
+                        height: 44
+
+                        // Track Title & Artist
+                        Column {
+                            id: textCol
+                            anchors.left: parent.left
+                            anchors.right: playPill.left
+                            anchors.rightMargin: 12
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 2
+
+                            // Song Title with Marquee (only scrolls when title overflows container)
+                            Item {
+                                id: marqueeTitleContainer
+                                width: parent.width
+                                height: 22
+                                clip: true
+
+                                readonly property bool shouldMarquee: marqueeTitleContainer.width > 20 && marqueeTitleText.implicitWidth > (marqueeTitleContainer.width + 4)
+
+                                function resetMarquee() {
+                                    marqueeAnim.stop()
+                                    marqueeTitleText.x = 0
+                                    if (shouldMarquee) marqueeAnim.start()
+                                }
+
+                                onWidthChanged: resetMarquee()
+                                onShouldMarqueeChanged: resetMarquee()
+
+                                Text {
+                                    id: marqueeTitleText
+                                    text: root.lastMediaTitle || "No media"
+                                    color: "#ffffff"
+                                    font.family: root.barFont
+                                    font.pixelSize: 17
+                                    font.weight: Font.Bold
+                                    anchors.verticalCenter: parent.verticalCenter
+
+                                    onTextChanged: marqueeTitleContainer.resetMarquee()
+
+                                    SequentialAnimation on x {
+                                        id: marqueeAnim
+                                        loops: Animation.Infinite
+                                        running: marqueeTitleContainer.shouldMarquee
+                                        onRunningChanged: {
+                                            if (!running) marqueeTitleText.x = 0
+                                        }
+                                        PauseAnimation { duration: 2000 }
+                                        NumberAnimation {
+                                            from: 0
+                                            to: -(marqueeTitleText.implicitWidth - marqueeTitleContainer.width + 16)
+                                            duration: Math.max(1200, (marqueeTitleText.implicitWidth - marqueeTitleContainer.width) * 25)
+                                            easing.type: Easing.Linear
+                                        }
+                                        PauseAnimation { duration: 1800 }
+                                        NumberAnimation {
+                                            to: 0
+                                            duration: 400
+                                            easing.type: Easing.OutQuad
+                                        }
+                                    }
+                                }
                             }
-                        }
-
-                        Connections {
-                            target: dashboardContent
-                            function onCurPosChanged() { waveCanvas.requestPaint() }
-                            function onCurLenChanged() { waveCanvas.requestPaint() }
-                        }
-
-                        Connections {
-                            target: mprisSel
-                            function onPlayingChanged() { waveCanvas.requestPaint() }
-                        }
-
-                        // Floating Timestamp Tooltip during scrub / hover
-                        Rectangle {
-                            anchors.bottom: parent.top
-                            anchors.bottomMargin: 4
-                            x: Math.max(0, Math.min(parent.width - width, wavyBarContainer.width * wavyBarContainer.progress - width / 2))
-                            width: timeTxt.implicitWidth + 12
-                            height: 18
-                            radius: 9
-                            color: Qt.rgba(0, 0, 0, 0.85)
-                            border.color: Qt.rgba(1, 1, 1, 0.25)
-                            border.width: 1
-                            visible: (seekArea.containsMouse || seekArea.pressed) && dashboardContent.curLen > 0
 
                             Text {
-                                id: timeTxt
-                                anchors.centerIn: parent
-                                text: dashboardContent.fmtTime(dashboardContent.curPos) + " / " + dashboardContent.fmtTime(dashboardContent.curLen)
-                                color: "#ffffff"
+                                text: root.lastMediaArtist || "Nothing in queue"
+                                color: Qt.rgba(1, 1, 1, 0.80)
                                 font.family: root.barFont
-                                font.pixelSize: 10
-                                font.weight: Font.DemiBold
+                                font.pixelSize: 12
+                                elide: Text.ElideRight
+                                width: parent.width
                             }
                         }
 
-                        MouseArea {
-                            id: seekArea
-                            anchors.fill: parent
-                            anchors.margins: -6
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: (mouse) => {
-                                dashboardContent.seekTo(mouse.x / width)
-                                waveCanvas.requestPaint()
+                        // Large Squircle / Pill Play/Pause Button (Material You style)
+                        Rectangle {
+                            id: playPill
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 44
+                            height: 44
+                            radius: 14
+                            color: playMa.pressed ? Qt.rgba(1, 1, 1, 0.12) : (playMa.containsMouse ? Qt.rgba(1, 1, 1, 0.28) : Qt.rgba(1, 1, 1, 0.18))
+                            border.color: Qt.rgba(1, 1, 1, 0.20)
+                            border.width: 1
+                            scale: playMa.pressed ? 0.90 : (playMa.containsMouse ? 1.05 : 1.0)
+                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                            Behavior on color { ColorAnimation { duration: 150 } }
+
+                            // Geometric pause bars (100% mathematically centered)
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: 4.5
+                                visible: mprisSel.playing
+
+                                Rectangle {
+                                    width: 4.5
+                                    height: 16
+                                    radius: 2.25
+                                    color: "#ffffff"
+                                }
+                                Rectangle {
+                                    width: 4.5
+                                    height: 16
+                                    radius: 2.25
+                                    color: "#ffffff"
+                                }
                             }
-                            onPositionChanged: (mouse) => {
-                                if (pressed) {
-                                    dashboardContent.seekTo(mouse.x / width)
+
+                            // Play arrow icon (when paused)
+                            IconText {
+                                anchors.centerIn: parent
+                                anchors.horizontalCenterOffset: 1.5
+                                text: "play_arrow"
+                                font.pixelSize: 28
+                                color: "#ffffff"
+                                visible: !mprisSel.playing
+                            }
+
+                            MouseArea {
+                                id: playMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: if (mprisSel.player) mprisSel.player.togglePlaying()
+                            }
+                        }
+                    }
+
+                    // BOTTOM ROW: Prev + Wavy Progress Bar + Next + Song Length
+                    Row {
+                        id: bottomRow
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.margins: 12
+                        height: 24
+                        spacing: 8
+
+                        // Previous Button
+                        Item {
+                            width: 24; height: 24
+                            anchors.verticalCenter: parent.verticalCenter
+
+                            IconText {
+                                anchors.centerIn: parent
+                                text: "skip_previous"
+                                font.pixelSize: 22
+                                color: "#ffffff"
+                                opacity: (mprisSel.player && mprisSel.player.canGoPrevious) ? 0.95 : 0.4
+                            }
+
+                            MouseArea {
+                                id: prevMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                scale: pressed ? 0.88 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 100 } }
+                                onClicked: if (mprisSel.player) mprisSel.player.previous()
+                            }
+                        }
+
+                        // Wavy Seekable Progress Bar
+                        Item {
+                            id: wavyBarContainer
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Math.max(80, parent.width - 24 - 24 - (positionTxt ? positionTxt.implicitWidth : 36) - (8 * 3))
+                            height: 24
+
+                            property real progress: dashboardContent.curLen > 0 
+                                ? Math.max(0, Math.min(1, dashboardContent.curPos / dashboardContent.curLen)) 
+                                : 0
+
+                            Canvas {
+                                id: waveCanvas
+                                anchors.fill: parent
+                                property real wavePhase: 0
+                                property real waveAmp: mprisSel.playing ? 3.5 : 0
+
+                                Behavior on waveAmp {
+                                    NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
+                                }
+                                onWaveAmpChanged: requestPaint()
+
+                                onPaint: {
+                                    var ctx = getContext("2d")
+                                    ctx.clearRect(0, 0, width, height)
+                                    var cy = height / 2
+                                    var p = wavyBarContainer.progress
+                                    var progressX = Math.max(0, Math.min(width, width * p))
+                                    var scrubberW = 4
+                                    var scrubberH = (seekArea.pressed || seekArea.containsMouse) ? 14 : 10
+                                    var baseAmp = waveCanvas.waveAmp
+
+                                    // 1. Unplayed straight horizontal line (from progressX to width)
+                                    if (progressX < width) {
+                                        ctx.beginPath()
+                                        ctx.moveTo(progressX, cy)
+                                        ctx.lineTo(width, cy)
+                                        ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.32)
+                                        ctx.lineWidth = 3
+                                        ctx.lineCap = "round"
+                                        ctx.stroke()
+                                    }
+
+                                    // 2. Played portion: wavy sine line when playing, flat straight line when paused
+                                    if (progressX > 0) {
+                                        var wavelength = 34 // Slightly increased frequency
+                                        ctx.beginPath()
+                                        ctx.moveTo(0, cy)
+                                        if (baseAmp > 0.05) {
+                                            for (var x = 0; x <= progressX; x += 1.5) {
+                                                var distToEnd = progressX - x
+                                                var taper = distToEnd < 14 ? (distToEnd / 14) : 1.0
+                                                var y = cy + baseAmp * taper * Math.sin((x / wavelength) * 2 * Math.PI - wavePhase)
+                                                ctx.lineTo(x, y)
+                                            }
+                                        } else {
+                                            ctx.lineTo(progressX, cy)
+                                        }
+                                        ctx.strokeStyle = "#ffffff"
+                                        ctx.lineWidth = 3
+                                        ctx.lineCap = "round"
+                                        ctx.stroke()
+                                    }
+
+                                    // 3. Vertical pill scrubber head (fixed vertically in center: stationary at cy)
+                                    ctx.beginPath()
+                                    ctx.moveTo(progressX, cy - scrubberH / 2)
+                                    ctx.lineTo(progressX, cy + scrubberH / 2)
+                                    ctx.strokeStyle = "#ffffff"
+                                    ctx.lineWidth = scrubberW
+                                    ctx.lineCap = "round"
+                                    ctx.stroke()
+                                }
+                            }
+
+                            Timer {
+                                interval: 33
+                                running: mprisSel.playing && panel.expanded
+                                repeat: true
+                                onTriggered: {
+                                    waveCanvas.wavePhase += 0.08
                                     waveCanvas.requestPaint()
                                 }
                             }
+
+                            Connections {
+                                target: dashboardContent
+                                function onCurPosChanged() { waveCanvas.requestPaint() }
+                                function onCurLenChanged() { waveCanvas.requestPaint() }
+                            }
+
+                            Connections {
+                                target: mprisSel
+                                function onPlayingChanged() { waveCanvas.requestPaint() }
+                            }
+
+                            // Floating Timestamp Tooltip during scrub / hover
+                            Rectangle {
+                                anchors.bottom: parent.top
+                                anchors.bottomMargin: 4
+                                x: Math.max(0, Math.min(parent.width - width, wavyBarContainer.width * wavyBarContainer.progress - width / 2))
+                                width: timeTxt.implicitWidth + 12
+                                height: 18
+                                radius: 9
+                                color: Qt.rgba(0, 0, 0, 0.85)
+                                border.color: Qt.rgba(1, 1, 1, 0.25)
+                                border.width: 1
+                                visible: (seekArea.containsMouse || seekArea.pressed) && dashboardContent.curLen > 0
+
+                                Text {
+                                    id: timeTxt
+                                    anchors.centerIn: parent
+                                    text: dashboardContent.fmtTime(dashboardContent.curPos) + " / " + dashboardContent.fmtTime(dashboardContent.curLen)
+                                    color: "#ffffff"
+                                    font.family: root.barFont
+                                    font.pixelSize: 10
+                                    font.weight: Font.DemiBold
+                                }
+                            }
+
+                            MouseArea {
+                                id: seekArea
+                                anchors.fill: parent
+                                anchors.margins: -6
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: (mouse) => {
+                                    dashboardContent.seekTo(mouse.x / width)
+                                    waveCanvas.requestPaint()
+                                }
+                                onPositionChanged: (mouse) => {
+                                    if (pressed) {
+                                        dashboardContent.seekTo(mouse.x / width)
+                                        waveCanvas.requestPaint()
+                                    }
+                                }
+                            }
+                        }
+
+                        // Next Button
+                        Item {
+                            width: 24; height: 24
+                            anchors.verticalCenter: parent.verticalCenter
+
+                            IconText {
+                                anchors.centerIn: parent
+                                text: "skip_next"
+                                font.pixelSize: 22
+                                color: "#ffffff"
+                                opacity: (mprisSel.player && mprisSel.player.canGoNext) ? 0.95 : 0.4
+                            }
+
+                            MouseArea {
+                                id: nextMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                scale: pressed ? 0.88 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 100 } }
+                                onClicked: if (mprisSel.player) mprisSel.player.next()
+                            }
+                        }
+
+                        // Current Song Position Display
+                        Text {
+                            id: positionTxt
+                            text: dashboardContent.fmtTime(dashboardContent.curPos)
+                            color: Qt.rgba(1, 1, 1, 0.85)
+                            font.family: root.barFont
+                            font.pixelSize: 12
+                            font.weight: Font.Medium
+                            anchors.verticalCenter: parent.verticalCenter
                         }
                     }
+                }
+            } // end mediaWithLyricsGroup
+        }
+    }
 
-                    // Next Button
-                    Item {
-                        width: 24; height: 24
+    // ── DETAIL OVERLAY (Phone-style sub-page sheet) ──
+    Item {
+        id: detailOverlay
+        anchors.fill: parent
+        visible: opacity > 0.001
+        opacity: dashboardContent.activeDetailView !== "" ? 1.0 : 0.0
+        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+        z: 10
+
+        // Subpage Header Bar
+        Item {
+            id: detailHeaderBar
+            width: parent.width
+            height: 34
+            anchors.top: parent.top
+
+            // Back button pill
+            Rectangle {
+                id: detailBackBtn
+                height: 32
+                width: backContentRow.width + 16
+                radius: 16
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                color: detailBackMa.containsMouse ? root.fillHover : root.fillIdle
+                scale: detailBackMa.pressed ? 0.94 : 1.0
+                Behavior on scale { NumberAnimation { duration: 120 } }
+                Behavior on color { ColorAnimation { duration: 150 } }
+
+                Row {
+                    id: backContentRow
+                    anchors.centerIn: parent
+                    spacing: 5
+                    IconText {
+                        text: "arrow_back"
+                        color: root.ink
+                        font.pixelSize: 15
                         anchors.verticalCenter: parent.verticalCenter
-
-                        IconText {
-                            anchors.centerIn: parent
-                            text: "skip_next"
-                            font.pixelSize: 22
-                            color: "#ffffff"
-                            opacity: (mprisSel.player && mprisSel.player.canGoNext) ? 0.95 : 0.4
-                        }
-
-                        MouseArea {
-                            id: nextMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            scale: pressed ? 0.88 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 100 } }
-                            onClicked: if (mprisSel.player) mprisSel.player.next()
-                        }
                     }
-
-                    // Current Song Position Display
                     Text {
-                        id: positionTxt
-                        text: dashboardContent.fmtTime(dashboardContent.curPos)
-                        color: Qt.rgba(1, 1, 1, 0.85)
+                        text: "Back"
+                        color: root.ink
                         font.family: root.barFont
-                        font.pixelSize: 12
-                        font.weight: Font.Medium
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
                         anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+
+                MouseArea {
+                    id: detailBackMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        dashboardContent.activeDetailView = ""
+                        if (root) root.dashboardDetail = ""
+                    }
+                }
+            }
+
+            // Section Title
+            Text {
+                anchors.centerIn: parent
+                text: {
+                    switch (dashboardContent.activeDetailView) {
+                        case "wifi": return "Wi-Fi & Network"
+                        case "bluetooth": return "Bluetooth"
+                        case "cpu": return "CPU Performance"
+                        case "memory": return "Memory Usage"
+                        case "battery": return "Battery & Power"
+                        case "screentime": return "Screen Time"
+                        case "volume": return "Sound & Volume"
+                        default: return ""
+                    }
+                }
+                color: root.ink
+                font.family: root.barFont
+                font.pixelSize: 13
+                font.weight: Font.Bold
+            }
+
+            // Close button
+            Rectangle {
+                width: 32
+                height: 32
+                radius: 16
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                color: detailCloseMa.containsMouse ? root.fillHover : root.fillIdle
+                scale: detailCloseMa.pressed ? 0.92 : 1.0
+                Behavior on scale { NumberAnimation { duration: 120 } }
+                Behavior on color { ColorAnimation { duration: 150 } }
+
+                IconText {
+                    anchors.centerIn: parent
+                    text: "close"
+                    color: root.ink
+                    font.pixelSize: 16
+                }
+
+                MouseArea {
+                    id: detailCloseMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        dashboardContent.activeDetailView = ""
+                        if (root) root.dashboardDetail = ""
                     }
                 }
             }
         }
 
-        // RIGHT COLUMN (60%): Dock (Recent Apps) + Process Monitor OR Detail Section
+        // Subpage Content Area
         Item {
-            id: rightColumnArea
-            width: parent.width * 0.6 - 8
-            height: parent.height
-
-            // Overview Mode: Dock + Process Monitor
-            Column {
-                id: overviewCol
-                anchors.fill: parent
-                spacing: 12
-                visible: dashboardContent.activeDetailView === ""
-                opacity: visible ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
-
-            // SECTION 1: Dock (Recently Opened Apps)
-            Rectangle {
-                id: dockSection
-                width: parent.width
-                height: 96
-                radius: 20
-                color: root.fillIdle
-                clip: true
-
-                Column {
-                    anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 8
-
-                    Item {
-                        width: parent.width
-                        height: 16
-
-                        Text {
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "RECENT APPS"
-                            color: root.ink
-                            opacity: 0.5
-                            font.family: root.barFont
-                            font.pixelSize: 11
-                            font.weight: Font.Bold
-                            font.letterSpacing: 0.6
-                        }
-
-                        Text {
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: recentModel.count > 0 ? (recentModel.count + " active") : "None"
-                            color: root.ink
-                            opacity: 0.4
-                            font.family: root.barFont
-                            font.pixelSize: 10
-                        }
-                    }
-
-                    // Dock apps row
-                    Item {
-                        width: parent.width
-                        height: 48
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "No recent apps open"
-                            color: root.ink
-                            opacity: 0.4
-                            font.family: root.barFont
-                            font.pixelSize: 12
-                            visible: recentModel.count === 0
-                        }
-
-                        ListView {
-                            id: dockList
-                            anchors.fill: parent
-                            orientation: ListView.Horizontal
-                            spacing: 8
-                            model: recentModel
-                            clip: false
-                            boundsBehavior: Flickable.StopAtBounds
-
-                            delegate: Item {
-                                width: 48
-                                height: 48
-
-                                Rectangle {
-                                    id: dockTile
-                                    anchors.fill: parent
-                                    radius: 14
-                                    color: dockMa.containsMouse ? root.fillHover : (model.isFocused ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.16) : Qt.rgba(1, 1, 1, 0.04))
-                                    border.color: dockMa.containsMouse 
-                                        ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.45) 
-                                        : (model.isFocused ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.28) : Qt.rgba(1, 1, 1, 0.06))
-                                    border.width: 1
-                                    scale: dockMa.pressed ? 0.90 : (dockMa.containsMouse ? 1.08 : 1.0)
-                                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-                                    Behavior on color { ColorAnimation { duration: 150 } }
-                                    Behavior on border.color { ColorAnimation { duration: 150 } }
-
-                                    Image {
-                                        id: appImg
-                                        anchors.centerIn: parent
-                                        anchors.verticalCenterOffset: -2
-                                        width: 28
-                                        height: 28
-                                        source: (model.icon && (model.icon.indexOf("file://") === 0 || model.icon.indexOf("/") === 0)) ? (model.icon.indexOf("file://") === 0 ? model.icon : ("file://" + model.icon)) : dashboardContent.getAppIcon(model.icon || model.desktop)
-                                        fillMode: Image.PreserveAspectFit
-                                        smooth: true
-                                        asynchronous: true
-                                        visible: status === Image.Ready
-                                    }
-
-                                    IconText {
-                                        anchors.centerIn: parent
-                                        anchors.verticalCenterOffset: -2
-                                        visible: appImg.status !== Image.Ready
-                                        text: "apps"
-                                        font.pixelSize: 22
-                                        color: root.ink
-                                    }
-
-                                    // Active / focus dot
-                                    Rectangle {
-                                        anchors.bottom: parent.bottom
-                                        anchors.bottomMargin: 3.5
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        width: model.isFocused ? 12 : (model.isOpen ? 5 : 0)
-                                        height: 3
-                                        radius: 1.5
-                                        color: model.isFocused ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.6)
-                                        visible: model.isOpen
-                                        Behavior on width { NumberAnimation { duration: 180 } }
-                                    }
-                                }
-
-                                // Tooltip on hover
-                                Rectangle {
-                                    anchors.bottom: parent.top
-                                    anchors.bottomMargin: 6
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    width: tipTxt.implicitWidth + 14
-                                    height: 20
-                                    radius: 10
-                                    color: Qt.rgba(0.08, 0.08, 0.09, 0.95)
-                                    border.color: Qt.rgba(1, 1, 1, 0.15)
-                                    border.width: 1
-                                    visible: dockMa.containsMouse
-                                    z: 100
-
-                                    Text {
-                                        id: tipTxt
-                                        anchors.centerIn: parent
-                                        text: (model.name || model.desktop) + (model.isOpen ? " (Running)" : "")
-                                        color: "#ffffff"
-                                        font.family: root.barFont
-                                        font.pixelSize: 10
-                                        font.weight: Font.DemiBold
-                                    }
-                                }
-
-                                MouseArea {
-                                    id: dockMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        panel.expanded = false
-                                        Quickshell.execDetached([
-                                            "python3",
-                                            "/home/hery/.config/quickshell/bar/scripts/recent_apps.py",
-                                            "activate",
-                                            model.address || "",
-                                            model.desktop || "",
-                                            model.exec || ""
-                                        ])
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // SECTION 2: Process Monitor
-            Rectangle {
-                id: procSection
-                width: parent.width
-                height: parent.height - dockSection.height - parent.spacing
-                radius: 20
-                color: root.fillIdle
-                clip: true
-
-                Column {
-                    anchors.fill: parent
-                    anchors.margins: 16
-                    spacing: 12
-
-                    Text {
-                        text: "PROCESS MONITOR"
-                        color: root.ink
-                        opacity: 0.5
-                        font.family: root.barFont
-                        font.pixelSize: 11
-                        font.weight: Font.Bold
-                    }
-
-                    ListView {
-                        width: parent.width
-                        height: parent.height - 28
-                        model: procModel
-                        clip: true
-                        spacing: 8
-                        delegate: Rectangle {
-                            width: ListView.view.width
-                            height: 48
-                            radius: 12
-                            color: killHover.containsMouse ? Qt.rgba(1, 0, 0, 0.1) : root.fillHover
-                            clip: true
-
-                            // Bar chart background
-                            Rectangle {
-                                anchors.top: parent.top
-                                anchors.bottom: parent.bottom
-                                anchors.left: parent.left
-                                width: parent.width * (Math.min(100, parseInt(model.cpu)) / 100)
-                                color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.4)
-                                radius: 12
-                                Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutQuint } }
-                            }
-
-                            // The close button
-                            Rectangle {
-                                id: killBtn
-                                anchors.right: parent.right
-                                anchors.rightMargin: 8
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: killRow.width + 16
-                                height: 32; radius: 16
-                                color: killHover.containsMouse ? "#ff4444" : "transparent"
-
-                                Row {
-                                    id: killRow
-                                    anchors.centerIn: parent
-                                    spacing: 4
-                                    IconText {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: "close"
-                                        color: killHover.containsMouse ? "white" : root.ink
-                                        font.pixelSize: 16
-                                        opacity: killHover.containsMouse ? 1.0 : 0.6
-                                    }
-                                    Text {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: "Stop"
-                                        color: killHover.containsMouse ? "white" : root.ink
-                                        font.family: root.barFont
-                                        font.pixelSize: 12
-                                        font.weight: Font.DemiBold
-                                        opacity: killHover.containsMouse ? 1.0 : 0.6
-                                    }
-                                }
-                                Process {
-                                    id: killProc
-                                    command: ["kill", "-9", model.pid]
-                                    running: false
-                                }
-                                MouseArea {
-                                    id: killHover
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    onClicked: { killProc.running = false; killProc.running = true }
-                                }
-                            }
-
-                            // Text info
-                            Column {
-                                anchors.left: parent.left
-                                anchors.right: killBtn.left
-                                anchors.leftMargin: 16
-                                anchors.rightMargin: 12
-                                anchors.verticalCenter: parent.verticalCenter
-
-                                Row {
-                                    width: parent.width
-                                    spacing: 6
-                                    Text {
-                                        text: model.name
-                                        color: root.ink
-                                        font.family: root.barFont
-                                        font.pixelSize: 13
-                                        font.weight: Font.DemiBold
-                                        elide: Text.ElideRight
-                                        width: Math.min(implicitWidth, parent.width - 55)
-                                    }
-                                    Text {
-                                        text: "•"
-                                        color: root.ink
-                                        opacity: 0.6
-                                        font.family: root.barFont
-                                        font.pixelSize: 13
-                                    }
-                                    Text {
-                                        text: model.cpu
-                                        color: root.ink
-                                        opacity: 0.8
-                                        font.family: root.barFont
-                                        font.pixelSize: 13
-                                        font.weight: Font.Medium
-                                    }
-                                }
-                                Text {
-                                    text: "PID: " + model.pid
-                                    color: root.ink
-                                    opacity: 0.6
-                                    font.family: root.barFont
-                                    font.pixelSize: 11
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            } // end overviewCol
+            id: detailContentArea
+            anchors.top: detailHeaderBar.bottom
+            anchors.topMargin: 8
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            clip: true
 
             // Detailed Wi-Fi Section
             WifiDetailSection {
@@ -2535,8 +2769,6 @@ Item {
                 root: dashboardContent.root
                 panel: dashboardContent.panel
                 visible: dashboardContent.activeDetailView === "wifi"
-                opacity: visible ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
                 onCloseRequested: {
                     dashboardContent.activeDetailView = ""
                     if (root) root.dashboardDetail = ""
@@ -2550,8 +2782,6 @@ Item {
                 root: dashboardContent.root
                 panel: dashboardContent.panel
                 visible: dashboardContent.activeDetailView === "bluetooth"
-                opacity: visible ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
                 onCloseRequested: {
                     dashboardContent.activeDetailView = ""
                     if (root) root.dashboardDetail = ""
@@ -2565,8 +2795,6 @@ Item {
                 root: dashboardContent.root
                 panel: dashboardContent.panel
                 visible: dashboardContent.activeDetailView === "cpu"
-                opacity: visible ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
                 onCloseRequested: {
                     dashboardContent.activeDetailView = ""
                     if (root) root.dashboardDetail = ""
@@ -2580,8 +2808,6 @@ Item {
                 root: dashboardContent.root
                 panel: dashboardContent.panel
                 visible: dashboardContent.activeDetailView === "memory"
-                opacity: visible ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
                 onCloseRequested: {
                     dashboardContent.activeDetailView = ""
                     if (root) root.dashboardDetail = ""
@@ -2595,8 +2821,6 @@ Item {
                 root: dashboardContent.root
                 panel: dashboardContent.panel
                 visible: dashboardContent.activeDetailView === "battery"
-                opacity: visible ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
                 onCloseRequested: {
                     dashboardContent.activeDetailView = ""
                     if (root) root.dashboardDetail = ""
@@ -2610,8 +2834,6 @@ Item {
                 root: dashboardContent.root
                 panel: dashboardContent.panel
                 visible: dashboardContent.activeDetailView === "screentime"
-                opacity: visible ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
                 onCloseRequested: {
                     dashboardContent.activeDetailView = ""
                     if (root) root.dashboardDetail = ""
@@ -2625,66 +2847,10 @@ Item {
                 root: dashboardContent.root
                 panel: dashboardContent.panel
                 visible: dashboardContent.activeDetailView === "volume"
-                opacity: visible ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
                 onCloseRequested: {
                     dashboardContent.activeDetailView = ""
                     if (root) root.dashboardDetail = ""
                 }
-            }
-
-            ListModel { id: recentModel }
-            ListModel { id: procModel }
-
-            Process {
-                id: recentUpdater
-                running: panel.expanded
-                command: ["python3", "/home/hery/.config/quickshell/bar/scripts/recent_apps.py"]
-                stdout: StdioCollector {
-                    onStreamFinished: {
-                        try {
-                            var list = JSON.parse(this.text.trim())
-                            recentModel.clear()
-                            for (var i = 0; i < list.length; i++) {
-                                recentModel.append(list[i])
-                            }
-                        } catch(e) {}
-                    }
-                }
-            }
-
-            Timer {
-                interval: 3000; repeat: true; running: panel.expanded; triggeredOnStart: true
-                onTriggered: { recentUpdater.running = false; recentUpdater.running = true }
-            }
-
-            Process {
-                id: procUpdater
-                running: panel.expanded && dashboardContent.activeDetailView === ""
-                command: ["bash", "-c", "ps -eo pid,pcpu,comm --sort=-pcpu | head -n 10 | tail -n 9"]
-                stdout: StdioCollector {
-                    onStreamFinished: {
-                        var lines = this.text.split("\n")
-                        procModel.clear()
-                        for (var i = 0; i < lines.length; i++) {
-                            var line = lines[i].trim()
-                            if (line === "") continue
-                            var parts = line.split(/\s+/)
-                            if (parts.length >= 3) {
-                                procModel.append({
-                                    pid: parts[0],
-                                    cpu: Math.round(parseFloat(parts[1])) + "%",
-                                    name: parts.slice(2).join(" ")
-                                })
-                            }
-                        }
-                    }
-                }
-            }
-
-            Timer {
-                interval: 3000; repeat: true; running: panel.expanded && dashboardContent.activeDetailView === ""
-                onTriggered: { procUpdater.running = false; procUpdater.running = true }
             }
         }
     }
