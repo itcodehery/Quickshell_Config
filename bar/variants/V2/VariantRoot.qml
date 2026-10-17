@@ -44,6 +44,14 @@ Item {
     function lockReveal() { theme.barLockRetracted = false }
     function currentShellStyle() { return theme.barShellStyle }
     function showIslandOsd(kind, value) { theme.showIslandOsd(kind, value) }
+    function triggerNotifPeek(app, summary, body, icon) { theme.triggerNotifPeek(app, summary, body, icon) }
+    function startTimer(minutes, label) { theme.startTimer(minutes, label) }
+    function toggleTimer() { theme.toggleTimer() }
+    function resetTimer() { theme.resetTimer() }
+    function startStopwatch() { theme.startStopwatch() }
+    function startSysTask(label, progress) { theme.startSysTask(label, progress) }
+    function updateSysTask(progress) { theme.updateSysTask(progress) }
+    function finishSysTask() { theme.finishSysTask() }
     function systemUpdateRefresh() { theme.archRefreshTick++ }
     function runReactor(kind, arg) {
         // Reactor is a V1-only animation. Keep the shared IPC contract stable,

@@ -31,12 +31,17 @@ PanelWindow {
     readonly property real dashboardTopRadius: barSlot.root.barPosition === "bottom" ? 24 : 10
     readonly property real dashboardBottomRadius: barSlot.root.barPosition === "bottom" ? 10 : 24
 
-    readonly property int shellRadius: isDashboardActive
-        ? 24
-        : (shellVisibleHeight / 2)
+    readonly property int notifTargetHeight: (island && island.notifPeekActive && typeof islandNotifPeekItem !== "undefined")
+        ? (island.notifPeekBody !== "" ? Math.min(88, Math.max(64, islandNotifPeekItem.desiredCardHeight)) : 44)
+        : barSlot.root.v2BarHeight
     readonly property int shellVisibleHeight: isDashboardActive
         ? Math.round(dashboardExpandedHeight)
-        : barSlot.root.v2BarHeight
+        : (island && island.notifPeekActive
+            ? Math.round(barSlot.root.v2BarHeight + (notifTargetHeight - barSlot.root.v2BarHeight) * island.notifPeekProgress)
+            : barSlot.root.v2BarHeight)
+    readonly property int shellRadius: isDashboardActive
+        ? 24
+        : (island && island.notifPeekActive && island.notifPeekBody !== "" ? Math.min(22, shellVisibleHeight / 2) : (shellVisibleHeight / 2))
     readonly property real shellTargetWidth: isDashboardActive
         ? dashboardExpandedWidth
         : Math.max(80,
@@ -158,6 +163,78 @@ PanelWindow {
             z: -1
         }
 
+        readonly property var activePrivacyColors: {
+            var list = []
+            if (barSlot.root.privacyMic) list.push("#F59E0B")
+            if (barSlot.root.privacyCam) list.push("#10B981")
+            if (barSlot.root.privacyScreen) list.push(barSlot.root.screenRecording ? "#EF4444" : "#3B82F6")
+            return list
+        }
+
+        readonly property color privacyColorStart: {
+            var cols = activePrivacyColors
+            if (!cols || cols.length === 0) return "transparent"
+            return cols[0]
+        }
+
+        readonly property color privacyColorMid: {
+            var cols = activePrivacyColors
+            if (!cols || cols.length === 0) return "transparent"
+            if (cols.length === 1) return cols[0]
+            if (cols.length === 2) return cols[1]
+            return cols[1] // Emerald in tricolor
+        }
+
+        readonly property color privacyColorEnd: {
+            var cols = activePrivacyColors
+            if (!cols || cols.length === 0) return "transparent"
+            if (cols.length === 1) return cols[0]
+            if (cols.length === 2) return cols[1]
+            return cols[2] // Blue/Red in tricolor
+        }
+
+        // Hardware Privacy Subtle Gradient Glow (Tricolor horizontal gradient under bottom border)
+        Item {
+            id: privacyGlowUnderlay
+            visible: barSlot.root.privacyAnyActive
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Math.max(40, parent.width - Math.round(continuousBarSurface.bottomCornerRadius * 0.9))
+            y: barSlot.root.barPosition === "bottom" ? -4 : (parent.height - 2.5)
+            height: 6.5
+            z: -1
+
+            property real glowPulse: 1.0
+            opacity: (barSlot.root.privacyAnyActive ? glowPulse : 0.0) * 0.82
+            Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+
+            SequentialAnimation on glowPulse {
+                running: barSlot.root.privacyAnyActive
+                loops: Animation.Infinite
+                NumberAnimation { to: 0.65; duration: 1100; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 1.00; duration: 1100; easing.type: Easing.InOutSine }
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: height / 2
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0.00; color: "transparent" }
+                    GradientStop { position: 0.08; color: continuousBarSurface.privacyColorStart }
+                    GradientStop { position: 0.50; color: continuousBarSurface.privacyColorMid }
+                    GradientStop { position: 0.92; color: continuousBarSurface.privacyColorEnd }
+                    GradientStop { position: 1.00; color: "transparent" }
+                }
+            }
+
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                blurEnabled: true
+                blur: 0.45
+                blurMax: 10
+            }
+        }
+
         Shape {
             id: islandSurfaceBorder
             anchors.fill: parent
@@ -248,11 +325,32 @@ PanelWindow {
             }
         }
 
+        // Hardware Privacy & Screen-Share Laser Border Line
+        Item {
+            id: privacyGlowBar
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: Math.max(12, continuousBarSurface.bottomCornerRadius * 0.85)
+            anchors.rightMargin: Math.max(12, continuousBarSurface.bottomCornerRadius * 0.85)
+            y: barSlot.root.barPosition === "bottom" ? 0 : (parent.height - height)
+            height: 2.0
+            z: 16
+            visible: barSlot.root.privacyAnyActive
+            opacity: privacyGlowUnderlay.opacity * 1.15
 
-
-
-
-
+            Rectangle {
+                anchors.fill: parent
+                radius: height / 2
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0.00; color: "transparent" }
+                    GradientStop { position: 0.08; color: continuousBarSurface.privacyColorStart }
+                    GradientStop { position: 0.50; color: continuousBarSurface.privacyColorMid }
+                    GradientStop { position: 0.92; color: continuousBarSurface.privacyColorEnd }
+                    GradientStop { position: 1.00; color: "transparent" }
+                }
+            }
+        }
     }
 
     // ── dim backdrop while unlocked (edit mode) or dashboard expanded; click empty → dismiss ──
@@ -1219,7 +1317,7 @@ PanelWindow {
         // layer-shell resources while the island resizes with its visible rows.
         x: continuousBarSurface.x
         width: continuousBarSurface.width
-        height: barSlot.root.v2BarHeight
+        height: continuousBarSurface.height
         y: continuousBarSurface.y
         z: 22
         opacity: (barSlot.isDashboardActive || barSlot.isDashboardClosing) ? 0.0 : 1.0
@@ -1271,7 +1369,7 @@ PanelWindow {
             + (rightRowItem.implicitWidth > 0.5 ? 1 : 0)
 
         // The base shell draws a black hole around the island when hovered.
-        property bool isIslandHidden: (!island.isHovered || island.osdActive) && !barSlot.root.anyPopupVisible
+        property bool isIslandHidden: (!island.isHovered || island.osdActive || island.notifPeekActive) && !barSlot.root.anyPopupVisible
         property real islandShrinkProgress: 1.0
         property real islandElementsOpacity: 0.0
         property real islandCollapsedOpacity: 1.0
@@ -1302,6 +1400,41 @@ PanelWindow {
                 island.osdActive = true
                 island.osdProgress = 1.0
                 islandOsdTimer.restart()
+            }
+        }
+
+        property bool notifPeekActive: false
+        property real notifPeekProgress: 0.0
+        property string notifPeekApp: ""
+        property string notifPeekSummary: ""
+        property string notifPeekBody: ""
+        property string notifPeekIcon: ""
+        property int notifPeekId: 0
+
+        Behavior on notifPeekProgress {
+            NumberAnimation { duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+        }
+
+        Timer {
+            id: notifPeekTimer
+            interval: 5800
+            onTriggered: {
+                island.notifPeekActive = false
+                island.notifPeekProgress = 0.0
+            }
+        }
+
+        Connections {
+            target: barSlot.root
+            function onNotifPeekTickChanged() {
+                island.notifPeekApp = barSlot.root.notifPeekApp
+                island.notifPeekSummary = barSlot.root.notifPeekSummary
+                island.notifPeekBody = barSlot.root.notifPeekBody
+                island.notifPeekIcon = barSlot.root.notifPeekIcon
+                island.notifPeekId = barSlot.root.notifPeekId
+                island.notifPeekActive = true
+                island.notifPeekProgress = 1.0
+                notifPeekTimer.restart()
             }
         }
 
@@ -1386,8 +1519,10 @@ PanelWindow {
         property real leftVisibleWidth: (1.0 - islandShrinkProgress) * (leftRowItem.implicitWidth + (leftRowItem.implicitWidth > 0.5 ? fitRegionGap : 0))
         property real rightVisibleWidth: (1.0 - islandShrinkProgress) * (rightRowItem.implicitWidth + (rightRowItem.implicitWidth > 0.5 ? fitRegionGap : 0))
 
-        readonly property real defaultCollapsedCenterWidth: islandCollapsedItem.width + centerRowItem.implicitWidth + 8 + islandCollapsedRightSlot.width
-        readonly property real collapsedCenterTotalWidth: (1.0 - osdProgress) * defaultCollapsedCenterWidth + osdProgress * islandOsdItem.width
+        readonly property real defaultCollapsedCenterWidth: Math.max(60, (islandCollapsedRightSlot.x + islandCollapsedRightSlot.width) - (island.fitPadding + island.leftVisibleWidth))
+        readonly property real overlayProgress: Math.max(island.osdProgress, island.notifPeekProgress)
+        readonly property real overlayTargetWidth: island.notifPeekProgress > 0 ? islandNotifPeekItem.width : islandOsdItem.width
+        readonly property real collapsedCenterTotalWidth: (1.0 - overlayProgress) * defaultCollapsedCenterWidth + overlayProgress * overlayTargetWidth
         readonly property real centerVisibleWidth: (1.0 - islandShrinkProgress) * centerRowItem.implicitWidth + islandShrinkProgress * collapsedCenterTotalWidth
         readonly property real fitNaturalWidth: Math.ceil(
             2 * fitPadding
@@ -1576,7 +1711,7 @@ PanelWindow {
             baseCount: barSlot.centerBaseSlotCount
             maxExtraCount: barSlot.centerExtraSlotLimit
             visible: opacity > 0.001
-            opacity: 1.0 * (1.0 - island.osdProgress)
+            opacity: 1.0 * (1.0 - island.osdProgress) * (1.0 - island.notifPeekProgress)
             transform: Translate {
                 y: 0
             }
@@ -1607,7 +1742,7 @@ PanelWindow {
             radius: height / 2
             color: "transparent"
             clip: true
-            opacity: island.islandCollapsedOpacity * (1.0 - island.osdProgress)
+            opacity: island.islandCollapsedOpacity * (1.0 - island.osdProgress) * (1.0 - island.notifPeekProgress)
             visible: opacity > 0.001
 
             property int prevLyricIndex: -1
@@ -1781,14 +1916,221 @@ PanelWindow {
             ListElement { gid: "G12"; type: "widget"; extra: false }
         }
 
+        Rectangle {
+            id: islandTimerItem
+            anchors.verticalCenter: parent.verticalCenter
+            x: islandCollapsedItem.x + islandCollapsedItem.width + (islandTimerItem.width > 0 ? 4 : 0)
+
+            readonly property bool active: barSlot.root.timerActive
+            readonly property real targetWidth: active ? (timerRow.implicitWidth + 14) : 0
+            width: targetWidth
+            Behavior on width { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+
+            height: 24
+            radius: height / 2
+            color: Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.14)
+            border.color: Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.32)
+            border.width: 1
+            clip: true
+            opacity: (active ? 1.0 : 0.0) * island.islandCollapsedOpacity * (1.0 - island.osdProgress) * (1.0 - island.notifPeekProgress)
+            visible: opacity > 0.001
+
+            Row {
+                id: timerRow
+                anchors.centerIn: parent
+                spacing: 5
+
+                Item {
+                    width: 14
+                    height: 14
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: width / 2
+                        color: "transparent"
+                        border.color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.22)
+                        border.width: 1.5
+                    }
+
+                    Shape {
+                        anchors.fill: parent
+                        preferredRendererType: Shape.CurveRenderer
+
+                        ShapePath {
+                            strokeColor: barSlot.root.timerPaused ? Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.45) : barSlot.accent
+                            strokeWidth: 1.5
+                            fillColor: "transparent"
+                            capStyle: ShapePath.RoundCap
+
+                            PathAngleArc {
+                                centerX: 7
+                                centerY: 7
+                                radiusX: 5.75
+                                radiusY: 5.75
+                                startAngle: -90
+                                sweepAngle: {
+                                    if (barSlot.root.timerMode === "stopwatch") {
+                                        return ((barSlot.root.timerRemaining % 60) / 60.0) * 360
+                                    }
+                                    var init = Math.max(1, barSlot.root.timerInitial)
+                                    var rem = Math.max(0, barSlot.root.timerRemaining)
+                                    return (1.0 - (rem / init)) * 360
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: {
+                        var sec = barSlot.root.timerRemaining
+                        var h = Math.floor(sec / 3600)
+                        var m = Math.floor((sec % 3600) / 60)
+                        var s = sec % 60
+                        function pad(n) { return n < 10 ? "0" + n : String(n) }
+                        return h > 0 ? (h + ":" + pad(m) + ":" + pad(s)) : (pad(m) + ":" + pad(s))
+                    }
+                    font.family: "DM Sans"
+                    font.pixelSize: 11
+                    font.weight: Font.DemiBold
+                    color: barSlot.root.timerPaused ? Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.6) : barSlot.accent
+                }
+            }
+
+            TooltipMixin {
+                id: timerTip
+                root: barSlot.root
+                owner: islandTimerItem
+                text: barSlot.root.timerLabel + " · " + (barSlot.root.timerPaused ? "Paused" : "Running") + "\nLeft-click: Pause/Resume · Right-click: Reset"
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onEntered: timerTip.show()
+                onExited: timerTip.hide()
+                onClicked: function(mouse) {
+                    if (mouse.button === Qt.RightButton) {
+                        barSlot.root.resetTimer()
+                    } else {
+                        barSlot.root.toggleTimer()
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            id: islandTaskProgressItem
+            anchors.verticalCenter: parent.verticalCenter
+            x: islandTimerItem.x + islandTimerItem.width + (islandTaskProgressItem.width > 0 ? 4 : 0)
+
+            readonly property bool active: barSlot.root.sysTaskActive
+            readonly property real targetWidth: active ? (taskRow.implicitWidth + 12) : 0
+            width: targetWidth
+            Behavior on width { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+
+            height: 24
+            radius: height / 2
+            color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.08)
+            border.color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.18)
+            border.width: 1
+            clip: true
+            opacity: (active ? 1.0 : 0.0) * island.islandCollapsedOpacity * (1.0 - island.osdProgress) * (1.0 - island.notifPeekProgress)
+            visible: opacity > 0.001
+
+            Row {
+                id: taskRow
+                anchors.centerIn: parent
+                spacing: 4
+
+                Item {
+                    width: 14
+                    height: 14
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: width / 2
+                        color: "transparent"
+                        border.color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.22)
+                        border.width: 1.5
+                    }
+
+                    Shape {
+                        id: taskArcShape
+                        anchors.fill: parent
+                        preferredRendererType: Shape.CurveRenderer
+
+                        NumberAnimation on rotation {
+                            running: barSlot.root.sysTaskActive && barSlot.root.sysTaskProgress < 0
+                            loops: Animation.Infinite
+                            from: 0
+                            to: 360
+                            duration: 1000
+                        }
+
+                        ShapePath {
+                            strokeColor: barSlot.accent
+                            strokeWidth: 1.5
+                            fillColor: "transparent"
+                            capStyle: ShapePath.RoundCap
+
+                            PathAngleArc {
+                                centerX: 7
+                                centerY: 7
+                                radiusX: 5.75
+                                radiusY: 5.75
+                                startAngle: -90
+                                sweepAngle: barSlot.root.sysTaskProgress >= 0 ? (barSlot.root.sysTaskProgress * 360) : 120
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: barSlot.root.sysTaskProgress >= 0
+                    text: Math.round(barSlot.root.sysTaskProgress * 100) + "%"
+                    font.family: "DM Sans"
+                    font.pixelSize: 10
+                    font.weight: Font.Bold
+                    color: barSlot.root.ink
+                }
+            }
+
+            TooltipMixin {
+                id: taskTip
+                root: barSlot.root
+                owner: islandTaskProgressItem
+                text: barSlot.root.sysTaskLabel !== "" ? barSlot.root.sysTaskLabel : "System task running"
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onEntered: taskTip.show()
+                onExited: taskTip.hide()
+                onClicked: {
+                    if (barSlot.root.sysTaskLabel.indexOf("pacman") >= 0 || barSlot.root.sysTaskLabel.indexOf("update") >= 0) {
+                        barSlot.root.archVisible = !barSlot.root.archVisible
+                    }
+                }
+            }
+        }
+
         SlotRow {
             id: islandCollapsedRightSlot
             anchors.verticalCenter: parent.verticalCenter
             
-            x: island.fitPadding + island.leftVisibleWidth + centerRowItem.implicitWidth + 4 + islandCollapsedItem.width + 4
+            x: islandTaskProgressItem.x + islandTaskProgressItem.width + (islandCollapsedRightSlot.width > 0 ? 4 : 0)
                 
             visible: opacity > 0.001
-            opacity: island.islandCollapsedOpacity * (1.0 - island.osdProgress)
+            opacity: island.islandCollapsedOpacity * (1.0 - island.osdProgress) * (1.0 - island.notifPeekProgress)
             
             rmodel: islandCollapsedItem.mediaActive ? islandMediaModel : islandBatteryModel
             baseCount: 1
@@ -1921,6 +2263,174 @@ PanelWindow {
                     font.family: barSlot.root.barFont
                     font.pixelSize: 12
                     font.weight: Font.Medium
+                }
+            }
+        }
+
+        Rectangle {
+            id: islandNotifPeekItem
+            anchors.centerIn: parent
+
+            readonly property bool hasBody: island.notifPeekBody !== ""
+            readonly property real maxContentWidth: Math.min(540, barSlot.width - 60)
+            readonly property real desiredTextWidth: Math.max(summaryText.implicitWidth, Math.min(390, bodyText.implicitWidth))
+            readonly property real contentTargetWidth: 16 + (hasBody ? 34 : 22) + 12 + Math.max(160, desiredTextWidth) + 12 + 22 + 16
+            readonly property int desiredCardHeight: 20 + Math.max(hasBody ? 34 : 22, notifTextCol.implicitHeight)
+
+            width: Math.min(maxContentWidth, Math.max(300, contentTargetWidth))
+            height: island.height
+            color: "transparent"
+            clip: true
+            opacity: island.islandCollapsedOpacity * island.notifPeekProgress
+            visible: opacity > 0.001
+
+            transform: Translate {
+                y: (1.0 - island.notifPeekProgress) * (barSlot.root.barPosition === "bottom" ? 6 : -6)
+            }
+
+            HoverHandler {
+                id: peekHov
+                onHoveredChanged: {
+                    if (hovered) {
+                        notifPeekTimer.stop()
+                    } else if (island.notifPeekActive) {
+                        notifPeekTimer.interval = 2200
+                        notifPeekTimer.restart()
+                    }
+                }
+            }
+
+            // Background click invokes notification action
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    island.notifPeekActive = false
+                    island.notifPeekProgress = 0.0
+                    barSlot.root.invokeNotification(island.notifPeekId, island.notifPeekApp)
+                }
+            }
+
+            Row {
+                id: notifPeekContentRow
+                anchors.centerIn: parent
+                width: parent.width - 28
+                spacing: 12
+
+                // App icon / badge
+                Item {
+                    width: islandNotifPeekItem.hasBody ? 34 : 22
+                    height: width
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Image {
+                        anchors.fill: parent
+                        visible: island.notifPeekIcon !== "" && (island.notifPeekIcon.startsWith("file://") || island.notifPeekIcon.startsWith("/"))
+                        source: (island.notifPeekIcon !== "" && (island.notifPeekIcon.startsWith("file://") || island.notifPeekIcon.startsWith("/"))) ? island.notifPeekIcon : ""
+                        fillMode: Image.PreserveAspectFit
+                        mipmap: true
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: islandNotifPeekItem.hasBody ? 9 : (height / 2)
+                        visible: !island.notifPeekIcon || (!island.notifPeekIcon.startsWith("file://") && !island.notifPeekIcon.startsWith("/"))
+                        color: Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.22)
+                        border.color: Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.4)
+                        border.width: 1
+
+                        Text {
+                            anchors.centerIn: parent
+                            font.pixelSize: islandNotifPeekItem.hasBody ? 16 : 12
+                            color: barSlot.accent
+                            text: (island.notifPeekIcon && !island.notifPeekIcon.startsWith("/") && !island.notifPeekIcon.startsWith("file://"))
+                                ? island.notifPeekIcon
+                                : (IconMap.icon("package_2") || "\uE7F4")
+                        }
+                    }
+                }
+
+                // Title + multi-line body column
+                Column {
+                    id: notifTextCol
+                    width: parent.width - (islandNotifPeekItem.hasBody ? 34 : 22) - 12 - 22 - 12
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 2
+
+                    // App / Category tiny subtitle if available and body is present
+                    Text {
+                        visible: islandNotifPeekItem.hasBody && island.notifPeekApp !== "" && island.notifPeekApp !== island.notifPeekSummary
+                        text: island.notifPeekApp.toUpperCase()
+                        font.family: "DM Sans"
+                        font.pixelSize: 9
+                        font.weight: Font.Bold
+                        font.letterSpacing: 0.5
+                        color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.55)
+                        elide: Text.ElideRight
+                        width: parent.width
+                    }
+
+                    // Summary / Title (full text, no 120px clamp!)
+                    Text {
+                        id: summaryText
+                        text: island.notifPeekSummary !== "" ? island.notifPeekSummary : island.notifPeekApp
+                        font.family: "DM Sans"
+                        font.pixelSize: islandNotifPeekItem.hasBody ? 13 : 12
+                        font.weight: Font.Bold
+                        color: barSlot.root.ink
+                        elide: Text.ElideRight
+                        maximumLineCount: 2
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                    }
+
+                    // Body / Description (full text, multi-line wrap!)
+                    Text {
+                        id: bodyText
+                        visible: islandNotifPeekItem.hasBody
+                        text: island.notifPeekBody
+                        font.family: "DM Sans"
+                        font.pixelSize: 11
+                        font.weight: Font.Normal
+                        lineHeight: 1.15
+                        color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.82)
+                        elide: Text.ElideRight
+                        maximumLineCount: 3
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                    }
+                }
+
+                // Close "×" button
+                Rectangle {
+                    id: closeBtn
+                    width: 22
+                    height: 22
+                    radius: 11
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: closeHov.hovered ? Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.15) : "transparent"
+                    Behavior on color { ColorAnimation { duration: 150 } }
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "×"
+                        font.pixelSize: 15
+                        font.family: "DM Sans"
+                        font.weight: Font.Medium
+                        color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, closeHov.hovered ? 0.95 : 0.45)
+                        Behavior on color { ColorAnimation { duration: 150 } }
+                    }
+
+                    HoverHandler { id: closeHov }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            island.notifPeekActive = false
+                            island.notifPeekProgress = 0.0
+                        }
+                    }
                 }
             }
         }

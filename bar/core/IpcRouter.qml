@@ -115,6 +115,42 @@ Item {
     }
 
     IpcHandler {
+        target: "notif"
+        function peek(app: string, summary: string, body: string): void {
+            router.invoke("triggerNotifPeek", app, summary, body, "")
+        }
+    }
+
+    IpcHandler {
+        target: "timer"
+        function start(minutes: int, label: string): void {
+            router.invoke("startTimer", minutes, label)
+        }
+        function toggle(): void {
+            router.invoke("toggleTimer")
+        }
+        function reset(): void {
+            router.invoke("resetTimer")
+        }
+        function stopwatch(): void {
+            router.invoke("startStopwatch")
+        }
+    }
+
+    IpcHandler {
+        target: "task"
+        function start(label: string, percent: int): void {
+            router.invoke("startSysTask", label, percent)
+        }
+        function update(percent: int): void {
+            router.invoke("updateSysTask", percent)
+        }
+        function done(): void {
+            router.invoke("finishSysTask")
+        }
+    }
+
+    IpcHandler {
         target: "omarchy.system-update"
         function refresh(): void { router.systemRefresh() }
     }

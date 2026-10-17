@@ -2075,6 +2075,227 @@ Item {
         islandOsdActive = true
     }
 
+    // ── Dynamic Island Live Activities ──
+
+    // 1. Notification Peek Banner
+    property bool notifPeekActive: false
+    property string notifPeekApp: ""
+    property string notifPeekSummary: ""
+    property string notifPeekBody: ""
+    property string notifPeekIcon: ""
+    property int notifPeekId: 0
+    property int notifPeekTick: 0
+    function triggerNotifPeek(app, summary, body, icon, notifId) {
+        if (!app && !summary && !body) return
+        notifPeekApp = app || "Notification"
+        notifPeekSummary = summary || ""
+        notifPeekBody = body || ""
+        notifPeekIcon = icon || ""
+        notifPeekId = Number(notifId || 0)
+        notifPeekActive = true
+        notifPeekTick++
+    }
+
+    Process { id: notifInvokeProc; command: ["bash", "-c", "true"] }
+    function invokeNotification(notifId, appName) {
+        var cmd = ""
+        var nid = Number(notifId || 0)
+        if (nid > 0 && nid < 100000000000) {
+            cmd = "quickshell -p /usr/share/omarchy/shell ipc call notifications invoke " + nid
+        } else if (appName && appName !== "") {
+            cmd = "quickshell -p /usr/share/omarchy/shell ipc call notifications invokeApp \"" + appName + "\""
+        } else {
+            cmd = "quickshell -p /usr/share/omarchy/shell ipc call notifications invoke 0"
+        }
+        notifInvokeProc.command = ["bash", "-c", cmd + " 2>/dev/null || true"]
+        notifInvokeProc.running = false
+        notifInvokeProc.running = true
+    }
+
+    // 2. Timer / Pomodoro / Stopwatch Pill
+    property bool timerActive: false
+    property bool timerPaused: false
+    property string timerMode: "countdown"   // "countdown" | "stopwatch"
+    property int timerRemaining: 0          // in seconds
+    property int timerInitial: 0            // in seconds
+    property string timerLabel: "Focus"
+
+    function startTimer(minutes, label) {
+        var m = (minutes && minutes > 0) ? minutes : 25
+        timerMode = "countdown"
+        timerInitial = m * 60
+        timerRemaining = m * 60
+        timerLabel = label || "Focus"
+        timerPaused = false
+        timerActive = true
+    }
+
+    function toggleTimer() {
+        if (!timerActive) {
+            startTimer(25, "Focus")
+            return
+        }
+        timerPaused = !timerPaused
+    }
+
+    function resetTimer() {
+        timerActive = false
+        timerPaused = false
+        timerRemaining = 0
+        timerInitial = 0
+    }
+
+    function startStopwatch() {
+        timerMode = "stopwatch"
+        timerRemaining = 0
+        timerInitial = 0
+        timerLabel = "Stopwatch"
+        timerPaused = false
+        timerActive = true
+    }
+
+    Timer {
+        id: liveActivityTicker
+        interval: 1000
+        repeat: true
+        running: theme.timerActive && !theme.timerPaused
+        onTriggered: {
+            if (theme.timerMode === "countdown") {
+                if (theme.timerRemaining > 1) {
+                    theme.timerRemaining -= 1
+                } else {
+                    theme.timerRemaining = 0
+                    theme.timerActive = false
+                    theme.triggerNotifPeek("Timer", "Focus Session Finished!", "Great work! Time for a break.", "")
+                }
+            } else {
+                theme.timerRemaining += 1
+            }
+        }
+    }
+
+    // 3. Hardware Privacy & Screen-Share Dots
+    property bool privacyMic: false
+    property bool privacyCam: false
+    property bool privacyScreen: false
+    readonly property bool privacyAnyActive: privacyMic || privacyCam || privacyScreen
+
+    Process {
+        id: privacyProbeProc
+        command: [Quickshell.env("HOME") + "/.config/quickshell/bar/scripts/privacy_probe.sh"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    var d = JSON.parse(this.text.trim())
+                    theme.privacyMic = d.mic === 1
+                    theme.privacyCam = d.cam === 1
+                    theme.privacyScreen = d.screen === 1
+                } catch(e) {}
+            }
+        }
+    }
+
+    Timer {
+        id: privacyProbeTimer
+        interval: 2000
+        repeat: true
+        running: true
+        triggeredOnStart: true
+        onTriggered: {
+            privacyProbeProc.running = false
+            privacyProbeProc.running = true
+        }
+    }
+
+    // 4. System Task / Download Progress Ring
+    property bool sysTaskActive: false
+    property real sysTaskProgress: -1    // -1 = indeterminate spinning; 0.0 .. 1.0 = percentage
+    property string sysTaskLabel: ""
+
+    function startSysTask(label, progress) {
+        sysTaskLabel = label || "System task"
+        sysTaskProgress = (progress !== undefined && progress >= 0) ? (progress / 100.0) : -1
+        sysTaskActive = true
+    }
+
+    function updateSysTask(progress) {
+        if (progress !== undefined && progress >= 0) {
+            sysTaskProgress = Math.min(1.0, Math.max(0.0, progress / 100.0))
+        } else {
+            sysTaskProgress = -1
+        }
+    }
+
+    function finishSysTask() {
+        sysTaskActive = false
+        sysTaskProgress = -1
+        sysTaskLabel = ""
+    }
+
+    Process {
+        id: sysTaskProbeProc
+        command: [Quickshell.env("HOME") + "/.config/quickshell/bar/scripts/task_probe.sh"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    var d = JSON.parse(this.text.trim())
+                    if (d.active === 1) {
+                        theme.sysTaskActive = true
+                        if (theme.sysTaskLabel === "" || theme.sysTaskLabel.startsWith("System update") || theme.sysTaskLabel.startsWith("Package update")) {
+                            theme.sysTaskLabel = d.label || "System task"
+                        }
+                    } else if (theme.sysTaskLabel.startsWith("System update") || theme.sysTaskLabel.startsWith("Package update") || theme.sysTaskLabel.startsWith("Flatpak")) {
+                        theme.sysTaskActive = false
+                        theme.sysTaskLabel = ""
+                    }
+                } catch(e) {}
+            }
+        }
+    }
+
+    Timer {
+        id: sysTaskProbeTimer
+        interval: 3000
+        repeat: true
+        running: true
+        triggeredOnStart: true
+        onTriggered: {
+            sysTaskProbeProc.running = false
+            sysTaskProbeProc.running = true
+        }
+    }
+
+    // Real-time Notification Stream
+    Process {
+        id: notifStreamProc
+        command: [Quickshell.env("HOME") + "/.config/quickshell/bar/scripts/notif_stream.sh"]
+        running: true
+        onExited: function(exitCode, exitStatus) {
+            notifStreamRestartTimer.restart()
+        }
+        stdout: SplitParser {
+            onRead: function(line) {
+                try {
+                    var d = JSON.parse(line.trim())
+                    if (d && (d.summary || d.body || d.app)) {
+                        theme.triggerNotifPeek(d.app || "Notification", d.summary || "", d.body || "", d.appIcon || "", d.id || 0)
+                    }
+                } catch(e) {}
+            }
+        }
+    }
+
+    Timer {
+        id: notifStreamRestartTimer
+        interval: 1000
+        repeat: false
+        onTriggered: {
+            notifStreamProc.running = true
+        }
+    }
+
     // ── picker visual style (theme/wallpaper/screenshot/video pickers) ──
     property string pickerStyle: "tanzaku"   // "tanzaku", "hearthstone", "carousel"
     property string launcherLogoMode: "text"     // "text" or "icon"

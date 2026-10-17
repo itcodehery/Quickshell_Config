@@ -126,7 +126,7 @@ PanelWindow {
     // pid-guarded: with an empty pid, /proc//stat collapses to /proc/stat (a
     property bool isDnd: false
 
-    readonly property string pollScript: "dnd=$(quickshell -p /usr/share/omarchy/shell ipc call notifications isDnd 2>/dev/null || echo \"off\"); list=$(jq -cs '[.[] | {id: .timestamp, app_name: .app, summary: .summary, body: .body}]' ~/.local/state/omarchy/notifications/*.json 2>/dev/null); [ -z \"$list\" ] && list='[]'; hist=$(jq -cs '[.[] | {id: .timestamp, app_name: .app, summary: .summary, body: .body}]' ~/.local/state/omarchy/notifications/history/*.json 2>/dev/null); [ -z \"$hist\" ] && hist='[]'; printf '{\"token\":\"omarchy\",\"dnd\":\"%s\",\"list\":%s,\"history\":%s}' \"$dnd\" \"$list\" \"$hist\""
+    readonly property string pollScript: "dnd=$(quickshell -p /usr/share/omarchy/shell ipc call notifications isDnd 2>/dev/null || echo \"off\"); list=$(jq -cs '[.[] | {id: .timestamp, notifId: (.originalId // .id // 0), app_name: .app, summary: .summary, body: .body}]' ~/.local/state/omarchy/notifications/*.json 2>/dev/null); [ -z \"$list\" ] && list='[]'; hist=$(jq -cs '[.[] | {id: .timestamp, notifId: (.originalId // .id // 0), app_name: .app, summary: .summary, body: .body}]' ~/.local/state/omarchy/notifications/history/*.json 2>/dev/null); [ -z \"$hist\" ] && hist='[]'; printf '{\"token\":\"omarchy\",\"dnd\":\"%s\",\"list\":%s,\"history\":%s}' \"$dnd\" \"$list\" \"$hist\""
 
     Process {
         id: pollProc
@@ -159,12 +159,12 @@ PanelWindow {
         var incoming = {}
         for (var i = 0; i < listArr.length; i++) {
             var n = listArr[i]
-            incoming[n.id] = { appName: n.app_name || "", summary: n.summary || "", body: n.body || "", active: true }
+            incoming[n.id] = { notifId: n.notifId || 0, appName: n.app_name || "", summary: n.summary || "", body: n.body || "", active: true }
         }
         for (var j = 0; j < histArr.length; j++) {
             var h = histArr[j]
             if (incoming[h.id] === undefined)
-                incoming[h.id] = { appName: h.app_name || "", summary: h.summary || "", body: h.body || "", active: false }
+                incoming[h.id] = { notifId: h.notifId || 0, appName: h.app_name || "", summary: h.summary || "", body: h.body || "", active: false }
         }
 
         // existing entries by composite key
@@ -181,9 +181,9 @@ PanelWindow {
             var src = incoming[id]
             if (byKey[key] !== undefined) {
                 var e = byKey[key]
-                e.appName = src.appName; e.summary = src.summary; e.body = src.body
+                e.notifId = src.notifId || 0; e.appName = src.appName; e.summary = src.summary; e.body = src.body
             } else {
-                byKey[key] = { key: key, id: id, gen: gen,
+                byKey[key] = { key: key, id: id, notifId: src.notifId || 0, gen: gen,
                     appName: src.appName, summary: src.summary, body: src.body,
                     firstSeen: (++notifPanel.seq) }
             }
@@ -217,6 +217,24 @@ PanelWindow {
     function runMako(cmd) {
         actionProc.command = ["bash", "-c", cmd + " 2>/dev/null || true"]
         actionProc.running = false; actionProc.running = true
+    }
+
+    function invokeNotification(entry) {
+        if (!entry) return
+        var notifId = entry.notifId || 0
+        var app = entry.appName || ""
+        var cmd = ""
+        var nid = Number(notifId || 0)
+        if (nid > 0 && nid < 100000000000) {
+            cmd = "quickshell -p /usr/share/omarchy/shell ipc call notifications invoke " + nid
+        } else if (app !== "") {
+            cmd = "quickshell -p /usr/share/omarchy/shell ipc call notifications invokeApp \"" + app + "\""
+        } else {
+            cmd = "quickshell -p /usr/share/omarchy/shell ipc call notifications invoke 0"
+        }
+        notifPanel.runMako(cmd)
+        notifPanel.dismissOne(entry)
+        if (root) root.notifVisible = false
     }
 
     function dismissOne(entry) {
@@ -386,11 +404,13 @@ PanelWindow {
                                     drag.minimumX: -parent.width
                                     drag.maximumX: parent.width
                                     hoverEnabled: true
-                                    cursorShape: delegateContainer.modelData.count > 1 ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                    cursorShape: Qt.PointingHandCursor
 
                                     onClicked: {
                                         if (delegateContainer.modelData.count > 1) {
                                             notifPanel.toggleGroup(delegateContainer.modelData.appName)
+                                        } else {
+                                            notifPanel.invokeNotification(delegateContainer.modelData.latest)
                                         }
                                     }
 
@@ -631,6 +651,12 @@ PanelWindow {
                                                     drag.axis: Drag.XAxis
                                                     drag.minimumX: -parent.width
                                                     drag.maximumX: parent.width
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+
+                                                    onClicked: {
+                                                        notifPanel.invokeNotification(subItemBox.modelData)
+                                                    }
 
                                                     onReleased: {
                                                         if (Math.abs(subItemBox.x) > parent.width * 0.35) {
@@ -773,13 +799,13 @@ PanelWindow {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     color: notifPanel.showingHistory
-                        ? root.seal
+                        ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22)
                         : (histMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.16) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.09))
                     border.width: 1.5
                     border.color: notifPanel.showingHistory
                         ? root.seal
                         : (histMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.35) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.18))
-                    scale: histMa.pressed ? 0.94 : 1.0
+                    scale: histMa.pressed ? 0.94 : (histMa.containsMouse ? 1.02 : 1.0)
                     Behavior on scale { NumberAnimation { duration: 120 } }
                     Behavior on color { ColorAnimation { duration: 150 } }
                     Behavior on border.color { ColorAnimation { duration: 150 } }
@@ -787,8 +813,9 @@ PanelWindow {
                     IconText {
                         anchors.centerIn: parent
                         text: "history"
-                        color: notifPanel.showingHistory ? "#FFFFFF" : root.ink
+                        color: notifPanel.showingHistory ? root.seal : (histMa.containsMouse ? root.seal : root.ink)
                         font.pixelSize: 18
+                        Behavior on color { ColorAnimation { duration: 150 } }
                     }
                     MouseArea {
                         id: histMa
@@ -811,12 +838,14 @@ PanelWindow {
                     radius: 20
                     readonly property bool hasItems: notifPanel.pending.length > 0 || notifPanel.recent.length > 0
                     color: hasItems
-                        ? (clearMa.containsMouse ? Qt.darker(root.seal, 1.1) : root.seal)
+                        ? (clearMa.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.20) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.09))
+                        : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.04)
+                    border.width: 1.5
+                    border.color: hasItems
+                        ? (clearMa.containsMouse ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.18))
                         : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                    border.width: hasItems ? 0 : 1
-                    border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.15)
-                    scale: clearMa.pressed ? 0.96 : 1.0
-                    opacity: hasItems ? 1.0 : 0.4
+                    scale: clearMa.pressed ? 0.95 : (clearMa.containsMouse && hasItems ? 1.02 : 1.0)
+                    opacity: hasItems ? 1.0 : 0.45
                     enabled: hasItems
                     Behavior on scale { NumberAnimation { duration: 120 } }
                     Behavior on color { ColorAnimation { duration: 150 } }
@@ -830,17 +859,23 @@ PanelWindow {
                         IconText {
                             text: "delete_sweep"
                             font.pixelSize: 18
-                            color: clearAllPill.hasItems ? "#FFFFFF" : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.4)
+                            color: clearAllPill.hasItems
+                                ? (clearMa.containsMouse ? root.seal : root.ink)
+                                : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.35)
                             anchors.verticalCenter: parent.verticalCenter
+                            Behavior on color { ColorAnimation { duration: 150 } }
                         }
 
                         Text {
                             text: "Clear all"
-                            color: clearAllPill.hasItems ? "#FFFFFF" : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.4)
+                            color: clearAllPill.hasItems
+                                ? (clearMa.containsMouse ? root.seal : root.ink)
+                                : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.35)
                             font.family: root.barFont
                             font.pixelSize: 12
-                            font.weight: Font.Bold
+                            font.weight: Font.DemiBold
                             anchors.verticalCenter: parent.verticalCenter
+                            Behavior on color { ColorAnimation { duration: 150 } }
                         }
                     }
 
@@ -848,7 +883,7 @@ PanelWindow {
                         id: clearMa
                         anchors.fill: parent
                         hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
+                        cursorShape: clearAllPill.hasItems ? Qt.PointingHandCursor : Qt.ArrowCursor
                         onClicked: notifPanel.dismissAll()
                     }
                 }
@@ -862,13 +897,13 @@ PanelWindow {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     color: notifPanel.isDnd
-                        ? root.seal
+                        ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22)
                         : (dndMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.16) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.09))
                     border.width: 1.5
                     border.color: notifPanel.isDnd
                         ? root.seal
                         : (dndMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.35) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.18))
-                    scale: dndMa.pressed ? 0.94 : 1.0
+                    scale: dndMa.pressed ? 0.94 : (dndMa.containsMouse ? 1.02 : 1.0)
                     Behavior on scale { NumberAnimation { duration: 120 } }
                     Behavior on color { ColorAnimation { duration: 150 } }
                     Behavior on border.color { ColorAnimation { duration: 150 } }
@@ -876,8 +911,9 @@ PanelWindow {
                     IconText {
                         anchors.centerIn: parent
                         text: notifPanel.isDnd ? "notifications_off" : "notifications_active"
-                        color: notifPanel.isDnd ? "#FFFFFF" : root.ink
+                        color: notifPanel.isDnd ? root.seal : (dndMa.containsMouse ? root.seal : root.ink)
                         font.pixelSize: 18
+                        Behavior on color { ColorAnimation { duration: 150 } }
                     }
                     MouseArea {
                         id: dndMa

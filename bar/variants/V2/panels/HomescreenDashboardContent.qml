@@ -1488,159 +1488,178 @@ Item {
                         }
                     }
 
-                    // --- PAGE 3 (1h x 2w Temperature Pill + Quick Share & Screen Time) ---
+                    // --- PAGE 3 (Temperature + Pomodoro & Quick Share + Screen Time) ---
                     Column {
                         width: tilesPager.width
                         height: tilesPager.height
                         spacing: 10
 
-                        // 1h x 2w Temperature Pill (Full Row Width)
-                        Rectangle {
-                            id: tempTile
+                        // Row 1: Temperature Pill + Pomodoro Pill
+                        Row {
                             width: parent.width
-                            height: 56
-                            radius: 28
-                            clip: true
-                            
-                            property int currentTemp: 45
+                            spacing: 10
 
-                            readonly property color tempColor: {
-                                if (currentTemp < 52) return "#22d3ee" // Cyan
-                                if (currentTemp < 72) return "#fbbf24" // Amber
-                                return "#f87171" // Coral red
-                            }
-                            
-                            color: root.fillIdle
-
-                            // Subtle background thermal tint
                             Rectangle {
-                                anchors.fill: parent
-                                radius: parent.radius
-                                color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.12)
-                                Behavior on color { ColorAnimation { duration: 400 } }
-                            }
-                            
-                            Process {
-                                running: true
-                                command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 45000"]
-                                stdout: StdioCollector {
-                                    onStreamFinished: {
-                                        let t = parseInt(this.text.trim())
-                                        if (!isNaN(t)) tempTile.currentTemp = Math.round(t / 1000)
-                                    }
-                                }
-                            }
-                            
-                            Process {
-                                id: tempUpdater
-                                command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 45000"]
-                                stdout: StdioCollector {
-                                    onStreamFinished: {
-                                        let t = parseInt(this.text.trim())
-                                        if (!isNaN(t)) tempTile.currentTemp = Math.round(t / 1000)
-                                    }
-                                }
-                            }
-                            
-                            Timer {
-                                interval: 2500; repeat: true; running: panel.expanded
-                                onTriggered: { tempUpdater.running = false; tempUpdater.running = true }
-                            }
+                                id: tempTile
+                                width: (parent.width - 10) / 2
+                                height: 56
+                                radius: 28
+                                clip: true
+                                
+                                property int currentTemp: 45
 
-                            // Content: Left badge + Title, Right Temperature + Status Badge
-                            Row {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 10
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 10
+                                readonly property color tempColor: {
+                                    if (currentTemp < 52) return "#22d3ee" // Cyan
+                                    if (currentTemp < 72) return "#fbbf24" // Amber
+                                    return "#f87171" // Coral red
+                                }
+                                
+                                color: root.fillIdle
 
+                                // Subtle background thermal tint
                                 Rectangle {
-                                    width: 40
-                                    height: 40
-                                    radius: 14
-                                    color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.22)
+                                    anchors.fill: parent
+                                    radius: parent.radius
+                                    color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.12)
+                                    Behavior on color { ColorAnimation { duration: 400 } }
+                                }
+                                
+                                Process {
+                                    running: true
+                                    command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 45000"]
+                                    stdout: StdioCollector {
+                                        onStreamFinished: {
+                                            let t = parseInt(this.text.trim())
+                                            if (!isNaN(t)) tempTile.currentTemp = Math.round(t / 1000)
+                                        }
+                                    }
+                                }
+                                
+                                Process {
+                                    id: tempUpdater
+                                    command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 45000"]
+                                    stdout: StdioCollector {
+                                        onStreamFinished: {
+                                            let t = parseInt(this.text.trim())
+                                            if (!isNaN(t)) tempTile.currentTemp = Math.round(t / 1000)
+                                        }
+                                    }
+                                }
+                                
+                                Timer {
+                                    interval: 2500; repeat: true; running: panel.expanded
+                                    onTriggered: { tempUpdater.running = false; tempUpdater.running = true }
+                                }
+
+                                Row {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    Behavior on color { ColorAnimation { duration: 300 } }
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 14
+                                    spacing: 10
 
                                     IconText {
-                                        anchors.centerIn: parent
                                         text: "thermostat"
                                         color: tempTile.tempColor
                                         font.pixelSize: 22
                                         Behavior on color { ColorAnimation { duration: 300 } }
                                     }
-                                }
 
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 2
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 2
 
-                                    Text {
-                                        text: "CPU TEMPERATURE"
-                                        color: root.ink
-                                        opacity: 0.6
-                                        font.family: root.barFont
-                                        font.pixelSize: 10
-                                        font.weight: Font.Bold
-                                        font.letterSpacing: 0.8
-                                    }
-
-                                    Text {
-                                        text: tempTile.currentTemp < 52 ? "Optimal Condition" : (tempTile.currentTemp < 72 ? "Normal Operating Temp" : "High Temperature Warning")
-                                        color: tempTile.tempColor
-                                        font.family: root.barFont
-                                        font.pixelSize: 12
-                                        font.weight: Font.DemiBold
-                                    }
-                                }
-                            }
-
-                            Row {
-                                anchors.right: parent.right
-                                anchors.rightMargin: 14
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 10
-
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: tempTile.currentTemp + "°C"
-                                    color: root.ink
-                                    font.family: root.barFont
-                                    font.pixelSize: 20
-                                    font.weight: Font.Bold
-                                }
-
-                                Rectangle {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    height: 26
-                                    radius: 13
-                                    color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.20)
-                                    border.color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.40)
-                                    border.width: 1
-                                    width: statusText.implicitWidth + 16
-
-                                    Row {
-                                        anchors.centerIn: parent
-                                        spacing: 4
-
-                                        Rectangle {
-                                            width: 6; height: 6; radius: 3
-                                            color: tempTile.tempColor
-                                            anchors.verticalCenter: parent.verticalCenter
+                                        Text {
+                                            text: "CPU Temp"
+                                            color: root.ink
+                                            font.family: root.barFont
+                                            font.pixelSize: 13
+                                            font.weight: Font.DemiBold
                                         }
 
                                         Text {
-                                            id: statusText
-                                            text: tempTile.currentTemp < 52 ? "COOL" : (tempTile.currentTemp < 72 ? "WARM" : "HOT")
+                                            text: tempTile.currentTemp + "°C · " + (tempTile.currentTemp < 52 ? "Cool" : (tempTile.currentTemp < 72 ? "Warm" : "Hot"))
                                             color: tempTile.tempColor
                                             font.family: root.barFont
-                                            font.pixelSize: 10
-                                            font.weight: Font.Bold
+                                            font.pixelSize: 11
+                                            font.weight: Font.Medium
                                         }
                                     }
                                 }
                             }
 
+                            // Pomodoro Tile
+                            Rectangle {
+                                id: pomodoroTile
+                                width: (parent.width - 10) / 2
+                                height: 56
+                                radius: 28
+                                clip: true
+                                color: root.timerActive ? (root.color03 || root.seal) : (pomodoroMa.containsMouse ? root.fillHover : root.fillIdle)
+                                scale: pomodoroMa.pressed ? 0.92 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                                Behavior on color { ColorAnimation { duration: 200 } }
+
+                                Row {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 14
+                                    spacing: 10
+
+                                    IconText {
+                                        text: root.timerActive ? "timer" : "hourglass_top"
+                                        color: root.timerActive ? root.paper : root.ink
+                                        font.pixelSize: 22
+                                        Behavior on color { ColorAnimation { duration: 200 } }
+                                    }
+
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 2
+                                        Text {
+                                            text: "Pomodoro"
+                                            color: root.timerActive ? root.paper : root.ink
+                                            font.pixelSize: 13
+                                            font.family: root.barFont
+                                            font.weight: Font.DemiBold
+                                            Behavior on color { ColorAnimation { duration: 200 } }
+                                        }
+                                        Text {
+                                            text: {
+                                                if (!root.timerActive) return "25m focus"
+                                                if (root.timerPaused) return "Paused"
+                                                var sec = root.timerRemaining
+                                                var m = Math.floor(sec / 60)
+                                                var s = sec % 60
+                                                return (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s)
+                                            }
+                                            color: root.timerActive ? root.paper : root.ink
+                                            opacity: 0.65
+                                            font.pixelSize: 11
+                                            font.family: root.barFont
+                                            Behavior on color { ColorAnimation { duration: 200 } }
+                                        }
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: pomodoroMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                    onClicked: function(mouse) {
+                                        if (mouse.button === Qt.RightButton) {
+                                            root.resetTimer()
+                                        } else {
+                                            if (root.timerActive) {
+                                                root.toggleTimer()
+                                            } else {
+                                                root.startTimer(25, "Focus")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         // Row 2: Quick Share Pill (opens LocalSend) + Screen Time Pill
