@@ -11,49 +11,37 @@ import Quickshell.Wayland
 import Quickshell.Io
 import Quickshell.Hyprland
 import "modules"
+import "IconMap.js" as IconMap
 
 PanelWindow {
     id: barSlot
     required property var root
     required property var mprisPanel
     readonly property string screenName: barSlot.screen ? barSlot.screen.name : ""
-    readonly property bool compactShell: barSlot.root.barShellStyle !== "full"
     readonly property int shellOuterMargin: 5
 
     readonly property bool isDashboardTargetScreen: !barSlot.root.activePopupScreenName || barSlot.root.isActivePopupScreenName(barSlot.screenName)
     readonly property bool isDashboardActive: barSlot.root.dashboardExpanded && isDashboardTargetScreen
+    property bool isDashboardClosing: false
     property bool dashboardEverActivated: false
 
     readonly property real dashboardExpandedWidth: Math.min(800, barSlot.width - 32)
-    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - (barSlot.root.barShellStyle === "island" ? 40 : 20), (barSlot.root.dashboardDetail !== "" && barSlot.root.dashboardDetail !== "system") ? 520 : 292)
+    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - 40, (barSlot.root.dashboardDetail !== "" && barSlot.root.dashboardDetail !== "system") ? 520 : 292)
 
     readonly property real dashboardTopRadius: barSlot.root.barPosition === "bottom" ? 24 : 10
     readonly property real dashboardBottomRadius: barSlot.root.barPosition === "bottom" ? 10 : 24
 
     readonly property int shellRadius: isDashboardActive
         ? 24
-        : (barSlot.root.barShellStyle === "dock"
-            ? 8
-            : barSlot.root.barShellStyle === "island"
-                ? shellVisibleHeight / 2
-                : barSlot.root.barShellStyle === "notch" ? 0 : barSlot.root.panelRadius)
-    // The Notch is a content-width lobe flowing directly out of the screen edge.
-    // One continuous cubic per side creates the soft diagonal run-out without
-    // a neck, step or frame around the rest of the output.
-    readonly property int notchFrameRadius: barSlot.root.v2NotchFrameRadius
-    readonly property int notchShoulderWidth: notchFrameRadius
-    readonly property int notchBodyRadius: 9
-    readonly property real notchCurveKappa: 0.55228475
+        : (shellVisibleHeight / 2)
     readonly property int shellVisibleHeight: isDashboardActive
         ? Math.round(dashboardExpandedHeight)
         : barSlot.root.v2BarHeight
     readonly property real shellTargetWidth: isDashboardActive
         ? dashboardExpandedWidth
-        : (compactShell
-            ? Math.max(80,
-                Math.min(barSlot.width - 2 * shellOuterMargin,
-                    island.fitNaturalWidth))
-            : barSlot.width)
+        : Math.max(80,
+            Math.min(barSlot.width - 2 * shellOuterMargin,
+                island.fitNaturalWidth))
 
     visible: !barSlot.root.barHidden
     color: "transparent"
@@ -69,9 +57,7 @@ PanelWindow {
     }
     implicitHeight: barSlot.screen ? barSlot.screen.height : 1440
     exclusionMode: ExclusionMode.Normal
-    // Keep the same compositor reservation for every shell style: clients must
-    // never slide behind a content-width Fit/Dock/Notch bar.
-    exclusiveZone: effectivelyHidden ? 1 : barSlot.root.v2BarHeight + (barSlot.root.barShellStyle === "island" ? 8 : 3)
+    exclusiveZone: effectivelyHidden ? 1 : barSlot.root.v2BarHeight + 8
 
     // Auto-hide was removed; the bar is always shown.
     readonly property bool effectivelyHidden: false
@@ -81,7 +67,7 @@ PanelWindow {
         y: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? 0
            : barSlot.effectivelyHidden
                ? (barSlot.root.barPosition === "bottom" ? barSlot.height - 1 : 0)
-               : (barSlot.root.barPosition === "bottom" ? barSlot.height - Math.round(continuousBarSurface.height) - (barSlot.root.barShellStyle === "island" ? 4 : 0) : (barSlot.root.barShellStyle === "island" ? 4 : 0))
+               : (barSlot.root.barPosition === "bottom" ? barSlot.height - Math.round(continuousBarSurface.height) - 4 : 4)
         width: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? barSlot.width : Math.round(continuousBarSurface.width)
         height: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? barSlot.height
            : barSlot.effectivelyHidden ? 1 : Math.round(continuousBarSurface.height)
@@ -114,9 +100,9 @@ PanelWindow {
     // bottom placement mirrors it so the shadow still opens toward the desktop.
     Rectangle {
         id: continuousBarSurface
-        x: (barSlot.compactShell || barSlot.isDashboardActive) ? Math.round((barSlot.width - width) / 2) : 0
-        readonly property int islandMargin: barSlot.root.barShellStyle === "island" ? 4 : 0
-        readonly property bool lockRetracted: !barSlot.isDashboardActive && barSlot.root.barLockRetracted && barSlot.root.barShellStyle === "island"
+        x: Math.round((barSlot.width - width) / 2)
+        readonly property int islandMargin: 4
+        readonly property bool lockRetracted: !barSlot.isDashboardActive && barSlot.root.barLockRetracted
         y: lockRetracted
             ? (barSlot.root.barPosition === "bottom" ? barSlot.height + 24 : -height - islandMargin - 24)
             : barSlot.root.barPosition === "bottom"
@@ -131,9 +117,9 @@ PanelWindow {
         }
         width: barSlot.shellTargetWidth
         Behavior on width {
-            enabled: barSlot.isDashboardActive || (barSlot.root.barShellStyle !== "island" && width !== barSlot.shellTargetWidth)
+            enabled: barSlot.isDashboardActive || barSlot.isDashboardClosing
             NumberAnimation {
-                duration: 420
+                duration: barSlot.isDashboardActive ? 420 : 300
                 easing.type: barSlot.isDashboardActive ? Easing.OutBack : Easing.OutCubic
                 easing.overshoot: 1.15
             }
@@ -141,49 +127,31 @@ PanelWindow {
         height: barSlot.shellVisibleHeight
         Behavior on height {
             NumberAnimation {
-                duration: 420
+                duration: barSlot.isDashboardActive ? 420 : 300
                 easing.type: barSlot.isDashboardActive ? Easing.OutBack : Easing.OutCubic
                 easing.overshoot: 1.15
             }
         }
-        radius: (barSlot.compactShell || barSlot.isDashboardActive) ? barSlot.shellRadius : 0
-        Behavior on radius { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+        radius: barSlot.shellRadius
+        Behavior on radius { NumberAnimation { duration: barSlot.isDashboardActive ? 350 : 280; easing.type: Easing.OutCubic } }
         color: "transparent"
-        z: barSlot.isDashboardActive ? 20 : 0
+        z: (barSlot.isDashboardActive || barSlot.isDashboardClosing) ? 20 : 0
 
-        readonly property real targetTopCornerRadius:
-            (!barSlot.compactShell && !barSlot.isDashboardActive) ? 0
-            : barSlot.isDashboardActive ? barSlot.dashboardTopRadius
-            : (barSlot.root.barShellStyle === "fit" || barSlot.root.barShellStyle === "island") ? radius
-            : barSlot.root.barPosition === "bottom" ? radius : 0
-        readonly property real targetBottomCornerRadius:
-            (!barSlot.compactShell && !barSlot.isDashboardActive) ? 0
-            : barSlot.isDashboardActive ? barSlot.dashboardBottomRadius
-            : (barSlot.root.barShellStyle === "fit" || barSlot.root.barShellStyle === "island") ? radius
-            : barSlot.root.barPosition === "top" ? radius : 0
+        readonly property real targetTopCornerRadius: barSlot.isDashboardActive ? barSlot.dashboardTopRadius : radius
+        readonly property real targetBottomCornerRadius: barSlot.isDashboardActive ? barSlot.dashboardBottomRadius : radius
 
         property real topCornerRadius: targetTopCornerRadius
-        Behavior on topCornerRadius { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+        Behavior on topCornerRadius { NumberAnimation { duration: barSlot.isDashboardActive ? 350 : 280; easing.type: Easing.OutCubic } }
 
         property real bottomCornerRadius: targetBottomCornerRadius
-        Behavior on bottomCornerRadius { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
-
-        readonly property real insetProgress: edgeBorder.curvedInsetRendering
-            ? edgeBorder.curvedInsetReveal
-            : 0
-        readonly property real insetCenter: edgeBorder.curvedInsetRendering
-            ? edgeBorder.curvedInsetPixel
-            : width / 2
-        readonly property real insetHalfWidth: 7 * insetProgress
-        readonly property real insetTangentControl: 4.25 * insetProgress
-        readonly property real insetTipControl: 2 * insetProgress
-        readonly property real insetDepth: 5 * insetProgress
+        Behavior on bottomCornerRadius { NumberAnimation { duration: barSlot.isDashboardActive ? 350 : 280; easing.type: Easing.OutCubic } }
 
         RectangularShadow {
             anchors.fill: parent
-            visible: barSlot.root.barShellStyle !== "notch" || barSlot.isDashboardActive
+            visible: true
             radius: continuousBarSurface.bottomCornerRadius
             blur: barSlot.isDashboardActive ? 24 : 9
+            Behavior on blur { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
             spread: 0
             offset: Qt.vector2d(0, barSlot.root.barPosition === "bottom" ? -2 : 2)
             color: barSlot.root.v2BarShadow
@@ -193,7 +161,7 @@ PanelWindow {
         Shape {
             id: islandSurfaceBorder
             anchors.fill: parent
-            visible: barSlot.isDashboardActive || (barSlot.compactShell && barSlot.root.barBorderEnabled && barSlot.root.barShellStyle === "island")
+            visible: barSlot.isDashboardActive || barSlot.root.barBorderEnabled
             antialiasing: true
             preferredRendererType: Shape.CurveRenderer
             z: 15
@@ -243,9 +211,7 @@ PanelWindow {
         // border drawn over a rectangle. This keeps its interior genuinely cut
         // out and mirrors the same negative-space geometry at the bottom edge.
         Shape {
-            id: topSurfaceFill
-            visible: barSlot.root.barPosition === "top"
-                && (barSlot.root.barShellStyle !== "notch" || barSlot.isDashboardActive)
+            id: surfaceFill
             anchors.fill: parent
             antialiasing: true
             preferredRendererType: Shape.CurveRenderer
@@ -255,44 +221,24 @@ PanelWindow {
                 fillColor: barSlot.root.barBg
                 startX: continuousBarSurface.topCornerRadius
                 startY: 0
-                PathLine { x: topSurfaceFill.width - continuousBarSurface.topCornerRadius; y: 0 }
+                PathLine { x: surfaceFill.width - continuousBarSurface.topCornerRadius; y: 0 }
                 PathQuad {
-                    x: topSurfaceFill.width; y: continuousBarSurface.topCornerRadius
-                    controlX: topSurfaceFill.width; controlY: 0
+                    x: surfaceFill.width; y: continuousBarSurface.topCornerRadius
+                    controlX: surfaceFill.width; controlY: 0
                 }
                 PathLine {
-                    x: topSurfaceFill.width
-                    y: topSurfaceFill.height - continuousBarSurface.bottomCornerRadius
+                    x: surfaceFill.width
+                    y: surfaceFill.height - continuousBarSurface.bottomCornerRadius
                 }
                 PathQuad {
-                    x: topSurfaceFill.width - continuousBarSurface.bottomCornerRadius
-                    y: topSurfaceFill.height
-                    controlX: topSurfaceFill.width; controlY: topSurfaceFill.height
+                    x: surfaceFill.width - continuousBarSurface.bottomCornerRadius
+                    y: surfaceFill.height
+                    controlX: surfaceFill.width; controlY: surfaceFill.height
                 }
-                PathLine {
-                    x: continuousBarSurface.insetCenter + continuousBarSurface.insetHalfWidth
-                    y: topSurfaceFill.height
-                }
-                PathCubic {
-                    x: continuousBarSurface.insetCenter
-                    y: topSurfaceFill.height - continuousBarSurface.insetDepth
-                    control1X: continuousBarSurface.insetCenter + continuousBarSurface.insetTangentControl
-                    control1Y: topSurfaceFill.height
-                    control2X: continuousBarSurface.insetCenter + continuousBarSurface.insetTipControl
-                    control2Y: topSurfaceFill.height - continuousBarSurface.insetDepth
-                }
-                PathCubic {
-                    x: continuousBarSurface.insetCenter - continuousBarSurface.insetHalfWidth
-                    y: topSurfaceFill.height
-                    control1X: continuousBarSurface.insetCenter - continuousBarSurface.insetTipControl
-                    control1Y: topSurfaceFill.height - continuousBarSurface.insetDepth
-                    control2X: continuousBarSurface.insetCenter - continuousBarSurface.insetTangentControl
-                    control2Y: topSurfaceFill.height
-                }
-                PathLine { x: continuousBarSurface.bottomCornerRadius; y: topSurfaceFill.height }
+                PathLine { x: continuousBarSurface.bottomCornerRadius; y: surfaceFill.height }
                 PathQuad {
-                    x: 0; y: topSurfaceFill.height - continuousBarSurface.bottomCornerRadius
-                    controlX: 0; controlY: topSurfaceFill.height
+                    x: 0; y: surfaceFill.height - continuousBarSurface.bottomCornerRadius
+                    controlX: 0; controlY: surfaceFill.height
                 }
                 PathLine { x: 0; y: continuousBarSurface.topCornerRadius }
                 PathQuad {
@@ -302,435 +248,11 @@ PanelWindow {
             }
         }
 
-        Shape {
-            id: bottomSurfaceFill
-            visible: barSlot.root.barPosition === "bottom"
-                && (barSlot.root.barShellStyle !== "notch" || barSlot.isDashboardActive)
-            anchors.fill: parent
-            antialiasing: true
-            preferredRendererType: Shape.CurveRenderer
 
-            ShapePath {
-                strokeColor: "transparent"
-                fillColor: barSlot.root.barBg
-                startX: continuousBarSurface.topCornerRadius
-                startY: 0
-                PathLine {
-                    x: continuousBarSurface.insetCenter - continuousBarSurface.insetHalfWidth
-                    y: 0
-                }
-                PathCubic {
-                    x: continuousBarSurface.insetCenter
-                    y: continuousBarSurface.insetDepth
-                    control1X: continuousBarSurface.insetCenter - continuousBarSurface.insetTangentControl
-                    control1Y: 0
-                    control2X: continuousBarSurface.insetCenter - continuousBarSurface.insetTipControl
-                    control2Y: continuousBarSurface.insetDepth
-                }
-                PathCubic {
-                    x: continuousBarSurface.insetCenter + continuousBarSurface.insetHalfWidth
-                    y: 0
-                    control1X: continuousBarSurface.insetCenter + continuousBarSurface.insetTipControl
-                    control1Y: continuousBarSurface.insetDepth
-                    control2X: continuousBarSurface.insetCenter + continuousBarSurface.insetTangentControl
-                    control2Y: 0
-                }
-                PathLine { x: bottomSurfaceFill.width - continuousBarSurface.topCornerRadius; y: 0 }
-                PathQuad {
-                    x: bottomSurfaceFill.width; y: continuousBarSurface.topCornerRadius
-                    controlX: bottomSurfaceFill.width; controlY: 0
-                }
-                PathLine {
-                    x: bottomSurfaceFill.width
-                    y: bottomSurfaceFill.height - continuousBarSurface.bottomCornerRadius
-                }
-                PathQuad {
-                    x: bottomSurfaceFill.width - continuousBarSurface.bottomCornerRadius
-                    y: bottomSurfaceFill.height
-                    controlX: bottomSurfaceFill.width; controlY: bottomSurfaceFill.height
-                }
-                PathLine { x: continuousBarSurface.bottomCornerRadius; y: bottomSurfaceFill.height }
-                PathQuad {
-                    x: 0; y: bottomSurfaceFill.height - continuousBarSurface.bottomCornerRadius
-                    controlX: 0; controlY: bottomSurfaceFill.height
-                }
-                PathLine { x: 0; y: continuousBarSurface.topCornerRadius }
-                PathQuad {
-                    x: continuousBarSurface.topCornerRadius; y: 0
-                    controlX: 0; controlY: 0
-                }
-            }
-        }
 
-        // NOTCH / TOP: the screen edge flows diagonally into the lobe in one run.
-        Shape {
-            id: notchSurfaceFillTop
-            visible: barSlot.root.barShellStyle === "notch"
-                && barSlot.root.barPosition === "top"
-            x: -continuousBarSurface.x
-            y: 0
-            width: barSlot.width
-            height: barSlot.root.v2BarHeight
-            antialiasing: true
-            preferredRendererType: Shape.CurveRenderer
 
-            readonly property real bodyLeft: continuousBarSurface.x
-            readonly property real bodyRight:
-                continuousBarSurface.x + continuousBarSurface.width
-            readonly property real insetCenter:
-                continuousBarSurface.x + continuousBarSurface.insetCenter
 
-            ShapePath {
-                strokeColor: "transparent"
-                fillColor: barSlot.root.barBg
-                startX: notchSurfaceFillTop.bodyLeft - barSlot.notchShoulderWidth
-                startY: 0
-                PathLine {
-                    x: notchSurfaceFillTop.bodyRight + barSlot.notchShoulderWidth
-                    y: 0
-                }
-                PathCubic {
-                    x: notchSurfaceFillTop.bodyRight - barSlot.notchBodyRadius
-                    y: notchSurfaceFillTop.height
-                    control1X: notchSurfaceFillTop.bodyRight
-                        + (1 - barSlot.notchCurveKappa) * barSlot.notchShoulderWidth
-                    control1Y: 0
-                    control2X: notchSurfaceFillTop.bodyRight
-                        + (1 - barSlot.notchCurveKappa) * barSlot.notchBodyRadius
-                    control2Y: notchSurfaceFillTop.height
-                }
-                PathLine {
-                    x: notchSurfaceFillTop.insetCenter
-                        + continuousBarSurface.insetHalfWidth
-                    y: notchSurfaceFillTop.height
-                }
-                PathCubic {
-                    x: notchSurfaceFillTop.insetCenter
-                    y: notchSurfaceFillTop.height - continuousBarSurface.insetDepth
-                    control1X: notchSurfaceFillTop.insetCenter
-                        + continuousBarSurface.insetTangentControl
-                    control1Y: notchSurfaceFillTop.height
-                    control2X: notchSurfaceFillTop.insetCenter
-                        + continuousBarSurface.insetTipControl
-                    control2Y: notchSurfaceFillTop.height
-                        - continuousBarSurface.insetDepth
-                }
-                PathCubic {
-                    x: notchSurfaceFillTop.insetCenter
-                        - continuousBarSurface.insetHalfWidth
-                    y: notchSurfaceFillTop.height
-                    control1X: notchSurfaceFillTop.insetCenter
-                        - continuousBarSurface.insetTipControl
-                    control1Y: notchSurfaceFillTop.height
-                        - continuousBarSurface.insetDepth
-                    control2X: notchSurfaceFillTop.insetCenter
-                        - continuousBarSurface.insetTangentControl
-                    control2Y: notchSurfaceFillTop.height
-                }
-                PathLine {
-                    x: notchSurfaceFillTop.bodyLeft + barSlot.notchBodyRadius
-                    y: notchSurfaceFillTop.height
-                }
-                PathCubic {
-                    x: notchSurfaceFillTop.bodyLeft - barSlot.notchShoulderWidth
-                    y: 0
-                    control1X: notchSurfaceFillTop.bodyLeft
-                        - (1 - barSlot.notchCurveKappa) * barSlot.notchBodyRadius
-                    control1Y: notchSurfaceFillTop.height
-                    control2X: notchSurfaceFillTop.bodyLeft
-                        - (1 - barSlot.notchCurveKappa) * barSlot.notchShoulderWidth
-                    control2Y: 0
-                }
-            }
-        }
 
-        // NOTCH / BOTTOM: exact vertical mirror of the same silhouette.
-        Shape {
-            id: notchSurfaceFillBottom
-            visible: barSlot.root.barShellStyle === "notch"
-                && barSlot.root.barPosition === "bottom"
-            x: -continuousBarSurface.x
-            y: 0
-            width: barSlot.width
-            height: barSlot.root.v2BarHeight
-            antialiasing: true
-            preferredRendererType: Shape.CurveRenderer
-
-            readonly property real bodyLeft: continuousBarSurface.x
-            readonly property real bodyRight:
-                continuousBarSurface.x + continuousBarSurface.width
-            readonly property real insetCenter:
-                continuousBarSurface.x + continuousBarSurface.insetCenter
-
-            ShapePath {
-                strokeColor: "transparent"
-                fillColor: barSlot.root.barBg
-                startX: notchSurfaceFillBottom.bodyLeft - barSlot.notchShoulderWidth
-                startY: notchSurfaceFillBottom.height
-                PathLine {
-                    x: notchSurfaceFillBottom.bodyRight + barSlot.notchShoulderWidth
-                    y: notchSurfaceFillBottom.height
-                }
-                PathCubic {
-                    x: notchSurfaceFillBottom.bodyRight - barSlot.notchBodyRadius
-                    y: 0
-                    control1X: notchSurfaceFillBottom.bodyRight
-                        + (1 - barSlot.notchCurveKappa) * barSlot.notchShoulderWidth
-                    control1Y: notchSurfaceFillBottom.height
-                    control2X: notchSurfaceFillBottom.bodyRight
-                        + (1 - barSlot.notchCurveKappa) * barSlot.notchBodyRadius
-                    control2Y: 0
-                }
-                PathLine {
-                    x: notchSurfaceFillBottom.insetCenter
-                        + continuousBarSurface.insetHalfWidth
-                    y: 0
-                }
-                PathCubic {
-                    x: notchSurfaceFillBottom.insetCenter
-                    y: continuousBarSurface.insetDepth
-                    control1X: notchSurfaceFillBottom.insetCenter
-                        + continuousBarSurface.insetTangentControl
-                    control1Y: 0
-                    control2X: notchSurfaceFillBottom.insetCenter
-                        + continuousBarSurface.insetTipControl
-                    control2Y: continuousBarSurface.insetDepth
-                }
-                PathCubic {
-                    x: notchSurfaceFillBottom.insetCenter
-                        - continuousBarSurface.insetHalfWidth
-                    y: 0
-                    control1X: notchSurfaceFillBottom.insetCenter
-                        - continuousBarSurface.insetTipControl
-                    control1Y: continuousBarSurface.insetDepth
-                    control2X: notchSurfaceFillBottom.insetCenter
-                        - continuousBarSurface.insetTangentControl
-                    control2Y: 0
-                }
-                PathLine {
-                    x: notchSurfaceFillBottom.bodyLeft + barSlot.notchBodyRadius
-                    y: 0
-                }
-                PathCubic {
-                    x: notchSurfaceFillBottom.bodyLeft - barSlot.notchShoulderWidth
-                    y: notchSurfaceFillBottom.height
-                    control1X: notchSurfaceFillBottom.bodyLeft
-                        - (1 - barSlot.notchCurveKappa) * barSlot.notchBodyRadius
-                    control1Y: 0
-                    control2X: notchSurfaceFillBottom.bodyLeft
-                        - (1 - barSlot.notchCurveKappa) * barSlot.notchShoulderWidth
-                    control2Y: notchSurfaceFillBottom.height
-                }
-            }
-        }
-
-        // Fit receives a complete rounded perimeter except for the active
-        // desktop-facing edge, which edgeBorder owns so its animated panel
-        // indentation remains one continuous antialiased path. Dock is attached
-        // squarely; Notch traces its short neck and softly sloped shoulders.
-        Shape {
-            id: compactOuterFrame
-            x: barSlot.root.barShellStyle === "notch" ? -continuousBarSurface.x : 0
-            y: 0
-            width: parent.width + (barSlot.root.barShellStyle === "notch"
-                ? barSlot.width - parent.width : 0)
-            height: parent.height
-            visible: !barSlot.isDashboardActive && barSlot.compactShell && barSlot.root.barBorderEnabled
-            antialiasing: true
-            preferredRendererType: Shape.CurveRenderer
-            z: 2
-
-            readonly property real r: continuousBarSurface.radius
-            readonly property real w: width
-            readonly property real h: height
-            readonly property real notchBodyLeft: continuousBarSurface.x
-            readonly property real notchBodyRight:
-                continuousBarSurface.x + continuousBarSurface.width
-
-            // FIT / TOP: bottom horizontal edge is rendered by edgeBorder.
-            ShapePath {
-                strokeColor: barSlot.root.barShellStyle === "fit"
-                    && barSlot.root.barPosition === "top"
-                    ? barSlot.root.v2BarBorder : "transparent"
-                strokeWidth: 1
-                fillColor: "transparent"
-                capStyle: ShapePath.FlatCap
-                joinStyle: ShapePath.RoundJoin
-                startX: compactOuterFrame.r
-                startY: compactOuterFrame.h - 0.5
-                PathQuad { x: 0.5; y: compactOuterFrame.h - compactOuterFrame.r; controlX: 0.5; controlY: compactOuterFrame.h - 0.5 }
-                PathLine { x: 0.5; y: compactOuterFrame.r }
-                PathQuad { x: compactOuterFrame.r; y: 0.5; controlX: 0.5; controlY: 0.5 }
-                PathLine { x: compactOuterFrame.w - compactOuterFrame.r; y: 0.5 }
-                PathQuad { x: compactOuterFrame.w - 0.5; y: compactOuterFrame.r; controlX: compactOuterFrame.w - 0.5; controlY: 0.5 }
-                PathLine { x: compactOuterFrame.w - 0.5; y: compactOuterFrame.h - compactOuterFrame.r }
-                PathQuad { x: compactOuterFrame.w - compactOuterFrame.r; y: compactOuterFrame.h - 0.5; controlX: compactOuterFrame.w - 0.5; controlY: compactOuterFrame.h - 0.5 }
-            }
-
-            // FIT / BOTTOM: top horizontal edge is rendered by edgeBorder.
-            ShapePath {
-                strokeColor: barSlot.root.barShellStyle === "fit"
-                    && barSlot.root.barPosition === "bottom"
-                    ? barSlot.root.v2BarBorder : "transparent"
-                strokeWidth: 1
-                fillColor: "transparent"
-                capStyle: ShapePath.FlatCap
-                joinStyle: ShapePath.RoundJoin
-                startX: compactOuterFrame.r
-                startY: 0.5
-                PathQuad { x: 0.5; y: compactOuterFrame.r; controlX: 0.5; controlY: 0.5 }
-                PathLine { x: 0.5; y: compactOuterFrame.h - compactOuterFrame.r }
-                PathQuad { x: compactOuterFrame.r; y: compactOuterFrame.h - 0.5; controlX: 0.5; controlY: compactOuterFrame.h - 0.5 }
-                PathLine { x: compactOuterFrame.w - compactOuterFrame.r; y: compactOuterFrame.h - 0.5 }
-                PathQuad { x: compactOuterFrame.w - 0.5; y: compactOuterFrame.h - compactOuterFrame.r; controlX: compactOuterFrame.w - 0.5; controlY: compactOuterFrame.h - 0.5 }
-                PathLine { x: compactOuterFrame.w - 0.5; y: compactOuterFrame.r }
-                PathQuad { x: compactOuterFrame.w - compactOuterFrame.r; y: 0.5; controlX: compactOuterFrame.w - 0.5; controlY: 0.5 }
-            }
-
-            // DOCK / TOP: square at the screen, rounded toward the desktop.
-            ShapePath {
-                strokeColor: barSlot.root.barShellStyle === "dock"
-                    && barSlot.root.barPosition === "top"
-                    ? barSlot.root.v2BarBorder : "transparent"
-                strokeWidth: 1; fillColor: "transparent"; capStyle: ShapePath.FlatCap
-                startX: 0.5; startY: 0
-                PathLine { x: 0.5; y: compactOuterFrame.h - compactOuterFrame.r }
-                PathQuad { x: compactOuterFrame.r; y: compactOuterFrame.h - 0.5; controlX: 0.5; controlY: compactOuterFrame.h - 0.5 }
-            }
-            ShapePath {
-                strokeColor: barSlot.root.barShellStyle === "dock"
-                    && barSlot.root.barPosition === "top"
-                    ? barSlot.root.v2BarBorder : "transparent"
-                strokeWidth: 1; fillColor: "transparent"; capStyle: ShapePath.FlatCap
-                startX: compactOuterFrame.w - 0.5; startY: 0
-                PathLine { x: compactOuterFrame.w - 0.5; y: compactOuterFrame.h - compactOuterFrame.r }
-                PathQuad { x: compactOuterFrame.w - compactOuterFrame.r; y: compactOuterFrame.h - 0.5; controlX: compactOuterFrame.w - 0.5; controlY: compactOuterFrame.h - 0.5 }
-            }
-
-            // DOCK / BOTTOM: mirrored attached edge.
-            ShapePath {
-                strokeColor: barSlot.root.barShellStyle === "dock"
-                    && barSlot.root.barPosition === "bottom"
-                    ? barSlot.root.v2BarBorder : "transparent"
-                strokeWidth: 1; fillColor: "transparent"; capStyle: ShapePath.FlatCap
-                startX: 0.5; startY: compactOuterFrame.h
-                PathLine { x: 0.5; y: compactOuterFrame.r }
-                PathQuad { x: compactOuterFrame.r; y: 0.5; controlX: 0.5; controlY: 0.5 }
-            }
-            ShapePath {
-                strokeColor: barSlot.root.barShellStyle === "dock"
-                    && barSlot.root.barPosition === "bottom"
-                    ? barSlot.root.v2BarBorder : "transparent"
-                strokeWidth: 1; fillColor: "transparent"; capStyle: ShapePath.FlatCap
-                startX: compactOuterFrame.w - 0.5; startY: compactOuterFrame.h
-                PathLine { x: compactOuterFrame.w - 0.5; y: compactOuterFrame.r }
-                PathQuad { x: compactOuterFrame.w - compactOuterFrame.r; y: 0.5; controlX: compactOuterFrame.w - 0.5; controlY: 0.5 }
-            }
-
-            // NOTCH / TOP: the border follows the same single fused silhouette.
-            ShapePath {
-                strokeColor: barSlot.root.barShellStyle === "notch"
-                    && barSlot.root.barPosition === "top"
-                    ? barSlot.root.v2BarBorder : "transparent"
-                strokeWidth: 1; fillColor: "transparent"; capStyle: ShapePath.FlatCap
-                startX: compactOuterFrame.notchBodyLeft - barSlot.notchShoulderWidth
-                startY: 0.5
-                PathCubic {
-                    x: compactOuterFrame.notchBodyLeft + barSlot.notchBodyRadius
-                    y: compactOuterFrame.h - 0.5
-                    control1X: compactOuterFrame.notchBodyLeft
-                        - (1 - barSlot.notchCurveKappa) * barSlot.notchShoulderWidth
-                    control1Y: 0.5
-                    control2X: compactOuterFrame.notchBodyLeft
-                        - (1 - barSlot.notchCurveKappa) * barSlot.notchBodyRadius
-                    control2Y: compactOuterFrame.h - 0.5
-                }
-            }
-            ShapePath {
-                strokeColor: barSlot.root.barShellStyle === "notch"
-                    && barSlot.root.barPosition === "top"
-                    ? barSlot.root.v2BarBorder : "transparent"
-                strokeWidth: 1; fillColor: "transparent"; capStyle: ShapePath.FlatCap
-                startX: compactOuterFrame.notchBodyRight + barSlot.notchShoulderWidth
-                startY: 0.5
-                PathCubic {
-                    x: compactOuterFrame.notchBodyRight - barSlot.notchBodyRadius
-                    y: compactOuterFrame.h - 0.5
-                    control1X: compactOuterFrame.notchBodyRight
-                        + (1 - barSlot.notchCurveKappa) * barSlot.notchShoulderWidth
-                    control1Y: 0.5
-                    control2X: compactOuterFrame.notchBodyRight
-                        + (1 - barSlot.notchCurveKappa) * barSlot.notchBodyRadius
-                    control2Y: compactOuterFrame.h - 0.5
-                }
-            }
-
-            // NOTCH / BOTTOM: exact vertical mirror.
-            ShapePath {
-                strokeColor: barSlot.root.barShellStyle === "notch"
-                    && barSlot.root.barPosition === "bottom"
-                    ? barSlot.root.v2BarBorder : "transparent"
-                strokeWidth: 1; fillColor: "transparent"; capStyle: ShapePath.FlatCap
-                startX: compactOuterFrame.notchBodyLeft - barSlot.notchShoulderWidth
-                startY: compactOuterFrame.h - 0.5
-                PathCubic {
-                    x: compactOuterFrame.notchBodyLeft + barSlot.notchBodyRadius
-                    y: 0.5
-                    control1X: compactOuterFrame.notchBodyLeft
-                        - (1 - barSlot.notchCurveKappa) * barSlot.notchShoulderWidth
-                    control1Y: compactOuterFrame.h - 0.5
-                    control2X: compactOuterFrame.notchBodyLeft
-                        - (1 - barSlot.notchCurveKappa) * barSlot.notchBodyRadius
-                    control2Y: 0.5
-                }
-            }
-            ShapePath {
-                strokeColor: barSlot.root.barShellStyle === "notch"
-                    && barSlot.root.barPosition === "bottom"
-                    ? barSlot.root.v2BarBorder : "transparent"
-                strokeWidth: 1; fillColor: "transparent"; capStyle: ShapePath.FlatCap
-                startX: compactOuterFrame.notchBodyRight + barSlot.notchShoulderWidth
-                startY: compactOuterFrame.h - 0.5
-                PathCubic {
-                    x: compactOuterFrame.notchBodyRight - barSlot.notchBodyRadius
-                    y: 0.5
-                    control1X: compactOuterFrame.notchBodyRight
-                        + (1 - barSlot.notchCurveKappa) * barSlot.notchShoulderWidth
-                    control1Y: compactOuterFrame.h - 0.5
-                    control2X: compactOuterFrame.notchBodyRight
-                        + (1 - barSlot.notchCurveKappa) * barSlot.notchBodyRadius
-                    control2Y: 0.5
-                }
-            }
-        }
-
-        Item {
-            id: edgeBorder
-            readonly property bool popupScreenActive:
-                barSlot.root.isActivePopupScreenName(barSlot.screen ? barSlot.screen.name : "")
-            readonly property real curvedInsetReveal: (!barSlot.isDashboardActive && popupScreenActive)
-                ? barSlot.root.panelInsetReveal
-                : 0
-            readonly property real curvedInsetAnchor: barSlot.root.panelInsetX
-            readonly property bool curvedInsetRendering: popupScreenActive
-                && barSlot.root.panelInsetReady
-                && curvedInsetAnchor > 0
-                && (barSlot.root.anchoredPanelVisible || curvedInsetReveal > 0.001)
-            readonly property real curvedInsetX: Math.max(0, Math.min(width,
-                curvedInsetAnchor - continuousBarSurface.x))
-            readonly property int curvedInsetPixel: Math.round(curvedInsetX)
-            readonly property int endInset: barSlot.root.barShellStyle === "notch"
-                ? barSlot.notchBodyRadius
-                : barSlot.compactShell ? continuousBarSurface.radius : 0
-
-            x: 0
-            y: 0
-            width: parent.width
-            height: barSlot.root.v2BarHeight
-
-            // Geometry/state owner only. The visible border and connected inset
-            // are rendered after the widget island so fills can never cover them.
-        }
     }
 
     // ── dim backdrop while unlocked (edit mode) or dashboard expanded; click empty → dismiss ──
@@ -1515,311 +1037,29 @@ PanelWindow {
 
                 Rectangle {
                     id: widgetColorSurface
-                    readonly property real insetLocalX: {
-                        void(edgeBorder.curvedInsetPixel)
-                        var point = mapFromItem(edgeBorder, edgeBorder.curvedInsetPixel, 0)
-                        return point.x
-                    }
-                    readonly property real edgeBaselineLocalY: {
-                        void(edgeBorder.curvedInsetReveal)
-                        var edgeY = barSlot.root.barPosition === "bottom"
-                            ? 0.5
-                            : barSlot.root.v2BarHeight - 0.5
-                        return mapFromItem(edgeBorder,
-                            edgeBorder.curvedInsetPixel, edgeY).y
-                    }
-                    readonly property real edgeTipLocalY: {
-                        void(edgeBorder.curvedInsetReveal)
-                        var edgeY = barSlot.root.barPosition === "bottom"
-                            ? 0.5 + 5 * edgeBorder.curvedInsetReveal
-                            : barSlot.root.v2BarHeight - 0.5
-                                - 5 * edgeBorder.curvedInsetReveal
-                        return mapFromItem(edgeBorder,
-                            edgeBorder.curvedInsetPixel, edgeY).y
-                    }
-                    readonly property bool insetCrossesSurface:
-                        insetLocalX > radius + 6
-                        && insetLocalX < width - radius - 6
-                    readonly property bool connectedFillContour:
-                        barSlot.root.widgetHasFill(slot.gid)
-                        && edgeBorder.curvedInsetRendering
-                        && insetCrossesSurface
-                    readonly property bool connectedBorderCut:
-                        barSlot.root.widgetHasBorder(slot.gid)
-                        && edgeBorder.curvedInsetRendering
-                        && insetCrossesSurface
-                    readonly property real cutHalfWidth:
-                        6 * edgeBorder.curvedInsetReveal
-                    readonly property real fillCurveHalfWidth:
-                        7 * edgeBorder.curvedInsetReveal
-                    readonly property real fillCurveTangentControl:
-                        4.25 * edgeBorder.curvedInsetReveal
-                    readonly property real fillCurveTipControl:
-                        2 * edgeBorder.curvedInsetReveal
                     x: slot.pad
                     anchors.verticalCenter: parent.verticalCenter
                     width: Math.round(ldr.implicitWidth)
-                    // Keep every optional fill/border surface slightly inset from
-                    // the bar edges so all widget treatments share one geometry.
                     height: 24
-                    radius: barSlot.root.barShellStyle === "island" ? height / 2 : barSlot.root.panelButtonRadius
+                    radius: height / 2
                     clip: true
                     visible: slot.occupied && slot.hasContent && slot.autoShown
                         && (barSlot.root.widgetHasFill(slot.gid)
                             || barSlot.root.widgetHasBorder(slot.gid))
-                    color: connectedFillContour
-                        ? "transparent"
-                        : barSlot.root.widgetFillColor(slot.gid)
+                    color: barSlot.root.widgetFillColor(slot.gid)
                     border.color: barSlot.root.widgetBorderColor(slot.gid)
                     border.width: barSlot.root.widgetHasBorder(slot.gid)
-                        && !connectedBorderCut
                         ? barSlot.root.panelBorderW
                         : 0
                     Behavior on color {
-                        enabled: !edgeBorder.curvedInsetRendering
                         ColorAnimation { duration: 140 }
                     }
 
-                    // Use the bar indentation's exact cubic geometry. Its baseline
-                    // lies outside this inset 24px surface; clipping therefore keeps
-                    // only the tiny real intersection instead of inventing another
-                    // caret or a rectangular hole in the widget fill.
-                    Shape {
-                        anchors.fill: parent
-                        visible: widgetColorSurface.connectedFillContour
-                            && barSlot.root.barPosition !== "bottom"
-                        antialiasing: true
-                        preferredRendererType: Shape.CurveRenderer
 
-                        ShapePath {
-                            strokeColor: "transparent"
-                            fillColor: barSlot.root.widgetFillColor(slot.gid)
-                            startX: widgetColorSurface.radius
-                            startY: 0
-                            PathLine { x: widgetColorSurface.width - widgetColorSurface.radius; y: 0 }
-                            PathQuad {
-                                x: widgetColorSurface.width; y: widgetColorSurface.radius
-                                controlX: widgetColorSurface.width; controlY: 0
-                            }
-                            PathLine { x: widgetColorSurface.width; y: widgetColorSurface.height - widgetColorSurface.radius }
-                            PathQuad {
-                                x: widgetColorSurface.width - widgetColorSurface.radius
-                                y: widgetColorSurface.height
-                                controlX: widgetColorSurface.width
-                                controlY: widgetColorSurface.height
-                            }
-                            PathLine {
-                                x: widgetColorSurface.insetLocalX
-                                    + widgetColorSurface.fillCurveHalfWidth
-                                y: widgetColorSurface.edgeBaselineLocalY
-                            }
-                            PathCubic {
-                                x: widgetColorSurface.insetLocalX
-                                y: widgetColorSurface.edgeTipLocalY
-                                control1X: widgetColorSurface.insetLocalX
-                                    + widgetColorSurface.fillCurveTangentControl
-                                control1Y: widgetColorSurface.edgeBaselineLocalY
-                                control2X: widgetColorSurface.insetLocalX
-                                    + widgetColorSurface.fillCurveTipControl
-                                control2Y: widgetColorSurface.edgeTipLocalY
-                            }
-                            PathCubic {
-                                x: widgetColorSurface.insetLocalX
-                                    - widgetColorSurface.fillCurveHalfWidth
-                                y: widgetColorSurface.edgeBaselineLocalY
-                                control1X: widgetColorSurface.insetLocalX
-                                    - widgetColorSurface.fillCurveTipControl
-                                control1Y: widgetColorSurface.edgeTipLocalY
-                                control2X: widgetColorSurface.insetLocalX
-                                    - widgetColorSurface.fillCurveTangentControl
-                                control2Y: widgetColorSurface.edgeBaselineLocalY
-                            }
-                            PathLine { x: widgetColorSurface.radius; y: widgetColorSurface.height }
-                            PathQuad {
-                                x: 0; y: widgetColorSurface.height - widgetColorSurface.radius
-                                controlX: 0; controlY: widgetColorSurface.height
-                            }
-                            PathLine { x: 0; y: widgetColorSurface.radius }
-                            PathQuad {
-                                x: widgetColorSurface.radius; y: 0
-                                controlX: 0; controlY: 0
-                            }
-                        }
-                    }
 
-                    Shape {
-                        anchors.fill: parent
-                        visible: widgetColorSurface.connectedFillContour
-                            && barSlot.root.barPosition === "bottom"
-                        antialiasing: true
-                        preferredRendererType: Shape.CurveRenderer
 
-                        ShapePath {
-                            strokeColor: "transparent"
-                            fillColor: barSlot.root.widgetFillColor(slot.gid)
-                            startX: widgetColorSurface.radius
-                            startY: 0
-                            PathLine {
-                                x: widgetColorSurface.insetLocalX
-                                    - widgetColorSurface.fillCurveHalfWidth
-                                y: widgetColorSurface.edgeBaselineLocalY
-                            }
-                            PathCubic {
-                                x: widgetColorSurface.insetLocalX
-                                y: widgetColorSurface.edgeTipLocalY
-                                control1X: widgetColorSurface.insetLocalX
-                                    - widgetColorSurface.fillCurveTangentControl
-                                control1Y: widgetColorSurface.edgeBaselineLocalY
-                                control2X: widgetColorSurface.insetLocalX
-                                    - widgetColorSurface.fillCurveTipControl
-                                control2Y: widgetColorSurface.edgeTipLocalY
-                            }
-                            PathCubic {
-                                x: widgetColorSurface.insetLocalX
-                                    + widgetColorSurface.fillCurveHalfWidth
-                                y: widgetColorSurface.edgeBaselineLocalY
-                                control1X: widgetColorSurface.insetLocalX
-                                    + widgetColorSurface.fillCurveTipControl
-                                control1Y: widgetColorSurface.edgeTipLocalY
-                                control2X: widgetColorSurface.insetLocalX
-                                    + widgetColorSurface.fillCurveTangentControl
-                                control2Y: widgetColorSurface.edgeBaselineLocalY
-                            }
-                            PathLine { x: widgetColorSurface.width - widgetColorSurface.radius; y: 0 }
-                            PathQuad {
-                                x: widgetColorSurface.width; y: widgetColorSurface.radius
-                                controlX: widgetColorSurface.width; controlY: 0
-                            }
-                            PathLine { x: widgetColorSurface.width; y: widgetColorSurface.height - widgetColorSurface.radius }
-                            PathQuad {
-                                x: widgetColorSurface.width - widgetColorSurface.radius
-                                y: widgetColorSurface.height
-                                controlX: widgetColorSurface.width
-                                controlY: widgetColorSurface.height
-                            }
-                            PathLine { x: widgetColorSurface.radius; y: widgetColorSurface.height }
-                            PathQuad {
-                                x: 0; y: widgetColorSurface.height - widgetColorSurface.radius
-                                controlX: 0; controlY: widgetColorSurface.height
-                            }
-                            PathLine { x: 0; y: widgetColorSurface.radius }
-                            PathQuad {
-                                x: widgetColorSurface.radius; y: 0
-                                controlX: 0; controlY: 0
-                            }
-                        }
-                    }
 
-                    // While this widget's connected panel is open, redraw the
-                    // rounded border as one antialiased path with a small gap only
-                    // on the panel-facing edge. The gap follows the bar-notch reveal.
-                    Shape {
-                        anchors.fill: parent
-                        visible: widgetColorSurface.connectedBorderCut
-                            && barSlot.root.barPosition !== "bottom"
-                        antialiasing: true
-                        preferredRendererType: Shape.CurveRenderer
 
-                        ShapePath {
-                            strokeColor: barSlot.root.widgetBorderColor(slot.gid)
-                            strokeWidth: barSlot.root.panelBorderW
-                            fillColor: "transparent"
-                            capStyle: ShapePath.FlatCap
-                            joinStyle: ShapePath.RoundJoin
-                            startX: widgetColorSurface.radius
-                            startY: 0.5
-                            PathLine { x: widgetColorSurface.width - widgetColorSurface.radius; y: 0.5 }
-                            PathArc {
-                                x: widgetColorSurface.width - 0.5
-                                y: widgetColorSurface.radius
-                                radiusX: widgetColorSurface.radius
-                                radiusY: widgetColorSurface.radius
-                            }
-                            PathLine { x: widgetColorSurface.width - 0.5; y: widgetColorSurface.height - widgetColorSurface.radius }
-                            PathArc {
-                                x: widgetColorSurface.width - widgetColorSurface.radius
-                                y: widgetColorSurface.height - 0.5
-                                radiusX: widgetColorSurface.radius
-                                radiusY: widgetColorSurface.radius
-                            }
-                            PathLine {
-                                x: widgetColorSurface.insetLocalX + widgetColorSurface.cutHalfWidth
-                                y: widgetColorSurface.height - 0.5
-                            }
-                            PathMove {
-                                x: widgetColorSurface.insetLocalX - widgetColorSurface.cutHalfWidth
-                                y: widgetColorSurface.height - 0.5
-                            }
-                            PathLine { x: widgetColorSurface.radius; y: widgetColorSurface.height - 0.5 }
-                            PathArc {
-                                x: 0.5
-                                y: widgetColorSurface.height - widgetColorSurface.radius
-                                radiusX: widgetColorSurface.radius
-                                radiusY: widgetColorSurface.radius
-                            }
-                            PathLine { x: 0.5; y: widgetColorSurface.radius }
-                            PathArc {
-                                x: widgetColorSurface.radius
-                                y: 0.5
-                                radiusX: widgetColorSurface.radius
-                                radiusY: widgetColorSurface.radius
-                            }
-                        }
-                    }
-
-                    Shape {
-                        anchors.fill: parent
-                        visible: widgetColorSurface.connectedBorderCut
-                            && barSlot.root.barPosition === "bottom"
-                        antialiasing: true
-                        preferredRendererType: Shape.CurveRenderer
-
-                        ShapePath {
-                            strokeColor: barSlot.root.widgetBorderColor(slot.gid)
-                            strokeWidth: barSlot.root.panelBorderW
-                            fillColor: "transparent"
-                            capStyle: ShapePath.FlatCap
-                            joinStyle: ShapePath.RoundJoin
-                            startX: widgetColorSurface.radius
-                            startY: 0.5
-                            PathLine {
-                                x: widgetColorSurface.insetLocalX - widgetColorSurface.cutHalfWidth
-                                y: 0.5
-                            }
-                            PathMove {
-                                x: widgetColorSurface.insetLocalX + widgetColorSurface.cutHalfWidth
-                                y: 0.5
-                            }
-                            PathLine { x: widgetColorSurface.width - widgetColorSurface.radius; y: 0.5 }
-                            PathArc {
-                                x: widgetColorSurface.width - 0.5
-                                y: widgetColorSurface.radius
-                                radiusX: widgetColorSurface.radius
-                                radiusY: widgetColorSurface.radius
-                            }
-                            PathLine { x: widgetColorSurface.width - 0.5; y: widgetColorSurface.height - widgetColorSurface.radius }
-                            PathArc {
-                                x: widgetColorSurface.width - widgetColorSurface.radius
-                                y: widgetColorSurface.height - 0.5
-                                radiusX: widgetColorSurface.radius
-                                radiusY: widgetColorSurface.radius
-                            }
-                            PathLine { x: widgetColorSurface.radius; y: widgetColorSurface.height - 0.5 }
-                            PathArc {
-                                x: 0.5
-                                y: widgetColorSurface.height - widgetColorSurface.radius
-                                radiusX: widgetColorSurface.radius
-                                radiusY: widgetColorSurface.radius
-                            }
-                            PathLine { x: 0.5; y: widgetColorSurface.radius }
-                            PathArc {
-                                x: widgetColorSurface.radius
-                                y: 0.5
-                                radiusX: widgetColorSurface.radius
-                                radiusY: widgetColorSurface.radius
-                            }
-                        }
-                    }
                 }
 
                 Loader {
@@ -1976,16 +1216,16 @@ PanelWindow {
         id: island
         // The backing layer-window remains full-screen, but the visible/content
         // island follows the selected shell surface. This preserves stable
-        // layer-shell resources while Fit/Notch resize with their visible rows.
+        // layer-shell resources while the island resizes with its visible rows.
         x: continuousBarSurface.x
         width: continuousBarSurface.width
         height: barSlot.root.v2BarHeight
         y: continuousBarSurface.y
         z: 22
-        opacity: barSlot.isDashboardActive ? 0.0 : 1.0
+        opacity: (barSlot.isDashboardActive || barSlot.isDashboardClosing) ? 0.0 : 1.0
         visible: opacity > 0.001
-        enabled: !barSlot.isDashboardActive
-        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+        enabled: !barSlot.isDashboardActive && !barSlot.isDashboardClosing
+        Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
         focus: barSlot.root.barUnlocked || barSlot.isDashboardActive
         Keys.onEscapePressed: {
             if (barSlot.isDashboardActive) {
@@ -2023,7 +1263,7 @@ PanelWindow {
             yScale: 1.0 - (island.blackHoleStrength * 0.08)
         }
 
-        readonly property int fitPadding: barSlot.root.barShellStyle === "island" ? Math.floor((barSlot.root.v2BarHeight - 24) / 2.0) : 8
+        readonly property int fitPadding: Math.floor((barSlot.root.v2BarHeight - 24) / 2.0)
         readonly property int fitRegionGap: 12
         readonly property int fitRegionCount:
             (leftRowItem.implicitWidth > 0.5 ? 1 : 0)
@@ -2031,13 +1271,41 @@ PanelWindow {
             + (rightRowItem.implicitWidth > 0.5 ? 1 : 0)
 
         // The base shell draws a black hole around the island when hovered.
-        property bool isIslandHidden: barSlot.root.barShellStyle === "island" && !island.isHovered && !barSlot.root.anyPopupVisible
-        property real islandShrinkProgress: barSlot.root.barShellStyle === "island" ? 1.0 : 0.0
-        property real islandElementsOpacity: barSlot.root.barShellStyle === "island" ? 0.0 : 1.0
-        property real islandCollapsedOpacity: barSlot.root.barShellStyle === "island" ? 1.0 : 0.0
+        property bool isIslandHidden: (!island.isHovered || island.osdActive) && !barSlot.root.anyPopupVisible
+        property real islandShrinkProgress: 1.0
+        property real islandElementsOpacity: 0.0
+        property real islandCollapsedOpacity: 1.0
+
+        property bool osdActive: false
+        property real osdProgress: 0.0
+        property string osdKind: ""
+        property int osdValue: 0
+
+        Behavior on osdProgress {
+            NumberAnimation { duration: 280; easing.type: Easing.OutCubic }
+        }
+
+        Timer {
+            id: islandOsdTimer
+            interval: 1500
+            onTriggered: {
+                island.osdActive = false
+                island.osdProgress = 0.0
+            }
+        }
+
+        Connections {
+            target: barSlot.root
+            function onIslandOsdTickChanged() {
+                island.osdKind = barSlot.root.islandOsdKind
+                island.osdValue = barSlot.root.islandOsdValue
+                island.osdActive = true
+                island.osdProgress = 1.0
+                islandOsdTimer.restart()
+            }
+        }
 
         onIsIslandHiddenChanged: {
-            if (barSlot.root.barShellStyle !== "island") return
             if (!isIslandHidden) {
                 collapseAnim.stop()
                 expandAnim.restart()
@@ -2118,7 +1386,8 @@ PanelWindow {
         property real leftVisibleWidth: (1.0 - islandShrinkProgress) * (leftRowItem.implicitWidth + (leftRowItem.implicitWidth > 0.5 ? fitRegionGap : 0))
         property real rightVisibleWidth: (1.0 - islandShrinkProgress) * (rightRowItem.implicitWidth + (rightRowItem.implicitWidth > 0.5 ? fitRegionGap : 0))
 
-        readonly property real collapsedCenterTotalWidth: islandCollapsedItem.width + (barSlot.root.barShellStyle === "island" ? centerRowItem.implicitWidth + 8 + islandCollapsedRightSlot.width : 0)
+        readonly property real defaultCollapsedCenterWidth: islandCollapsedItem.width + centerRowItem.implicitWidth + 8 + islandCollapsedRightSlot.width
+        readonly property real collapsedCenterTotalWidth: (1.0 - osdProgress) * defaultCollapsedCenterWidth + osdProgress * islandOsdItem.width
         readonly property real centerVisibleWidth: (1.0 - islandShrinkProgress) * centerRowItem.implicitWidth + islandShrinkProgress * collapsedCenterTotalWidth
         readonly property real fitNaturalWidth: Math.ceil(
             2 * fitPadding
@@ -2130,7 +1399,7 @@ PanelWindow {
         // edit-mode frame around the bar while unlocked (gentle pulse)
         Rectangle {
             anchors.fill: parent
-            radius: barSlot.compactShell ? barSlot.shellRadius : 0
+            radius: barSlot.shellRadius
             color: "transparent"
             border.color: barSlot.accent
             border.width: barSlot.root.barUnlocked ? 1 : 0    // width 0 hides it when locked
@@ -2159,11 +1428,9 @@ PanelWindow {
         readonly property int centerGap: 12
         // Pull the first and last groups 2px closer to the physical screen edge.
         readonly property int rowMargin: 5
-        readonly property real centerAvail: barSlot.compactShell
-            ? Math.max(0, barSlot.width - 2 * barSlot.shellOuterMargin
-                - 2 * fitPadding - leftRowItem.implicitWidth - rightRowItem.implicitWidth
-                - 2 * fitRegionGap)
-            : rightRowItem.x - (leftRowItem.x + leftRowItem.width) - 2 * centerGap
+        readonly property real centerAvail: Math.max(0, barSlot.width - 2 * barSlot.shellOuterMargin
+            - 2 * fitPadding - leftRowItem.implicitWidth - rightRowItem.implicitWidth
+            - 2 * fitRegionGap)
         readonly property real centerOtherBudgetWidth: {
             var sum = 0, visibleCount = 0
             for (var i = 0; i < centerRowItem.rep.count; i++) {
@@ -2228,18 +1495,14 @@ PanelWindow {
             // side rows + minimal viable center row + margins + center gaps
             return sideNaturalWidth(leftRowItem, stage) + sideNaturalWidth(rightRowItem, stage)
                  + centerFloorWidth(stage)
-                 + (barSlot.compactShell
-                    ? 2 * fitRegionGap + 2 * fitPadding
-                    : 2 * centerGap + 2 * rowMargin)
+                 + 2 * fitRegionGap + 2 * fitPadding
         }
         function updateNarrowStage() {
-            // Fit/Notch compare against the available SCREEN width, never their
-            // own content-driven width. Otherwise hiding a group would shrink
+            // Compare against the available SCREEN width, never the
+            // content-driven width. Otherwise hiding a group would shrink
             // the measurement that decided to hide it and create a feedback loop.
             var s = narrowStage
-            var W = barSlot.compactShell
-                ? barSlot.width - 2 * barSlot.shellOuterMargin
-                : island.width
+            var W = barSlot.width - 2 * barSlot.shellOuterMargin
             if (W < 1) return                              // no layout yet
             // downshift while the CURRENT stage no longer fits (24px slack)…
             if (s === 0 && narrowCandidateWidth(0) + 24 > W) s = 1
@@ -2262,15 +1525,9 @@ PanelWindow {
                 island.scheduleNarrowUpdate()
                 expandAnim.stop()
                 collapseAnim.stop()
-                if (barSlot.root.barShellStyle === "island") {
-                    island.islandShrinkProgress = island.isIslandHidden ? 1.0 : 0.0
-                    island.islandElementsOpacity = island.isIslandHidden ? 0.0 : 1.0
-                    island.islandCollapsedOpacity = island.isIslandHidden ? 1.0 : 0.0
-                } else {
-                    island.islandShrinkProgress = 0.0
-                    island.islandElementsOpacity = 1.0
-                    island.islandCollapsedOpacity = 0.0
-                }
+                island.islandShrinkProgress = island.isIslandHidden ? 1.0 : 0.0
+                island.islandElementsOpacity = island.isIslandHidden ? 0.0 : 1.0
+                island.islandCollapsedOpacity = island.isIslandHidden ? 1.0 : 0.0
             }
         }
 
@@ -2300,34 +1557,26 @@ PanelWindow {
         SlotRow {
             id: leftRowItem
             anchors.verticalCenter: parent.verticalCenter
-            x: barSlot.compactShell ? island.fitPadding - (island.islandShrinkProgress * implicitWidth) : island.rowMargin
+            x: island.fitPadding - (island.islandShrinkProgress * implicitWidth)
             rmodel: leftModel
             baseCount: barSlot.leftBaseSlotCount
             maxExtraCount: barSlot.leftExtraSlotLimit
-            opacity: barSlot.root.barShellStyle === "island" ? island.islandElementsOpacity : (1.0 - island.islandShrinkProgress)
+            opacity: island.islandElementsOpacity
             visible: opacity > 0.001
             transform: Translate {
-                y: barSlot.root.barShellStyle === "island" ? (1.0 - island.islandElementsOpacity) * (barSlot.root.barPosition === "bottom" ? 4 : -4) : 0
+                y: (1.0 - island.islandElementsOpacity) * (barSlot.root.barPosition === "bottom" ? 4 : -4)
             }
         }
         SlotRow {
             id: centerRowItem
             // no centerIn: x is clamped between the side rows on narrow monitors
             anchors.verticalCenter: parent.verticalCenter
-            x: barSlot.compactShell
-                ? (barSlot.root.barShellStyle === "island"
-                    ? island.fitPadding + island.leftVisibleWidth
-                    : island.fitPadding + island.leftVisibleWidth + (island.centerVisibleWidth - implicitWidth) / 2)
-                : island.centerTargetX
-            Behavior on x {
-                enabled: !barSlot.compactShell
-                NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
-            }
+            x: island.fitPadding + island.leftVisibleWidth
             rmodel: centerModel
             baseCount: barSlot.centerBaseSlotCount
             maxExtraCount: barSlot.centerExtraSlotLimit
             visible: opacity > 0.001
-            opacity: barSlot.root.barShellStyle === "island" ? 1.0 : (1.0 - island.islandShrinkProgress)
+            opacity: 1.0 * (1.0 - island.osdProgress)
             transform: Translate {
                 y: 0
             }
@@ -2336,11 +1585,7 @@ PanelWindow {
         Rectangle {
             id: islandCollapsedItem
             anchors.verticalCenter: parent.verticalCenter
-            x: barSlot.compactShell 
-                ? (barSlot.root.barShellStyle === "island"
-                    ? island.fitPadding + island.leftVisibleWidth + centerRowItem.implicitWidth + 4
-                    : island.fitPadding + island.leftVisibleWidth + (island.centerVisibleWidth - width) / 2)
-                : island.centerTargetX
+            x: island.fitPadding + island.leftVisibleWidth + centerRowItem.implicitWidth + 4
             
             readonly property bool mediaActive: barSlot.mprisPanel && barSlot.mprisPanel.active
             readonly property bool hasLyrics: mediaActive && barSlot.mprisPanel.lyricsTrackId !== "" && barSlot.mprisPanel.lyricsTrackId === barSlot.mprisPanel.currentTrackId && barSlot.mprisPanel.lyricsList && barSlot.mprisPanel.lyricsList.length > 0 && barSlot.mprisPanel.currentLyricIndex >= 0
@@ -2362,7 +1607,7 @@ PanelWindow {
             radius: height / 2
             color: "transparent"
             clip: true
-            opacity: barSlot.root.barShellStyle === "island" ? island.islandCollapsedOpacity : island.islandShrinkProgress
+            opacity: island.islandCollapsedOpacity * (1.0 - island.osdProgress)
             visible: opacity > 0.001
 
             property int prevLyricIndex: -1
@@ -2540,31 +1785,157 @@ PanelWindow {
             id: islandCollapsedRightSlot
             anchors.verticalCenter: parent.verticalCenter
             
-            x: barSlot.compactShell
-                ? island.fitPadding + island.leftVisibleWidth + centerRowItem.implicitWidth + 4 + islandCollapsedItem.width + 4
-                : island.centerTargetX
+            x: island.fitPadding + island.leftVisibleWidth + centerRowItem.implicitWidth + 4 + islandCollapsedItem.width + 4
                 
             visible: opacity > 0.001
-            opacity: barSlot.root.barShellStyle === "island" ? island.islandCollapsedOpacity : 0
+            opacity: island.islandCollapsedOpacity * (1.0 - island.osdProgress)
             
             rmodel: islandCollapsedItem.mediaActive ? islandMediaModel : islandBatteryModel
             baseCount: 1
             maxExtraCount: 0
         }
 
+        Rectangle {
+            id: islandOsdItem
+            anchors.centerIn: parent
+
+            width: 220
+            height: 24
+            radius: height / 2
+            color: "transparent"
+            clip: true
+            opacity: island.islandCollapsedOpacity * island.osdProgress
+            visible: opacity > 0.001
+
+            readonly property color sliderColor: island.osdKind === "audio-muted" 
+                ? Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.45)
+                : barSlot.root.seal
+
+            transform: Translate {
+                y: (1.0 - island.osdProgress) * (barSlot.root.barPosition === "bottom" ? 6 : -6)
+            }
+
+            Row {
+                anchors.centerIn: parent
+                spacing: 10
+
+                Item {
+                    width: 20
+                    height: 20
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    IconText {
+                        anchors.centerIn: parent
+                        font.pixelSize: 18
+                        color: islandOsdItem.sliderColor
+                        text: {
+                            if (island.osdKind === "brightness") {
+                                return IconMap.icon("light_mode")
+                            } else if (island.osdKind === "audio-muted") {
+                                return IconMap.icon("volume_off")
+                            } else {
+                                if (island.osdValue <= 0) return IconMap.icon("volume_mute")
+                                if (island.osdValue <= 50) return IconMap.icon("volume_down")
+                                return IconMap.icon("volume_up")
+                            }
+                        }
+                        Behavior on color { ColorAnimation { duration: 160 } }
+                    }
+                }
+
+                Rectangle {
+                    id: osdTrack
+                    width: 130
+                    height: 18
+                    radius: height / 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.22)
+                    clip: true
+
+                    Item {
+                        id: osdFillItem
+                        readonly property real val: Math.max(0, Math.min(100, island.osdKind === "audio-muted" ? 0 : island.osdValue))
+                        readonly property real maxGap: 14
+                        readonly property real gap: val > 85 ? maxGap * (100 - val) / 15.0 : maxGap
+                        readonly property real barOpacity: val > 85 ? (100 - val) / 15.0 : 1.0
+
+                        width: val > 0 ? Math.max(parent.height + maxGap, parent.width * (val / 100.0)) : 0
+                        height: parent.height
+                        visible: val > 0
+
+                        Behavior on width {
+                            NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
+                        }
+
+                        // The actual fill
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            width: Math.max(parent.height, parent.width - osdFillItem.gap)
+                            radius: (height / 4) + ((height / 4) * (1.0 - osdFillItem.barOpacity))
+                            color: islandOsdItem.sliderColor
+
+                            // fully rounded on the left
+                            Rectangle {
+                                width: parent.height
+                                height: parent.height
+                                radius: height / 2
+                                color: parent.color
+                                anchors.left: parent.left
+                            }
+
+                            Behavior on color { ColorAnimation { duration: 160 } }
+                        }
+
+                        // The vertical bar with "padding"
+                        Rectangle {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: osdFillItem.maxGap
+                            height: parent.height
+                            color: "transparent"
+                            opacity: osdFillItem.barOpacity
+
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: 2.5
+                                height: parent.height - 6
+                                radius: 1.25
+                                color: islandOsdItem.sliderColor
+
+                                Behavior on color { ColorAnimation { duration: 160 } }
+                            }
+                        }
+                    }
+                }
+
+                UiText {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 32
+                    horizontalAlignment: Text.AlignLeft
+                    text: (island.osdKind === "audio-muted" ? "0" : String(island.osdValue)) + "%"
+                    color: island.osdKind === "audio-muted"
+                        ? Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.45)
+                        : barSlot.root.ink
+                    font.family: barSlot.root.barFont
+                    font.pixelSize: 12
+                    font.weight: Font.Medium
+                }
+            }
+        }
+
         SlotRow {
             id: rightRowItem
             anchors.verticalCenter: parent.verticalCenter
-            x: barSlot.compactShell
-                ? island.fitPadding + island.leftVisibleWidth + island.centerVisibleWidth + (island.centerVisibleWidth > 0.5 ? island.fitRegionGap : 0)
-                : island.width - island.rowMargin - implicitWidth
+            x: island.fitPadding + island.leftVisibleWidth + island.centerVisibleWidth + (island.centerVisibleWidth > 0.5 ? island.fitRegionGap : 0)
             rmodel: rightModel
             baseCount: barSlot.rightBaseSlotCount
             maxExtraCount: barSlot.rightExtraSlotLimit
-            opacity: barSlot.root.barShellStyle === "island" ? island.islandElementsOpacity : (1.0 - island.islandShrinkProgress)
+            opacity: island.islandElementsOpacity
             visible: opacity > 0.001
             transform: Translate {
-                y: barSlot.root.barShellStyle === "island" ? (1.0 - island.islandElementsOpacity) * (barSlot.root.barPosition === "bottom" ? 4 : -4) : 0
+                y: (1.0 - island.islandElementsOpacity) * (barSlot.root.barPosition === "bottom" ? 4 : -4)
             }
         }
 
@@ -2647,49 +2018,7 @@ PanelWindow {
 
     }
 
-    // The screen-facing edge is the final visual layer of the bar. Keeping this
-    // separate from the filled surface lets ordinary widget fills remain simple
-    // rounded rectangles while the connected indentation always stays visible.
-    
-    Item {
-        id: foregroundEdgeBorder
-        x: continuousBarSurface.x
-        y: continuousBarSurface.y
-        width: continuousBarSurface.width
-        height: barSlot.root.v2BarHeight
-        visible: barSlot.root.barBorderEnabled && barSlot.root.barShellStyle !== "island" && !barSlot.isDashboardActive
-        z: 3
 
-        Rectangle {
-            x: edgeBorder.endInset
-            y: barSlot.root.barPosition === "bottom" ? 0 : foregroundEdgeBorder.height - 1
-            width: edgeBorder.curvedInsetRendering
-                ? Math.max(0, edgeBorder.curvedInsetPixel - 12 - x)
-                : Math.max(0, parent.width - edgeBorder.endInset - x)
-            height: 1
-            color: barSlot.root.v2BarBorder
-        }
-
-        Rectangle {
-            visible: edgeBorder.curvedInsetRendering
-            x: Math.max(edgeBorder.endInset, Math.min(parent.width - edgeBorder.endInset,
-                edgeBorder.curvedInsetPixel + 12))
-            y: barSlot.root.barPosition === "bottom" ? 0 : foregroundEdgeBorder.height - 1
-            width: Math.max(0, parent.width - edgeBorder.endInset - x)
-            height: 1
-            color: barSlot.root.v2BarBorder
-        }
-
-        ConnectedBarInset {
-            root: barSlot.root
-            reveal: edgeBorder.curvedInsetReveal
-            visible: edgeBorder.curvedInsetRendering
-            x: edgeBorder.curvedInsetPixel - width / 2
-            y: barSlot.root.barPosition === "bottom"
-                ? 0
-                : foregroundEdgeBorder.height - height
-        }
-    }
 
     // ── In-place expanded Island Dock dashboard ──
     Item {
@@ -2756,10 +2085,26 @@ PanelWindow {
             }
         }
 
+        Timer {
+            id: dashboardCloseTimer
+            interval: 220
+            repeat: false
+            onTriggered: {
+                barSlot.isDashboardClosing = false
+                if (dashboardLoader.item) {
+                    dashboardLoader.item.activeDetailView = ""
+                    dashboardLoader.item.selectCategoryByIndex(0)
+                }
+                barSlot.root.dashboardDetail = ""
+            }
+        }
+
         Connections {
             target: barSlot
             function onIsDashboardActiveChanged() {
                 if (barSlot.isDashboardActive) {
+                    dashboardCloseTimer.stop()
+                    barSlot.isDashboardClosing = false
                     barSlot.dashboardEverActivated = true
                     if (dashboardLoader.item) {
                         if (!barSlot.root.dashboardDetail) {
@@ -2773,11 +2118,8 @@ PanelWindow {
                 } else {
                     dashboardAdapter.searchOpen = false
                     if (petSearch) petSearch.close()
-                    barSlot.root.dashboardDetail = ""
-                    if (dashboardLoader.item) {
-                        dashboardLoader.item.activeDetailView = ""
-                        dashboardLoader.item.selectCategoryByIndex(0)
-                    }
+                    barSlot.isDashboardClosing = true
+                    dashboardCloseTimer.restart()
                 }
             }
         }
@@ -2786,11 +2128,9 @@ PanelWindow {
         Item {
             id: topHeaderBar
             anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: barSlot.dashboardExpandedWidth - 28
             anchors.topMargin: 14
-            anchors.leftMargin: 14
-            anchors.rightMargin: 14
             height: 32
             z: 10
 
@@ -3042,12 +2382,10 @@ PanelWindow {
             id: dashboardLoader
             anchors.top: topHeaderBar.bottom
             anchors.topMargin: 12
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 14
-            anchors.left: parent.left
-            anchors.leftMargin: 14
-            anchors.right: parent.right
-            anchors.rightMargin: 14
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: barSlot.dashboardExpandedWidth - 28
+            height: Math.round(barSlot.dashboardExpandedHeight - 32 - 12 - 14 - 14)
+            Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
             active: barSlot.dashboardEverActivated
             source: Qt.resolvedUrl("panels/HomescreenDashboardContent.qml")
             z: 5

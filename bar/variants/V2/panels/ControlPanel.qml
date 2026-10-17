@@ -1028,22 +1028,6 @@ PanelWindow {
                 }
             }
 
-            // ── BAR SHELL (full-width / floating / attached / winged notch) ──
-            Card {
-                title: "Bar style"
-                Segmented {
-                    width: parent.width
-                    options: [
-                        { label: "Full",   value: "full"   },
-                        { label: "Fit",    value: "fit"    },
-                        { label: "Dock",   value: "dock"   },
-                        { label: "Notch",  value: "notch"  },
-                        { label: "Island", value: "island" }
-                    ]
-                    current: root.barShellStyle
-                    onChosen: (v) => root.barShellStyle = v
-                }
-            }
 
             // ── LOGO (launcher text/icon variant) ──
             Card {

@@ -25,6 +25,8 @@ var icons = {
     "storage": "\uE1DB",
     "speed": "\uE9E4",
     "package_2": "\uF569",
+    "light_mode": "\uE518",
+    "brightness": "\uE518",
 }
 
 function icon(name) {

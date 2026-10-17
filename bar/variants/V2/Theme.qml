@@ -485,8 +485,6 @@ Item {
     // separate from the pill recipe lets widgets and panels retain their
     // established hierarchy.
     readonly property int v2BarHeight: 33
-    readonly property int v2NotchFrameThickness: 6
-    readonly property int v2NotchFrameRadius: 14
     // Horizontal rhythm for the bar. Closely related icon buttons use the
     // 2px cluster step; icon+text pairs use 4px; independent widgets use 6px;
     // distinct information sections use 8px. A compact action cell stays 22px
@@ -2057,18 +2055,24 @@ Item {
     // stays position-stable; it is always written as "0" and never read back.
     readonly property bool v2AutoHide: false
     // ── outer bar shell (persisted) ──
-    // full  = current edge-to-edge strip
-    // fit   = centered content-width capsule
-    // dock  = centered content-width surface attached to the screen edge
-    // notch = attached content-width surface with desktop-facing side wings
-    property string barShellStyle: "full"
+    property string barShellStyle: "island"
     property bool barBorderEnabled: true
     property bool panelTooltipBorderEnabled: true
     // ── desktop context menu presentation mode (radial vs list, persisted) ──
     property bool desktopMenuListMode: false
     function barShellStyleValid(value) {
-        return value === "full" || value === "fit"
-            || value === "dock" || value === "notch" || value === "island"
+        return value === "island"
+    }
+
+    property bool islandOsdActive: false
+    property string islandOsdKind: ""
+    property int islandOsdValue: 0
+    property int islandOsdTick: 0
+    function showIslandOsd(kind, value) {
+        islandOsdKind = kind
+        islandOsdValue = Math.max(0, Math.min(100, value))
+        islandOsdTick++
+        islandOsdActive = true
     }
 
     // ── picker visual style (theme/wallpaper/screenshot/video pickers) ──

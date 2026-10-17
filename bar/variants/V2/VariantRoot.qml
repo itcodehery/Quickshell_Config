@@ -43,6 +43,7 @@ Item {
     function lockRetract() { theme.barLockRetracted = true }
     function lockReveal() { theme.barLockRetracted = false }
     function currentShellStyle() { return theme.barShellStyle }
+    function showIslandOsd(kind, value) { theme.showIslandOsd(kind, value) }
     function systemUpdateRefresh() { theme.archRefreshTick++ }
     function runReactor(kind, arg) {
         // Reactor is a V1-only animation. Keep the shared IPC contract stable,

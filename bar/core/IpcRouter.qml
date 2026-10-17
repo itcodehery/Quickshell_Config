@@ -108,6 +108,13 @@ Item {
     }
 
     IpcHandler {
+        target: "osd"
+        function show(kind: string, value: int): void {
+            router.invoke("showIslandOsd", kind, value)
+        }
+    }
+
+    IpcHandler {
         target: "omarchy.system-update"
         function refresh(): void { router.systemRefresh() }
     }
