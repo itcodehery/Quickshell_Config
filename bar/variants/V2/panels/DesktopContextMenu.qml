@@ -736,78 +736,90 @@ PanelWindow {
                 transformOrigin: Item.Top
 
                 width: parent.width
-                height: aiCol.implicitHeight + 16
+                height: 48
                 clip: true
                 topLeftRadius: 8; topRightRadius: 8; bottomLeftRadius: 8; bottomRightRadius: 8
                 color: root.bg; border.color: root.panelOuterBorderColor; border.width: root.panelOuterBorderW
                 
                 PillShadow { theme: root }
 
-                Rectangle {
-                    visible: listMenuCard.aiExpanded
-                    width: 2; radius: 1; color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                    anchors.left: aiCol.left; anchors.leftMargin: 19
-                    anchors.top: aiCol.top; anchors.topMargin: 36
-                    anchors.bottom: aiCol.bottom; anchors.bottomMargin: 4
-                    opacity: visible ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 250 } }
-                }
-
-                Column {
-                    id: aiCol
-                    anchors.top: parent.top; anchors.topMargin: 8
-                    anchors.horizontalCenter: parent.horizontalCenter
+                Row {
+                    id: aiRow
+                    anchors.centerIn: parent
                     width: parent.width - 16
-
-                    Rectangle {
-                        width: parent.width; height: 32; radius: 10
-                        color: aiHeaderMouse.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent"
-                        Behavior on color { ColorAnimation { duration: 150 } }
-                        Row {
-                            anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 12
-                            Item {
-                                width: 16; height: 16; anchors.verticalCenter: parent.verticalCenter
-                                IconText { anchors.centerIn: parent; text: "auto_awesome"; color: root.ink; font.pixelSize: 16 }
-                            }
-                            UiText { anchors.verticalCenter: parent.verticalCenter; text: "AI"; color: root.ink; font.family: "DM Sans"; font.pixelSize: 11; font.weight: Font.Medium }
-                        }
-                        Rectangle {
-                            anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                            width: 32; height: 20; radius: 10; color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
-                            IconText { anchors.centerIn: parent; text: listMenuCard.aiExpanded ? "expand_less" : "expand_more"; color: root.sumiHi; font.pixelSize: 16 }
-                        }
-                        MouseArea { id: aiHeaderMouse; anchors.fill: parent; hoverEnabled: true; onClicked: listMenuCard.aiExpanded = !listMenuCard.aiExpanded }
-                    }
+                    height: 32
+                    spacing: 8
 
                     Repeater {
                         model: [5, 6]
                         Rectangle {
-                            id: aiItem
-                            required property int modelData; property int idx: modelData
-                            property bool showItem: listMenuCard.aiExpanded
-                            width: parent.width; height: showItem ? 32 : 0; opacity: showItem ? 1 : 0
-                            visible: height > 0 || opacity > 0
-                            Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.InOutCubic } }
-                            Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutCubic } }
-                            radius: 10; color: aiItemMouse.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent"
+                            id: aiBtn
+                            required property int modelData
+                            readonly property int idx: modelData
+                            readonly property string appName: idx === 5 ? "Gemini" : "Claude"
+                            readonly property string brandColor: idx === 5 ? "#4285F4" : "#D97757"
+
+                            width: Math.floor((aiRow.width - aiRow.spacing) / 2)
+                            height: 32
+                            radius: 8
+                            color: aiBtnMouse.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent"
+                            scale: aiBtnMouse.pressed ? 0.95 : (aiBtnMouse.containsMouse ? 1.02 : 1.0)
                             Behavior on color { ColorAnimation { duration: 150 } }
-                            
+                            Behavior on scale { NumberAnimation { duration: 120 } }
+
                             Row {
-                                anchors.fill: parent; anchors.leftMargin: 38; anchors.rightMargin: 12; spacing: 12
+                                anchors.centerIn: parent
+                                spacing: 8
+
                                 Item {
-                                    width: 16; height: 16; anchors.verticalCenter: parent.verticalCenter
+                                    width: 16
+                                    height: 16
+                                    anchors.verticalCenter: parent.verticalCenter
                                     Image {
-                                        anchors.centerIn: parent; width: 14; height: 14; fillMode: Image.PreserveAspectFit
-                                        source: idx === 5 ? Quickshell.env("HOME") + "/.config/quickshell/bar/gemini_final.svg" : Quickshell.env("HOME") + "/.config/quickshell/bar/claude.svg"
+                                        anchors.centerIn: parent
+                                        width: 14
+                                        height: 14
+                                        fillMode: Image.PreserveAspectFit
+                                        source: idx === 5 
+                                            ? Quickshell.env("HOME") + "/.config/quickshell/bar/gemini_final.svg" 
+                                            : Quickshell.env("HOME") + "/.config/quickshell/bar/claude.svg"
                                         layer.enabled: true
-                                        layer.effect: MultiEffect { colorization: 1.0; colorizationColor: (idx === 5 && aiItemMouse.containsMouse) ? "#4285F4" : ((idx === 6 && aiItemMouse.containsMouse) ? "#D97757" : root.ink) }
+                                        layer.effect: MultiEffect { 
+                                            colorization: 1.0
+                                            colorizationColor: aiBtnMouse.containsMouse ? aiBtn.brandColor : root.ink
+                                        }
                                     }
                                 }
-                                UiText { anchors.verticalCenter: parent.verticalCenter; text: idx === 5 ? "Gemini" : "Claude"; color: root.ink; font.family: "DM Sans"; font.pixelSize: 11; font.weight: Font.Medium }
+
+                                UiText {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: aiBtn.appName
+                                    color: root.ink
+                                    font.family: "DM Sans"
+                                    font.pixelSize: 11
+                                    font.weight: Font.Medium
+                                }
                             }
+
+                            TooltipMixin {
+                                id: aiTip
+                                root: desktopMenu.root
+                                owner: aiBtn
+                                text: aiBtn.appName
+                            }
+
                             MouseArea {
-                                id: aiItemMouse; anchors.fill: parent; hoverEnabled: true
-                                onClicked: { desktopMenu.menuVisible = false; Quickshell.execDetached(["xdg-open", idx === 5 ? "https://gemini.google.com" : "https://claude.ai"]); }
+                                id: aiBtnMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: aiTip.show()
+                                onExited: aiTip.hide()
+                                onClicked: {
+                                    aiTip.hide()
+                                    desktopMenu.menuVisible = false
+                                    Quickshell.execDetached(["xdg-open", idx === 5 ? "https://gemini.google.com" : "https://claude.ai"])
+                                }
                             }
                         }
                     }
@@ -829,87 +841,107 @@ PanelWindow {
                 transformOrigin: Item.Top
 
                 width: parent.width
-                height: appsCol.implicitHeight + 16
+                height: 48
                 clip: true
                 topLeftRadius: 8; topRightRadius: 8; bottomLeftRadius: 8; bottomRightRadius: 8
                 color: root.bg; border.color: root.panelOuterBorderColor; border.width: root.panelOuterBorderW
                 
                 PillShadow { theme: root }
 
-                Rectangle {
-                    visible: listMenuCard.appsExpanded
-                    width: 2; radius: 1; color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                    anchors.left: appsCol.left; anchors.leftMargin: 19
-                    anchors.top: appsCol.top; anchors.topMargin: 36
-                    anchors.bottom: appsCol.bottom; anchors.bottomMargin: 4
-                    opacity: visible ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 250 } }
-                }
-
-                Column {
-                    id: appsCol
-                    anchors.top: parent.top; anchors.topMargin: 8
-                    anchors.horizontalCenter: parent.horizontalCenter
+                Row {
+                    id: appsRow
+                    anchors.centerIn: parent
                     width: parent.width - 16
-
-                    Rectangle {
-                        width: parent.width; height: 32; radius: 10
-                        color: appsHeaderMouse.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent"
-                        Behavior on color { ColorAnimation { duration: 150 } }
-                        Row {
-                            anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; spacing: 12
-                            Item {
-                                width: 16; height: 16; anchors.verticalCenter: parent.verticalCenter
-                                IconText { anchors.centerIn: parent; text: "apps"; color: root.ink; font.pixelSize: 16 }
-                            }
-                            UiText { anchors.verticalCenter: parent.verticalCenter; text: "Quick Apps"; color: root.ink; font.family: "DM Sans"; font.pixelSize: 11; font.weight: Font.Medium }
-                        }
-                        Rectangle {
-                            anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                            width: 32; height: 20; radius: 10; color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
-                            IconText { anchors.centerIn: parent; text: listMenuCard.appsExpanded ? "expand_less" : "expand_more"; color: root.sumiHi; font.pixelSize: 16 }
-                        }
-                        MouseArea { id: appsHeaderMouse; anchors.fill: parent; hoverEnabled: true; onClicked: listMenuCard.appsExpanded = !listMenuCard.appsExpanded }
-                    }
+                    height: 32
+                    spacing: 6
 
                     Repeater {
                         model: [10, 9, 0, 1, 2]
                         Rectangle {
-                            id: appsItem
-                            required property int modelData; property int idx: modelData
-                            property bool showItem: listMenuCard.appsExpanded
-                            width: parent.width; height: showItem ? 32 : 0; opacity: showItem ? 1 : 0
-                            visible: height > 0 || opacity > 0
-                            Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.InOutCubic } }
-                            Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InOutCubic } }
-                            radius: 10; color: appsItemMouse.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent"
-                            Behavior on color { ColorAnimation { duration: 150 } }
-                            
-                            Row {
-                                anchors.fill: parent; anchors.leftMargin: 38; anchors.rightMargin: 12; spacing: 12
-                                Item {
-                                    width: 16; height: 16; anchors.verticalCenter: parent.verticalCenter
-                                    IconText {
-                                        anchors.centerIn: parent; visible: idx === 2 || idx === 10
-                                        text: idx === 2 ? "share" : (idx === 10 ? "folder" : "")
-                                        color: root.ink; font.pixelSize: 16
-                                    }
-                                    Image {
-                                        anchors.centerIn: parent; visible: idx === 0 || idx === 1 || idx === 9; width: 14; height: 14; fillMode: Image.PreserveAspectFit
-                                        source: idx === 0 ? Quickshell.env("HOME") + "/.config/quickshell/bar/whatsapp.svg" : (idx === 1 ? Quickshell.env("HOME") + "/.config/quickshell/bar/spotify.svg" : Quickshell.env("HOME") + "/.config/quickshell/bar/zen.svg")
-                                        layer.enabled: true
-                                        layer.effect: MultiEffect { colorization: 1.0; colorizationColor: root.ink }
-                                    }
-                                }
-                                UiText { 
-                                    anchors.verticalCenter: parent.verticalCenter; color: root.ink; font.family: "DM Sans"; font.pixelSize: 11; font.weight: Font.Medium 
-                                    text: idx === 0 ? "WhatsApp" : (idx === 1 ? "Spotify" : (idx === 2 ? "LocalSend" : (idx === 9 ? "Zen Browser" : "Files")))
+                            id: appBtn
+                            required property int modelData
+                            readonly property int idx: modelData
+
+                            readonly property string appName: {
+                                switch(idx) {
+                                    case 0: return "WhatsApp"
+                                    case 1: return "Spotify"
+                                    case 2: return "LocalSend"
+                                    case 9: return "Zen Browser"
+                                    case 10: return "Files"
+                                    default: return ""
                                 }
                             }
+
+                            readonly property string brandColor: {
+                                switch(idx) {
+                                    case 0: return "#25D366"
+                                    case 1: return "#1DB954"
+                                    case 2: return (root && root.color06) ? root.color06 : "#22d3ee"
+                                    case 9: return "#E85D04"
+                                    case 10: return (root && root.color04) ? root.color04 : "#60a5fa"
+                                    default: return root.ink
+                                }
+                            }
+
+                            width: Math.floor((appsRow.width - (5 - 1) * appsRow.spacing) / 5)
+                            height: 32
+                            radius: 8
+                            color: appBtnMouse.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent"
+                            scale: appBtnMouse.pressed ? 0.92 : (appBtnMouse.containsMouse ? 1.08 : 1.0)
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                            Behavior on scale { NumberAnimation { duration: 120 } }
+
+                            Item {
+                                anchors.centerIn: parent
+                                width: 18
+                                height: 18
+
+                                IconText {
+                                    anchors.centerIn: parent
+                                    visible: idx === 2 || idx === 10
+                                    text: idx === 2 ? "share" : (idx === 10 ? "folder" : "")
+                                    color: appBtnMouse.containsMouse ? appBtn.brandColor : root.ink
+                                    font.pixelSize: 17
+                                    Behavior on color { ColorAnimation { duration: 150 } }
+                                }
+
+                                Image {
+                                    anchors.centerIn: parent
+                                    visible: idx === 0 || idx === 1 || idx === 9
+                                    width: 16
+                                    height: 16
+                                    fillMode: Image.PreserveAspectFit
+                                    source: idx === 0 
+                                        ? Quickshell.env("HOME") + "/.config/quickshell/bar/whatsapp.svg" 
+                                        : (idx === 1 
+                                            ? Quickshell.env("HOME") + "/.config/quickshell/bar/spotify.svg" 
+                                            : Quickshell.env("HOME") + "/.config/quickshell/bar/zen.svg")
+                                    layer.enabled: true
+                                    layer.effect: MultiEffect { 
+                                        colorization: 1.0
+                                        colorizationColor: appBtnMouse.containsMouse ? appBtn.brandColor : root.ink
+                                    }
+                                }
+                            }
+
+                            TooltipMixin {
+                                id: appTip
+                                root: desktopMenu.root
+                                owner: appBtn
+                                text: appBtn.appName
+                            }
+
                             MouseArea {
-                                id: appsItemMouse; anchors.fill: parent; hoverEnabled: true
+                                id: appBtnMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: appTip.show()
+                                onExited: appTip.hide()
                                 onClicked: {
-                                    desktopMenu.menuVisible = false;
+                                    appTip.hide()
+                                    desktopMenu.menuVisible = false
                                     switch(idx) {
                                         case 0: Quickshell.execDetached(["omarchy-launch-webapp", "https://web.whatsapp.com/"]); break;
                                         case 1: Quickshell.execDetached(["spotify"]); break;

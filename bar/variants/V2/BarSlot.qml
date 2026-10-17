@@ -24,8 +24,8 @@ PanelWindow {
     readonly property bool isDashboardActive: barSlot.root.dashboardExpanded && isDashboardTargetScreen
     property bool dashboardEverActivated: false
 
-    readonly property real dashboardExpandedWidth: Math.min(440, barSlot.width - 32)
-    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - (barSlot.root.barShellStyle === "island" ? 40 : 20), (barSlot.root.dashboardDetail !== "") ? 520 : 500)
+    readonly property real dashboardExpandedWidth: Math.min(800, barSlot.width - 32)
+    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - (barSlot.root.barShellStyle === "island" ? 40 : 20), (barSlot.root.dashboardDetail !== "" && barSlot.root.dashboardDetail !== "system") ? 520 : 292)
 
     readonly property real dashboardTopRadius: barSlot.root.barPosition === "bottom" ? 24 : 10
     readonly property real dashboardBottomRadius: barSlot.root.barPosition === "bottom" ? 10 : 24
@@ -131,7 +131,7 @@ PanelWindow {
         }
         width: barSlot.shellTargetWidth
         Behavior on width {
-            enabled: (barSlot.root.barShellStyle === "island" && island.islandShrinkProgress > 0.95) || barSlot.isDashboardActive || width !== barSlot.shellTargetWidth
+            enabled: barSlot.isDashboardActive || (barSlot.root.barShellStyle !== "island" && width !== barSlot.shellTargetWidth)
             NumberAnimation {
                 duration: 420
                 easing.type: barSlot.isDashboardActive ? Easing.OutBack : Easing.OutCubic
@@ -2032,13 +2032,93 @@ PanelWindow {
 
         // The base shell draws a black hole around the island when hovered.
         property bool isIslandHidden: barSlot.root.barShellStyle === "island" && !island.isHovered && !barSlot.root.anyPopupVisible
-        property real islandShrinkProgress: isIslandHidden ? 1.0 : 0.0
-        Behavior on islandShrinkProgress { NumberAnimation { duration: 400; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+        property real islandShrinkProgress: barSlot.root.barShellStyle === "island" ? 1.0 : 0.0
+        property real islandElementsOpacity: barSlot.root.barShellStyle === "island" ? 0.0 : 1.0
+        property real islandCollapsedOpacity: barSlot.root.barShellStyle === "island" ? 1.0 : 0.0
+
+        onIsIslandHiddenChanged: {
+            if (barSlot.root.barShellStyle !== "island") return
+            if (!isIslandHidden) {
+                collapseAnim.stop()
+                expandAnim.restart()
+            } else {
+                expandAnim.stop()
+                collapseAnim.restart()
+            }
+        }
+
+        SequentialAnimation {
+            id: expandAnim
+            // Step 1: Fade out collapsed items quickly and bounce expand the bar!
+            ParallelAnimation {
+                NumberAnimation {
+                    target: island
+                    property: "islandCollapsedOpacity"
+                    to: 0.0
+                    duration: 100
+                    easing.type: Easing.OutQuad
+                }
+                NumberAnimation {
+                    target: island
+                    property: "islandShrinkProgress"
+                    to: 0.0
+                    duration: 380
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 1.25
+                }
+            }
+            // Step 2: Once the bar has bounced open, fade and settle in all elements!
+            NumberAnimation {
+                target: island
+                property: "islandElementsOpacity"
+                to: 1.0
+                duration: 200
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        SequentialAnimation {
+            id: collapseAnim
+            ParallelAnimation {
+                // Step 1: Quickly fade out the expanded elements
+                NumberAnimation {
+                    target: island
+                    property: "islandElementsOpacity"
+                    to: 0.0
+                    duration: 110
+                    easing.type: Easing.OutQuad
+                }
+                // Step 2: Bounce the bar closed to collapsed width and fade in collapsed items
+                SequentialAnimation {
+                    PauseAnimation { duration: 20 }
+                    ParallelAnimation {
+                        NumberAnimation {
+                            target: island
+                            property: "islandShrinkProgress"
+                            to: 1.0
+                            duration: 360
+                            easing.type: Easing.OutBack
+                            easing.overshoot: 1.15
+                        }
+                        SequentialAnimation {
+                            PauseAnimation { duration: 150 }
+                            NumberAnimation {
+                                target: island
+                                property: "islandCollapsedOpacity"
+                                to: 1.0
+                                duration: 180
+                                easing.type: Easing.OutCubic
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         property real leftVisibleWidth: (1.0 - islandShrinkProgress) * (leftRowItem.implicitWidth + (leftRowItem.implicitWidth > 0.5 ? fitRegionGap : 0))
         property real rightVisibleWidth: (1.0 - islandShrinkProgress) * (rightRowItem.implicitWidth + (rightRowItem.implicitWidth > 0.5 ? fitRegionGap : 0))
 
-        readonly property real collapsedCenterTotalWidth: islandCollapsedItem.visibleWidth + (barSlot.root.barShellStyle === "island" ? centerRowItem.implicitWidth + 8 + islandCollapsedRightSlot.width : 0)
+        readonly property real collapsedCenterTotalWidth: islandCollapsedItem.width + (barSlot.root.barShellStyle === "island" ? centerRowItem.implicitWidth + 8 + islandCollapsedRightSlot.width : 0)
         readonly property real centerVisibleWidth: (1.0 - islandShrinkProgress) * centerRowItem.implicitWidth + islandShrinkProgress * collapsedCenterTotalWidth
         readonly property real fitNaturalWidth: Math.ceil(
             2 * fitPadding
@@ -2178,7 +2258,20 @@ PanelWindow {
         onG8FloorWidthChanged: scheduleNarrowUpdate()
         Connections {
             target: barSlot.root
-            function onBarShellStyleChanged() { island.scheduleNarrowUpdate() }
+            function onBarShellStyleChanged() {
+                island.scheduleNarrowUpdate()
+                expandAnim.stop()
+                collapseAnim.stop()
+                if (barSlot.root.barShellStyle === "island") {
+                    island.islandShrinkProgress = island.isIslandHidden ? 1.0 : 0.0
+                    island.islandElementsOpacity = island.isIslandHidden ? 0.0 : 1.0
+                    island.islandCollapsedOpacity = island.isIslandHidden ? 1.0 : 0.0
+                } else {
+                    island.islandShrinkProgress = 0.0
+                    island.islandElementsOpacity = 1.0
+                    island.islandCollapsedOpacity = 0.0
+                }
+            }
         }
 
         // ── region models (physical L→R order) ──
@@ -2211,7 +2304,11 @@ PanelWindow {
             rmodel: leftModel
             baseCount: barSlot.leftBaseSlotCount
             maxExtraCount: barSlot.leftExtraSlotLimit
-            opacity: 1.0 - island.islandShrinkProgress
+            opacity: barSlot.root.barShellStyle === "island" ? island.islandElementsOpacity : (1.0 - island.islandShrinkProgress)
+            visible: opacity > 0.001
+            transform: Translate {
+                y: barSlot.root.barShellStyle === "island" ? (1.0 - island.islandElementsOpacity) * (barSlot.root.barPosition === "bottom" ? 4 : -4) : 0
+            }
         }
         SlotRow {
             id: centerRowItem
@@ -2229,8 +2326,11 @@ PanelWindow {
             rmodel: centerModel
             baseCount: barSlot.centerBaseSlotCount
             maxExtraCount: barSlot.centerExtraSlotLimit
-            visible: opacity > 0
+            visible: opacity > 0.001
             opacity: barSlot.root.barShellStyle === "island" ? 1.0 : (1.0 - island.islandShrinkProgress)
+            transform: Translate {
+                y: 0
+            }
         }
         
         Rectangle {
@@ -2251,19 +2351,156 @@ PanelWindow {
             readonly property string displayText: hasLyrics ? lyricText : (windowTitle !== "" ? windowTitle : "Desktop")
             readonly property real maxTextWidth: hasLyrics ? (barSlot.width - 120) : 350
             
-            readonly property real visibleWidth: Math.min(Math.max(islandCollapsedText.implicitWidth + 24, 60), maxTextWidth + 24)
+            property string activeSlot: "A"
+            readonly property real targetTextWidth: activeSlot === "A" ? textA.implicitWidth : textB.implicitWidth
+            readonly property real visibleWidth: Math.min(Math.max(targetTextWidth + 24, 60), maxTextWidth + 24)
             width: visibleWidth
             Behavior on width {
-                NumberAnimation { duration: 400; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
+                NumberAnimation { duration: 480; easing.type: Easing.OutCubic }
             }
             height: 24
             radius: height / 2
             color: "transparent"
-            opacity: island.islandShrinkProgress
-            visible: opacity > 0
-            
+            clip: true
+            opacity: barSlot.root.barShellStyle === "island" ? island.islandCollapsedOpacity : island.islandShrinkProgress
+            visible: opacity > 0.001
+
+            property int prevLyricIndex: -1
+            property bool initialized: false
+
+            function switchText(newText, forced) {
+                if (!forced && newText === (activeSlot === "A" ? textA.text : textB.text)) return
+
+                var curIdx = (hasLyrics && barSlot.mprisPanel) ? barSlot.mprisPanel.currentLyricIndex : -1
+                var movingBackwards = hasLyrics && (curIdx >= 0) && (prevLyricIndex >= 0) && (curIdx < prevLyricIndex)
+                if (hasLyrics && curIdx >= 0) {
+                    prevLyricIndex = curIdx
+                } else {
+                    prevLyricIndex = -1
+                }
+
+                var dir = movingBackwards ? -1 : 1
+                var outY = -14 * dir
+                var inStartY = 14 * dir
+
+                animToB.stop()
+                animToA.stop()
+
+                if (activeSlot === "A") {
+                    textB.text = newText
+                    transB.y = inStartY
+                    textB.opacity = 0.0
+                    animTransAY.to = outY
+                    activeSlot = "B"
+                    animToB.restart()
+                } else {
+                    textA.text = newText
+                    transA.y = inStartY
+                    textA.opacity = 0.0
+                    animTransBY.to = outY
+                    activeSlot = "A"
+                    animToA.restart()
+                }
+            }
+
+            onDisplayTextChanged: {
+                if (!islandCollapsedItem.initialized) return
+                if (islandCollapsedItem.displayText === (islandCollapsedItem.activeSlot === "A" ? textA.text : textB.text)) return
+                islandCollapsedItem.switchText(islandCollapsedItem.displayText, false)
+            }
+
+            Connections {
+                target: barSlot.mprisPanel ? barSlot.mprisPanel : null
+                function onCurrentLyricIndexChanged() {
+                    if (!islandCollapsedItem.initialized || !islandCollapsedItem.hasLyrics) return
+                    if (islandCollapsedItem.displayText === (islandCollapsedItem.activeSlot === "A" ? textA.text : textB.text)) {
+                        islandCollapsedItem.switchText(islandCollapsedItem.displayText, true)
+                    }
+                }
+            }
+
+            Component.onCompleted: {
+                textA.text = displayText
+                textA.opacity = 1.0
+                transA.y = 0
+                textB.text = ""
+                textB.opacity = 0.0
+                transB.y = 14
+                activeSlot = "A"
+                if (hasLyrics && barSlot.mprisPanel) {
+                    prevLyricIndex = barSlot.mprisPanel.currentLyricIndex
+                }
+                initialized = true
+            }
+
+            ParallelAnimation {
+                id: animToB
+                NumberAnimation {
+                    id: animTransAY
+                    target: transA
+                    property: "y"
+                    to: -14
+                    duration: 480
+                    easing.type: Easing.OutCubic
+                }
+                NumberAnimation {
+                    target: textA
+                    property: "opacity"
+                    to: 0.0
+                    duration: 380
+                    easing.type: Easing.OutQuad
+                }
+                NumberAnimation {
+                    target: transB
+                    property: "y"
+                    to: 0
+                    duration: 480
+                    easing.type: Easing.OutCubic
+                }
+                NumberAnimation {
+                    target: textB
+                    property: "opacity"
+                    to: 1.0
+                    duration: 440
+                    easing.type: Easing.OutCubic
+                }
+            }
+
+            ParallelAnimation {
+                id: animToA
+                NumberAnimation {
+                    id: animTransBY
+                    target: transB
+                    property: "y"
+                    to: -14
+                    duration: 480
+                    easing.type: Easing.OutCubic
+                }
+                NumberAnimation {
+                    target: textB
+                    property: "opacity"
+                    to: 0.0
+                    duration: 380
+                    easing.type: Easing.OutQuad
+                }
+                NumberAnimation {
+                    target: transA
+                    property: "y"
+                    to: 0
+                    duration: 480
+                    easing.type: Easing.OutCubic
+                }
+                NumberAnimation {
+                    target: textA
+                    property: "opacity"
+                    to: 1.0
+                    duration: 440
+                    easing.type: Easing.OutCubic
+                }
+            }
+
             Text {
-                id: islandCollapsedText
+                id: textA
                 anchors.centerIn: parent
                 text: islandCollapsedItem.displayText
                 color: barSlot.root.ink
@@ -2272,13 +2509,21 @@ PanelWindow {
                 font.weight: Font.Medium
                 elide: islandCollapsedItem.hasLyrics ? Text.ElideNone : Text.ElideRight
                 width: Math.min(implicitWidth, islandCollapsedItem.maxTextWidth)
-                Behavior on text {
-                    SequentialAnimation {
-                        NumberAnimation { target: islandCollapsedText; property: "opacity"; to: 0; duration: 150; easing.type: Easing.OutCubic }
-                        PropertyAction { target: islandCollapsedText; property: "text" }
-                        NumberAnimation { target: islandCollapsedText; property: "opacity"; to: 1; duration: 200; easing.type: Easing.OutCubic }
-                    }
-                }
+                transform: Translate { id: transA; y: 0 }
+            }
+
+            Text {
+                id: textB
+                anchors.centerIn: parent
+                text: ""
+                color: barSlot.root.ink
+                font.family: "DM Sans"
+                font.pixelSize: 12
+                font.weight: Font.Medium
+                elide: islandCollapsedItem.hasLyrics ? Text.ElideNone : Text.ElideRight
+                width: Math.min(implicitWidth, islandCollapsedItem.maxTextWidth)
+                opacity: 0.0
+                transform: Translate { id: transB; y: 14 }
             }
         }
         ListModel {
@@ -2299,8 +2544,8 @@ PanelWindow {
                 ? island.fitPadding + island.leftVisibleWidth + centerRowItem.implicitWidth + 4 + islandCollapsedItem.width + 4
                 : island.centerTargetX
                 
-            visible: opacity > 0
-            opacity: barSlot.root.barShellStyle === "island" ? island.islandShrinkProgress : 0
+            visible: opacity > 0.001
+            opacity: barSlot.root.barShellStyle === "island" ? island.islandCollapsedOpacity : 0
             
             rmodel: islandCollapsedItem.mediaActive ? islandMediaModel : islandBatteryModel
             baseCount: 1
@@ -2316,7 +2561,11 @@ PanelWindow {
             rmodel: rightModel
             baseCount: barSlot.rightBaseSlotCount
             maxExtraCount: barSlot.rightExtraSlotLimit
-            opacity: 1.0 - island.islandShrinkProgress
+            opacity: barSlot.root.barShellStyle === "island" ? island.islandElementsOpacity : (1.0 - island.islandShrinkProgress)
+            visible: opacity > 0.001
+            transform: Translate {
+                y: barSlot.root.barShellStyle === "island" ? (1.0 - island.islandElementsOpacity) * (barSlot.root.barPosition === "bottom" ? 4 : -4) : 0
+            }
         }
 
         // ── slot-aware panel X positions: publish per-screen anchors ──
@@ -2618,6 +2867,59 @@ PanelWindow {
                         }
                     }
                 }
+
+                // DateTime Pill
+                Rectangle {
+                    id: dateTimePill
+                    height: 28
+                    readonly property bool shouldShow: !dashboardAdapter.searchOpen
+                    width: shouldShow ? dateTimeRow.implicitWidth + 20 : 0
+                    opacity: shouldShow ? 1.0 : 0.0
+                    radius: 14
+                    color: dateTimeMa.containsMouse ? barSlot.root.fillHover : barSlot.root.fillIdle
+                    clip: true
+                    visible: width > 0.1 || opacity > 0.01
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.InOutCubic } }
+                    Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                    Behavior on color { ColorAnimation { duration: 150 } }
+
+                    Row {
+                        id: dateTimeRow
+                        anchors.centerIn: parent
+                        spacing: 6
+
+                        IconText {
+                            text: "schedule"
+                            color: barSlot.root.ink
+                            font.pixelSize: 13
+                            opacity: 0.75
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        Text {
+                            id: dateTimeTxt
+                            text: expandedDashboardContainer.dateShortStr + "  •  " + expandedDashboardContainer.hourStr + ":" + expandedDashboardContainer.minStr + (expandedDashboardContainer.amPmStr !== "" ? " " + expandedDashboardContainer.amPmStr : "")
+                            color: barSlot.root.ink
+                            opacity: 0.85
+                            font.family: barSlot.root.barFont
+                            font.pixelSize: 11
+                            font.weight: Font.Medium
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+
+                    MouseArea {
+                        id: dateTimeMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            barSlot.root.calendarVisible = !barSlot.root.calendarVisible
+                        }
+                    }
+                }
             }
 
             // Right Side: Screentime/Uptime Pill + Restart Button + Power Off Button
@@ -2690,6 +2992,44 @@ PanelWindow {
                                 barSlot.root.dashboardDetail = ""
                             } else {
                                 barSlot.root.dashboardDetail = "screentime"
+                            }
+                        }
+                    }
+                }
+
+                // System / Power Settings Button
+                Rectangle {
+                    id: systemBtn
+                    height: 28
+                    width: 28
+                    radius: 14
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: barSlot.root.dashboardDetail === "system"
+                        ? Qt.rgba(barSlot.root.seal.r, barSlot.root.seal.g, barSlot.root.seal.b, 0.22)
+                        : (systemBtnMa.containsMouse ? barSlot.root.fillHover : barSlot.root.fillIdle)
+                    border.width: barSlot.root.dashboardDetail === "system" ? 1.5 : 0
+                    border.color: barSlot.root.seal
+                    scale: systemBtnMa.pressed ? 0.92 : (systemBtnMa.containsMouse ? 1.06 : 1.0)
+                    Behavior on scale { NumberAnimation { duration: 120 } }
+                    Behavior on color { ColorAnimation { duration: 150 } }
+
+                    IconText {
+                        anchors.centerIn: parent
+                        text: "power_settings_new"
+                        color: barSlot.root.dashboardDetail === "system" ? barSlot.root.seal : barSlot.root.ink
+                        font.pixelSize: 15
+                    }
+
+                    MouseArea {
+                        id: systemBtnMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (barSlot.root.dashboardDetail === "system") {
+                                barSlot.root.dashboardDetail = ""
+                            } else {
+                                barSlot.root.dashboardDetail = "system"
                             }
                         }
                     }

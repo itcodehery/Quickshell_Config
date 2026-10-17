@@ -32,7 +32,7 @@ Item {
         onClicked: {}
     }
 
-    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "battery", "screentime", "volume"]
+    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "battery", "screentime", "volume", "system"]
 
     function selectCategoryByIndex(idx) {
         if (idx < 0) idx = 0
@@ -146,7 +146,24 @@ Item {
                 panel.toggleSearch()
                 event.accepted = true
             }
-        } else if (event.key === Qt.Key_Space || event.key === Qt.Key_Return) {
+        } else if (event.key === Qt.Key_N) {
+            if (mprisSel.player) mprisSel.player.next()
+            event.accepted = true
+        } else if (event.key === Qt.Key_P) {
+            if (mprisSel.player) mprisSel.player.previous()
+            event.accepted = true
+        } else if (event.key === Qt.Key_Space) {
+            if (mprisSel.player) {
+                mprisSel.player.togglePlaying()
+                event.accepted = true
+            } else if (dashboardContent.activeDetailView === "wifi" && wifiDetailSection) {
+                wifiDetailSection.startSpeedTestWithSweep()
+                event.accepted = true
+            } else if (dashboardContent.activeDetailView === "bluetooth" && btDetailSection) {
+                btDetailSection.doTogglePower()
+                event.accepted = true
+            }
+        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             if (dashboardContent.activeDetailView === "wifi" && wifiDetailSection) {
                 wifiDetailSection.startSpeedTestWithSweep()
                 event.accepted = true
@@ -510,7 +527,7 @@ Item {
         }
     }
 
-    // ── MAIN CONTROLS (Single Column, phone-style scaled to 0.8x) ──
+    // ── MAIN CONTROLS (Two Columns: Controls on Left, Media Player on Right) ──
     Item {
         id: mainControls
         anchors.fill: parent
@@ -518,11 +535,17 @@ Item {
         opacity: dashboardContent.activeDetailView === "" ? 1.0 : 0.0
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
-        Column {
+        Row {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            spacing: 12
+            spacing: 14
+
+            // ── LEFT COLUMN: Sliders & Quick Settings Tiles ──
+            Column {
+                id: leftCol
+                width: Math.round((parent.width - parent.spacing) / 2)
+                spacing: 12
 
             // --- SLIDERS (Full Material You size) ---
             Column {
@@ -1750,14 +1773,20 @@ Item {
                         }
                     }
                 }
-            }
+            } // end tilesPager
+        } // end leftCol
+
+        // ── RIGHT COLUMN: Media Player & Lyrics Drawer ──
+        Item {
+            id: rightCol
+            width: parent.width - leftCol.width - parent.spacing
+            height: leftCol.height
 
             // --- MATERIAL YOU MEDIA PLAYER WITH EXTENDED LYRICS SECTION ---
             Item {
                 id: mediaWithLyricsGroup
-                width: parent.width
-                readonly property real lyricsVisibleHeight: 60
-                height: mediaCard.height + lyricsVisibleHeight
+                anchors.fill: parent
+                readonly property real lyricsVisibleHeight: Math.max(60, height - mediaCard.height)
 
                 // Extended Lyrics Drawer (Starts from the back of the media player and extends down)
                 Rectangle {
@@ -2124,7 +2153,7 @@ Item {
                     anchors.top: parent.top
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    height: 136
+                    height: 144
                     radius: 22
                     readonly property bool hasDominant: mprisArt.dominantColor && String(mprisArt.dominantColor) !== "#00000000" && String(mprisArt.dominantColor) !== "transparent"
                     readonly property color domCol: hasDominant ? mprisArt.dominantColor : root.seal
@@ -2635,8 +2664,9 @@ Item {
                     }
                 }
             } // end mediaWithLyricsGroup
-        }
-    }
+        } // end rightCol
+    } // end Row
+} // end mainControls
 
     // ── DETAIL OVERLAY (Phone-style sub-page sheet) ──
     Item {
@@ -2651,7 +2681,8 @@ Item {
         Item {
             id: detailHeaderBar
             width: parent.width
-            height: 34
+            height: dashboardContent.activeDetailView === "system" ? 0 : 34
+            visible: dashboardContent.activeDetailView !== "system"
             anchors.top: parent.top
 
             // Back button pill
@@ -2711,6 +2742,7 @@ Item {
                         case "battery": return "Battery & Power"
                         case "screentime": return "Screen Time"
                         case "volume": return "Sound & Volume"
+                        case "system": return "System & Power"
                         default: return ""
                     }
                 }
@@ -2756,7 +2788,7 @@ Item {
         Item {
             id: detailContentArea
             anchors.top: detailHeaderBar.bottom
-            anchors.topMargin: 8
+            anchors.topMargin: dashboardContent.activeDetailView === "system" ? 0 : 8
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
@@ -2847,6 +2879,19 @@ Item {
                 root: dashboardContent.root
                 panel: dashboardContent.panel
                 visible: dashboardContent.activeDetailView === "volume"
+                onCloseRequested: {
+                    dashboardContent.activeDetailView = ""
+                    if (root) root.dashboardDetail = ""
+                }
+            }
+
+            // Detailed System & Power Section
+            SystemDetailSection {
+                id: sysDetailSection
+                anchors.fill: parent
+                root: dashboardContent.root
+                panel: dashboardContent.panel
+                visible: dashboardContent.activeDetailView === "system"
                 onCloseRequested: {
                     dashboardContent.activeDetailView = ""
                     if (root) root.dashboardDetail = ""
