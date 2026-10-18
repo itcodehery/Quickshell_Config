@@ -26,7 +26,7 @@ PanelWindow {
     property bool dashboardEverActivated: false
 
     readonly property real dashboardExpandedWidth: Math.min(800, barSlot.width - 32)
-    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - 40, (barSlot.root.dashboardDetail !== "" && barSlot.root.dashboardDetail !== "system") ? 520 : 292)
+    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - 40, (barSlot.root.dashboardDetail !== "" && barSlot.root.dashboardDetail !== "system" && barSlot.root.dashboardDetail !== "calendar" && barSlot.root.dashboardDetail !== "wifi" && barSlot.root.dashboardDetail !== "bluetooth" && barSlot.root.dashboardDetail !== "screentime") ? 520 : 292)
 
     readonly property real dashboardTopRadius: barSlot.root.barPosition === "bottom" ? 24 : 10
     readonly property real dashboardBottomRadius: barSlot.root.barPosition === "bottom" ? 10 : 24
@@ -34,14 +34,17 @@ PanelWindow {
     readonly property int notifTargetHeight: (island && island.notifPeekActive && typeof islandNotifPeekItem !== "undefined")
         ? (island.notifPeekBody !== "" ? Math.min(88, Math.max(64, islandNotifPeekItem.desiredCardHeight)) : 44)
         : barSlot.root.v2BarHeight
+    readonly property int chargingTargetHeight: 40
     readonly property int shellVisibleHeight: isDashboardActive
         ? Math.round(dashboardExpandedHeight)
-        : (island && island.notifPeekActive
-            ? Math.round(barSlot.root.v2BarHeight + (notifTargetHeight - barSlot.root.v2BarHeight) * island.notifPeekProgress)
-            : barSlot.root.v2BarHeight)
+        : (island && island.chargingProgress > 0
+            ? Math.round(barSlot.root.v2BarHeight + (chargingTargetHeight - barSlot.root.v2BarHeight) * island.chargingProgress)
+            : (island && island.notifPeekActive
+                ? Math.round(barSlot.root.v2BarHeight + (notifTargetHeight - barSlot.root.v2BarHeight) * island.notifPeekProgress)
+                : barSlot.root.v2BarHeight))
     readonly property int shellRadius: isDashboardActive
         ? 24
-        : (island && island.notifPeekActive && island.notifPeekBody !== "" ? Math.min(22, shellVisibleHeight / 2) : (shellVisibleHeight / 2))
+        : ((island && island.notifPeekActive && island.notifPeekBody !== "") ? 18 : Math.round(shellVisibleHeight / 2))
     readonly property real shellTargetWidth: isDashboardActive
         ? dashboardExpandedWidth
         : Math.max(80,
@@ -107,16 +110,13 @@ PanelWindow {
         id: continuousBarSurface
         x: Math.round((barSlot.width - width) / 2)
         readonly property int islandMargin: 4
-        readonly property bool lockRetracted: !barSlot.isDashboardActive && barSlot.root.barLockRetracted
-        y: lockRetracted
-            ? (barSlot.root.barPosition === "bottom" ? barSlot.height + 24 : -height - islandMargin - 24)
-            : barSlot.root.barPosition === "bottom"
+        y: barSlot.root.barPosition === "bottom"
             ? (barSlot.effectivelyHidden ? barSlot.height : barSlot.height - height - islandMargin)
             : (barSlot.effectivelyHidden ? -height : islandMargin)
         Behavior on y {
             NumberAnimation {
-                duration: continuousBarSurface.lockRetracted ? 320 : 400
-                easing.type: continuousBarSurface.lockRetracted ? Easing.InBack : Easing.OutBack
+                duration: 400
+                easing.type: Easing.OutBack
                 easing.overshoot: 1.2
             }
         }
@@ -900,8 +900,14 @@ PanelWindow {
                         hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                         onClicked: {
                             barSlot.root.activatePopupScreen(barSlot.screen)
-                            barSlot.root.calendarTick++;
-                            barSlot.root.calendarVisible = !barSlot.root.calendarVisible
+                            if (barSlot.root.dashboardExpanded && barSlot.root.dashboardDetail === "calendar") {
+                                barSlot.root.dashboardExpanded = false
+                                barSlot.root.dashboardDetail = ""
+                            } else {
+                                barSlot.root.calendarVisible = false
+                                barSlot.root.dashboardDetail = "calendar"
+                                barSlot.root.dashboardExpanded = true
+                            }
                         }
                     }
                 }
@@ -1415,6 +1421,18 @@ PanelWindow {
             NumberAnimation { duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
         }
 
+        readonly property bool dictationActive: barSlot.root.dictationActive
+        property real dictationProgress: dictationActive ? 1.0 : 0.0
+        Behavior on dictationProgress {
+            NumberAnimation { duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+        }
+
+        readonly property bool chargingActive: barSlot.root.chargingPopupActive
+        property real chargingProgress: chargingActive ? 1.0 : 0.0
+        Behavior on chargingProgress {
+            NumberAnimation { duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+        }
+
         Timer {
             id: notifPeekTimer
             interval: 5800
@@ -1520,8 +1538,13 @@ PanelWindow {
         property real rightVisibleWidth: (1.0 - islandShrinkProgress) * (rightRowItem.implicitWidth + (rightRowItem.implicitWidth > 0.5 ? fitRegionGap : 0))
 
         readonly property real defaultCollapsedCenterWidth: Math.max(60, (islandCollapsedRightSlot.x + islandCollapsedRightSlot.width) - (island.fitPadding + island.leftVisibleWidth))
-        readonly property real overlayProgress: Math.max(island.osdProgress, island.notifPeekProgress)
-        readonly property real overlayTargetWidth: island.notifPeekProgress > 0 ? islandNotifPeekItem.width : islandOsdItem.width
+        readonly property real overlayProgress: Math.max(island.osdProgress, island.notifPeekProgress, island.dictationProgress, island.chargingProgress)
+        readonly property real overlayTargetWidth: {
+            if (island.dictationProgress > 0) return islandDictationItem.width
+            if (island.chargingProgress > 0) return islandChargingItem.width
+            if (island.notifPeekProgress > 0) return islandNotifPeekItem.width
+            return islandOsdItem.width
+        }
         readonly property real collapsedCenterTotalWidth: (1.0 - overlayProgress) * defaultCollapsedCenterWidth + overlayProgress * overlayTargetWidth
         readonly property real centerVisibleWidth: (1.0 - islandShrinkProgress) * centerRowItem.implicitWidth + islandShrinkProgress * collapsedCenterTotalWidth
         readonly property real fitNaturalWidth: Math.ceil(
@@ -1711,7 +1734,7 @@ PanelWindow {
             baseCount: barSlot.centerBaseSlotCount
             maxExtraCount: barSlot.centerExtraSlotLimit
             visible: opacity > 0.001
-            opacity: 1.0 * (1.0 - island.osdProgress) * (1.0 - island.notifPeekProgress)
+            opacity: 1.0 * (1.0 - island.overlayProgress)
             transform: Translate {
                 y: 0
             }
@@ -1742,7 +1765,7 @@ PanelWindow {
             radius: height / 2
             color: "transparent"
             clip: true
-            opacity: island.islandCollapsedOpacity * (1.0 - island.osdProgress) * (1.0 - island.notifPeekProgress)
+            opacity: island.islandCollapsedOpacity * (1.0 - island.overlayProgress)
             visible: opacity > 0.001
 
             property int prevLyricIndex: -1
@@ -1932,7 +1955,7 @@ PanelWindow {
             border.color: Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.32)
             border.width: 1
             clip: true
-            opacity: (active ? 1.0 : 0.0) * island.islandCollapsedOpacity * (1.0 - island.osdProgress) * (1.0 - island.notifPeekProgress)
+            opacity: (active ? 1.0 : 0.0) * island.islandCollapsedOpacity * (1.0 - island.overlayProgress)
             visible: opacity > 0.001
 
             Row {
@@ -2023,114 +2046,14 @@ PanelWindow {
             }
         }
 
-        Rectangle {
-            id: islandTaskProgressItem
-            anchors.verticalCenter: parent.verticalCenter
-            x: islandTimerItem.x + islandTimerItem.width + (islandTaskProgressItem.width > 0 ? 4 : 0)
-
-            readonly property bool active: barSlot.root.sysTaskActive
-            readonly property real targetWidth: active ? (taskRow.implicitWidth + 12) : 0
-            width: targetWidth
-            Behavior on width { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
-
-            height: 24
-            radius: height / 2
-            color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.08)
-            border.color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.18)
-            border.width: 1
-            clip: true
-            opacity: (active ? 1.0 : 0.0) * island.islandCollapsedOpacity * (1.0 - island.osdProgress) * (1.0 - island.notifPeekProgress)
-            visible: opacity > 0.001
-
-            Row {
-                id: taskRow
-                anchors.centerIn: parent
-                spacing: 4
-
-                Item {
-                    width: 14
-                    height: 14
-                    anchors.verticalCenter: parent.verticalCenter
-
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: width / 2
-                        color: "transparent"
-                        border.color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.22)
-                        border.width: 1.5
-                    }
-
-                    Shape {
-                        id: taskArcShape
-                        anchors.fill: parent
-                        preferredRendererType: Shape.CurveRenderer
-
-                        NumberAnimation on rotation {
-                            running: barSlot.root.sysTaskActive && barSlot.root.sysTaskProgress < 0
-                            loops: Animation.Infinite
-                            from: 0
-                            to: 360
-                            duration: 1000
-                        }
-
-                        ShapePath {
-                            strokeColor: barSlot.accent
-                            strokeWidth: 1.5
-                            fillColor: "transparent"
-                            capStyle: ShapePath.RoundCap
-
-                            PathAngleArc {
-                                centerX: 7
-                                centerY: 7
-                                radiusX: 5.75
-                                radiusY: 5.75
-                                startAngle: -90
-                                sweepAngle: barSlot.root.sysTaskProgress >= 0 ? (barSlot.root.sysTaskProgress * 360) : 120
-                            }
-                        }
-                    }
-                }
-
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: barSlot.root.sysTaskProgress >= 0
-                    text: Math.round(barSlot.root.sysTaskProgress * 100) + "%"
-                    font.family: "DM Sans"
-                    font.pixelSize: 10
-                    font.weight: Font.Bold
-                    color: barSlot.root.ink
-                }
-            }
-
-            TooltipMixin {
-                id: taskTip
-                root: barSlot.root
-                owner: islandTaskProgressItem
-                text: barSlot.root.sysTaskLabel !== "" ? barSlot.root.sysTaskLabel : "System task running"
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onEntered: taskTip.show()
-                onExited: taskTip.hide()
-                onClicked: {
-                    if (barSlot.root.sysTaskLabel.indexOf("pacman") >= 0 || barSlot.root.sysTaskLabel.indexOf("update") >= 0) {
-                        barSlot.root.archVisible = !barSlot.root.archVisible
-                    }
-                }
-            }
-        }
-
         SlotRow {
             id: islandCollapsedRightSlot
             anchors.verticalCenter: parent.verticalCenter
             
-            x: islandTaskProgressItem.x + islandTaskProgressItem.width + (islandCollapsedRightSlot.width > 0 ? 4 : 0)
+            x: islandTimerItem.x + islandTimerItem.width + (islandCollapsedRightSlot.width > 0 ? 4 : 0)
                 
             visible: opacity > 0.001
-            opacity: island.islandCollapsedOpacity * (1.0 - island.osdProgress) * (1.0 - island.notifPeekProgress)
+            opacity: island.islandCollapsedOpacity * (1.0 - island.overlayProgress)
             
             rmodel: islandCollapsedItem.mediaActive ? islandMediaModel : islandBatteryModel
             baseCount: 1
@@ -2146,7 +2069,7 @@ PanelWindow {
             radius: height / 2
             color: "transparent"
             clip: true
-            opacity: island.islandCollapsedOpacity * island.osdProgress
+            opacity: island.islandCollapsedOpacity * island.osdProgress * (1.0 - island.notifPeekProgress) * (1.0 - island.dictationProgress) * (1.0 - island.chargingProgress)
             visible: opacity > 0.001
 
             readonly property color sliderColor: island.osdKind === "audio-muted" 
@@ -2281,7 +2204,7 @@ PanelWindow {
             height: island.height
             color: "transparent"
             clip: true
-            opacity: island.islandCollapsedOpacity * island.notifPeekProgress
+            opacity: island.islandCollapsedOpacity * island.notifPeekProgress * (1.0 - island.dictationProgress) * (1.0 - island.chargingProgress)
             visible: opacity > 0.001
 
             transform: Translate {
@@ -2432,6 +2355,411 @@ PanelWindow {
                         }
                     }
                 }
+            }
+        }
+
+        // ── Voice Dictation Dynamic Island Item ──
+        Rectangle {
+            id: islandDictationItem
+            anchors.centerIn: parent
+            readonly property bool isTranscribing: barSlot.root.dictationState === "transcribing"
+            width: isTranscribing ? 146 : 84
+            Behavior on width {
+                NumberAnimation { duration: 280; easing.type: Easing.OutCubic }
+            }
+            height: 24
+            radius: height / 2
+            color: "transparent"
+            clip: false
+            opacity: island.islandCollapsedOpacity * island.dictationProgress
+            visible: opacity > 0.001
+
+            transform: Translate {
+                y: (1.0 - island.dictationProgress) * (barSlot.root.barPosition === "bottom" ? 6 : -6)
+            }
+
+            // ── 1. Listening State: 3-Element Theme Waveform (Image 0, No text) ──
+            Item {
+                id: listeningWaveformContainer
+                anchors.centerIn: parent
+                width: listeningWaveformRow.implicitWidth
+                height: parent.height
+                visible: opacity > 0.001
+                opacity: islandDictationItem.isTranscribing ? 0.0 : 1.0
+                Behavior on opacity { NumberAnimation { duration: 180 } }
+
+                // Soft ambient theme glow behind waveform
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 32
+                    height: 20
+                    radius: 10
+                    color: barSlot.accent
+                    opacity: 0.20
+                }
+
+                Row {
+                    id: listeningWaveformRow
+                    anchors.centerIn: parent
+                    spacing: 4
+
+                    // Bar 1 (Left): Rounded capsule bar (Theme Accent)
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 4.5
+                        radius: 2.25
+                        color: barSlot.accent
+
+                        SequentialAnimation on height {
+                            loops: Animation.Infinite
+                            running: island.dictationActive && !islandDictationItem.isTranscribing
+                            NumberAnimation { to: 14; duration: 260; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 6; duration: 240; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 11; duration: 220; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 7; duration: 280; easing.type: Easing.InOutQuad }
+                        }
+                    }
+
+                    // Bar 2 (Middle): Tallest rounded capsule bar (Theme Color05)
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 4.5
+                        radius: 2.25
+                        color: barSlot.root.color05
+
+                        SequentialAnimation on height {
+                            loops: Animation.Infinite
+                            running: island.dictationActive && !islandDictationItem.isTranscribing
+                            NumberAnimation { to: 19; duration: 220; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 9; duration: 260; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 16; duration: 240; easing.type: Easing.InOutQuad }
+                            NumberAnimation { to: 8; duration: 200; easing.type: Easing.InOutQuad }
+                        }
+                    }
+
+                    // Dot 3 (Right): Circular dot (Theme Color04)
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 5
+                        height: 5
+                        radius: 2.5
+                        color: barSlot.root.color04
+
+                        SequentialAnimation on scale {
+                            loops: Animation.Infinite
+                            running: island.dictationActive && !islandDictationItem.isTranscribing
+                            NumberAnimation { to: 1.35; duration: 280; easing.type: Easing.InOutSine }
+                            NumberAnimation { to: 0.80; duration: 240; easing.type: Easing.InOutSine }
+                            NumberAnimation { to: 1.20; duration: 220; easing.type: Easing.InOutSine }
+                            NumberAnimation { to: 0.90; duration: 260; easing.type: Easing.InOutSine }
+                        }
+                    }
+                }
+            }
+
+            // ── 2. Transcribing State: 6-Dot Progressive Spinner + "Transcribing…" Text (Image 1) ──
+            Item {
+                id: transcribingRow
+                anchors.centerIn: parent
+                width: transcribingContentRow.implicitWidth
+                height: parent.height
+                visible: opacity > 0.001
+                opacity: islandDictationItem.isTranscribing ? 1.0 : 0.0
+                Behavior on opacity { NumberAnimation { duration: 180 } }
+
+                Row {
+                    id: transcribingContentRow
+                    anchors.centerIn: parent
+                    spacing: 8
+
+                    // Rotating Progressive Dot Spinner (6 circular dots)
+                    Item {
+                        id: transcribingSpinner
+                        width: 20
+                        height: 20
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        NumberAnimation on rotation {
+                            from: 0
+                            to: 360
+                            duration: 1050
+                            loops: Animation.Infinite
+                            running: island.dictationActive && islandDictationItem.isTranscribing
+                        }
+
+                        // Dot 0 (Top: 0°)
+                        Rectangle {
+                            x: 9.1; y: 2.3
+                            width: 1.8; height: 1.8
+                            radius: 0.9
+                            color: barSlot.accent
+                            opacity: 0.40
+                        }
+
+                        // Dot 1 (60°)
+                        Rectangle {
+                            x: 14.7; y: 5.4
+                            width: 2.4; height: 2.4
+                            radius: 1.2
+                            color: barSlot.accent
+                            opacity: 0.55
+                        }
+
+                        // Dot 2 (120°)
+                        Rectangle {
+                            x: 14.3; y: 11.8
+                            width: 3.2; height: 3.2
+                            radius: 1.6
+                            color: barSlot.accent
+                            opacity: 0.70
+                        }
+
+                        // Dot 3 (Bottom: 180°, Largest)
+                        Rectangle {
+                            x: 7.6; y: 14.4
+                            width: 4.8; height: 4.8
+                            radius: 2.4
+                            color: barSlot.accent
+                            opacity: 1.00
+                        }
+
+                        // Dot 4 (240°)
+                        Rectangle {
+                            x: 2.1; y: 11.4
+                            width: 4.0; height: 4.0
+                            radius: 2.0
+                            color: barSlot.accent
+                            opacity: 0.85
+                        }
+
+                        // Dot 5 (300°)
+                        Rectangle {
+                            x: 2.7; y: 5.2
+                            width: 2.8; height: 2.8
+                            radius: 1.4
+                            color: barSlot.accent
+                            opacity: 0.60
+                        }
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Transcribing…"
+                        font.family: barSlot.root.barFont
+                        font.pixelSize: 12
+                        font.weight: Font.DemiBold
+                        color: barSlot.root.ink
+                    }
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: barSlot.root.toggleDictation()
+            }
+        }
+
+        // ── Laptop Charging Dynamic Island Pill ──
+        Rectangle {
+            id: islandChargingItem
+            anchors.centerIn: parent
+            width: 380
+            height: barSlot.chargingTargetHeight
+            radius: height / 2
+            color: "transparent"
+            clip: false
+            opacity: island.islandCollapsedOpacity * island.chargingProgress * (1.0 - island.dictationProgress)
+            visible: opacity > 0.001
+
+            transform: Translate {
+                y: (1.0 - island.chargingProgress) * (barSlot.root.barPosition === "bottom" ? 6 : -6)
+            }
+
+            readonly property int pct: Math.max(1, Math.min(100, barSlot.root.chargingPopupPercent))
+
+            property real animatedPct: 0
+            Behavior on animatedPct {
+                NumberAnimation { duration: 700; easing.type: Easing.OutCubic }
+            }
+
+            Connections {
+                target: island
+                function onChargingActiveChanged() {
+                    if (island.chargingActive) {
+                        islandChargingItem.animatedPct = 0;
+                        chargeAnimTimer.restart();
+                    }
+                }
+            }
+
+            Timer {
+                id: chargeAnimTimer
+                interval: 40
+                onTriggered: islandChargingItem.animatedPct = islandChargingItem.pct
+            }
+
+            onPctChanged: {
+                if (island.chargingActive && !chargeAnimTimer.running) {
+                    animatedPct = pct;
+                }
+            }
+
+            // Right: Charging Status Label
+            Text {
+                id: chargingLabel
+                anchors.right: parent.right
+                anchors.rightMargin: 18
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Charging"
+                font.family: barSlot.root.barFont
+                font.pixelSize: 13
+                font.weight: Font.DemiBold
+                color: "#22c55e"
+            }
+
+            // Left / Center: Animated Gradient Progress Bar with Head Badge
+            Item {
+                id: barTrackArea
+                anchors.left: parent.left
+                anchors.leftMargin: 18
+                anchors.right: chargingLabel.left
+                anchors.rightMargin: 20
+                anchors.verticalCenter: parent.verticalCenter
+                height: 28
+
+                // Subtle ambient glow behind progress fill
+                Rectangle {
+                    anchors.left: trackGroove.left
+                    anchors.verticalCenter: trackGroove.verticalCenter
+                    width: progressFillItem.width
+                    height: 12
+                    radius: 6
+                    color: "#22c55e"
+                    opacity: 0.22
+                }
+
+                // Background Track Groove
+                Rectangle {
+                    id: trackGroove
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 6
+                    radius: 3
+                    color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.16)
+                    border.color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.08)
+                    border.width: 1
+                }
+
+                // Progress Fill Container
+                Item {
+                    id: progressFillItem
+                    anchors.left: trackGroove.left
+                    anchors.verticalCenter: trackGroove.verticalCenter
+                    height: trackGroove.height
+                    width: Math.max(height, trackGroove.width * (islandChargingItem.animatedPct / 100))
+                    clip: true
+
+                    // Multi-stop horizontal gradient
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.height / 2
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0.00; color: "#059669" }
+                            GradientStop { position: 0.35; color: "#10b981" }
+                            GradientStop { position: 0.70; color: "#22c55e" }
+                            GradientStop { position: 1.00; color: "#4ade80" }
+                        }
+                    }
+
+                    // Shimmer wave traveling through the filled bar
+                    Rectangle {
+                        id: chargeShimmer
+                        width: Math.min(65, Math.max(25, progressFillItem.width * 0.55))
+                        height: parent.height
+                        radius: parent.height / 2
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0.0; color: "transparent" }
+                            GradientStop { position: 0.5; color: Qt.rgba(1, 1, 1, 0.55) }
+                            GradientStop { position: 1.0; color: "transparent" }
+                        }
+
+                        SequentialAnimation on x {
+                            loops: Animation.Infinite
+                            running: island.chargingActive
+                            NumberAnimation {
+                                from: -chargeShimmer.width
+                                to: progressFillItem.width
+                                duration: 1250
+                                easing.type: Easing.InOutQuad
+                            }
+                            PauseAnimation { duration: 350 }
+                        }
+                    }
+                }
+
+                // Floating Capsule Badge at the progress tip (matching reference image)
+                Item {
+                    id: chargeHeadBadge
+                    x: Math.max(0, Math.min(barTrackArea.width - width, progressFillItem.width - width / 2))
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Math.max(36, pctNumText.implicitWidth + 14)
+                    height: 22
+
+                    // Soft glowing aura / halo
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: parent.width + 10
+                        height: parent.height + 8
+                        radius: height / 2
+                        color: Qt.rgba(0.06, 0.73, 0.51, 0.35)
+
+                        SequentialAnimation on scale {
+                            loops: Animation.Infinite
+                            running: island.chargingActive
+                            NumberAnimation { to: 1.14; duration: 850; easing.type: Easing.InOutSine }
+                            NumberAnimation { to: 1.00; duration: 850; easing.type: Easing.InOutSine }
+                        }
+                        SequentialAnimation on opacity {
+                            loops: Animation.Infinite
+                            running: island.chargingActive
+                            NumberAnimation { to: 0.55; duration: 850; easing.type: Easing.InOutSine }
+                            NumberAnimation { to: 0.25; duration: 850; easing.type: Easing.InOutSine }
+                        }
+                    }
+
+                    // Solid capsule body
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: height / 2
+                        gradient: Gradient {
+                            orientation: Gradient.Vertical
+                            GradientStop { position: 0.00; color: "#22c55e" }
+                            GradientStop { position: 1.00; color: "#15803d" }
+                        }
+                        border.color: Qt.rgba(1, 1, 1, 0.35)
+                        border.width: 1
+
+                        Text {
+                            id: pctNumText
+                            anchors.centerIn: parent
+                            text: islandChargingItem.pct
+                            font.family: barSlot.root.barFont
+                            font.pixelSize: 11
+                            font.weight: Font.Bold
+                            color: "#ffffff"
+                        }
+                    }
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: barSlot.root.chargingPopupActive = false
             }
         }
 
@@ -2726,7 +3054,11 @@ PanelWindow {
                     width: shouldShow ? dateTimeRow.implicitWidth + 20 : 0
                     opacity: shouldShow ? 1.0 : 0.0
                     radius: 14
-                    color: dateTimeMa.containsMouse ? barSlot.root.fillHover : barSlot.root.fillIdle
+                    color: barSlot.root.dashboardDetail === "calendar"
+                        ? Qt.rgba(barSlot.root.seal.r, barSlot.root.seal.g, barSlot.root.seal.b, 0.22)
+                        : (dateTimeMa.containsMouse ? barSlot.root.fillHover : barSlot.root.fillIdle)
+                    border.width: barSlot.root.dashboardDetail === "calendar" ? 1.5 : 0
+                    border.color: barSlot.root.seal
                     clip: true
                     visible: width > 0.1 || opacity > 0.01
                     anchors.verticalCenter: parent.verticalCenter
@@ -2742,20 +3074,20 @@ PanelWindow {
 
                         IconText {
                             text: "schedule"
-                            color: barSlot.root.ink
+                            color: barSlot.root.dashboardDetail === "calendar" ? barSlot.root.seal : barSlot.root.ink
                             font.pixelSize: 13
-                            opacity: 0.75
+                            opacity: barSlot.root.dashboardDetail === "calendar" ? 1.0 : 0.75
                             anchors.verticalCenter: parent.verticalCenter
                         }
 
                         Text {
                             id: dateTimeTxt
                             text: expandedDashboardContainer.dateShortStr + "  •  " + expandedDashboardContainer.hourStr + ":" + expandedDashboardContainer.minStr + (expandedDashboardContainer.amPmStr !== "" ? " " + expandedDashboardContainer.amPmStr : "")
-                            color: barSlot.root.ink
-                            opacity: 0.85
+                            color: barSlot.root.dashboardDetail === "calendar" ? barSlot.root.seal : barSlot.root.ink
+                            opacity: barSlot.root.dashboardDetail === "calendar" ? 1.0 : 0.85
                             font.family: barSlot.root.barFont
                             font.pixelSize: 11
-                            font.weight: Font.Medium
+                            font.weight: barSlot.root.dashboardDetail === "calendar" ? Font.Bold : Font.Medium
                             anchors.verticalCenter: parent.verticalCenter
                         }
                     }
@@ -2766,7 +3098,11 @@ PanelWindow {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            barSlot.root.calendarVisible = !barSlot.root.calendarVisible
+                            if (barSlot.root.dashboardDetail === "calendar") {
+                                barSlot.root.dashboardDetail = ""
+                            } else {
+                                barSlot.root.dashboardDetail = "calendar"
+                            }
                         }
                     }
                 }
@@ -2843,6 +3179,41 @@ PanelWindow {
                             } else {
                                 barSlot.root.dashboardDetail = "screentime"
                             }
+                        }
+                    }
+                }
+
+                // Voice Dictation Button (Top Header Bar)
+                Rectangle {
+                    id: dictationHeaderBtn
+                    height: 28
+                    width: 28
+                    radius: 14
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: barSlot.root.dictationActive
+                        ? Qt.rgba(barSlot.root.seal.r, barSlot.root.seal.g, barSlot.root.seal.b, 0.28)
+                        : (dictationHeaderMa.containsMouse ? barSlot.root.fillHover : barSlot.root.fillIdle)
+                    border.width: barSlot.root.dictationActive ? 1.5 : 0
+                    border.color: barSlot.accent
+                    scale: dictationHeaderMa.pressed ? 0.92 : (dictationHeaderMa.containsMouse ? 1.06 : 1.0)
+                    Behavior on scale { NumberAnimation { duration: 120 } }
+                    Behavior on color { ColorAnimation { duration: 150 } }
+
+                    IconText {
+                        anchors.centerIn: parent
+                        text: barSlot.root.dictationState === "transcribing" ? "auto_awesome" : "mic"
+                        color: barSlot.root.dictationActive ? barSlot.accent : barSlot.root.ink
+                        font.pixelSize: 15
+                    }
+
+                    MouseArea {
+                        id: dictationHeaderMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            barSlot.root.dashboardExpanded = false
+                            barSlot.root.toggleDictation()
                         }
                     }
                 }

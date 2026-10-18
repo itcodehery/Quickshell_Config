@@ -97,6 +97,7 @@ Item {
         function unlock(): void { router.invoke("layoutUnlock") }
         function togglebar(): void { router.invoke("toggleBar") }
         function toggledashboard(): void { router.invoke("toggleDashboard") }
+        function opendetail(name: string): void { router.invoke("openDashboardDetail", name) }
         // Lock-screen slide: retract before hyprlock, reveal after unlock.
         function lockretract(): void { router.invoke("lockRetract") }
         function lockreveal(): void { router.invoke("lockReveal") }
@@ -175,6 +176,17 @@ Item {
         function wallpaper(): void { router.openPicker("wallpaper") }
         function screenshots(): void { router.openPicker("screenshots") }
         function videos(): void { router.openPicker("videos") }
+    }
+
+    IpcHandler {
+        target: "charging"
+        function test(pct: int) { router.invoke("triggerChargingPopup", pct) }
+    }
+
+    IpcHandler {
+        target: "dictation"
+        function toggle() { router.invoke("toggleDictation") }
+        function test(st: string) { router.invoke("testDictationState", st) }
     }
 
     Connections {

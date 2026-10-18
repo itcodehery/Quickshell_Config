@@ -2208,65 +2208,6 @@ Item {
         }
     }
 
-    // 4. System Task / Download Progress Ring
-    property bool sysTaskActive: false
-    property real sysTaskProgress: -1    // -1 = indeterminate spinning; 0.0 .. 1.0 = percentage
-    property string sysTaskLabel: ""
-
-    function startSysTask(label, progress) {
-        sysTaskLabel = label || "System task"
-        sysTaskProgress = (progress !== undefined && progress >= 0) ? (progress / 100.0) : -1
-        sysTaskActive = true
-    }
-
-    function updateSysTask(progress) {
-        if (progress !== undefined && progress >= 0) {
-            sysTaskProgress = Math.min(1.0, Math.max(0.0, progress / 100.0))
-        } else {
-            sysTaskProgress = -1
-        }
-    }
-
-    function finishSysTask() {
-        sysTaskActive = false
-        sysTaskProgress = -1
-        sysTaskLabel = ""
-    }
-
-    Process {
-        id: sysTaskProbeProc
-        command: [Quickshell.env("HOME") + "/.config/quickshell/bar/scripts/task_probe.sh"]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    var d = JSON.parse(this.text.trim())
-                    if (d.active === 1) {
-                        theme.sysTaskActive = true
-                        if (theme.sysTaskLabel === "" || theme.sysTaskLabel.startsWith("System update") || theme.sysTaskLabel.startsWith("Package update")) {
-                            theme.sysTaskLabel = d.label || "System task"
-                        }
-                    } else if (theme.sysTaskLabel.startsWith("System update") || theme.sysTaskLabel.startsWith("Package update") || theme.sysTaskLabel.startsWith("Flatpak")) {
-                        theme.sysTaskActive = false
-                        theme.sysTaskLabel = ""
-                    }
-                } catch(e) {}
-            }
-        }
-    }
-
-    Timer {
-        id: sysTaskProbeTimer
-        interval: 3000
-        repeat: true
-        running: true
-        triggeredOnStart: true
-        onTriggered: {
-            sysTaskProbeProc.running = false
-            sysTaskProbeProc.running = true
-        }
-    }
-
     // Real-time Notification Stream
     Process {
         id: notifStreamProc
@@ -2293,6 +2234,106 @@ Item {
         repeat: false
         onTriggered: {
             notifStreamProc.running = true
+        }
+    }
+
+    // ── 4. Voice Dictation (voxtype) ──────────────────────────────────
+    property bool dictationActive: dictationState === "recording" || dictationState === "transcribing"
+    property string dictationState: "idle"
+
+    function toggleDictation() {
+        Quickshell.execDetached(["bash", "-c", "systemctl --user is-active --quiet voxtype || systemctl --user start voxtype; voxtype record toggle"]);
+    }
+
+    function testDictationState(st) {
+        if (!st || st === "idle") {
+            dictationState = "idle";
+        } else {
+            dictationState = st;
+            dictationTestTimer.restart();
+        }
+    }
+
+    Timer {
+        id: dictationTestTimer
+        interval: 4000
+        onTriggered: theme.dictationState = "idle"
+    }
+
+    Process {
+        id: voxtypeStateProc
+        command: ["bash", "-c", "cat /run/user/1000/voxtype/state 2>/dev/null || echo idle"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var st = this.text.trim();
+                if (st && !dictationTestTimer.running) theme.dictationState = st;
+            }
+        }
+    }
+
+    Timer {
+        id: voxtypeMonitorTimer
+        interval: theme.dictationActive ? 120 : 500
+        repeat: true
+        running: true
+        onTriggered: {
+            if (!voxtypeStateProc.running && !dictationTestTimer.running) {
+                voxtypeStateProc.running = true;
+            }
+        }
+    }
+
+    // ── 5. Laptop Charging Dynamic Island Popup ───────────────────────
+    property bool chargingPopupActive: false
+    property int chargingPopupPercent: 100
+    property int prevAcOnline: -1
+    property int currentBatteryPercent: 100
+
+    function triggerChargingPopup(pct) {
+        chargingPopupPercent = pct || currentBatteryPercent;
+        chargingPopupActive = true;
+        chargingPopupTimer.restart();
+    }
+
+    Timer {
+        id: chargingPopupTimer
+        interval: 2800
+        onTriggered: theme.chargingPopupActive = false
+    }
+
+    Process {
+        id: powerSupplyProbeProc
+        command: ["bash", "-c", "cat /sys/class/power_supply/AC*/online 2>/dev/null | head -n1; cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -n1"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var lines = this.text.trim().split("\n");
+                if (lines.length >= 2) {
+                    var ac = parseInt(lines[0].trim());
+                    var pct = parseInt(lines[1].trim());
+                    if (!isNaN(pct)) theme.currentBatteryPercent = pct;
+                    if (!isNaN(ac)) {
+                        if (theme.prevAcOnline === 0 && ac === 1) {
+                            theme.triggerChargingPopup(pct);
+                        }
+                        theme.prevAcOnline = ac;
+                    }
+                }
+            }
+        }
+    }
+
+    Timer {
+        id: powerSupplyTimer
+        interval: 1000
+        repeat: true
+        running: true
+        triggeredOnStart: true
+        onTriggered: {
+            if (!powerSupplyProbeProc.running) {
+                powerSupplyProbeProc.running = true;
+            }
         }
     }
 
@@ -3543,9 +3584,9 @@ Item {
         active: theme.variantHost === null
         IpcHandler {
             target: "theme"
-            function apply(payload: string): void { theme.ipcApplyTheme(payload) }
-            function applyLauncher(payload: string): void { theme.ipcApplyLauncher(payload) }
-            function reload(): void { theme.ipcReloadTheme() }
+            function apply(payload: string) { theme.ipcApplyTheme(payload) }
+            function applyLauncher(payload: string) { theme.ipcApplyLauncher(payload) }
+            function reload() { theme.ipcReloadTheme() }
         }
     }
 
@@ -3553,10 +3594,26 @@ Item {
         active: theme.variantHost === null
         IpcHandler {
             target: "picker"
-            function theme(): void { ipcOpenPicker("theme") }
-            function wallpaper(): void { ipcOpenPicker("wallpaper") }
-            function screenshots(): void { ipcOpenPicker("screenshots") }
-            function videos(): void { ipcOpenPicker("videos") }
+            function theme() { ipcOpenPicker("theme") }
+            function wallpaper() { ipcOpenPicker("wallpaper") }
+            function screenshots() { ipcOpenPicker("screenshots") }
+            function videos() { ipcOpenPicker("videos") }
+        }
+    }
+
+    LazyLoader {
+        active: theme.variantHost === null
+        IpcHandler {
+            target: "charging"
+            function test(pct: int) { theme.triggerChargingPopup(pct) }
+        }
+    }
+
+    LazyLoader {
+        active: theme.variantHost === null
+        IpcHandler {
+            target: "dictation"
+            function toggle() { theme.toggleDictation() }
         }
     }
 }

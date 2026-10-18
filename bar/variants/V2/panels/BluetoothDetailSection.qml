@@ -21,17 +21,12 @@ Item {
         devices: []
     })
 
-    property string activeView: "adapter" // "adapter" or "devices"
     property string currentTab: "paired" // "paired" or "all"
     property bool scanning: false
     property string actionError: ""
     property bool working: false
 
     function nextSubOption() {
-        if (activeView === "adapter") {
-            activeView = "devices"
-            return true
-        }
         if (currentTab === "paired") {
             currentTab = "all"
             return true
@@ -42,10 +37,6 @@ Item {
     function prevSubOption() {
         if (currentTab === "all") {
             currentTab = "paired"
-            return true
-        }
-        if (activeView === "devices") {
-            activeView = "adapter"
             return true
         }
         return false
@@ -59,7 +50,7 @@ Item {
         if (!iconType) return "bluetooth"
         var lower = iconType.toLowerCase()
         if (lower.indexOf("headset") >= 0 || lower.indexOf("headphone") >= 0) return "headphones"
-        if (lower.indexOf("audio") >= 0) return "speaker"
+        if (lower.indexOf("audio") >= 0 || lower.indexOf("speaker") >= 0) return "speaker"
         if (lower.indexOf("phone") >= 0) return "smartphone"
         if (lower.indexOf("mouse") >= 0) return "mouse"
         if (lower.indexOf("keyboard") >= 0) return "keyboard"
@@ -191,738 +182,943 @@ Item {
         }
     }
 
-    Column {
+    // ═════════════════════════════════════════════════════════════════════════
+    // ── TWO-COLUMN DASHBOARD LAYOUT (Seamless, matches Calendar widget) ──────
+    // ═════════════════════════════════════════════════════════════════════════
+    Row {
+        id: columnsRow
         anchors.fill: parent
-        spacing: 10
+        spacing: 12
 
-        // ================= HEADER BAR =================
-        Item {
-            width: parent.width
-            height: 36
-
-            Row {
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 10
-
-                Rectangle {
-                    width: 32
-                    height: 32
-                    radius: 16
-                    color: (btSection.btObj.powered && connectedModel.count > 0) ? root.seal : root.fillIdle
-                    anchors.verticalCenter: parent.verticalCenter
-
-                    IconText {
-                        anchors.centerIn: parent
-                        text: btSection.btObj.powered ? "bluetooth" : "bluetooth_disabled"
-                        color: (btSection.btObj.powered && connectedModel.count > 0) ? root.paper : root.ink
-                        font.pixelSize: 18
-                    }
-                }
-
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 1
-
-                    Text {
-                        text: "BLUETOOTH"
-                        color: root.ink
-                        font.family: root.barFont
-                        font.pixelSize: 12
-                        font.weight: Font.Bold
-                        font.letterSpacing: 0.8
-                    }
-
-                    Row {
-                        spacing: 6
-                        Rectangle {
-                            width: 6
-                            height: 6
-                            radius: 3
-                            color: !btSection.btObj.powered ? "#f87171" : (connectedModel.count > 0 ? "#4ade80" : root.sumiHi)
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                        Text {
-                            text: !btSection.btObj.powered 
-                                ? "Bluetooth is turned off" 
-                                : (connectedModel.count > 0 ? ("Connected (" + connectedModel.count + ")") : "Bluetooth is on")
-                            color: root.ink
-                            opacity: 0.6
-                            font.family: root.barFont
-                            font.pixelSize: 11
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-                }
-            }
-
-            // Top action buttons
-            Row {
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 8
-
-                // Radio Toggle Pill
-                Rectangle {
-                    width: 72
-                    height: 28
-                    radius: 14
-                    color: btSection.btObj.powered ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22) : root.fillIdle
-                    border.width: 1
-                    border.color: btSection.btObj.powered ? root.seal : Qt.rgba(1, 1, 1, 0.1)
-
-                    Row {
-                        anchors.centerIn: parent
-                        spacing: 4
-                        IconText {
-                            text: btSection.btObj.powered ? "check" : "power_settings_new"
-                            color: btSection.btObj.powered ? root.seal : root.ink
-                            font.pixelSize: 14
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                        Text {
-                            text: btSection.btObj.powered ? "ON" : "OFF"
-                            color: btSection.btObj.powered ? root.seal : root.ink
-                            font.family: root.barFont
-                            font.pixelSize: 11
-                            font.weight: Font.DemiBold
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: btSection.doTogglePower()
-                    }
-                }
-
-                // Discovery Scan Button
-                Rectangle {
-                    width: 76
-                    height: 28
-                    radius: 14
-                    color: scanMa.containsMouse ? root.fillHover : root.fillIdle
-                    border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.08)
-
-                    Row {
-                        anchors.centerIn: parent
-                        spacing: 4
-                        IconText {
-                            text: "refresh"
-                            color: root.ink
-                            font.pixelSize: 14
-                            anchors.verticalCenter: parent.verticalCenter
-                            RotationAnimation on rotation {
-                                running: btSection.scanning
-                                loops: Animation.Infinite
-                                from: 0; to: 360; duration: 1000
-                            }
-                        }
-                        Text {
-                            text: btSection.scanning ? "Scanning" : "Scan"
-                            color: root.ink
-                            font.family: root.barFont
-                            font.pixelSize: 11
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-
-                    MouseArea {
-                        id: scanMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: btSection.doScan()
-                    }
-                }
-            }
-        }
-
-        // ================= SEGMENTED TAB SWITCHER =================
-        Row {
-            width: parent.width
-            height: 32
-            spacing: 8
-
-            Rectangle {
-                width: (parent.width - 8) / 2
-                height: 32
-                radius: 16
-                color: btSection.activeView === "adapter" ? root.seal : root.fillIdle
-                Behavior on color { ColorAnimation { duration: 150 } }
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 6
-                    IconText {
-                        text: "bluetooth"
-                        color: btSection.activeView === "adapter" ? root.paper : root.ink
-                        font.pixelSize: 15
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                    Text {
-                        text: "Status & Connected"
-                        color: btSection.activeView === "adapter" ? root.paper : root.ink
-                        font.family: root.barFont
-                        font.pixelSize: 11
-                        font.weight: Font.DemiBold
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: btSection.activeView = "adapter"
-                }
-            }
-
-            Rectangle {
-                width: (parent.width - 8) / 2
-                height: 32
-                radius: 16
-                color: btSection.activeView === "devices" ? root.seal : root.fillIdle
-                Behavior on color { ColorAnimation { duration: 150 } }
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 6
-                    IconText {
-                        text: "devices"
-                        color: btSection.activeView === "devices" ? root.paper : root.ink
-                        font.pixelSize: 15
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                    Text {
-                        text: "Device List"
-                        color: btSection.activeView === "devices" ? root.paper : root.ink
-                        font.family: root.barFont
-                        font.pixelSize: 11
-                        font.weight: Font.DemiBold
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: btSection.activeView = "devices"
-                }
-            }
-        }
-
-        // ================= FULL-WIDTH SINGLE COLUMN CARD CONTENT =================
-        Item {
-            width: parent.width
-            height: parent.height - 36 - 32 - 20
+        // ═════════════════════════════════════════════════════════════════════
+        // ── LEFT COLUMN: BLUETOOTH OVERVIEW & SPOTLIGHT ──────────────────────
+        // ═════════════════════════════════════════════════════════════════════
+        Rectangle {
+            id: leftColContainer
+            width: Math.round((columnsRow.width - columnsRow.spacing) / 2)
+            height: columnsRow.height
+            radius: 20
+            color: root.fillIdle
+            border.width: 0
             clip: true
 
-            // ---------------- CARD 1: ADAPTER STATUS & CONNECTED DEVICES (Full Width) ----------------
-            Rectangle {
-                id: card1
-                anchors.fill: parent
-                visible: btSection.activeView === "adapter"
-                radius: 20
-                color: root.fillIdle
-                clip: true
+            // Top Bar
+            Item {
+                id: leftTopBar
+                anchors.top: parent.top
+                anchors.topMargin: 9
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                height: 26
 
-                Column {
-                    anchors.fill: parent
-                    anchors.margins: 14
-                    spacing: 12
+                // Top Left: Status pill
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 26
+                    radius: 13
+                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                    width: Math.min(leftStatusRow.implicitWidth + 18, 160)
+                    clip: true
 
-                    // SUBHEADER: Adapter info
-                    Item {
-                        width: parent.width
-                        height: 16
-                        Text {
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "ADAPTER STATUS"
-                            color: root.ink
-                            opacity: 0.5
-                            font.family: root.barFont
-                            font.pixelSize: 10
-                            font.weight: Font.Bold
-                            font.letterSpacing: 0.6
-                        }
-                        Text {
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: btSection.btObj.powered ? "ONLINE" : "OFFLINE"
-                            color: btSection.btObj.powered ? "#4ade80" : "#f87171"
-                            font.family: root.barFont
-                            font.pixelSize: 10
-                            font.weight: Font.Bold
-                        }
-                    }
-
-                    // Info Tiles Grid
-                    Column {
-                        width: parent.width
+                    Row {
+                        id: leftStatusRow
+                        anchors.centerIn: parent
                         spacing: 6
 
-                        Row {
-                            width: parent.width
-                            Text { text: "Controller"; color: root.ink; opacity: 0.5; font.family: root.barFont; font.pixelSize: 11; width: 90 }
-                            Text { text: btSection.btObj.controllerName || "—"; color: root.ink; font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Medium; elide: Text.ElideRight; width: parent.width - 90 }
+                        Rectangle {
+                            width: 6; height: 6; radius: 3
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: !btSection.btObj.powered ? "#ea6962" : (connectedModel.count > 0 ? "#a9b665" : root.sumiHi)
                         }
 
-                        Row {
-                            width: parent.width
-                            Text { text: "Address"; color: root.ink; opacity: 0.5; font.family: root.barFont; font.pixelSize: 11; width: 90 }
-                            Text { text: btSection.btObj.controllerMac || "—"; color: root.ink; font.family: root.barFont; font.pixelSize: 11 }
+                        IconText {
+                            text: btSection.btObj.powered ? "bluetooth" : "bluetooth_disabled"
+                            font.pixelSize: 13
+                            color: root.ink
+                            anchors.verticalCenter: parent.verticalCenter
                         }
-
-                        Row {
-                            width: parent.width
-                            Text { text: "Discoverable"; color: root.ink; opacity: 0.5; font.family: root.barFont; font.pixelSize: 11; width: 90 }
-                            Text { text: btSection.btObj.discoverable ? "Yes" : "No"; color: root.ink; font.family: root.barFont; font.pixelSize: 11 }
-                        }
-
-                        Row {
-                            width: parent.width
-                            Text { text: "Connected"; color: root.ink; opacity: 0.5; font.family: root.barFont; font.pixelSize: 11; width: 90 }
-                            Text { text: connectedModel.count + " device" + (connectedModel.count === 1 ? "" : "s"); color: root.seal; font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Bold }
-                        }
-                    }
-
-                    // Divider
-                    Rectangle {
-                        width: parent.width
-                        height: 1
-                        color: Qt.rgba(1, 1, 1, 0.08)
-                    }
-
-                    // SUBHEADER: Connected Devices
-                    Text {
-                        text: "CURRENTLY CONNECTED"
-                        color: root.ink
-                        opacity: 0.5
-                        font.family: root.barFont
-                        font.pixelSize: 10
-                        font.weight: Font.Bold
-                        font.letterSpacing: 0.6
-                    }
-
-                    // Connected Devices View
-                    Item {
-                        width: parent.width
-                        height: parent.height - 180
 
                         Text {
-                            anchors.centerIn: parent
-                            visible: connectedModel.count === 0
-                            text: btSection.btObj.powered ? "No devices connected" : "Bluetooth disabled"
-                            color: root.ink
-                            opacity: 0.4
+                            text: !btSection.btObj.powered ? "Bluetooth Off" : (connectedModel.count === 1 ? connectedModel.get(0).name : (connectedModel.count > 1 ? ("Connected (" + connectedModel.count + ")") : "Bluetooth On"))
                             font.family: root.barFont
-                            font.pixelSize: 12
+                            font.pixelSize: 11
+                            font.weight: Font.Bold
+                            color: root.ink
+                            anchors.verticalCenter: parent.verticalCenter
+                            elide: Text.ElideRight
+                            maximumLineCount: 1
+                        }
+                    }
+                }
+
+                // Top Right: Power Toggle & Close Button
+                Row {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 6
+
+                    // Power Toggle Pill
+                    Rectangle {
+                        width: 58; height: 26; radius: 13
+                        color: btSection.btObj.powered ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                        border.width: 1
+                        border.color: btSection.btObj.powered ? root.seal : "transparent"
+
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 4
+                            IconText {
+                                text: "power_settings_new"
+                                font.pixelSize: 12
+                                color: btSection.btObj.powered ? root.seal : root.ink
+                                opacity: btSection.btObj.powered ? 1.0 : 0.6
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                            Text {
+                                text: btSection.btObj.powered ? "ON" : "OFF"
+                                font.family: root.barFont
+                                font.pixelSize: 10
+                                font.weight: Font.Bold
+                                color: btSection.btObj.powered ? root.seal : root.ink
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
                         }
 
-                        ListView {
-                            id: connectedListView
+                        MouseArea {
                             anchors.fill: parent
-                            clip: true
-                            spacing: 8
-                            model: connectedModel
-                            boundsBehavior: Flickable.StopAtBounds
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: btSection.doTogglePower()
+                        }
+                    }
 
-                            delegate: Rectangle {
-                                width: connectedListView.width
-                                height: 64
-                                radius: 14
-                                color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.16)
-                                border.width: 1
-                                border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.4)
+                    // Close Button
+                    Rectangle {
+                        width: 26; height: 26; radius: 13
+                        color: closeLeftMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
 
-                                Row {
-                                    anchors.fill: parent
-                                    anchors.margins: 10
-                                    spacing: 12
+                        IconText {
+                            anchors.centerIn: parent
+                            text: "close"
+                            font.pixelSize: 14
+                            color: root.ink
+                        }
 
-                                    Rectangle {
-                                        width: 44
-                                        height: 44
-                                        radius: 12
-                                        color: root.seal
-                                        anchors.verticalCenter: parent.verticalCenter
-
-                                        IconText {
-                                            anchors.centerIn: parent
-                                            text: btSection.getDeviceIcon(model.icon)
-                                            color: root.paper
-                                            font.pixelSize: 22
-                                        }
-                                    }
-
-                                    Column {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: parent.width - 44 - 76 - 24
-                                        spacing: 2
-                                        clip: true
-
-                                        Text {
-                                            text: model.name
-                                            color: root.seal
-                                            font.family: root.barFont
-                                            font.pixelSize: 13
-                                            font.weight: Font.Bold
-                                            elide: Text.ElideRight
-                                            width: parent.width
-                                        }
-
-                                        Row {
-                                            width: parent.width
-                                            spacing: 6
-                                            clip: true
-
-                                            Row {
-                                                visible: model.battery >= 0
-                                                spacing: 2
-                                                IconText {
-                                                    text: "battery_charging_full"
-                                                    color: "#4ade80"
-                                                    font.pixelSize: 12
-                                                    anchors.verticalCenter: parent.verticalCenter
-                                                }
-                                                Text {
-                                                    text: model.battery + "%"
-                                                    color: "#4ade80"
-                                                    font.family: root.barFont
-                                                    font.pixelSize: 10
-                                                    font.weight: Font.DemiBold
-                                                    anchors.verticalCenter: parent.verticalCenter
-                                                }
-                                            }
-
-                                            Text {
-                                                text: model.mac
-                                                color: root.ink
-                                                opacity: 0.5
-                                                font.family: root.barFont
-                                                font.pixelSize: 10
-                                                elide: Text.ElideRight
-                                                width: model.battery >= 0 ? Math.max(20, parent.width - 45) : parent.width
-                                                anchors.verticalCenter: parent.verticalCenter
-                                            }
-                                        }
-                                    }
-
-                                    // Disconnect Button
-                                    Rectangle {
-                                        width: 72
-                                        height: 26
-                                        radius: 13
-                                        color: discMa.containsMouse ? Qt.rgba(0.9, 0.2, 0.2, 0.3) : Qt.rgba(1, 1, 1, 0.08)
-                                        border.width: 1
-                                        border.color: discMa.containsMouse ? "#ef4444" : Qt.rgba(1, 1, 1, 0.1)
-                                        anchors.verticalCenter: parent.verticalCenter
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: "Disconnect"
-                                            color: discMa.containsMouse ? "#fca5a5" : root.ink
-                                            font.family: root.barFont
-                                            font.pixelSize: 10
-                                            font.weight: Font.Bold
-                                        }
-
-                                        MouseArea {
-                                            id: discMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: btSection.doDisconnect(model.mac)
-                                        }
-                                    }
-                                }
-                            }
+                        MouseArea {
+                            id: closeLeftMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: btSection.closeRequested()
                         }
                     }
                 }
             }
 
-            // ---------------- CARD 2: PAIRED & AVAILABLE DEVICES (Full Width) ----------------
-            Rectangle {
-                id: card2
-                anchors.fill: parent
-                visible: btSection.activeView === "devices"
-                radius: 20
-                color: root.fillIdle
-                clip: true
+            // Left Column Body Content (Connected Device Info Only)
+            Item {
+                anchors.top: leftTopBar.bottom
+                anchors.topMargin: 8
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 10
 
-                Column {
+                Rectangle {
                     anchors.fill: parent
-                    anchors.margins: 14
-                    spacing: 10
+                    radius: 14
+                    color: Qt.rgba(1, 1, 1, 0.03)
+                    border.width: 1
+                    border.color: Qt.rgba(1, 1, 1, 0.05)
+                    clip: true
 
-                    // Tabs Header Row
-                    Item {
-                        width: parent.width
-                        height: 30
+                    // 1. Single Connected Device Spotlight (Centered, clean & minimal)
+                    Column {
+                        anchors.centerIn: parent
+                        visible: connectedModel.count === 1
+                        spacing: 12
+                        width: parent.width - 32
 
+                        // Device Icon Avatar
+                        Rectangle {
+                            width: 56; height: 56; radius: 28
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18)
+                            border.width: 1
+                            border.color: root.seal
+
+                            IconText {
+                                anchors.centerIn: parent
+                                text: connectedModel.count > 0 ? btSection.getDeviceIcon(connectedModel.get(0).icon) : "bluetooth"
+                                font.pixelSize: 26
+                                color: root.seal
+                            }
+                        }
+
+                        // Device Name & MAC Address
+                        Column {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: parent.width
+                            spacing: 3
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: connectedModel.count > 0 ? connectedModel.get(0).name : ""
+                                font.family: root.barFont
+                                font.pixelSize: 14
+                                font.weight: Font.Bold
+                                color: root.ink
+                                elide: Text.ElideRight
+                                maximumLineCount: 1
+                                horizontalAlignment: Text.AlignHCenter
+                                width: parent.width
+                            }
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: connectedModel.count > 0 ? connectedModel.get(0).mac : ""
+                                font.family: root.barFont
+                                font.pixelSize: 10
+                                color: root.ink
+                                opacity: 0.4
+                            }
+                        }
+
+                        // Badges Row: Connected Status + Battery (if reported)
                         Row {
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.horizontalCenter: parent.horizontalCenter
                             spacing: 8
 
                             Rectangle {
-                                width: 104
-                                height: 26
-                                radius: 13
-                                color: btSection.currentTab === "paired" ? root.fillActive : (tabPairedMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.04))
-                                border.width: btSection.currentTab === "paired" ? 1 : 0
-                                border.color: root.seal
+                                height: 22
+                                radius: 11
+                                color: Qt.rgba(0.66, 0.71, 0.40, 0.15)
+                                border.width: 1
+                                border.color: Qt.rgba(0.66, 0.71, 0.40, 0.3)
+                                width: singleConnBadgeRow.implicitWidth + 14
 
-                                Text {
+                                Row {
+                                    id: singleConnBadgeRow
                                     anchors.centerIn: parent
-                                    text: "Paired (" + pairedModel.count + ")"
-                                    color: btSection.currentTab === "paired" ? root.seal : root.ink
-                                    font.family: root.barFont
-                                    font.pixelSize: 11
-                                    font.weight: btSection.currentTab === "paired" ? Font.Bold : Font.Normal
-                                }
-
-                                MouseArea {
-                                    id: tabPairedMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: btSection.currentTab = "paired"
+                                    spacing: 5
+                                    Rectangle {
+                                        width: 6; height: 6; radius: 3
+                                        color: "#a9b665"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                    Text {
+                                        text: "Connected"
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.Bold
+                                        color: "#a9b665"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
                                 }
                             }
 
                             Rectangle {
-                                width: 90
-                                height: 26
-                                radius: 13
-                                color: btSection.currentTab === "all" ? root.fillActive : (tabAllMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.04))
-                                border.width: btSection.currentTab === "all" ? 1 : 0
-                                border.color: root.seal
+                                visible: connectedModel.count > 0 && connectedModel.get(0).battery >= 0
+                                height: 22
+                                radius: 11
+                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+                                width: singleBattBadgeRow.implicitWidth + 14
 
-                                Text {
+                                Row {
+                                    id: singleBattBadgeRow
                                     anchors.centerIn: parent
-                                    text: "All (" + allModel.count + ")"
-                                    color: btSection.currentTab === "all" ? root.seal : root.ink
-                                    font.family: root.barFont
-                                    font.pixelSize: 11
-                                    font.weight: btSection.currentTab === "all" ? Font.Bold : Font.Normal
-                                }
-
-                                MouseArea {
-                                    id: tabAllMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: btSection.currentTab = "all"
+                                    spacing: 4
+                                    IconText {
+                                        text: "battery_charging_full"
+                                        font.pixelSize: 11
+                                        color: "#a9b665"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                    Text {
+                                        text: (connectedModel.count > 0 && connectedModel.get(0).battery >= 0) ? (connectedModel.get(0).battery + "%") : ""
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.Bold
+                                        color: root.ink
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
                                 }
                             }
                         }
 
-                        Text {
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: btSection.working ? "Working…" : (btSection.actionError ? btSection.actionError : "")
-                            color: btSection.actionError ? "#f87171" : root.seal
-                            font.family: root.barFont
-                            font.pixelSize: 10
-                            elide: Text.ElideLeft
-                            width: 140
+                        // Disconnect Action Button
+                        Rectangle {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: 116
+                            height: 30
+                            radius: 15
+                            color: singleDiscMa.containsMouse ? Qt.rgba(0.92, 0.41, 0.38, 0.22) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                            border.width: 1
+                            border.color: singleDiscMa.containsMouse ? "#ea6962" : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.12)
+
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: 6
+                                IconText {
+                                    text: "link_off"
+                                    font.pixelSize: 13
+                                    color: singleDiscMa.containsMouse ? "#ea6962" : root.ink
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                                Text {
+                                    text: "Disconnect"
+                                    font.family: root.barFont
+                                    font.pixelSize: 11
+                                    font.weight: Font.Bold
+                                    color: singleDiscMa.containsMouse ? "#ea6962" : root.ink
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+
+                            MouseArea {
+                                id: singleDiscMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    if (connectedModel.count > 0) {
+                                        btSection.doDisconnect(connectedModel.get(0).mac)
+                                    }
+                                }
+                            }
                         }
                     }
 
-                    // Devices ListView
+                    // 2. Multiple Connected Devices List (if 2+ devices connected simultaneously)
                     ListView {
-                        id: btDeviceList
-                        width: parent.width
-                        height: parent.height - 40
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        visible: connectedModel.count > 1
                         clip: true
-                        spacing: 6
-                        boundsBehavior: Flickable.StopAtBounds
-                        model: btSection.currentTab === "paired" ? pairedModel : allModel
+                        spacing: 8
+                        model: connectedModel
 
                         delegate: Rectangle {
-                            width: btDeviceList.width
-                            height: 48
+                            width: ListView.view.width
+                            height: 60
                             radius: 12
-                            color: model.connected 
-                                ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18)
-                                : (devItemMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.03))
+                            color: Qt.rgba(1, 1, 1, 0.03)
                             border.width: 1
-                            border.color: model.connected 
-                                ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.4)
-                                : (devItemMa.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.04))
+                            border.color: Qt.rgba(1, 1, 1, 0.06)
 
                             Row {
                                 anchors.fill: parent
-                                anchors.leftMargin: 10
-                                anchors.rightMargin: 10
+                                anchors.margins: 8
                                 spacing: 10
 
-                                IconText {
+                                Rectangle {
+                                    width: 40; height: 40; radius: 20
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: btSection.getDeviceIcon(model.icon)
-                                    color: model.connected ? root.seal : root.ink
-                                    font.pixelSize: 18
+                                    color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18)
+                                    border.width: 1
+                                    border.color: root.seal
+
+                                    IconText {
+                                        anchors.centerIn: parent
+                                        text: btSection.getDeviceIcon(model.icon)
+                                        font.pixelSize: 18
+                                        color: root.seal
+                                    }
                                 }
 
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - 28 - rightBtns.width - 20
-                                    spacing: 1
+                                    width: parent.width - 40 - 80 - 20
+                                    spacing: 2
+                                    clip: true
 
                                     Text {
                                         text: model.name
-                                        color: model.connected ? root.seal : root.ink
                                         font.family: root.barFont
                                         font.pixelSize: 12
-                                        font.weight: model.connected ? Font.Bold : Font.DemiBold
+                                        font.weight: Font.Bold
+                                        color: root.ink
                                         elide: Text.ElideRight
                                         width: parent.width
                                     }
 
                                     Row {
                                         spacing: 6
-                                        Text {
-                                            visible: model.battery >= 0
-                                            text: "🔋 " + model.battery + "%"
-                                            color: "#4ade80"
-                                            font.family: root.barFont
-                                            font.pixelSize: 10
-                                            font.weight: Font.DemiBold
+                                        Rectangle {
+                                            width: 5; height: 5; radius: 3
+                                            color: "#a9b665"
+                                            anchors.verticalCenter: parent.verticalCenter
                                         }
                                         Text {
-                                            text: model.mac
-                                            color: root.ink
-                                            opacity: 0.5
+                                            text: model.battery >= 0 ? ("Connected • " + model.battery + "%") : "Connected"
                                             font.family: root.barFont
                                             font.pixelSize: 10
+                                            color: root.ink
+                                            opacity: 0.6
                                         }
                                     }
                                 }
 
-                                Row {
-                                    id: rightBtns
+                                Rectangle {
+                                    width: 76; height: 26; radius: 13
                                     anchors.verticalCenter: parent.verticalCenter
+                                    color: multiDiscMa.containsMouse ? Qt.rgba(0.92, 0.41, 0.38, 0.22) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                                    border.width: 1
+                                    border.color: multiDiscMa.containsMouse ? "#ea6962" : "transparent"
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "Disconnect"
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.Bold
+                                        color: multiDiscMa.containsMouse ? "#ea6962" : root.ink
+                                    }
+
+                                    MouseArea {
+                                        id: multiDiscMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: btSection.doDisconnect(model.mac)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. Disconnected / Empty State
+                    Column {
+                        anchors.centerIn: parent
+                        visible: connectedModel.count === 0
+                        spacing: 10
+                        width: parent.width - 40
+
+                        Rectangle {
+                            width: 52; height: 52; radius: 26
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.05)
+
+                            IconText {
+                                anchors.centerIn: parent
+                                text: btSection.btObj.powered ? "bluetooth_searching" : "bluetooth_disabled"
+                                font.pixelSize: 26
+                                color: root.ink
+                                opacity: 0.35
+                            }
+                        }
+
+                        Column {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: 4
+                            width: parent.width
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: btSection.btObj.powered ? "No Device Connected" : "Bluetooth is Off"
+                                font.family: root.barFont
+                                font.pixelSize: 13
+                                font.weight: Font.Bold
+                                color: root.ink
+                                opacity: 0.85
+                            }
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: btSection.btObj.powered ? "Select a device on the right to connect" : "Turn on Bluetooth to connect devices"
+                                font.family: root.barFont
+                                font.pixelSize: 11
+                                color: root.ink
+                                opacity: 0.45
+                                horizontalAlignment: Text.AlignHCenter
+                                wrapMode: Text.WordWrap
+                                width: parent.width
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ═════════════════════════════════════════════════════════════════════
+        // ── RIGHT COLUMN: DEVICE LIST & CONNECT ACTIONS ──────────────────────
+        // ═════════════════════════════════════════════════════════════════════
+        Rectangle {
+            id: rightColContainer
+            width: columnsRow.width - leftColContainer.width - columnsRow.spacing
+            height: columnsRow.height
+            radius: 20
+            color: root.fillIdle
+            border.width: 0
+            clip: true
+
+            // Top Bar
+            Item {
+                id: rightTopBar
+                anchors.top: parent.top
+                anchors.topMargin: 9
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                height: 28
+
+                // Top Left: Tab switch pill (Paired | All)
+                Row {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 6
+
+                    Rectangle {
+                        height: 26
+                        radius: 13
+                        width: pairedTabRow.implicitWidth + 18
+                        color: btSection.currentTab === "paired" ? root.fillActive : (tabPairedMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06))
+                        border.width: btSection.currentTab === "paired" ? 1 : 0
+                        border.color: root.seal
+
+                        Row {
+                            id: pairedTabRow
+                            anchors.centerIn: parent
+                            spacing: 4
+                            Text {
+                                text: "Paired (" + pairedModel.count + ")"
+                                font.family: root.barFont
+                                font.pixelSize: 11
+                                font.weight: btSection.currentTab === "paired" ? Font.Bold : Font.Normal
+                                color: btSection.currentTab === "paired" ? root.seal : root.ink
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        MouseArea {
+                            id: tabPairedMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: btSection.currentTab = "paired"
+                        }
+                    }
+
+                    Rectangle {
+                        height: 26
+                        radius: 13
+                        width: allTabRow.implicitWidth + 18
+                        color: btSection.currentTab === "all" ? root.fillActive : (tabAllMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06))
+                        border.width: btSection.currentTab === "all" ? 1 : 0
+                        border.color: root.seal
+
+                        Row {
+                            id: allTabRow
+                            anchors.centerIn: parent
+                            spacing: 4
+                            Text {
+                                text: "All (" + allModel.count + ")"
+                                font.family: root.barFont
+                                font.pixelSize: 11
+                                font.weight: btSection.currentTab === "all" ? Font.Bold : Font.Normal
+                                color: btSection.currentTab === "all" ? root.seal : root.ink
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        MouseArea {
+                            id: tabAllMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: btSection.currentTab = "all"
+                        }
+                    }
+                }
+
+                // Top Right: Status / Scan / Close
+                Row {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 6
+
+                    // Working status text if busy
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: btSection.working
+                        text: "Working…"
+                        font.family: root.barFont
+                        font.pixelSize: 10
+                        font.weight: Font.DemiBold
+                        color: root.seal
+                    }
+
+                    // Scan Button
+                    Rectangle {
+                        height: 26
+                        radius: 13
+                        width: scanBtnRow.implicitWidth + 16
+                        color: scanBtnMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+
+                        Row {
+                            id: scanBtnRow
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            IconText {
+                                text: "refresh"
+                                font.pixelSize: 13
+                                color: root.ink
+                                anchors.verticalCenter: parent.verticalCenter
+                                RotationAnimation on rotation {
+                                    running: btSection.scanning
+                                    loops: Animation.Infinite
+                                    from: 0; to: 360; duration: 1000
+                                }
+                            }
+
+                            Text {
+                                text: btSection.scanning ? "Scanning…" : "Scan"
+                                font.family: root.barFont
+                                font.pixelSize: 11
+                                font.weight: Font.Medium
+                                color: root.ink
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        MouseArea {
+                            id: scanBtnMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: btSection.doScan()
+                        }
+                    }
+
+                    // Close Button
+                    Rectangle {
+                        width: 26; height: 26; radius: 13
+                        color: closeRightMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+
+                        IconText {
+                            anchors.centerIn: parent
+                            text: "close"
+                            font.pixelSize: 14
+                            color: root.ink
+                        }
+
+                        MouseArea {
+                            id: closeRightMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: btSection.closeRequested()
+                        }
+                    }
+                }
+            }
+
+            // Error banner if any
+            Rectangle {
+                id: errorBanner
+                anchors.top: rightTopBar.bottom
+                anchors.topMargin: 4
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                height: visible ? 24 : 0
+                radius: 6
+                color: Qt.rgba(0.92, 0.41, 0.38, 0.2)
+                visible: btSection.actionError !== ""
+
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 4
+                    IconText {
+                        text: "error"
+                        font.pixelSize: 12
+                        color: "#ea6962"
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Text {
+                        text: btSection.actionError
+                        font.family: root.barFont
+                        font.pixelSize: 10
+                        color: "#ea6962"
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+            }
+
+            // Devices ListView
+            Item {
+                anchors.top: errorBanner.bottom
+                anchors.topMargin: 6
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 10
+                clip: true
+
+                // Empty state
+                Column {
+                    anchors.centerIn: parent
+                    visible: (btSection.currentTab === "paired" ? pairedModel.count : allModel.count) === 0
+                    spacing: 6
+
+                    IconText {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "bluetooth_searching"
+                        font.pixelSize: 32
+                        color: root.ink
+                        opacity: 0.3
+                    }
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: !btSection.btObj.powered 
+                            ? "Bluetooth is turned off" 
+                            : (btSection.currentTab === "paired" ? "No paired devices" : "No devices found")
+                        font.family: root.barFont
+                        font.pixelSize: 12
+                        font.weight: Font.Medium
+                        color: root.ink
+                        opacity: 0.5
+                    }
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        visible: btSection.btObj.powered
+                        text: "Click Scan above to discover nearby devices"
+                        font.family: root.barFont
+                        font.pixelSize: 10
+                        color: root.ink
+                        opacity: 0.35
+                    }
+                }
+
+                ListView {
+                    id: btDeviceList
+                    anchors.fill: parent
+                    clip: true
+                    spacing: 6
+                    boundsBehavior: Flickable.StopAtBounds
+                    model: btSection.currentTab === "paired" ? pairedModel : allModel
+
+                    delegate: Rectangle {
+                        id: devItemRect
+                        width: btDeviceList.width
+                        height: 48
+                        radius: 12
+                        color: model.connected 
+                            ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.16)
+                            : (devItemMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.03))
+                        border.width: 1
+                        border.color: model.connected 
+                            ? root.seal 
+                            : (devItemMa.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.3) : Qt.rgba(1, 1, 1, 0.04))
+
+                        Row {
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+                            spacing: 10
+
+                            // Device Icon box
+                            Rectangle {
+                                width: 32; height: 32; radius: 10
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: model.connected ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+
+                                IconText {
+                                    anchors.centerIn: parent
+                                    text: btSection.getDeviceIcon(model.icon)
+                                    color: model.connected ? root.paper : root.ink
+                                    font.pixelSize: 16
+                                }
+                            }
+
+                            // Device Details Column
+                            Column {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width - 32 - rightDevBtns.width - 24
+                                spacing: 1
+                                clip: true
+
+                                Text {
+                                    text: model.name || "Unknown Device"
+                                    color: model.connected ? root.seal : root.ink
+                                    font.family: root.barFont
+                                    font.pixelSize: 12
+                                    font.weight: model.connected ? Font.Bold : Font.DemiBold
+                                    elide: Text.ElideRight
+                                    width: parent.width
+                                }
+
+                                Row {
                                     spacing: 6
+                                    clip: true
+                                    width: parent.width
 
-                                    // Connected / Disconnect Button
-                                    Rectangle {
-                                        visible: model.connected === true
-                                        width: 76
-                                        height: 24
-                                        radius: 12
-                                        color: devDiscMa.containsMouse ? Qt.rgba(0.9, 0.2, 0.2, 0.25) : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.35)
-                                        border.width: devDiscMa.containsMouse ? 1 : 0
-                                        border.color: "#ef4444"
-
+                                    Row {
+                                        visible: model.battery >= 0
+                                        spacing: 2
+                                        IconText {
+                                            text: "battery_charging_full"
+                                            color: "#a9b665"
+                                            font.pixelSize: 11
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
                                         Text {
-                                            anchors.centerIn: parent
-                                            text: devDiscMa.containsMouse ? "Disconnect" : "Connected"
-                                            color: devDiscMa.containsMouse ? "#fca5a5" : root.seal
+                                            text: model.battery + "%"
+                                            color: "#a9b665"
                                             font.family: root.barFont
                                             font.pixelSize: 10
                                             font.weight: Font.Bold
-                                        }
-
-                                        MouseArea {
-                                            id: devDiscMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: btSection.doDisconnect(model.mac)
+                                            anchors.verticalCenter: parent.verticalCenter
                                         }
                                     }
 
-                                    // Connect Button
-                                    Rectangle {
-                                        visible: !model.connected && model.paired
-                                        width: 58
-                                        height: 24
-                                        radius: 12
-                                        color: connBtnMa.containsMouse ? root.seal : Qt.rgba(1, 1, 1, 0.08)
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: "Connect"
-                                            color: connBtnMa.containsMouse ? root.paper : root.ink
-                                            font.family: root.barFont
-                                            font.pixelSize: 10
-                                            font.weight: Font.DemiBold
-                                        }
-
-                                        MouseArea {
-                                            id: connBtnMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: btSection.doConnect(model.mac)
-                                        }
-                                    }
-
-                                    // Pair Button
-                                    Rectangle {
-                                        visible: !model.paired
-                                        width: 50
-                                        height: 24
-                                        radius: 12
-                                        color: pairBtnMa.containsMouse ? root.seal : Qt.rgba(1, 1, 1, 0.08)
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: "Pair"
-                                            color: pairBtnMa.containsMouse ? root.paper : root.ink
-                                            font.family: root.barFont
-                                            font.pixelSize: 10
-                                            font.weight: Font.DemiBold
-                                        }
-
-                                        MouseArea {
-                                            id: pairBtnMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: btSection.doPair(model.mac)
-                                        }
-                                    }
-
-                                    // Remove / Forget
-                                    Rectangle {
-                                        visible: model.paired === true
-                                        width: 24
-                                        height: 24
-                                        radius: 12
-                                        color: remMa.containsMouse ? Qt.rgba(0.9, 0.2, 0.2, 0.25) : Qt.rgba(1, 1, 1, 0.06)
-
-                                        IconText {
-                                            anchors.centerIn: parent
-                                            text: "delete"
-                                            color: remMa.containsMouse ? "#fca5a5" : root.ink
-                                            opacity: remMa.containsMouse ? 1 : 0.6
-                                            font.pixelSize: 13
-                                        }
-
-                                        MouseArea {
-                                            id: remMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: btSection.doRemove(model.mac)
-                                        }
+                                    Text {
+                                        text: model.mac
+                                        color: root.ink
+                                        opacity: 0.4
+                                        font.family: root.barFont
+                                        font.pixelSize: 9
+                                        elide: Text.ElideRight
+                                        width: model.battery >= 0 ? Math.max(30, parent.width - 50) : parent.width
+                                        anchors.verticalCenter: parent.verticalCenter
                                     }
                                 }
                             }
 
-                            MouseArea {
-                                id: devItemMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                z: -1
-                                onClicked: {
-                                    if (model.connected) btSection.doDisconnect(model.mac)
-                                    else if (model.paired) btSection.doConnect(model.mac)
-                                    else btSection.doPair(model.mac)
+                            // Right Action Buttons
+                            Row {
+                                id: rightDevBtns
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 6
+
+                                // Connected State / Disconnect Button
+                                Rectangle {
+                                    visible: model.connected === true
+                                    width: 76
+                                    height: 24
+                                    radius: 12
+                                    color: devDiscMa.containsMouse ? Qt.rgba(0.92, 0.41, 0.38, 0.25) : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.35)
+                                    border.width: devDiscMa.containsMouse ? 1 : 0
+                                    border.color: "#ea6962"
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: devDiscMa.containsMouse ? "Disconnect" : "Connected"
+                                        color: devDiscMa.containsMouse ? "#ea6962" : root.seal
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.Bold
+                                    }
+
+                                    MouseArea {
+                                        id: devDiscMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: btSection.doDisconnect(model.mac)
+                                    }
                                 }
+
+                                // Connect Button (paired but not connected)
+                                Rectangle {
+                                    visible: !model.connected && model.paired
+                                    width: 60
+                                    height: 24
+                                    radius: 12
+                                    color: connBtnMa.containsMouse ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "Connect"
+                                        color: connBtnMa.containsMouse ? root.paper : root.ink
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.Bold
+                                    }
+
+                                    MouseArea {
+                                        id: connBtnMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: btSection.doConnect(model.mac)
+                                    }
+                                }
+
+                                // Pair Button (unpaired)
+                                Rectangle {
+                                    visible: !model.paired
+                                    width: 52
+                                    height: 24
+                                    radius: 12
+                                    color: pairBtnMa.containsMouse ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "Pair"
+                                        color: pairBtnMa.containsMouse ? root.paper : root.ink
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.Bold
+                                    }
+
+                                    MouseArea {
+                                        id: pairBtnMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: btSection.doPair(model.mac)
+                                    }
+                                }
+
+                                // Forget / Delete Button (for paired devices)
+                                Rectangle {
+                                    visible: model.paired === true
+                                    width: 24
+                                    height: 24
+                                    radius: 12
+                                    color: remMa.containsMouse ? Qt.rgba(0.92, 0.41, 0.38, 0.25) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+
+                                    IconText {
+                                        anchors.centerIn: parent
+                                        text: "delete"
+                                        color: remMa.containsMouse ? "#ea6962" : root.ink
+                                        opacity: remMa.containsMouse ? 1 : 0.6
+                                        font.pixelSize: 12
+                                    }
+
+                                    MouseArea {
+                                        id: remMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: btSection.doRemove(model.mac)
+                                    }
+                                }
+                            }
+                        }
+
+                        MouseArea {
+                            id: devItemMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            z: -1
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (model.connected) btSection.doDisconnect(model.mac)
+                                else if (model.paired) btSection.doConnect(model.mac)
+                                else btSection.doPair(model.mac)
                             }
                         }
                     }

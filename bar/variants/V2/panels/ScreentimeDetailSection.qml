@@ -31,8 +31,6 @@ Item {
     })
 
     property int selectedWeekIndex: 0
-    property int currentTab: 0 // 0: Week (Image 2 style), 1: All History, 2: Apps
-    property int previousTab: 0
 
     readonly property var currentWeekData: {
         if (stObj && stObj.weeks && stObj.weeks.length > selectedWeekIndex && selectedWeekIndex >= 0) {
@@ -48,7 +46,6 @@ Item {
     ListModel { id: appModel }
     ListModel { id: weekDaysModel }
     ListModel { id: weekListModel }
-    ListModel { id: historyModel }
 
     function getAppIcon(appName) {
         if (!appName) return "apps"
@@ -86,31 +83,23 @@ Item {
         return null
     }
 
-    function selectDay(dayData, switchTab) {
+    function selectDay(dayData) {
         if (!dayData) return
         var k = dayData.dateKey || ""
         if (k) {
-            selectDayByKey(k, switchTab)
+            selectDayByKey(k)
         } else {
             stSection.selectedDay = dayData
             loadAppsForDay(dayData)
-            if (switchTab) {
-                if (stSection.currentTab !== 2) stSection.previousTab = stSection.currentTab
-                stSection.currentTab = 2
-            }
         }
     }
 
-    function selectDayByKey(dateKey, switchTab) {
+    function selectDayByKey(dateKey) {
         if (!dateKey) return
         var dayObj = findDayData(dateKey)
         if (!dayObj) return
         stSection.selectedDay = dayObj
         loadAppsForDay(dayObj)
-        if (switchTab) {
-            if (stSection.currentTab !== 2) stSection.previousTab = stSection.currentTab
-            stSection.currentTab = 2
-        }
     }
 
     function loadAppsForDay(dayData) {
@@ -173,33 +162,8 @@ Item {
         }
     }
 
-    function updateHistoryData() {
-        historyModel.clear()
-        if (!stObj || !stObj.allHistory) return
-        var hist = stObj.allHistory
-        for (var i = 0; i < hist.length; i++) {
-            historyModel.append(hist[i])
-        }
-    }
-
     onCurrentWeekDataChanged: {
         updateWeekData()
-    }
-
-    function nextSubOption() {
-        if (currentTab < 2) {
-            currentTab++
-            return true
-        }
-        return false
-    }
-
-    function prevSubOption() {
-        if (currentTab > 0) {
-            currentTab--
-            return true
-        }
-        return false
     }
 
     Process {
@@ -212,7 +176,6 @@ Item {
                     stSection.stObj = d
 
                     stSection.updateWeekData()
-                    stSection.updateHistoryData()
 
                     // Default selected day to today if not set
                     if (!stSection.selectedDay && d.allHistory && d.allHistory.length > 0) {
@@ -223,9 +186,7 @@ Item {
                         var fresh = stSection.findDayData(currentKey)
                         if (fresh) {
                             stSection.selectedDay = fresh
-                            if (stSection.currentTab === 2) {
-                                stSection.loadAppsForDay(fresh)
-                            }
+                            stSection.loadAppsForDay(fresh)
                         }
                     }
                 } catch(e) {}
@@ -248,162 +209,235 @@ Item {
         if (visible && !stStatusProc.running) stStatusProc.running = true
     }
 
-    // ================= MAIN CONTENT VIEWS =================
-    Item {
-        id: viewStackContainer
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: bottomTabRow.top
-        anchors.bottomMargin: 8
-        clip: true
+    // ═════════════════════════════════════════════════════════════════════════
+    // ── TWO-COLUMN DASHBOARD LAYOUT (Seamless, matches Calendar widget) ──────
+    // ═════════════════════════════════════════════════════════════════════════
+    Row {
+        id: columnsRow
+        anchors.fill: parent
+        spacing: 12
 
-        // ---------------- TAB 0: WEEK VIEW (Image 2 style) ----------------
-        Item {
-            id: weekViewPage
-            anchors.fill: parent
-            visible: stSection.currentTab === 0
+        // ═════════════════════════════════════════════════════════════════════
+        // ── LEFT COLUMN: WEEKLY CHART & DAY SELECTOR ─────────────────────────
+        // ═════════════════════════════════════════════════════════════════════
+        Rectangle {
+            id: leftColContainer
+            width: Math.round((columnsRow.width - columnsRow.spacing) / 2)
+            height: columnsRow.height
+            radius: 20
+            color: root.fillIdle
+            border.width: 0
+            clip: true
 
+            // Top Bar
+            Item {
+                id: leftTopBar
+                anchors.top: parent.top
+                anchors.topMargin: 9
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                height: 28
+
+                // Week Navigator (< Week Label >)
+                Row {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 4
+
+                    // Previous Week (<)
+                    Rectangle {
+                        width: 24; height: 24; radius: 12
+                        color: prevWkMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+                        opacity: stSection.selectedWeekIndex < stSection.totalWeeks - 1 ? 1.0 : 0.25
+
+                        IconText {
+                            anchors.centerIn: parent
+                            text: "chevron_left"
+                            font.pixelSize: 14
+                            color: root.ink
+                        }
+
+                        MouseArea {
+                            id: prevWkMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: stSection.selectedWeekIndex < stSection.totalWeeks - 1 ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            onClicked: {
+                                if (stSection.selectedWeekIndex < stSection.totalWeeks - 1) {
+                                    stSection.selectedWeekIndex++
+                                }
+                            }
+                        }
+                    }
+
+                    // Week Label Badge
+                    Rectangle {
+                        height: 24
+                        radius: 12
+                        width: weekLabelText.implicitWidth + 16
+                        color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+
+                        Text {
+                            id: weekLabelText
+                            anchors.centerIn: parent
+                            text: currentWeekData ? currentWeekData.weekLabel : "This week"
+                            color: root.ink
+                            font.family: root.barFont
+                            font.pixelSize: 11
+                            font.weight: Font.Bold
+                        }
+                    }
+
+                    // Next Week (>)
+                    Rectangle {
+                        width: 24; height: 24; radius: 12
+                        color: nextWkMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+                        opacity: stSection.selectedWeekIndex > 0 ? 1.0 : 0.25
+
+                        IconText {
+                            anchors.centerIn: parent
+                            text: "chevron_right"
+                            font.pixelSize: 14
+                            color: root.ink
+                        }
+
+                        MouseArea {
+                            id: nextWkMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: stSection.selectedWeekIndex > 0 ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            onClicked: {
+                                if (stSection.selectedWeekIndex > 0) {
+                                    stSection.selectedWeekIndex--
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Top Right: Jump to Today (if navigated back) & Close Button
+                Row {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 6
+
+                    // "This Week" reset button
+                    Rectangle {
+                        visible: stSection.selectedWeekIndex > 0
+                        height: 24
+                        radius: 12
+                        width: resetWkText.implicitWidth + 14
+                        color: resetWkMa.containsMouse ? root.fillHover : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15)
+                        border.width: 1
+                        border.color: root.seal
+
+                        Text {
+                            id: resetWkText
+                            anchors.centerIn: parent
+                            text: "Current"
+                            font.family: root.barFont
+                            font.pixelSize: 10
+                            font.weight: Font.Bold
+                            color: root.seal
+                        }
+
+                        MouseArea {
+                            id: resetWkMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: stSection.selectedWeekIndex = 0
+                        }
+                    }
+
+                    // Close Button
+                    Rectangle {
+                        width: 26; height: 26; radius: 13
+                        color: closeLeftMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+
+                        IconText {
+                            anchors.centerIn: parent
+                            text: "close"
+                            font.pixelSize: 14
+                            color: root.ink
+                        }
+
+                        MouseArea {
+                            id: closeLeftMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: stSection.closeRequested()
+                        }
+                    }
+                }
+            }
+
+            // Left Column Body Content
             Column {
-                anchors.fill: parent
-                spacing: 12
+                anchors.top: leftTopBar.bottom
+                anchors.topMargin: 8
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 8
+                spacing: 8
 
-                // Top Period Header & Navigation (< >)
+                // 1. Overview Stat Row (Daily Avg + Total)
                 Item {
                     width: parent.width
-                    height: 28
+                    height: 38
 
-                    Text {
+                    Column {
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
-                        text: currentWeekData ? currentWeekData.weekLabel : "This week"
-                        color: root.ink
-                        font.family: root.barFont
-                        font.pixelSize: 16
-                        font.weight: Font.DemiBold
-                    }
+                        spacing: 1
 
-                    // < > Navigation Controls
-                    Row {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 6
-
-                        // Previous Week (<)
-                        Rectangle {
-                            width: 26
-                            height: 26
-                            radius: 13
-                            color: prevWkMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.04)
-                            border.width: 1
-                            border.color: Qt.rgba(1, 1, 1, 0.06)
-                            opacity: stSection.selectedWeekIndex < stSection.totalWeeks - 1 ? 1.0 : 0.25
-
-                            IconText {
-                                anchors.centerIn: parent
-                                text: "chevron_left"
+                        Row {
+                            spacing: 6
+                            Text {
+                                text: currentWeekData ? currentWeekData.avgPerDayFormatted : (stSection.stObj.today_formatted || "0m")
                                 color: root.ink
-                                font.pixelSize: 15
+                                font.family: root.barFont
+                                font.pixelSize: 20
+                                font.weight: Font.Bold
+                                anchors.verticalCenter: parent.verticalCenter
                             }
-
-                            MouseArea {
-                                id: prevWkMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: stSection.selectedWeekIndex < stSection.totalWeeks - 1 ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                onClicked: {
-                                    if (stSection.selectedWeekIndex < stSection.totalWeeks - 1) {
-                                        stSection.selectedWeekIndex++
-                                    }
-                                }
+                            Text {
+                                text: "per day avg"
+                                color: root.ink
+                                opacity: 0.55
+                                font.family: root.barFont
+                                font.pixelSize: 10
+                                anchors.verticalCenter: parent.verticalCenter
                             }
                         }
 
-                        // Next Week (>)
-                        Rectangle {
-                            width: 26
-                            height: 26
-                            radius: 13
-                            color: nextWkMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.04)
-                            border.width: 1
-                            border.color: Qt.rgba(1, 1, 1, 0.06)
-                            opacity: stSection.selectedWeekIndex > 0 ? 1.0 : 0.25
-
-                            IconText {
-                                anchors.centerIn: parent
-                                text: "chevron_right"
-                                color: root.ink
-                                font.pixelSize: 15
-                            }
-
-                            MouseArea {
-                                id: nextWkMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: stSection.selectedWeekIndex > 0 ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                onClicked: {
-                                    if (stSection.selectedWeekIndex > 0) {
-                                        stSection.selectedWeekIndex--
-                                    }
-                                }
-                            }
+                        Text {
+                            text: currentWeekData ? (currentWeekData.totalFormatted + " total this week") : ""
+                            color: root.seal
+                            font.family: root.barFont
+                            font.pixelSize: 10
+                            font.weight: Font.Medium
                         }
                     }
                 }
 
-                // Big Average Display (Image 2: "5,586 steps per day (avg)")
-                Column {
-                    id: bigStatCol
-                    width: parent.width
-                    spacing: 2
-
-                    Row {
-                        spacing: 6
-
-                        Text {
-                            id: bigStatText
-                            text: currentWeekData ? currentWeekData.avgPerDayFormatted : (stSection.stObj.today_formatted || "0m")
-                            color: root.ink
-                            font.family: root.barFont
-                            font.pixelSize: 28
-                            font.weight: Font.Bold
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Text {
-                            text: "per day (avg)"
-                            color: root.ink
-                            opacity: 0.6
-                            font.family: root.barFont
-                            font.pixelSize: 12
-                            font.weight: Font.Normal
-                            anchors.bottom: bigStatText.bottom
-                            anchors.bottomMargin: 4
-                        }
-                    }
-
-                    Text {
-                        text: currentWeekData ? currentWeekData.goalSummary : ""
-                        color: root.ink
-                        opacity: 0.5
-                        font.family: root.barFont
-                        font.pixelSize: 11
-                        width: parent.width
-                        elide: Text.ElideRight
-                    }
-                }
-
-                // Bar Chart (Image 2: Capsule Bars with Emerald Peak & Circular Badge)
+                // 2. Weekly Capsule Bar Chart
                 Item {
                     id: chartContainer
                     width: parent.width
-                    height: 126
+                    height: 110
 
                     Row {
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
-                        spacing: 10
+                        spacing: 8
 
                         Repeater {
                             model: weekDaysModel
@@ -419,58 +453,54 @@ Item {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        stSection.selectDay(model, false)
-                                    }
-                                    onDoubleClicked: {
-                                        stSection.selectDay(model, true)
-                                    }
+                                    onClicked: stSection.selectDay(model)
                                 }
 
                                 Column {
                                     anchors.fill: parent
-                                    spacing: 4
+                                    spacing: 3
 
-                                    // Capsule Pill Bar Area
+                                    // Capsule Bar Area
                                     Item {
                                         id: barTrackArea
                                         width: parent.width
                                         height: parent.height - 24
 
-                                        // Capsule Pill Bar
+                                        // Capsule Bar
                                         Rectangle {
                                             anchors.bottom: parent.bottom
                                             anchors.horizontalCenter: parent.horizontalCenter
-                                            width: dayBarCol.isSelected ? 34 : 32
-                                            height: Math.max(12, Math.round((barTrackArea.height - 4) * (model.ratio || 0.05)))
-                                            radius: width / 2 // fully rounded capsule / pill
+                                            width: dayBarCol.isSelected ? 32 : 28
+                                            height: Math.max(10, Math.round((barTrackArea.height - 4) * (model.ratio || 0.05)))
+                                            radius: width / 2
 
                                             color: {
                                                 if (!model.hasData) return Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                                                if (dayBarCol.isSelected) return root.seal
                                                 if (model.isPeak || model.isHighlight) return (root.color02 ? root.color02 : root.seal)
-                                                return root.seal
+                                                return Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.65)
                                             }
 
-                                            Behavior on height { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+                                            Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
                                             Behavior on color { ColorAnimation { duration: 150 } }
-                                            Behavior on width { NumberAnimation { duration: 120 } }
+                                            Behavior on width { NumberAnimation { duration: 100 } }
 
-                                            // Circular Emblem Badge on top of peak bar (as in Image 2)
+                                            // Peak Emblem Badge
                                             Rectangle {
                                                 visible: (model.isPeak || model.isHighlight) && model.hasData && parent.height >= 26
                                                 anchors.top: parent.top
                                                 anchors.topMargin: 3
                                                 anchors.horizontalCenter: parent.horizontalCenter
-                                                width: 18
-                                                height: 18
-                                                radius: 9
+                                                width: 16
+                                                height: 16
+                                                radius: 8
                                                 color: root.paper
 
                                                 IconText {
                                                     anchors.centerIn: parent
                                                     text: "verified"
                                                     color: (root.color02 ? root.color02 : root.seal)
-                                                    font.pixelSize: 11
+                                                    font.pixelSize: 10
                                                 }
                                             }
 
@@ -487,15 +517,15 @@ Item {
                                         }
                                     }
 
-                                    // Day of Week Letter (M, T, W, T, F, S, S)
+                                    // Day Letter (M, T, W, T, F, S, S)
                                     Text {
                                         anchors.horizontalCenter: parent.horizontalCenter
                                         text: model.dayLetter || "D"
-                                        color: (model.isPeak || model.isHighlight) ? (root.color02 ? root.color02 : root.seal) : (model.isToday ? root.seal : root.ink)
+                                        color: dayBarCol.isSelected ? root.seal : ((model.isToday) ? root.seal : root.ink)
                                         opacity: model.hasData ? 1.0 : 0.35
                                         font.family: root.barFont
                                         font.pixelSize: 10
-                                        font.weight: (model.isToday || model.isPeak) ? Font.Bold : Font.Normal
+                                        font.weight: (model.isToday || dayBarCol.isSelected) ? Font.Bold : Font.Normal
                                     }
 
                                     // Indicator Dot below letter
@@ -504,9 +534,9 @@ Item {
                                         width: 4
                                         height: 4
                                         radius: 2
-                                        color: model.hasData
-                                            ? ((model.isPeak || model.isHighlight) ? (root.color02 ? root.color02 : root.seal) : root.seal)
-                                            : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.15)
+                                        color: dayBarCol.isSelected 
+                                            ? root.seal 
+                                            : (model.hasData ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.15))
                                     }
                                 }
                             }
@@ -518,28 +548,33 @@ Item {
                 Rectangle {
                     width: parent.width
                     height: 1
-                    color: Qt.rgba(1, 1, 1, 0.06)
+                    color: Qt.rgba(1, 1, 1, 0.05)
                 }
 
-                // Day-by-Day Breakdown List (Image 2: Today, Yesterday, Days)
+                // 3. Week Days Quick Breakdown List
                 ListView {
                     id: weekDaysListView
                     width: parent.width
-                    height: parent.height - 28 - bigStatCol.height - chartContainer.height - 1 - (12 * 4)
+                    height: parent.height - 38 - chartContainer.height - 1 - 24
                     clip: true
-                    spacing: 6
+                    spacing: 4
                     model: weekListModel
                     boundsBehavior: Flickable.StopAtBounds
 
                     delegate: Rectangle {
                         id: dayRowRect
                         width: weekDaysListView.width
-                        height: 38
+                        height: 34
                         radius: 10
-                        color: dayRowMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.03)
+
+                        readonly property bool isCurrentDaySelected: stSection.selectedDay && stSection.selectedDay.dateKey === model.dateKey
+
+                        color: isCurrentDaySelected 
+                            ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18) 
+                            : (dayRowMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.03))
                         border.width: 1
-                        border.color: (stSection.selectedDay && stSection.selectedDay.dateKey === model.dateKey)
-                            ? root.seal
+                        border.color: isCurrentDaySelected 
+                            ? root.seal 
                             : (dayRowMa.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25) : Qt.rgba(1, 1, 1, 0.04))
 
                         MouseArea {
@@ -547,66 +582,81 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                stSection.selectDay(model, true)
-                            }
+                            onClicked: stSection.selectDay(model)
                         }
 
-                        Item {
+                        Row {
                             anchors.fill: parent
-                            anchors.leftMargin: 12
-                            anchors.rightMargin: 12
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            spacing: 8
 
-                            // Day label (e.g. Today, Yesterday, Wed, Oct 14)
-                            Text {
-                                anchors.left: parent.left
+                            // Day badge pill
+                            Rectangle {
+                                width: 34; height: 20; radius: 6
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: model.dateFormatted || model.dateShort
-                                color: root.ink
-                                font.family: root.barFont
-                                font.pixelSize: 12
-                                font.weight: model.isToday ? Font.Bold : Font.DemiBold
+                                color: isCurrentDaySelected ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: model.dayLabel || "Day"
+                                    font.family: root.barFont
+                                    font.pixelSize: 10
+                                    font.weight: Font.Bold
+                                    color: isCurrentDaySelected ? root.paper : root.ink
+                                }
                             }
 
-                            // Right Side: Green Star Emblem + Screentime Value + Chevron
-                            Row {
-                                anchors.right: parent.right
+                            // Day title & top app
+                            Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                spacing: 8
+                                width: parent.width - 34 - rightTimeCol.width - 24
+                                spacing: 1
+                                clip: true
 
-                                // Star Badge (for peak day, matching Image 2)
-                                Rectangle {
-                                    visible: model.isPeak || model.isHighlight
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: 18
-                                    height: 18
-                                    radius: 9
-                                    color: Qt.rgba(root.color02.r, root.color02.g, root.color02.b, 0.18)
-
-                                    IconText {
-                                        anchors.centerIn: parent
-                                        text: "star"
-                                        color: (root.color02 ? root.color02 : root.seal)
-                                        font.pixelSize: 12
-                                    }
+                                Text {
+                                    text: model.dateFormatted || model.dateKey || ""
+                                    color: isCurrentDaySelected ? root.seal : root.ink
+                                    font.family: root.barFont
+                                    font.pixelSize: 11
+                                    font.weight: isCurrentDaySelected ? Font.Bold : Font.DemiBold
+                                    elide: Text.ElideRight
+                                    width: parent.width
                                 }
 
-                                // Formatted Duration
                                 Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: model.formatted || "0m"
-                                    color: (model.isPeak || model.isHighlight) ? (root.color02 ? root.color02 : root.seal) : root.ink
+                                    visible: model.topAppName !== undefined && model.topAppName !== ""
+                                    text: "Top: " + (model.topAppName || "")
+                                    color: root.ink
+                                    opacity: 0.45
                                     font.family: root.barFont
-                                    font.pixelSize: 13
+                                    font.pixelSize: 9
+                                    elide: Text.ElideRight
+                                    width: parent.width
+                                }
+                            }
+
+                            // Total Time Right
+                            Row {
+                                id: rightTimeCol
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 4
+
+                                Text {
+                                    text: model.formatted || "0m"
+                                    color: isCurrentDaySelected ? root.seal : root.ink
+                                    font.family: root.barFont
+                                    font.pixelSize: 11
                                     font.weight: Font.Bold
+                                    anchors.verticalCenter: parent.verticalCenter
                                 }
 
                                 IconText {
-                                    anchors.verticalCenter: parent.verticalCenter
                                     text: "chevron_right"
-                                    color: root.ink
-                                    opacity: 0.35
-                                    font.pixelSize: 14
+                                    font.pixelSize: 12
+                                    color: isCurrentDaySelected ? root.seal : root.ink
+                                    opacity: 0.4
+                                    anchors.verticalCenter: parent.verticalCenter
                                 }
                             }
                         }
@@ -615,316 +665,213 @@ Item {
             }
         }
 
-        // ---------------- TAB 1: ALL HISTORY VIEW ----------------
-        Item {
-            id: historyViewPage
-            anchors.fill: parent
-            visible: stSection.currentTab === 1
+        // ═════════════════════════════════════════════════════════════════════
+        // ── RIGHT COLUMN: SELECTED DAY APPS USAGE BREAKDOWN ──────────────────
+        // ═════════════════════════════════════════════════════════════════════
+        Rectangle {
+            id: rightColContainer
+            width: columnsRow.width - leftColContainer.width - columnsRow.spacing
+            height: columnsRow.height
+            radius: 20
+            color: root.fillIdle
+            border.width: 0
+            clip: true
 
-            Column {
-                anchors.fill: parent
-                spacing: 8
+            // Top Bar
+            Item {
+                id: rightTopBar
+                anchors.top: parent.top
+                anchors.topMargin: 9
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                height: 28
 
-                // Header Row
-                Item {
-                    width: parent.width
-                    height: 24
+                // Top Left: Selected Day title & Day Total pill
+                Row {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 8
 
-                    Text {
-                        anchors.left: parent.left
+                    IconText {
+                        text: "schedule"
+                        font.pixelSize: 14
+                        color: root.seal
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "ALL RECORDED HISTORY (" + historyModel.count + " days)"
-                        color: root.ink
-                        opacity: 0.6
-                        font.family: root.barFont
-                        font.pixelSize: 11
-                        font.weight: Font.Bold
-                        font.letterSpacing: 0.6
                     }
 
                     Text {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Tap to inspect apps"
-                        color: root.ink
-                        opacity: 0.4
+                        text: (stSection.selectedDay ? (stSection.selectedDay.dateFormatted || "Today") : "Today")
                         font.family: root.barFont
-                        font.pixelSize: 10
+                        font.pixelSize: 12
+                        font.weight: Font.Bold
+                        color: root.ink
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+
+                    // Total day time pill
+                    Rectangle {
+                        height: 22
+                        radius: 11
+                        width: dayTotalText.implicitWidth + 14
+                        color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.2)
+                        border.width: 1
+                        border.color: root.seal
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Text {
+                            id: dayTotalText
+                            anchors.centerIn: parent
+                            text: stSection.selectedDay ? (stSection.selectedDay.formatted || "0m") : "0m"
+                            font.family: root.barFont
+                            font.pixelSize: 10
+                            font.weight: Font.Bold
+                            color: root.seal
+                        }
                     }
                 }
 
-                // Full History Scrollable List
-                ListView {
-                    id: histListView
-                    width: parent.width
-                    height: parent.height - 32
-                    clip: true
+                // Top Right: Apps count badge & Close Button
+                Row {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
                     spacing: 6
-                    model: historyModel
-                    boundsBehavior: Flickable.StopAtBounds
 
-                    delegate: Rectangle {
-                        id: histItemRect
-                        width: histListView.width
-                        height: 52
+                    Rectangle {
+                        height: 24
                         radius: 12
-                        color: histItemMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.03)
-                        border.width: 1
-                        border.color: (stSection.selectedDay && stSection.selectedDay.dateKey === model.dateKey)
-                            ? root.seal
-                            : (histItemMa.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25) : Qt.rgba(1, 1, 1, 0.04))
+                        width: appCountText.implicitWidth + 14
+                        color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+
+                        Text {
+                            id: appCountText
+                            anchors.centerIn: parent
+                            text: appModel.count + " apps"
+                            font.family: root.barFont
+                            font.pixelSize: 10
+                            color: root.ink
+                            opacity: 0.6
+                        }
+                    }
+
+                    // Close Button
+                    Rectangle {
+                        width: 26; height: 26; radius: 13
+                        color: closeRightMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+
+                        IconText {
+                            anchors.centerIn: parent
+                            text: "close"
+                            font.pixelSize: 14
+                            color: root.ink
+                        }
 
                         MouseArea {
-                            id: histItemMa
+                            id: closeRightMa
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                stSection.selectDay(model, true)
-                            }
-                        }
-
-                        Column {
-                            anchors.fill: parent
-                            anchors.margins: 9
-                            spacing: 4
-
-                            // Top row: Date + Duration
-                            Item {
-                                width: parent.width
-                                height: 16
-
-                                Text {
-                                    anchors.left: parent.left
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: model.dateFormatted || model.dateKey
-                                    color: root.ink
-                                    font.family: root.barFont
-                                    font.pixelSize: 12
-                                    font.weight: model.isToday ? Font.Bold : Font.DemiBold
-                                }
-
-                                Text {
-                                    anchors.right: parent.right
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: model.formatted || "0m"
-                                    color: root.seal
-                                    font.family: root.barFont
-                                    font.pixelSize: 13
-                                    font.weight: Font.Bold
-                                }
-                            }
-
-                            // Relative Progress Bar
-                            Rectangle {
-                                width: parent.width
-                                height: 3
-                                radius: 1.5
-                                color: Qt.rgba(1, 1, 1, 0.08)
-
-                                Rectangle {
-                                    width: Math.max(4, parent.width * Math.min(1.0, (model.ratio || 0.05)))
-                                    height: parent.height
-                                    radius: 1.5
-                                    color: model.isToday ? root.seal : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.70)
-                                }
-                            }
-
-                            // Bottom row: Top app + Arrow
-                            Item {
-                                width: parent.width
-                                height: 13
-
-                                Row {
-                                    anchors.left: parent.left
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 4
-
-                                    IconText {
-                                        text: stSection.getAppIcon(model.topAppName)
-                                        color: root.ink
-                                        opacity: 0.5
-                                        font.pixelSize: 11
-                                        anchors.verticalCenter: parent.verticalCenter
-                                    }
-
-                                    Text {
-                                        text: "Top: " + (model.topAppName || "None") + " (" + (model.topAppFormatted || "0m") + ")"
-                                        color: root.ink
-                                        opacity: 0.6
-                                        font.family: root.barFont
-                                        font.pixelSize: 10
-                                        anchors.verticalCenter: parent.verticalCenter
-                                    }
-                                }
-
-                                IconText {
-                                    anchors.right: parent.right
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: "chevron_right"
-                                    color: root.ink
-                                    opacity: 0.4
-                                    font.pixelSize: 12
-                                }
-                            }
+                            onClicked: stSection.closeRequested()
                         }
                     }
                 }
             }
-        }
 
-        // ---------------- TAB 2: APPS USAGE VIEW ----------------
-        Item {
-            id: appsViewPage
-            anchors.fill: parent
-            visible: stSection.currentTab === 2
+            // Apps List Content Area
+            Item {
+                anchors.top: rightTopBar.bottom
+                anchors.topMargin: 8
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 8
+                clip: true
 
-            Column {
-                anchors.fill: parent
-                spacing: 8
+                // Empty state
+                Column {
+                    anchors.centerIn: parent
+                    visible: appModel.count === 0
+                    spacing: 6
 
-                // Header with Back button + Day title + count
-                Item {
-                    width: parent.width
-                    height: 28
-
-                    Row {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 8
-
-                        // Back Button
-                        Rectangle {
-                            width: 26
-                            height: 26
-                            radius: 13
-                            color: appBackMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.04)
-                            border.width: 1
-                            border.color: Qt.rgba(1, 1, 1, 0.06)
-
-                            IconText {
-                                anchors.centerIn: parent
-                                text: "arrow_back"
-                                color: root.ink
-                                font.pixelSize: 14
-                            }
-
-                            MouseArea {
-                                id: appBackMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: stSection.currentTab = (stSection.previousTab !== undefined ? stSection.previousTab : 0)
-                            }
-                        }
-
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: (stSection.selectedDay ? stSection.selectedDay.dateFormatted : "Today") + " Usage"
-                            color: root.ink
-                            font.family: root.barFont
-                            font.pixelSize: 12
-                            font.weight: Font.Bold
-                        }
+                    IconText {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "hourglass_disabled"
+                        font.pixelSize: 32
+                        color: root.ink
+                        opacity: 0.3
                     }
 
                     Text {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: appModel.count + " apps"
-                        color: root.ink
-                        opacity: 0.5
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "No application usage logged for this day"
                         font.family: root.barFont
-                        font.pixelSize: 11
+                        font.pixelSize: 12
+                        font.weight: Font.Medium
+                        color: root.ink
+                        opacity: 0.4
                     }
                 }
 
-                // Empty state
-                Item {
-                    visible: appModel.count === 0
-                    width: parent.width
-                    height: parent.height - 36
-
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 8
-                        IconText {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "hourglass_disabled"
-                            color: root.ink
-                            opacity: 0.3
-                            font.pixelSize: 32
-                        }
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "No application usage logged for this day"
-                            color: root.ink
-                            opacity: 0.4
-                            font.family: root.barFont
-                            font.pixelSize: 12
-                        }
-                    }
-                }
-
-                // App List
+                // Apps ListView
                 ListView {
                     id: stAppListView
-                    visible: appModel.count > 0
-                    width: parent.width
-                    height: parent.height - 36
+                    anchors.fill: parent
                     clip: true
-                    spacing: 6
-                    model: appModel
+                    spacing: 5
                     boundsBehavior: Flickable.StopAtBounds
+                    model: appModel
 
                     delegate: Rectangle {
+                        id: appItemRect
                         width: stAppListView.width
-                        height: 44
-                        radius: 12
-                        color: stItemMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.03)
+                        height: 42
+                        radius: 10
+                        color: appItemMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.03)
                         border.width: 1
-                        border.color: stItemMa.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25) : Qt.rgba(1, 1, 1, 0.04)
+                        border.color: appItemMa.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25) : Qt.rgba(1, 1, 1, 0.04)
 
                         MouseArea {
-                            id: stItemMa
+                            id: appItemMa
                             anchors.fill: parent
                             hoverEnabled: true
                         }
 
                         Row {
                             anchors.fill: parent
-                            anchors.leftMargin: 10
-                            anchors.rightMargin: 10
-                            spacing: 10
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            spacing: 8
 
-                            // App Icon
+                            // App Icon box
                             Rectangle {
-                                width: 28
-                                height: 28
-                                radius: 8
-                                color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15)
+                                width: 28; height: 28; radius: 8
+                                color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.16)
                                 anchors.verticalCenter: parent.verticalCenter
 
                                 IconText {
                                     anchors.centerIn: parent
-                                    text: stSection.getAppIcon(model.app || model.name)
+                                    text: stSection.getAppIcon(model.name)
                                     color: root.seal
-                                    font.pixelSize: 15
+                                    font.pixelSize: 14
                                 }
                             }
 
-                            // Name & Progress Bar
+                            // App Name & Progress Bar
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width - 28 - 110 - 20
+                                width: parent.width - 28 - rightAppStats.width - 20
                                 spacing: 3
+                                clip: true
 
                                 Text {
-                                    text: model.displayName || model.name || model.app || "App"
+                                    text: model.name || "App"
                                     color: root.ink
                                     font.family: root.barFont
                                     font.pixelSize: 11
-                                    font.weight: Font.Medium
+                                    font.weight: Font.DemiBold
                                     elide: Text.ElideRight
                                     width: parent.width
                                 }
@@ -934,10 +881,10 @@ Item {
                                     width: parent.width
                                     height: 3
                                     radius: 1.5
-                                    color: Qt.rgba(1, 1, 1, 0.08)
+                                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
 
                                     Rectangle {
-                                        width: parent.width * Math.max(0.02, Math.min(1.0, (model.percent || 0) / 100))
+                                        width: Math.max(2, parent.width * Math.max(0.01, Math.min(1.0, (model.percent || 0) / 100)))
                                         height: parent.height
                                         radius: 1.5
                                         color: root.seal
@@ -945,179 +892,40 @@ Item {
                                 }
                             }
 
-                            // Badges: Duration & Percentage
+                            // Right Stats: Duration & Percent Pill
                             Row {
+                                id: rightAppStats
                                 anchors.verticalCenter: parent.verticalCenter
                                 spacing: 6
 
-                                // Duration badge
-                                Rectangle {
-                                    width: 58
-                                    height: 22
-                                    radius: 6
-                                    color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18)
+                                Text {
+                                    text: model.formatted || "0m"
+                                    color: root.ink
+                                    font.family: root.barFont
+                                    font.pixelSize: 11
+                                    font.weight: Font.Bold
                                     anchors.verticalCenter: parent.verticalCenter
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: model.formatted || "0m"
-                                        color: root.seal
-                                        font.family: root.barFont
-                                        font.pixelSize: 10
-                                        font.weight: Font.Bold
-                                    }
                                 }
 
-                                // Percentage badge
                                 Rectangle {
-                                    width: 38
-                                    height: 22
-                                    radius: 6
-                                    color: Qt.rgba(1, 1, 1, 0.05)
+                                    height: 18
+                                    radius: 9
+                                    width: pctText.implicitWidth + 10
+                                    color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15)
                                     anchors.verticalCenter: parent.verticalCenter
 
                                     Text {
+                                        id: pctText
                                         anchors.centerIn: parent
                                         text: model.percent_str || (model.percent + "%")
-                                        color: root.ink
-                                        opacity: 0.8
                                         font.family: root.barFont
-                                        font.pixelSize: 10
-                                        font.weight: Font.Medium
+                                        font.pixelSize: 9
+                                        font.weight: Font.Bold
+                                        color: root.seal
                                     }
                                 }
                             }
                         }
-                    }
-                }
-            }
-        }
-    }
-
-    // ================= BOTTOM SEGMENTED SWITCHER (Image 2 style) =================
-    Rectangle {
-        id: bottomTabRow
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        height: 34
-        radius: 17
-        color: root.fillIdle
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.06)
-
-        Row {
-            anchors.fill: parent
-            anchors.margins: 3
-            spacing: 4
-
-            // Tab 0: Week View
-            Rectangle {
-                width: (parent.width - 8) / 3
-                height: parent.height
-                radius: 14
-                color: stSection.currentTab === 0 ? root.seal : "transparent"
-                Behavior on color { ColorAnimation { duration: 150 } }
-
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 5
-                    IconText {
-                        text: "bar_chart"
-                        color: stSection.currentTab === 0 ? root.paper : root.ink
-                        font.pixelSize: 14
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                    Text {
-                        text: "Week"
-                        color: stSection.currentTab === 0 ? root.paper : root.ink
-                        font.family: root.barFont
-                        font.pixelSize: 11
-                        font.weight: stSection.currentTab === 0 ? Font.Bold : Font.Normal
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: stSection.currentTab = 0
-                }
-            }
-
-            // Tab 1: All History View
-            Rectangle {
-                width: (parent.width - 8) / 3
-                height: parent.height
-                radius: 14
-                color: stSection.currentTab === 1 ? root.seal : "transparent"
-                Behavior on color { ColorAnimation { duration: 150 } }
-
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 5
-                    IconText {
-                        text: "history"
-                        color: stSection.currentTab === 1 ? root.paper : root.ink
-                        font.pixelSize: 14
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                    Text {
-                        text: "All History"
-                        color: stSection.currentTab === 1 ? root.paper : root.ink
-                        font.family: root.barFont
-                        font.pixelSize: 11
-                        font.weight: stSection.currentTab === 1 ? Font.Bold : Font.Normal
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: stSection.currentTab = 1
-                }
-            }
-
-            // Tab 2: Apps View
-            Rectangle {
-                width: (parent.width - 8) / 3
-                height: parent.height
-                radius: 14
-                color: stSection.currentTab === 2 ? root.seal : "transparent"
-                Behavior on color { ColorAnimation { duration: 150 } }
-
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 5
-                    IconText {
-                        text: "apps"
-                        color: stSection.currentTab === 2 ? root.paper : root.ink
-                        font.pixelSize: 14
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                    Text {
-                        text: "Apps"
-                        color: stSection.currentTab === 2 ? root.paper : root.ink
-                        font.family: root.barFont
-                        font.pixelSize: 11
-                        font.weight: stSection.currentTab === 2 ? Font.Bold : Font.Normal
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (!stSection.selectedDay && stObj && stObj.allHistory && stObj.allHistory.length > 0) {
-                            stSection.selectedDay = stObj.allHistory[0]
-                        }
-                        if (stSection.selectedDay) {
-                            stSection.loadAppsForDay(stSection.selectedDay)
-                        }
-                        if (stSection.currentTab !== 2) stSection.previousTab = stSection.currentTab
-                        stSection.currentTab = 2
                     }
                 }
             }

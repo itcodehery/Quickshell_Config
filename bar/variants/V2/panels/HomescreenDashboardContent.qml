@@ -32,7 +32,7 @@ Item {
         onClicked: {}
     }
 
-    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "battery", "screentime", "volume", "system"]
+    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "battery", "screentime", "volume", "system", "calendar"]
 
     function selectCategoryByIndex(idx) {
         if (idx < 0) idx = 0
@@ -163,6 +163,18 @@ Item {
                 btDetailSection.doTogglePower()
                 event.accepted = true
             }
+        } else if (event.key === Qt.Key_C) {
+            if (calDetailSection && calDetailSection.isInputFocused) {
+                return;
+            }
+            if (dashboardContent.activeDetailView === "calendar") {
+                dashboardContent.activeDetailView = ""
+                if (root) root.dashboardDetail = ""
+            } else {
+                dashboardContent.activeDetailView = "calendar"
+                if (root) root.dashboardDetail = "calendar"
+            }
+            event.accepted = true
         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             if (dashboardContent.activeDetailView === "wifi" && wifiDetailSection) {
                 wifiDetailSection.startSpeedTestWithSweep()
@@ -207,10 +219,11 @@ Item {
     property string activeDetailView: root && root.dashboardDetail ? root.dashboardDetail : ""
 
     Connections {
-        target: root || null
+        target: dashboardContent.root
+        ignoreUnknownSignals: true
         function onDashboardDetailChanged() {
-            if (root && dashboardContent.activeDetailView !== root.dashboardDetail) {
-                dashboardContent.activeDetailView = root.dashboardDetail || ""
+            if (dashboardContent.root && dashboardContent.activeDetailView !== dashboardContent.root.dashboardDetail) {
+                dashboardContent.activeDetailView = dashboardContent.root.dashboardDetail || ""
             }
         }
     }
@@ -2296,40 +2309,83 @@ Item {
                             }
                         }
 
-                        // Output Pill (e.g. "This device" / Audio Sink)
-                        Rectangle {
-                            id: outputPill
+                        Row {
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
-                            height: 22
-                            radius: 11
-                            color: Qt.rgba(1, 1, 1, 0.22)
-                            border.color: Qt.rgba(1, 1, 1, 0.15)
-                            border.width: 1
-                            width: outRow.implicitWidth + 14
+                            spacing: 8
 
-                            Row {
-                                id: outRow
-                                anchors.centerIn: parent
-                                spacing: 5
+                            // Voice Dictation Button (triggers voxtype)
+                            Rectangle {
+                                id: contentDictationBtn
+                                width: 22
+                                height: 22
+                                radius: 11
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: (root && root.dictationActive)
+                                    ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.40)
+                                    : (contentDictationMa.containsMouse ? Qt.rgba(1, 1, 1, 0.35) : Qt.rgba(1, 1, 1, 0.22))
+                                border.color: (root && root.dictationActive)
+                                    ? root.seal
+                                    : Qt.rgba(1, 1, 1, 0.15)
+                                border.width: 1
+                                scale: contentDictationMa.pressed ? 0.92 : (contentDictationMa.containsMouse ? 1.08 : 1.0)
+                                Behavior on scale { NumberAnimation { duration: 120 } }
+                                Behavior on color { ColorAnimation { duration: 150 } }
 
                                 IconText {
-                                    text: "speaker"
+                                    anchors.centerIn: parent
+                                    text: (root && root.dictationState === "transcribing") ? "auto_awesome" : "mic"
                                     font.pixelSize: 13
-                                    color: "#ffffff"
-                                    anchors.verticalCenter: parent.verticalCenter
+                                    color: (root && root.dictationActive) ? root.seal : "#ffffff"
                                 }
 
-                                Text {
-                                    text: {
-                                        var desc = (audioData.sink && audioData.sink.description) ? audioData.sink.description : "This device"
-                                        return desc.length > 18 ? desc.substring(0, 16) + "…" : desc
+                                MouseArea {
+                                    id: contentDictationMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        if (panel) panel.expanded = false
+                                        else if (root) root.dashboardExpanded = false
+                                        if (root && root.toggleDictation) root.toggleDictation()
                                     }
-                                    font.family: root.barFont
-                                    font.pixelSize: 11
-                                    font.weight: Font.Medium
-                                    color: "#ffffff"
-                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+
+                            // Output Pill (e.g. "This device" / Audio Sink)
+                            Rectangle {
+                                id: outputPill
+                                anchors.verticalCenter: parent.verticalCenter
+                                height: 22
+                                radius: 11
+                                color: Qt.rgba(1, 1, 1, 0.22)
+                                border.color: Qt.rgba(1, 1, 1, 0.15)
+                                border.width: 1
+                                width: outRow.implicitWidth + 14
+
+                                Row {
+                                    id: outRow
+                                    anchors.centerIn: parent
+                                    spacing: 5
+
+                                    IconText {
+                                        text: "speaker"
+                                        font.pixelSize: 13
+                                        color: "#ffffff"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+
+                                    Text {
+                                        text: {
+                                            var desc = (audioData.sink && audioData.sink.description) ? audioData.sink.description : "This device"
+                                            return desc.length > 18 ? desc.substring(0, 16) + "…" : desc
+                                        }
+                                        font.family: root.barFont
+                                        font.pixelSize: 11
+                                        font.weight: Font.Medium
+                                        color: "#ffffff"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
                                 }
                             }
                         }
@@ -2700,8 +2756,8 @@ Item {
         Item {
             id: detailHeaderBar
             width: parent.width
-            height: dashboardContent.activeDetailView === "system" ? 0 : 34
-            visible: dashboardContent.activeDetailView !== "system"
+            height: (dashboardContent.activeDetailView === "system" || dashboardContent.activeDetailView === "calendar" || dashboardContent.activeDetailView === "wifi" || dashboardContent.activeDetailView === "bluetooth" || dashboardContent.activeDetailView === "screentime") ? 0 : 34
+            visible: dashboardContent.activeDetailView !== "system" && dashboardContent.activeDetailView !== "calendar" && dashboardContent.activeDetailView !== "wifi" && dashboardContent.activeDetailView !== "bluetooth" && dashboardContent.activeDetailView !== "screentime"
             anchors.top: parent.top
 
             // Back button pill
@@ -2762,6 +2818,7 @@ Item {
                         case "screentime": return "Screen Time"
                         case "volume": return "Sound & Volume"
                         case "system": return "System & Power"
+                        case "calendar": return "Calendar & Notes"
                         default: return ""
                     }
                 }
@@ -2807,7 +2864,7 @@ Item {
         Item {
             id: detailContentArea
             anchors.top: detailHeaderBar.bottom
-            anchors.topMargin: dashboardContent.activeDetailView === "system" ? 0 : 8
+            anchors.topMargin: (dashboardContent.activeDetailView === "system" || dashboardContent.activeDetailView === "calendar" || dashboardContent.activeDetailView === "wifi" || dashboardContent.activeDetailView === "bluetooth" || dashboardContent.activeDetailView === "screentime") ? 0 : 8
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
@@ -2911,6 +2968,19 @@ Item {
                 root: dashboardContent.root
                 panel: dashboardContent.panel
                 visible: dashboardContent.activeDetailView === "system"
+                onCloseRequested: {
+                    dashboardContent.activeDetailView = ""
+                    if (root) root.dashboardDetail = ""
+                }
+            }
+
+            // Detailed Calendar Section
+            CalendarDetailSection {
+                id: calDetailSection
+                anchors.fill: parent
+                root: dashboardContent.root
+                panel: dashboardContent.panel
+                visible: dashboardContent.activeDetailView === "calendar"
                 onCloseRequested: {
                     dashboardContent.activeDetailView = ""
                     if (root) root.dashboardDetail = ""
