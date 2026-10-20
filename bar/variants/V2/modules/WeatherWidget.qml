@@ -6,12 +6,12 @@ Item {
     id: rootMod
     required property var root
 
-    property string weatherIcon: "·"
-    property string weatherPlace: ""
-    property string weatherTemp: ""
-    property string weatherDesc: ""
-    property bool weatherLoaded: false
-    property bool weatherUnavailable: false
+    property string weatherIcon: root ? root.sharedWeatherIcon : "·"
+    property string weatherPlace: root ? root.sharedWeatherPlace : ""
+    property string weatherTemp: root ? root.sharedWeatherTemp : ""
+    property string weatherDesc: root ? root.sharedWeatherDesc : ""
+    property bool weatherLoaded: root ? root.sharedWeatherLoaded : false
+    property bool weatherUnavailable: root ? root.sharedWeatherUnavailable : false
     readonly property color contentColor: root.widgetContentColor("G8", root.ink)
 
     // honor the global imperial toggle in the widget tooltip too (the panel already converts);
@@ -31,10 +31,14 @@ Item {
     implicitHeight: 24
 
     function refresh(force) {
+        if (!force && root && root._weatherLastFetchMs > 0 && (Date.now() - root._weatherLastFetchMs) < 50000) {
+            return
+        }
         if (weatherProc.running) {
             if (!force) return
             weatherProc.running = false
         }
+        if (root) root._weatherLastFetchMs = Date.now()
         weatherProc.running = true
     }
 
@@ -47,7 +51,7 @@ Item {
             onStreamFinished: {
                 const txt = String(this.text || "").trim()
                 if (txt === "") {
-                    rootMod.weatherUnavailable = true
+                    if (rootMod.root) rootMod.root.sharedWeatherUnavailable = true
                     return
                 }
                 try {
@@ -58,25 +62,31 @@ Item {
                         ? d.weather[0].astronomy[0]
                         : null
                     if (!current) {
-                        rootMod.weatherUnavailable = true
+                        if (rootMod.root) rootMod.root.sharedWeatherUnavailable = true
                         return
                     }
 
-                    rootMod.weatherIcon = rootMod.glyphForCode(
+                    const iconGlyph = rootMod.glyphForCode(
                         current.weatherCode,
                         rootMod.isNight(astronomy ? astronomy.sunrise : "", astronomy ? astronomy.sunset : "")
                     )
-                    rootMod.weatherTemp = current.temp_C || ""
-                    rootMod.weatherDesc = current.weatherDesc && current.weatherDesc[0]
+                    const tempVal = current.temp_C || ""
+                    const descVal = current.weatherDesc && current.weatherDesc[0]
                         ? current.weatherDesc[0].value || ""
                         : ""
-                    rootMod.weatherPlace = area && area.areaName && area.areaName[0]
+                    const placeVal = area && area.areaName && area.areaName[0]
                         ? area.areaName[0].value || ""
                         : ""
-                    rootMod.weatherLoaded = true
-                    rootMod.weatherUnavailable = false
+                    if (rootMod.root) {
+                        rootMod.root.sharedWeatherIcon = iconGlyph
+                        rootMod.root.sharedWeatherTemp = tempVal
+                        rootMod.root.sharedWeatherDesc = descVal
+                        rootMod.root.sharedWeatherPlace = placeVal
+                        rootMod.root.sharedWeatherLoaded = true
+                        rootMod.root.sharedWeatherUnavailable = false
+                    }
                 } catch (e) {
-                    rootMod.weatherUnavailable = true
+                    if (rootMod.root) rootMod.root.sharedWeatherUnavailable = true
                 }
             }
         }

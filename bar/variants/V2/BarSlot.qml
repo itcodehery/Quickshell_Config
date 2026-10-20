@@ -243,7 +243,7 @@ PanelWindow {
                 }
             }
 
-            layer.enabled: true
+            layer.enabled: barSlot.root.privacyAnyActive
             layer.effect: MultiEffect {
                 blurEnabled: true
                 blur: 0.45
@@ -2795,7 +2795,6 @@ PanelWindow {
             id: barWeatherShared
             root: barSlot.root
             visible: false
-            Component.onCompleted: refresh(false)
         }
 
         MprisArtwork {
@@ -2956,6 +2955,7 @@ PanelWindow {
                         id: mediaArtThumbImg
                         anchors.fill: parent
                         source: mediaCardArt.source
+                        sourceSize: Qt.size(96, 96)
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
                         visible: status === Image.Ready && source != ""

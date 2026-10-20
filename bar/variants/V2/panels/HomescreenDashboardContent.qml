@@ -2278,6 +2278,7 @@ Item {
                             id: cardBgArt
                             anchors.fill: parent
                             source: root.lastMediaArtUrl
+                            sourceSize: Qt.size(512, 512)
                             fillMode: Image.PreserveAspectCrop
                             asynchronous: true
                             visible: status === Image.Ready
@@ -2928,135 +2929,31 @@ Item {
             anchors.bottom: parent.bottom
             clip: true
 
-            // Detailed Wi-Fi Section
-            WifiDetailSection {
-                id: wifiDetailSection
+            component DetailLoader: Loader {
+                required property string viewName
                 anchors.fill: parent
-                root: dashboardContent.root
-                panel: dashboardContent.panel
-                visible: dashboardContent.activeDetailView === "wifi"
-                onCloseRequested: {
-                    dashboardContent.activeDetailView = ""
-                    if (root) root.dashboardDetail = ""
+                active: dashboardContent.activeDetailView === viewName
+                visible: active
+                Connections {
+                    target: item
+                    ignoreUnknownSignals: true
+                    function onCloseRequested() {
+                        dashboardContent.activeDetailView = ""
+                        if (dashboardContent.root) dashboardContent.root.dashboardDetail = ""
+                    }
                 }
             }
 
-            // Detailed Bluetooth Section
-            BluetoothDetailSection {
-                id: btDetailSection
-                anchors.fill: parent
-                root: dashboardContent.root
-                panel: dashboardContent.panel
-                visible: dashboardContent.activeDetailView === "bluetooth"
-                onCloseRequested: {
-                    dashboardContent.activeDetailView = ""
-                    if (root) root.dashboardDetail = ""
-                }
-            }
-
-            // Detailed CPU Section
-            CpuDetailSection {
-                id: cpuDetailSection
-                anchors.fill: parent
-                root: dashboardContent.root
-                panel: dashboardContent.panel
-                visible: dashboardContent.activeDetailView === "cpu"
-                onCloseRequested: {
-                    dashboardContent.activeDetailView = ""
-                    if (root) root.dashboardDetail = ""
-                }
-            }
-
-            // Detailed Memory Section
-            MemoryDetailSection {
-                id: memDetailSection
-                anchors.fill: parent
-                root: dashboardContent.root
-                panel: dashboardContent.panel
-                visible: dashboardContent.activeDetailView === "memory"
-                onCloseRequested: {
-                    dashboardContent.activeDetailView = ""
-                    if (root) root.dashboardDetail = ""
-                }
-            }
-
-            // Detailed Battery Section
-            BatteryDetailSection {
-                id: batDetailSection
-                anchors.fill: parent
-                root: dashboardContent.root
-                panel: dashboardContent.panel
-                visible: dashboardContent.activeDetailView === "battery"
-                onCloseRequested: {
-                    dashboardContent.activeDetailView = ""
-                    if (root) root.dashboardDetail = ""
-                }
-            }
-
-            // Detailed Screentime Section
-            ScreentimeDetailSection {
-                id: stDetailSection
-                anchors.fill: parent
-                root: dashboardContent.root
-                panel: dashboardContent.panel
-                visible: dashboardContent.activeDetailView === "screentime"
-                onCloseRequested: {
-                    dashboardContent.activeDetailView = ""
-                    if (root) root.dashboardDetail = ""
-                }
-            }
-
-            // Detailed Volume Section
-            VolumeDetailSection {
-                id: volDetailSection
-                anchors.fill: parent
-                root: dashboardContent.root
-                panel: dashboardContent.panel
-                visible: dashboardContent.activeDetailView === "volume"
-                onCloseRequested: {
-                    dashboardContent.activeDetailView = ""
-                    if (root) root.dashboardDetail = ""
-                }
-            }
-
-            // Detailed System & Power Section
-            SystemDetailSection {
-                id: sysDetailSection
-                anchors.fill: parent
-                root: dashboardContent.root
-                panel: dashboardContent.panel
-                visible: dashboardContent.activeDetailView === "system"
-                onCloseRequested: {
-                    dashboardContent.activeDetailView = ""
-                    if (root) root.dashboardDetail = ""
-                }
-            }
-
-            // Detailed Calendar Section
-            CalendarDetailSection {
-                id: calDetailSection
-                anchors.fill: parent
-                root: dashboardContent.root
-                panel: dashboardContent.panel
-                visible: dashboardContent.activeDetailView === "calendar"
-                onCloseRequested: {
-                    dashboardContent.activeDetailView = ""
-                    if (root) root.dashboardDetail = ""
-                }
-            }
-
-            // Detailed Notifications Section
-            NotificationDetailSection {
-                id: notifDetailSection
-                anchors.fill: parent
-                root: dashboardContent.root
-                panel: dashboardContent.panel
-                visible: dashboardContent.activeDetailView === "notifications"
-                onCloseRequested: {
-                    dashboardContent.activeDetailView = ""
-                    if (root) root.dashboardDetail = ""
-                }
-            }
+            DetailLoader { viewName: "wifi";          sourceComponent: WifiDetailSection          { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { viewName: "bluetooth";     sourceComponent: BluetoothDetailSection     { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { viewName: "cpu";           sourceComponent: CpuDetailSection           { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { viewName: "memory";        sourceComponent: MemoryDetailSection        { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { viewName: "battery";       sourceComponent: BatteryDetailSection       { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { viewName: "screentime";    sourceComponent: ScreentimeDetailSection    { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { viewName: "volume";        sourceComponent: VolumeDetailSection        { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { viewName: "system";        sourceComponent: SystemDetailSection        { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { viewName: "calendar";      sourceComponent: CalendarDetailSection      { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { viewName: "notifications"; sourceComponent: NotificationDetailSection  { root: dashboardContent.root; panel: dashboardContent.panel } }
         }
     }
 }

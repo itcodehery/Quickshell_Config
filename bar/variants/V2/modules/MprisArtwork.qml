@@ -69,7 +69,10 @@ Item {
         }
     }
 
-    property color dominantColor: "transparent"
+    property color _extractedColor: "transparent"
+    readonly property color dominantColor: (root && root._mprisColorCachedSource === source && root.mprisDominantColor != "transparent")
+        ? root.mprisDominantColor
+        : _extractedColor
 
     Process {
         id: colorExtractor
@@ -78,8 +81,11 @@ Item {
             onStreamFinished: {
                 var c = this.text.trim()
                 if (c.startsWith("#") && c.length >= 7) {
-                    artwork.dominantColor = c.substring(0, 7)
-                    if (root) root.mprisDominantColor = artwork.dominantColor
+                    artwork._extractedColor = c.substring(0, 7)
+                    if (root) {
+                        root._mprisColorCachedSource = artwork.source
+                        root.mprisDominantColor = artwork._extractedColor
+                    }
                 }
             }
         }
@@ -87,6 +93,8 @@ Item {
 
     function extractColor() {
         if (!source || source === "") return
+        if (root && root._mprisColorCachedSource === source) return
+        if (root) root._mprisColorCachedSource = source
         var s = source.replace(/"/g, "\\\"")
         var script = "f=$(mktemp); u=\"" + s + "\"; if [[ \"$u\" == http* ]] || [[ \"$u\" == file://* ]]; then curl -sL \"$u\" -o \"$f\"; else cp \"$u\" \"$f\" 2>/dev/null; fi; if [ -s \"$f\" ]; then magick \"$f\" -resize 1x1\\! -format \"#%[hex:u]\" info:; fi; rm -f \"$f\""
         colorExtractor.command = ["bash", "-c", script]
@@ -95,7 +103,10 @@ Item {
     }
 
     onSourceChanged: {
-        dominantColor = "transparent"
+        _extractedColor = "transparent"
+        if (root && root._mprisColorCachedSource !== source) {
+            root.mprisDominantColor = "transparent"
+        }
         extractColor()
     }
 

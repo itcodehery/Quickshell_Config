@@ -335,7 +335,7 @@ PanelWindow {
         }
 
         Repeater {
-            model: 11
+            model: menuCard.visible ? 11 : 0
             Canvas {
                 anchors.fill: parent
                 renderTarget: Canvas.FramebufferObject
@@ -999,7 +999,7 @@ PanelWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             
                             Repeater {
-                                model: listMenuCard.wallpaperList
+                                model: listMenuCard.visible ? listMenuCard.wallpaperList : []
                                 ClippingRectangle {
                                     width: isCurrent ? 96 : 32
                                     height: 64
@@ -1019,6 +1019,10 @@ PanelWindow {
                                     Image {
                                         anchors.fill: parent
                                         source: "file://" + modelData
+                                        sourceSize.width: 192
+                                        sourceSize.height: 128
+                                        asynchronous: true
+                                        cache: false
                                         fillMode: Image.PreserveAspectCrop
                                         opacity: 1.0
                                     }

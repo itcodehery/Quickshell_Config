@@ -27,7 +27,7 @@ PanelWindow {
     readonly property var  player:  sel.player
     readonly property bool active:  sel.active
     readonly property bool playing: sel.playing
-    MprisArtwork { id: artwork; player: mprisPanel.player }
+    MprisArtwork { id: artwork; player: mprisPanel.player; root: mprisPanel.root }
 
     readonly property string playerName: {
         if (!player) return ""
@@ -376,6 +376,7 @@ PanelWindow {
                             id: panelCoverArt
                             anchors.fill: parent
                             source: artwork.source
+                            sourceSize: Qt.size(440, 440)
                             fillMode: Image.PreserveAspectCrop
                             asynchronous: true
                             visible: status === Image.Ready

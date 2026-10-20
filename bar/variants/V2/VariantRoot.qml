@@ -275,39 +275,45 @@ Item {
         }
     }
 
-    TooltipOverlay { root: theme }
-    CalendarPopup { root: theme }
-    ArchUpdaterPanel { root: theme }
-    PowerProfilePanel { root: theme }
-    MemoryPanel { root: theme }
-    CpuPanel { root: theme }
-    GpuPanel { root: theme }
-    ThermalsPanel { root: theme }
-    StoragePanel { root: theme }
-    AiUsagePanel { root: theme }
-    VolumePanel { root: theme }
-    TrayPanel { root: theme }
-    NotificationPanel { root: theme }
-    NetworkPanel { root: theme }
-    BluetoothPanel { root: theme }
-    BatteryPanel { root: theme }
-    BrightnessPanel { root: theme }
-    MprisPanel { id: theMprisPanel; root: theme }
-    LyricsPanel { root: theme; mprisPanel: theMprisPanel }
-    WeatherPanel { root: theme }
-    GithubHeatmapPanel { root: theme }
-    WorkspacePanel { root: theme }
-    ControlPanel { root: theme }
-    ScreentimePanel { root: theme }
-    TrayMenu { root: theme }
+    component OnDemandPanel: LazyLoader {
+        property bool trigger: false
+        active: false
+        onTriggerChanged: if (trigger && !active) active = true
+    }
 
-    // Picker variants: only the selected pickerStyle is instantiated.
-    LazyLoader { active: theme.pickerStyle === "tanzaku" || theme.pickerStyle === "";  ImageCarouselPanel       { root: theme } }
-    LazyLoader { active: theme.pickerStyle === "hearthstone";                           ImageCarouselHearthstone { root: theme } }
-    LazyLoader { active: theme.pickerStyle === "carousel";                              ImageCarouselCarousel    { root: theme } }
+    TooltipOverlay { root: theme }
+    ArchUpdaterPanel { root: theme }
+    MprisPanel { id: theMprisPanel; root: theme }
+    OnDemandPanel { trigger: theMprisPanel.showingLyrics && theMprisPanel.active; LyricsPanel        { root: theme; mprisPanel: theMprisPanel } }
+    OnDemandPanel { trigger: theme.trayVisible;                                    TrayPanel          { root: theme } }
+    OnDemandPanel { trigger: theme.weatherVisible;                                 WeatherPanel       { root: theme } }
+    OnDemandPanel { trigger: theme.githubHeatmapVisible;                           GithubHeatmapPanel { root: theme } }
+    OnDemandPanel { trigger: theme.workspaceVisible;                               WorkspacePanel     { root: theme } }
+    OnDemandPanel { trigger: theme.controlVisible;                                 ControlPanel       { root: theme } }
+    OnDemandPanel { trigger: theme.trayMenuVisible;                                TrayMenu           { root: theme } }
+
+    // Picker variants: only the selected pickerStyle is instantiated on demand.
+    LazyLoader { active: theme.imagePickerVisible && (theme.pickerStyle === "tanzaku" || theme.pickerStyle === "");  ImageCarouselPanel       { root: theme } }
+    LazyLoader { active: theme.imagePickerVisible && theme.pickerStyle === "hearthstone";                           ImageCarouselHearthstone { root: theme } }
+    LazyLoader { active: theme.imagePickerVisible && theme.pickerStyle === "carousel";                              ImageCarouselCarousel    { root: theme } }
     LazyLoader { active: theme.mediaBrowserVisible && (theme.pickerStyle === "tanzaku" || theme.pickerStyle === "");  MediaBrowserPanel        { root: theme } }
     LazyLoader { active: theme.mediaBrowserVisible && theme.pickerStyle === "hearthstone";                             MediaBrowserHearthstone  { root: theme } }
     LazyLoader { active: theme.mediaBrowserVisible && theme.pickerStyle === "carousel";                                MediaBrowserCarousel     { root: theme } }
+
+    CursorDotOverlay { root: theme }
+
+    Variants {
+        model: root.barScreens
+
+        delegate: Component {
+            ScreenCornersOverlay {
+                required property var modelData
+
+                root: theme
+                targetScreen: modelData
+            }
+        }
+    }
 
     Variants {
         model: root.barScreens

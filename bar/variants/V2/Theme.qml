@@ -63,6 +63,14 @@ Item {
     property string barColor: "color01"
     property bool widgetIconsForeground: false
     property color mprisDominantColor: "transparent"
+    property string _mprisColorCachedSource: ""
+    property string sharedWeatherIcon: "·"
+    property string sharedWeatherPlace: ""
+    property string sharedWeatherTemp: ""
+    property string sharedWeatherDesc: ""
+    property bool sharedWeatherLoaded: false
+    property bool sharedWeatherUnavailable: false
+    property double _weatherLastFetchMs: 0
     readonly property bool barColorIsAccent: barColor === "accent"
     // Compatibility alias for older local code/reviews that still use the
     // previous boolean name.
@@ -1545,7 +1553,7 @@ Item {
     }
 
     Timer {
-        interval: (theme.modCpu || theme.cpuVisible || theme.modMemory || theme.memVisible) ? 2000 : 10000
+        interval: theme.dashboardExpanded ? 2000 : 15000
         running: true; repeat: true; triggeredOnStart: true
         onTriggered: {
             systemCpuFile.reload()
@@ -1572,7 +1580,7 @@ Item {
 
     Timer {
         interval: 2500
-        running: theme.modGpu || theme.gpuVisible || theme.thermalVisible
+        running: theme.gpuVisible || theme.thermalVisible
         repeat: true
         triggeredOnStart: true
         onTriggered: if (!gpuTelemetryProc.running) gpuTelemetryProc.running = true
@@ -1580,7 +1588,7 @@ Item {
 
     Timer {
         interval: 5000
-        running: theme.modCpuTemperature || theme.cpuVisible || theme.thermalVisible
+        running: theme.cpuVisible || theme.thermalVisible
         repeat: true
         triggeredOnStart: true
         onTriggered: if (!cpuTemperatureProc.running) cpuTemperatureProc.running = true
@@ -1588,15 +1596,15 @@ Item {
 
     Timer {
         interval: 30000
-        running: theme.modStorage || theme.storageVisible
+        running: theme.storageVisible
         repeat: true
         triggeredOnStart: true
         onTriggered: if (!storageTelemetryProc.running) storageTelemetryProc.running = true
     }
 
     Timer {
-        interval: theme.storageVisible ? 5000 : 60000
-        running: theme.modStorage || theme.storageVisible
+        interval: 5000
+        running: theme.storageVisible
         repeat: true
         triggeredOnStart: true
         onTriggered: if (!storageInventoryProc.running) storageInventoryProc.running = true
@@ -2224,6 +2232,9 @@ Item {
                 try {
                     var d = JSON.parse(line.trim())
                     if (!d) return
+                    if (typeof d.count === "number") {
+                        theme.notifCount = d.count
+                    }
                     if (d.event === "dismiss") {
                         theme.dismissNotifPeek(d.id || 0)
                     } else if (d.event === "new" || (!d.event && (d.summary || d.body || d.app))) {
@@ -2266,27 +2277,18 @@ Item {
         onTriggered: theme.dictationState = "idle"
     }
 
-    Process {
-        id: voxtypeStateProc
-        command: ["bash", "-c", "cat /run/user/1000/voxtype/state 2>/dev/null || echo idle"]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: {
-                var st = this.text.trim();
-                if (st && !dictationTestTimer.running) theme.dictationState = st;
-            }
+    FileView {
+        id: voxtypeStateFile
+        path: "/run/user/1000/voxtype/state"
+        watchChanges: true
+        printErrors: false
+        onFileChanged: voxtypeStateFile.reload()
+        onLoaded: {
+            var st = String(voxtypeStateFile.text() || "").trim()
+            if (!dictationTestTimer.running) theme.dictationState = st || "idle"
         }
-    }
-
-    Timer {
-        id: voxtypeMonitorTimer
-        interval: theme.dictationActive ? 120 : 500
-        repeat: true
-        running: true
-        onTriggered: {
-            if (!voxtypeStateProc.running && !dictationTestTimer.running) {
-                voxtypeStateProc.running = true;
-            }
+        onLoadFailed: {
+            if (!dictationTestTimer.running) theme.dictationState = "idle"
         }
     }
 
@@ -2308,38 +2310,40 @@ Item {
         onTriggered: theme.chargingPopupActive = false
     }
 
-    Process {
-        id: powerSupplyProbeProc
-        command: ["bash", "-c", "cat /sys/class/power_supply/AC*/online 2>/dev/null | head -n1; cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -n1"]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: {
-                var lines = this.text.trim().split("\n");
-                if (lines.length >= 2) {
-                    var ac = parseInt(lines[0].trim());
-                    var pct = parseInt(lines[1].trim());
-                    if (!isNaN(pct)) theme.currentBatteryPercent = pct;
-                    if (!isNaN(ac)) {
-                        if (theme.prevAcOnline === 0 && ac === 1) {
-                            theme.triggerChargingPopup(pct);
-                        }
-                        theme.prevAcOnline = ac;
-                    }
+    FileView {
+        id: acOnlineFile
+        path: "/sys/class/power_supply/ACAD/online"
+        printErrors: false
+        onLoaded: {
+            var ac = parseInt(String(acOnlineFile.text() || "").trim())
+            if (!isNaN(ac)) {
+                if (theme.prevAcOnline === 0 && ac === 1) {
+                    theme.triggerChargingPopup(theme.currentBatteryPercent)
                 }
+                theme.prevAcOnline = ac
             }
+        }
+    }
+
+    FileView {
+        id: batCapacityFile
+        path: "/sys/class/power_supply/BAT1/capacity"
+        printErrors: false
+        onLoaded: {
+            var pct = parseInt(String(batCapacityFile.text() || "").trim())
+            if (!isNaN(pct)) theme.currentBatteryPercent = pct
         }
     }
 
     Timer {
         id: powerSupplyTimer
-        interval: 1000
+        interval: 2000
         repeat: true
         running: true
         triggeredOnStart: true
         onTriggered: {
-            if (!powerSupplyProbeProc.running) {
-                powerSupplyProbeProc.running = true;
-            }
+            batCapacityFile.reload()
+            acOnlineFile.reload()
         }
     }
 
