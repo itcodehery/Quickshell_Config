@@ -28,7 +28,7 @@ PanelWindow {
             easing.type: root.tooltipShown ? Easing.OutCubic : Easing.InCubic
         }
     }
-    visible: reveal > 0.001
+    visible: false
 
     Rectangle {
         id: tip

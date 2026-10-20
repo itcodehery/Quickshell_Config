@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Shapes
 import Quickshell
 import Quickshell.Io
@@ -13,6 +14,9 @@ Item {
 
     signal closeRequested()
 
+    property string hostname: "heryarch"
+    property string kernel: "Linux"
+    property string uptimeStr: "0h 0m"
     property int focusedIndex: 0
 
     // Material 3 Expressive geometric vector paths (normalized to 64x64 box)
@@ -24,33 +28,65 @@ Item {
     readonly property var options: [
         {
             name: "Screensaver",
+            desc: "Ambient screensaver",
             icon: "wallpaper",
             accent: (root && root.color06) ? root.color06 : "#7aa89f",
-            path: pathFlower,
-            keyTag: "S"
+            path: pathFlower
         },
         {
             name: "Lock",
+            desc: "Lock session",
             icon: "lock",
             accent: (root && root.color04) ? root.color04 : "#658594",
-            path: pathArch,
-            keyTag: "L"
+            path: pathArch
         },
         {
             name: "Shutdown",
+            desc: "Power off",
             icon: "power_settings_new",
             accent: (root && root.color01) ? root.color01 : "#c4746e",
-            path: pathScallop,
-            keyTag: "P"
+            path: pathScallop
         },
         {
             name: "Reboot",
+            desc: "Restart system",
             icon: "restart_alt",
             accent: (root && root.color03) ? root.color03 : "#c8b36a",
-            path: pathStar,
-            keyTag: "R"
+            path: pathStar
         }
     ]
+
+    // Live System Info Process
+    Process {
+        id: sysInfoProc
+        command: ["bash", "-c", "echo $(hostname); uname -r; awk '{print int($1/3600)\"h \"int(($1%3600)/60)\"m\"}' /proc/uptime"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let lines = this.text.trim().split("\n")
+                if (lines.length >= 1 && lines[0]) systemSection.hostname = lines[0].trim()
+                if (lines.length >= 2 && lines[1]) systemSection.kernel = lines[1].trim()
+                if (lines.length >= 3 && lines[2]) systemSection.uptimeStr = lines[2].trim()
+            }
+        }
+    }
+
+    Timer {
+        interval: 30000
+        repeat: true
+        running: systemSection.visible
+        onTriggered: {
+            sysInfoProc.running = false
+            sysInfoProc.running = true
+        }
+    }
+
+    onVisibleChanged: {
+        if (visible) {
+            sysInfoProc.running = false
+            sysInfoProc.running = true
+            systemSection.focus = true
+        }
+    }
 
     function triggerOption(index) {
         if (root) root.dashboardExpanded = false
@@ -73,138 +109,553 @@ Item {
 
     focus: visible
     Keys.onPressed: (event) => {
-        if (event.key === Qt.Key_Escape) {
+        if (event.key === Qt.Key_Escape || event.key === Qt.Key_X) {
             closeRequested()
             event.accepted = true
-        } else if (event.key === Qt.Key_1 || event.key === Qt.Key_S) {
-            triggerOption(0)
+        } else if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
+            focusedIndex = (focusedIndex + 1) % 4
             event.accepted = true
-        } else if (event.key === Qt.Key_2 || event.key === Qt.Key_L) {
-            triggerOption(1)
+        } else if (event.key === Qt.Key_K || event.key === Qt.Key_Up) {
+            focusedIndex = (focusedIndex - 1 + 4) % 4
             event.accepted = true
-        } else if (event.key === Qt.Key_3 || event.key === Qt.Key_P) {
-            triggerOption(2)
-            event.accepted = true
-        } else if (event.key === Qt.Key_4 || event.key === Qt.Key_R) {
-            triggerOption(3)
-            event.accepted = true
-        } else if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
-            focusedIndex = (focusedIndex === 1) ? 0 : ((focusedIndex === 3) ? 2 : focusedIndex)
-            event.accepted = true
-        } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {
-            focusedIndex = (focusedIndex === 0) ? 1 : ((focusedIndex === 2) ? 3 : focusedIndex)
-            event.accepted = true
-        } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
-            focusedIndex = (focusedIndex === 2) ? 0 : ((focusedIndex === 3) ? 1 : focusedIndex)
-            event.accepted = true
-        } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
-            focusedIndex = (focusedIndex === 0) ? 2 : ((focusedIndex === 1) ? 3 : focusedIndex)
-            event.accepted = true
-        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Space) {
+        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
             triggerOption(focusedIndex)
             event.accepted = true
         }
+        // Do NOT intercept H and L!
+        // H and L are reserved for cycling between widgets (Calendar, Battery, Volume, etc.) in HomescreenDashboardContent!
     }
 
-    // Dismiss submenu when clicking outside the dialog card
-    MouseArea {
-        id: backdropMa
+    // ═════════════════════════════════════════════════════════════════════════
+    // ── TWO-COLUMN DASHBOARD LAYOUT (Matches Calendar Widget Design) ─────────
+    // ═════════════════════════════════════════════════════════════════════════
+    Row {
+        id: columnsRow
         anchors.fill: parent
-        hoverEnabled: false
-        cursorShape: Qt.ArrowCursor
-        onClicked: systemSection.closeRequested()
-    }
+        spacing: 12
 
-    // Material 3 Expressive Power Dialog Card
-    Rectangle {
-        id: dialogCard
-        anchors.centerIn: parent
-        width: 250
-        height: 216
-        radius: 28
-        color: (root && root.ink) ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.04) : "transparent"
+        // ═════════════════════════════════════════════════════════════════════
+        // ── LEFT COLUMN: POWER MENU ACTIONS WIDGET ───────────────────────────
+        // ═════════════════════════════════════════════════════════════════════
+        Rectangle {
+            id: leftColContainer
+            width: Math.round((columnsRow.width - columnsRow.spacing) / 2)
+            height: columnsRow.height
+            radius: 20
+            color: root.fillIdle
+            border.width: 0
+            clip: true
 
-        // 2x2 Action Button Grid
-        Grid {
-            id: actionGrid
-            anchors.centerIn: parent
-            columns: 2
-            rowSpacing: 16
-            columnSpacing: 36
+            // Top Bar
+            Item {
+                id: leftTopBar
+                anchors.top: parent.top
+                anchors.topMargin: 9
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                height: 26
 
-            Repeater {
-                model: systemSection.options
+                // Status Badge Pill
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 26
+                    radius: 13
+                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                    width: leftStatusRow.implicitWidth + 18
 
-                Item {
-                    id: actionItem
-                    width: 72
-                    height: 88
+                    Row {
+                        id: leftStatusRow
+                        anchors.centerIn: parent
+                        spacing: 6
 
-                    readonly property var opt: modelData
-                    readonly property bool isSelected: systemSection.focusedIndex === index
-                    readonly property bool isHovered: itemMa.containsMouse
+                        Rectangle {
+                            width: 6; height: 6; radius: 3
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: "#a9b665"
+                        }
 
-                    // Creative Geometric M3 Shape Button
-                    Item {
-                        id: shapeContainer
-                        width: 64
-                        height: 64
-                        anchors.top: parent.top
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        scale: (actionItem.isHovered || actionItem.isSelected) ? 1.08 : 1.0
-                        Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
+                        IconText {
+                            text: "power_settings_new"
+                            font.pixelSize: 13
+                            color: root.ink
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
 
-                        Shape {
-                            id: m3Shape
-                            anchors.fill: parent
-                            preferredRendererType: Shape.CurveRenderer
+                        Text {
+                            text: "Power Menu"
+                            font.family: root.barFont
+                            font.pixelSize: 11
+                            font.weight: Font.Bold
+                            color: root.ink
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+                }
 
-                            ShapePath {
-                                strokeWidth: 0
-                                strokeColor: "transparent"
-                                fillColor: (actionItem.isHovered || actionItem.isSelected)
-                                    ? actionItem.opt.accent
-                                    : Qt.rgba(actionItem.opt.accent.r, actionItem.opt.accent.g, actionItem.opt.accent.b, 0.20)
-                                Behavior on fillColor { ColorAnimation { duration: 160 } }
+                // Close Button
+                Rectangle {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 26; height: 26; radius: 13
+                    color: closeLeftMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
 
-                                PathSvg {
-                                    path: actionItem.opt.path
+                    IconText {
+                        anchors.centerIn: parent
+                        text: "close"
+                        font.pixelSize: 14
+                        color: root.ink
+                    }
+
+                    MouseArea {
+                        id: closeLeftMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: systemSection.closeRequested()
+                    }
+                }
+            }
+
+            // Left Column Body Content
+            Item {
+                anchors.top: leftTopBar.bottom
+                anchors.topMargin: 8
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 10
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 14
+                    color: Qt.rgba(1, 1, 1, 0.03)
+                    border.width: 1
+                    border.color: Qt.rgba(1, 1, 1, 0.05)
+                    clip: true
+
+                    Column {
+                        anchors.centerIn: parent
+                        width: parent.width - 16
+                        spacing: 12
+
+                        // Horizontal Row of the 4 Power Options Filling Width with M3 Custom Geometric Shapes
+                        Row {
+                            id: horizontalPowerRow
+                            width: parent.width
+                            spacing: 6
+
+                            Repeater {
+                                model: systemSection.options
+
+                                Item {
+                                    id: optionCard
+                                    required property var modelData
+                                    required property int index
+
+                                    readonly property bool isFocused: systemSection.focusedIndex === index
+                                    readonly property bool isHovered: cardMa.containsMouse
+
+                                    width: Math.floor((horizontalPowerRow.width - 3 * horizontalPowerRow.spacing) / 4)
+                                    height: 104
+
+                                    Column {
+                                        anchors.centerIn: parent
+                                        spacing: 8
+
+                                        // Material 3 Custom Geometric Shape Container
+                                        Item {
+                                            id: shapeContainer
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            width: 52
+                                            height: 52
+                                            scale: (optionCard.isHovered || optionCard.isFocused) ? 1.08 : 1.0
+                                            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
+
+                                            Item {
+                                                width: 64
+                                                height: 64
+                                                anchors.centerIn: parent
+                                                scale: 52 / 64.0
+                                                transformOrigin: Item.Center
+
+                                                Shape {
+                                                    anchors.fill: parent
+                                                    preferredRendererType: Shape.CurveRenderer
+
+                                                    ShapePath {
+                                                        strokeWidth: 0
+                                                        strokeColor: "transparent"
+                                                        fillColor: (optionCard.isHovered || optionCard.isFocused)
+                                                            ? optionCard.modelData.accent
+                                                            : Qt.rgba(optionCard.modelData.accent.r, optionCard.modelData.accent.g, optionCard.modelData.accent.b, 0.22)
+                                                        Behavior on fillColor { ColorAnimation { duration: 160 } }
+
+                                                        PathSvg {
+                                                            path: optionCard.modelData.path
+                                                        }
+                                                    }
+                                                }
+
+                                                IconText {
+                                                    anchors.centerIn: parent
+                                                    text: optionCard.modelData.icon
+                                                    font.pixelSize: 26
+                                                    color: (optionCard.isHovered || optionCard.isFocused)
+                                                        ? (root ? root.paper : "#181825")
+                                                        : optionCard.modelData.accent
+                                                    Behavior on color { ColorAnimation { duration: 160 } }
+                                                }
+                                            }
+                                        }
+
+                                        // Label below shape
+                                        Text {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: optionCard.modelData.name
+                                            font.family: (root && root.barFont) ? root.barFont : "DM Sans"
+                                            font.pixelSize: 11
+                                            font.weight: optionCard.isFocused ? Font.Bold : Font.DemiBold
+                                            color: (root && root.ink) ? root.ink : "#ffffff"
+                                            opacity: (optionCard.isHovered || optionCard.isFocused) ? 1.0 : 0.75
+                                            elide: Text.ElideRight
+                                            horizontalAlignment: Text.AlignHCenter
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: cardMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onEntered: systemSection.focusedIndex = optionCard.index
+                                        onClicked: systemSection.triggerOption(optionCard.index)
+                                    }
                                 }
                             }
                         }
 
+                        // Navigation Hint & Action Indicator Pill
+                        Rectangle {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: parent.width
+                            height: 30
+                            radius: 15
+                            color: Qt.rgba(1, 1, 1, 0.04)
+                            border.width: 1
+                            border.color: Qt.rgba(1, 1, 1, 0.06)
+
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: 6
+
+                                IconText {
+                                    text: "swap_vert"
+                                    font.pixelSize: 12
+                                    color: root.seal
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+
+                                Text {
+                                    text: "[j] / [k] navigate • [Enter] to " + systemSection.options[systemSection.focusedIndex].name
+                                    font.family: root.barFont
+                                    font.pixelSize: 10
+                                    font.weight: Font.Medium
+                                    color: root.ink
+                                    opacity: 0.75
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ═════════════════════════════════════════════════════════════════════
+        // ── RIGHT COLUMN: SYSTEM OVERVIEW & HOST TELEMETRY INFO ──────────────
+        // ═════════════════════════════════════════════════════════════════════
+        Rectangle {
+            id: rightColContainer
+            width: columnsRow.width - leftColContainer.width - columnsRow.spacing
+            height: columnsRow.height
+            radius: 20
+            color: root.fillIdle
+            border.width: 0
+            clip: true
+
+            // Top Bar
+            Item {
+                id: rightTopBar
+                anchors.top: parent.top
+                anchors.topMargin: 9
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                height: 26
+
+                // Section Title Pill
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 26
+                    radius: 13
+                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                    width: rightTitleRow.implicitWidth + 18
+
+                    Row {
+                        id: rightTitleRow
+                        anchors.centerIn: parent
+                        spacing: 6
+
                         IconText {
+                            text: "computer"
+                            font.pixelSize: 13
+                            color: root.ink
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        Text {
+                            text: "Arch Linux"
+                            font.family: root.barFont
+                            font.pixelSize: 11
+                            font.weight: Font.Bold
+                            color: root.ink
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+                }
+
+                // Top Right: Uptime Badge + Close Button
+                Row {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 6
+
+                    // Uptime Pill
+                    Rectangle {
+                        height: 26
+                        radius: 13
+                        color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                        width: upRow.implicitWidth + 16
+
+                        Row {
+                            id: upRow
                             anchors.centerIn: parent
-                            text: actionItem.opt.icon
-                            font.pixelSize: 26
-                            color: (actionItem.isHovered || actionItem.isSelected)
-                                ? (root ? root.paper : "#181825")
-                                : actionItem.opt.accent
-                            Behavior on color { ColorAnimation { duration: 160 } }
+                            spacing: 4
+
+                            IconText {
+                                text: "timelapse"
+                                font.pixelSize: 11
+                                color: root.seal
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                            Text {
+                                text: "Up " + systemSection.uptimeStr
+                                font.family: root.barFont
+                                font.pixelSize: 10
+                                font.weight: Font.Bold
+                                color: root.ink
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
                         }
                     }
 
-                    // Button Title Label (No description, no borders)
-                    Text {
-                        anchors.top: shapeContainer.bottom
-                        anchors.topMargin: 6
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: actionItem.opt.name
-                        color: root ? root.ink : "#ffffff"
-                        font.family: root ? root.barFont : "sans-serif"
-                        font.pixelSize: 12
-                        font.weight: Font.DemiBold
-                        opacity: (actionItem.isHovered || actionItem.isSelected) ? 1.0 : 0.85
-                        Behavior on opacity { NumberAnimation { duration: 150 } }
-                    }
+                    // Close Button
+                    Rectangle {
+                        width: 26; height: 26; radius: 13
+                        color: closeRightMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
 
-                    MouseArea {
-                        id: itemMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: systemSection.triggerOption(index)
-                        onEntered: systemSection.focusedIndex = index
+                        IconText {
+                            anchors.centerIn: parent
+                            text: "close"
+                            font.pixelSize: 14
+                            color: root.ink
+                        }
+
+                        MouseArea {
+                            id: closeRightMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: systemSection.closeRequested()
+                        }
+                    }
+                }
+            }
+
+            // Right Column Body Content
+            Item {
+                anchors.top: rightTopBar.bottom
+                anchors.topMargin: 8
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 10
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 14
+                    color: Qt.rgba(1, 1, 1, 0.03)
+                    border.width: 1
+                    border.color: Qt.rgba(1, 1, 1, 0.05)
+                    clip: true
+
+                    Column {
+                        anchors.centerIn: parent
+                        width: parent.width - 24
+                        spacing: 8
+
+                        // 1. Hero Ring Circle with System Icon
+                        Item {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: 68
+                            height: 68
+
+                            // Outer track circle
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: 34
+                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+                                border.width: 4
+                                border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                            }
+
+                            // Dynamic Accent Ring
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: 34
+                                color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.12)
+                                border.width: 3
+                                border.color: root.seal
+                            }
+
+                            Column {
+                                anchors.centerIn: parent
+                                spacing: 1
+
+                                IconText {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: "desktop_windows"
+                                    font.pixelSize: 22
+                                    color: root.seal
+                                }
+
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: "SYSTEM"
+                                    font.family: root.barFont
+                                    font.pixelSize: 8
+                                    font.weight: Font.Bold
+                                    color: root.ink
+                                    opacity: 0.45
+                                }
+                            }
+                        }
+
+                        // 2. Hostname & Kernel Info
+                        Column {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: parent.width
+                            spacing: 2
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: systemSection.hostname
+                                font.family: root.barFont
+                                font.pixelSize: 13
+                                font.weight: Font.Bold
+                                color: root.ink
+                                elide: Text.ElideRight
+                                maximumLineCount: 1
+                                horizontalAlignment: Text.AlignHCenter
+                                width: parent.width
+                            }
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "Linux " + systemSection.kernel
+                                font.family: root.barFont
+                                font.pixelSize: 10
+                                color: root.ink
+                                opacity: 0.5
+                                horizontalAlignment: Text.AlignHCenter
+                                elide: Text.ElideRight
+                                width: parent.width
+                            }
+                        }
+
+                        // 3. Telemetry Stats Badges
+                        Row {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: 6
+
+                            // Session Badge
+                            Rectangle {
+                                height: 22
+                                radius: 11
+                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+                                width: sessionRow.implicitWidth + 12
+
+                                Row {
+                                    id: sessionRow
+                                    anchors.centerIn: parent
+                                    spacing: 4
+                                    IconText {
+                                        text: "dashboard"
+                                        font.pixelSize: 10
+                                        color: root.ink
+                                        opacity: 0.6
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                    Text {
+                                        text: "Hyprland"
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.Bold
+                                        color: root.ink
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+                            }
+
+                            // User Badge
+                            Rectangle {
+                                height: 22
+                                radius: 11
+                                color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15)
+                                border.width: 1
+                                border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25)
+                                width: userRow.implicitWidth + 12
+
+                                Row {
+                                    id: userRow
+                                    anchors.centerIn: parent
+                                    spacing: 4
+                                    IconText {
+                                        text: "person"
+                                        font.pixelSize: 10
+                                        color: root.seal
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                    Text {
+                                        text: Quickshell.env("USER") || "user"
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.Bold
+                                        color: root.seal
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

@@ -533,14 +533,8 @@ Item {
     property var tooltipOwner: null   // the widget currently owning the tooltip
 
     function showTooltip(text, x, topY, bottomY, owner) {
-        if (!text) return;
-        tooltipText = text;
-        tooltipX = x;
-        tooltipTopY = topY;
-        tooltipBottomY = bottomY;
-        tooltipY = (topY + bottomY) / 2;
-        tooltipOwner = owner !== undefined ? owner : null;
-        tooltipShown = true;
+        // Disabled per user request: remove hover tips for all icons
+        return;
     }
 
     // hide only if the caller owns the current tooltip (owner match is stable
@@ -1650,6 +1644,7 @@ Item {
     property bool modGpu:        true
     property bool modStorage:    true
     property bool modGithubHeatmap: true
+    property bool modNotes:         true
     property bool modVolume:     true
     property bool modWeather:    true
     property bool modNetwork:    false
@@ -2085,6 +2080,7 @@ Item {
     property string notifPeekIcon: ""
     property int notifPeekId: 0
     property int notifPeekTick: 0
+    property int notifPeekDismissTick: 0
     function triggerNotifPeek(app, summary, body, icon, notifId) {
         if (!app && !summary && !body) return
         notifPeekApp = app || "Notification"
@@ -2094,6 +2090,13 @@ Item {
         notifPeekId = Number(notifId || 0)
         notifPeekActive = true
         notifPeekTick++
+    }
+    function dismissNotifPeek(notifId) {
+        var nid = Number(notifId || 0)
+        if (nid === 0 || notifPeekId === 0 || nid === notifPeekId) {
+            notifPeekActive = false
+            notifPeekDismissTick++
+        }
     }
 
     Process { id: notifInvokeProc; command: ["bash", "-c", "true"] }
@@ -2220,7 +2223,10 @@ Item {
             onRead: function(line) {
                 try {
                     var d = JSON.parse(line.trim())
-                    if (d && (d.summary || d.body || d.app)) {
+                    if (!d) return
+                    if (d.event === "dismiss") {
+                        theme.dismissNotifPeek(d.id || 0)
+                    } else if (d.event === "new" || (!d.event && (d.summary || d.body || d.app))) {
                         theme.triggerNotifPeek(d.app || "Notification", d.summary || "", d.body || "", d.appIcon || "", d.id || 0)
                     }
                 } catch(e) {}
@@ -2938,7 +2944,18 @@ Item {
     property bool   idleInhibited:       false
     // ── Notification state ──
     property bool notifVisible: false
-    onNotifVisibleChanged: popupOpened("notifVisible")
+    onNotifVisibleChanged: {
+        if (notifVisible) {
+            notifVisible = false
+            if (dashboardExpanded && dashboardDetail === "notifications") {
+                dashboardExpanded = false
+                dashboardDetail = ""
+            } else {
+                dashboardDetail = "notifications"
+                dashboardExpanded = true
+            }
+        }
+    }
     property int  notifCount:   0
     property real notifBarX:    0
 

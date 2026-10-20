@@ -13,7 +13,9 @@ Item {
     visible: implicitWidth > 0.5
     implicitWidth: recording ? row.implicitWidth + 6 : 0
     clip: true
-    implicitHeight: 28
+    implicitHeight: 24
+    width: implicitWidth
+    height: implicitHeight
 
 
     readonly property string elapsedStr: {

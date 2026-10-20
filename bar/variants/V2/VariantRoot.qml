@@ -49,6 +49,7 @@ Item {
     function currentShellStyle() { return theme.barShellStyle }
     function showIslandOsd(kind, value) { theme.showIslandOsd(kind, value) }
     function triggerNotifPeek(app, summary, body, icon) { theme.triggerNotifPeek(app, summary, body, icon) }
+    function dismissNotifPeek(notifId) { theme.dismissNotifPeek(notifId) }
     function triggerChargingPopup(pct) { theme.triggerChargingPopup(pct) }
     function testDictationState(st) { theme.testDictationState(st) }
     function startTimer(minutes, label) { theme.startTimer(minutes, label) }

@@ -10,8 +10,10 @@ Item {
     readonly property bool silenced: root.notifSilenced
 
     visible: silenced
-    implicitWidth: silenced ? 20 : 0
-    implicitHeight: 28
+    implicitWidth: silenced ? 16 : 0
+    implicitHeight: 24
+    width: implicitWidth
+    height: implicitHeight
 
 
     readonly property string tooltipText: "Notifications silenced"

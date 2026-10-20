@@ -124,7 +124,7 @@ Item {
             ? ((fullMode ? fullRow.implicitWidth : (islandMode ? islandContent.implicitWidth : defaultRow.implicitWidth)) + 18)
             : (idleNote.implicitWidth + 16))
         : 0
-    implicitHeight: 28
+    implicitHeight: 24
     opacity: root.modMpris ? 1 : 0
 
     Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
@@ -367,7 +367,7 @@ Item {
                 id: islandMarqueeClip
                 anchors.verticalCenter: parent.verticalCenter
                 width: Math.min(islandMarqueeText.implicitWidth, 120)
-                height: 28
+                height: 24
                 clip: true
 
                 Text {

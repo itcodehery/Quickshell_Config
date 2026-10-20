@@ -37,7 +37,9 @@ Item {
         || root.themeUpdLocalEdits > 0 || rootMod.hasShellUpdate
 
     implicitWidth: 26
-    implicitHeight: 28
+    implicitHeight: 24
+    width: implicitWidth
+    height: implicitHeight
 
     Process {
         id: checkProc

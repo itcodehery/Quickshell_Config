@@ -298,7 +298,7 @@ PanelWindow {
             easing.type: root.notifVisible ? Easing.OutCubic : Easing.InCubic
         }
     }
-    visible: reveal > 0.001
+    visible: false
     WlrLayershell.keyboardFocus: root.notifVisible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     onVisibleChanged: { if (visible) notifPanel.poll() }

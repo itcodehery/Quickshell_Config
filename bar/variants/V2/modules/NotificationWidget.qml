@@ -54,6 +54,15 @@ Item {
         cursorShape: Qt.PointingHandCursor
         onEntered: tip.show()
         onExited: { tip.hide() }
-        onClicked: { tip.hide(); root.notifVisible = !root.notifVisible }
+        onClicked: {
+            tip.hide()
+            if (root.dashboardExpanded && root.dashboardDetail === "notifications") {
+                root.dashboardExpanded = false
+                root.dashboardDetail = ""
+            } else {
+                root.dashboardDetail = "notifications"
+                root.dashboardExpanded = true
+            }
+        }
     }
 }

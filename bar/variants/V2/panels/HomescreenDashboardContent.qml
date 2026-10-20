@@ -32,7 +32,7 @@ Item {
         onClicked: {}
     }
 
-    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "battery", "screentime", "volume", "system", "calendar"]
+    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "battery", "screentime", "volume", "system", "calendar", "notifications"]
 
     function selectCategoryByIndex(idx) {
         if (idx < 0) idx = 0
@@ -42,7 +42,7 @@ Item {
         if (root) root.dashboardDetail = cat
 
         // Keep left-hand tilesPager in sync so active tile is visible
-        if (cat === "battery" || cat === "screentime") {
+        if (cat === "battery" || cat === "screentime" || cat === "notifications") {
             pageDown()
         } else if (cat === "wifi" || cat === "bluetooth" || cat === "cpu" || cat === "memory" || cat === "") {
             pageUp()
@@ -173,6 +173,21 @@ Item {
             } else {
                 dashboardContent.activeDetailView = "calendar"
                 if (root) root.dashboardDetail = "calendar"
+            }
+            event.accepted = true
+        } else if (event.key === Qt.Key_X) {
+            if (calDetailSection && calDetailSection.isInputFocused) {
+                return;
+            }
+            if (panel && panel.searchOpen) {
+                return;
+            }
+            if (dashboardContent.activeDetailView === "system") {
+                dashboardContent.activeDetailView = ""
+                if (root) root.dashboardDetail = ""
+            } else {
+                dashboardContent.activeDetailView = "system"
+                if (root) root.dashboardDetail = "system"
             }
             event.accepted = true
         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
@@ -1286,37 +1301,79 @@ Item {
                         columns: 2
                         spacing: 10
 
-                        // DND Tile
+                        // Notifications Tile
                         Rectangle {
-                            id: dndTile
-                            property bool active: root.notifSilenced
+                            id: notifTile
+                            property bool active: dashboardContent.activeDetailView === "notifications"
+                            readonly property color fg: active ? root.paper : root.ink
                             width: (parent.width - 10) / 2
                             height: 56
                             radius: 28
-                            color: active ? root.color04 : root.fillIdle
-                            scale: dndMa.pressed ? 0.92 : 1.0
+                            color: active
+                                ? (notifMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                : (notifMa.containsMouse ? root.fillHover : root.fillIdle)
+                            Behavior on color { ColorAnimation { duration: 160 } }
+                            scale: notifMa.pressed ? 0.92 : 1.0
                             Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-                            Behavior on color { ColorAnimation { duration: 200 } }
-                            
+
+                            border.width: active ? 2 : 0
+                            border.color: active ? root.paper : root.seal
+                            Behavior on border.width { NumberAnimation { duration: 150 } }
+                            Behavior on border.color { ColorAnimation { duration: 150 } }
+
                             Row {
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
                                 anchors.leftMargin: 14
                                 spacing: 10
-                                IconText { text: dndTile.active ? "notifications_off" : "notifications_active"; color: dndTile.active ? root.paper : root.ink; font.pixelSize: 22; Behavior on color { ColorAnimation { duration: 200 } } }
+                                IconText {
+                                    text: root.notifSilenced ? "\uE7F6" : (root.notifCount > 0 ? "notifications_active" : "\uE7F4")
+                                    color: notifTile.fg
+                                    font.pixelSize: 22
+                                    Behavior on color { ColorAnimation { duration: 160 } }
+                                }
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
                                     spacing: 2
-                                    Text { text: "DND"; color: dndTile.active ? root.paper : root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold; Behavior on color { ColorAnimation { duration: 200 } } }
-                                    Text { text: dndTile.active ? "Silenced" : "Alerts On"; color: dndTile.active ? root.paper : root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; Behavior on color { ColorAnimation { duration: 200 } } }
+                                    Text {
+                                        text: "Notifications"
+                                        color: notifTile.fg
+                                        font.pixelSize: 13
+                                        font.family: root.barFont
+                                        font.weight: Font.DemiBold
+                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                    }
+                                    Text {
+                                        text: root.notifCount > 0
+                                            ? (root.notifCount + (root.notifCount === 1 ? " Unread" : " Unread"))
+                                            : (root.notifSilenced ? "DND On" : "All Caught Up")
+                                        color: notifTile.fg
+                                        opacity: notifTile.active ? 0.8 : 0.6
+                                        font.pixelSize: 11
+                                        font.family: root.barFont
+                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                    }
                                 }
                             }
                             MouseArea {
-                                id: dndMa
+                                id: notifMa
                                 anchors.fill: parent
-                                onClicked: {
-                                    Quickshell.execDetached(["quickshell", "-p", "/usr/share/omarchy/shell", "ipc", "call", "notifications", "toggleDnd"])
-                                    root.notifSilenced = !root.notifSilenced
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                onClicked: (mouse) => {
+                                    if (mouse.button === Qt.RightButton) {
+                                        Quickshell.execDetached(["quickshell", "-p", "/usr/share/omarchy/shell", "ipc", "call", "notifications", "toggleDnd"])
+                                        root.notifSilenced = !root.notifSilenced
+                                    } else {
+                                        if (dashboardContent.activeDetailView === "notifications") {
+                                            dashboardContent.activeDetailView = ""
+                                            if (root) root.dashboardDetail = ""
+                                        } else {
+                                            dashboardContent.activeDetailView = "notifications"
+                                            if (root) root.dashboardDetail = "notifications"
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -2323,10 +2380,10 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 color: (root && root.dictationActive)
                                     ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.40)
-                                    : (contentDictationMa.containsMouse ? Qt.rgba(1, 1, 1, 0.35) : Qt.rgba(1, 1, 1, 0.22))
+                                    : (contentDictationMa.containsMouse ? root.fillHover : root.fillIdle)
                                 border.color: (root && root.dictationActive)
                                     ? root.seal
-                                    : Qt.rgba(1, 1, 1, 0.15)
+                                    : root.sep
                                 border.width: 1
                                 scale: contentDictationMa.pressed ? 0.92 : (contentDictationMa.containsMouse ? 1.08 : 1.0)
                                 Behavior on scale { NumberAnimation { duration: 120 } }
@@ -2336,7 +2393,7 @@ Item {
                                     anchors.centerIn: parent
                                     text: (root && root.dictationState === "transcribing") ? "auto_awesome" : "mic"
                                     font.pixelSize: 13
-                                    color: (root && root.dictationActive) ? root.seal : "#ffffff"
+                                    color: (root && root.dictationActive) ? root.seal : (root ? root.ink : "#ffffff")
                                 }
 
                                 MouseArea {
@@ -2756,8 +2813,8 @@ Item {
         Item {
             id: detailHeaderBar
             width: parent.width
-            height: (dashboardContent.activeDetailView === "system" || dashboardContent.activeDetailView === "calendar" || dashboardContent.activeDetailView === "wifi" || dashboardContent.activeDetailView === "bluetooth" || dashboardContent.activeDetailView === "screentime") ? 0 : 34
-            visible: dashboardContent.activeDetailView !== "system" && dashboardContent.activeDetailView !== "calendar" && dashboardContent.activeDetailView !== "wifi" && dashboardContent.activeDetailView !== "bluetooth" && dashboardContent.activeDetailView !== "screentime"
+            height: 0
+            visible: false
             anchors.top: parent.top
 
             // Back button pill
@@ -2819,6 +2876,7 @@ Item {
                         case "volume": return "Sound & Volume"
                         case "system": return "System & Power"
                         case "calendar": return "Calendar & Notes"
+                        case "notifications": return "Notifications"
                         default: return ""
                     }
                 }
@@ -2864,7 +2922,7 @@ Item {
         Item {
             id: detailContentArea
             anchors.top: detailHeaderBar.bottom
-            anchors.topMargin: (dashboardContent.activeDetailView === "system" || dashboardContent.activeDetailView === "calendar" || dashboardContent.activeDetailView === "wifi" || dashboardContent.activeDetailView === "bluetooth" || dashboardContent.activeDetailView === "screentime") ? 0 : 8
+            anchors.topMargin: 0
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
@@ -2981,6 +3039,19 @@ Item {
                 root: dashboardContent.root
                 panel: dashboardContent.panel
                 visible: dashboardContent.activeDetailView === "calendar"
+                onCloseRequested: {
+                    dashboardContent.activeDetailView = ""
+                    if (root) root.dashboardDetail = ""
+                }
+            }
+
+            // Detailed Notifications Section
+            NotificationDetailSection {
+                id: notifDetailSection
+                anchors.fill: parent
+                root: dashboardContent.root
+                panel: dashboardContent.panel
+                visible: dashboardContent.activeDetailView === "notifications"
                 onCloseRequested: {
                     dashboardContent.activeDetailView = ""
                     if (root) root.dashboardDetail = ""

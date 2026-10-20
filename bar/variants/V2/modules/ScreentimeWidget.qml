@@ -7,7 +7,7 @@ Item {
     required property var root
 
     visible: implicitWidth > 0.5
-    implicitWidth: root.modScreentime ? row.implicitWidth + 18 : 0
+    implicitWidth: root.modScreentime ? row.implicitWidth + 12 : 0
     implicitHeight: 28
     opacity: root.modScreentime ? 1 : 0
     Behavior on opacity      { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
@@ -46,13 +46,13 @@ Item {
     Row {
         id: row
         anchors.centerIn: parent
-        spacing: 4
+        spacing: 3
 
         IconText {
             anchors.verticalCenter: parent.verticalCenter
             text: "hourglass_empty"
             color: rootMod.contentColor
-            font.pixelSize: 15
+            font.pixelSize: 13
             font.weight: Font.DemiBold
             fill: 1
         }
@@ -63,7 +63,8 @@ Item {
             text: rootMod.sessionTimeStr
             color: rootMod.contentColor
             font.family: root.barFont
-            font.pixelSize: 12
+            font.pixelSize: 10
+            font.weight: Font.Medium
         }
     }
 

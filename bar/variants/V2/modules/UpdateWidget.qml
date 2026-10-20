@@ -10,8 +10,10 @@ Item {
     property bool updateAvailable: false
 
     visible: updateAvailable
-    implicitWidth: updateAvailable ? 20 : 0
-    implicitHeight: 28
+    implicitWidth: updateAvailable ? 16 : 0
+    implicitHeight: 24
+    width: implicitWidth
+    height: implicitHeight
 
 
     readonly property string tooltipText: "Omarchy update available"

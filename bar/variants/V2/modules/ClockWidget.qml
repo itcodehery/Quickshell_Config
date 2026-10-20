@@ -26,7 +26,9 @@ Item {
     readonly property string tooltipText: days[now.getDay()] + ", " + now.getDate() + " " + months[now.getMonth()] + " " + now.getFullYear()
 
     implicitWidth: label.implicitWidth
-    implicitHeight: 28
+    implicitHeight: 24
+    width: implicitWidth
+    height: implicitHeight
 
     Timer {
         interval: 1000

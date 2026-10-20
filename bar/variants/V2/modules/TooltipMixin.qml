@@ -11,8 +11,8 @@ Item {
     property string text: ""
     property int    delay: 320
 
-    function show() { if (text) delayTimer.restart() }
-    function hide() { delayTimer.stop(); root.hideTooltip(owner) }
+    function show() { /* Hover tooltips disabled per user request */ }
+    function hide() { delayTimer.stop(); if (root && root.hideTooltip) root.hideTooltip(owner) }
 
     // live-update the visible tooltip while THIS widget owns it (e.g. volume %
     // changing under the cursor) — showTooltip() only captures a snapshot.
@@ -21,11 +21,6 @@ Item {
     Timer {
         id: delayTimer
         interval: mixin.delay
-        onTriggered: {
-            if (!mixin.text) return
-            var top = mixin.owner.mapToItem(null, mixin.owner.width / 2, 0)
-            var bottom = mixin.owner.mapToItem(null, mixin.owner.width / 2, mixin.owner.height)
-            mixin.root.showTooltip(mixin.text, top.x, top.y, bottom.y, mixin.owner)
-        }
+        running: false
     }
 }

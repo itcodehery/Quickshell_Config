@@ -13,22 +13,6 @@ Item {
     property var panel: null
 
     signal closeRequested()
-    property int currentTab: 0 // 0: Output & Input, 1: App Mixer
-
-    function nextSubOption() {
-        if (currentTab < 1) {
-            currentTab++
-            return true
-        }
-        return false
-    }
-    function prevSubOption() {
-        if (currentTab > 0) {
-            currentTab--
-            return true
-        }
-        return false
-    }
 
     AudioData { id: audio }
     readonly property int volume: audio.volume
@@ -147,7 +131,6 @@ Item {
         if (visible) volSection.refreshAll()
     }
 
-    // Background processes
     Process {
         id: muteRunner
         command: ["bash", "-c", volSection.outputMuteCommand]
@@ -254,7 +237,8 @@ Item {
     }
 
     Timer {
-        interval: 2000; repeat: true
+        interval: 2000
+        repeat: true
         running: volSection.visible
         onTriggered: {
             appsProc.running = false; appsProc.running = true
@@ -262,813 +246,417 @@ Item {
         }
     }
 
-    // ================= MAIN LAYOUT =================
-    Column {
+    function toggleOutputMute() {
+        if (!muteRunner.running) muteRunner.running = true
+    }
+
+    function toggleMicMute() {
+        if (!micMuteRunner.running) micMuteRunner.running = true
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // ── TWO-COLUMN DASHBOARD LAYOUT (Matches Calendar Widget Design) ─────────
+    // ═════════════════════════════════════════════════════════════════════════
+    Row {
+        id: columnsRow
         anchors.fill: parent
-        spacing: 10
+        spacing: 12
 
-        // ================= HEADER BAR =================
-        Item {
-            width: parent.width
-            height: 36
-
-            Row {
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 10
-
-                Rectangle {
-                    width: 32
-                    height: 32
-                    radius: 16
-                    color: root.seal
-                    anchors.verticalCenter: parent.verticalCenter
-
-                    IconText {
-                        anchors.centerIn: parent
-                        text: volSection.muted ? "volume_off" : "volume_up"
-                        color: root.paper
-                        font.pixelSize: 18
-                    }
-                }
-
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 1
-
-                    Text {
-                        text: "AUDIO & SOUND"
-                        color: root.ink
-                        font.family: root.barFont
-                        font.pixelSize: 12
-                        font.weight: Font.Bold
-                        font.letterSpacing: 0.8
-                    }
-
-                    Row {
-                        spacing: 6
-                        Rectangle {
-                            width: 6
-                            height: 6
-                            radius: 3
-                            color: volSection.muted ? "#f87171" : "#4ade80"
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                        Text {
-                            text: (volSection.muted ? "Output Muted" : (volSection.volume + "% Master Output")) +
-                                  " • " + volSection.defaultSinkDesc
-                            color: root.ink
-                            opacity: 0.6
-                            font.family: root.barFont
-                            font.pixelSize: 11
-                            anchors.verticalCenter: parent.verticalCenter
-                            elide: Text.ElideRight
-                            width: Math.min(implicitWidth, volSection.width - 250)
-                        }
-                    }
-                }
-            }
-
-            // Top action buttons
-            Row {
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 8
-
-                // Refresh Button Pill
-                Rectangle {
-                    width: 82
-                    height: 28
-                    radius: 14
-                    color: volRefMa.containsMouse ? root.fillHover : root.fillIdle
-                    border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.08)
-
-                    Row {
-                        anchors.centerIn: parent
-                        spacing: 5
-                        IconText {
-                            text: "refresh"
-                            color: root.ink
-                            font.pixelSize: 14
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                        Text {
-                            text: "Refresh"
-                            color: root.ink
-                            font.family: root.barFont
-                            font.pixelSize: 11
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-
-                    MouseArea {
-                        id: volRefMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: volSection.refreshAll()
-                    }
-                }
-            }
-        }
-
-        // ================= SEGMENTED TAB SWITCHER =================
-        Row {
-            width: parent.width
-            height: 32
-            spacing: 8
-
-            Rectangle {
-                width: (parent.width - 8) / 2
-                height: 32
-                radius: 16
-                color: volSection.currentTab === 0 ? root.seal : root.fillIdle
-                Behavior on color { ColorAnimation { duration: 150 } }
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 6
-                    IconText {
-                        text: "speaker"
-                        color: volSection.currentTab === 0 ? root.paper : root.ink
-                        font.pixelSize: 15
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                    Text {
-                        text: "Output & Input"
-                        color: volSection.currentTab === 0 ? root.paper : root.ink
-                        font.family: root.barFont
-                        font.pixelSize: 11
-                        font.weight: Font.DemiBold
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: volSection.currentTab = 0
-                }
-            }
-
-            Rectangle {
-                width: (parent.width - 8) / 2
-                height: 32
-                radius: 16
-                color: volSection.currentTab === 1 ? root.seal : root.fillIdle
-                Behavior on color { ColorAnimation { duration: 150 } }
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 6
-                    IconText {
-                        text: "equalizer"
-                        color: volSection.currentTab === 1 ? root.paper : root.ink
-                        font.pixelSize: 15
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                    Text {
-                        text: "App Mixer (" + (volSection.apps ? volSection.apps.length : 0) + ")"
-                        color: volSection.currentTab === 1 ? root.paper : root.ink
-                        font.family: root.barFont
-                        font.pixelSize: 11
-                        font.weight: Font.DemiBold
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: volSection.currentTab = 1
-                }
-            }
-        }
-
-        // ================= FULL-WIDTH SINGLE COLUMN CARD CONTENT =================
-        Item {
-            width: parent.width
-            height: parent.height - 36 - 32 - 20
+        // ═════════════════════════════════════════════════════════════════════
+        // ── LEFT COLUMN: GLOBAL VOLUME & APP MEDIA SLIDERS WIDGET ───────────
+        // ═════════════════════════════════════════════════════════════════════
+        Rectangle {
+            id: leftColContainer
+            width: Math.round((columnsRow.width - columnsRow.spacing) / 2)
+            height: columnsRow.height
+            radius: 20
+            color: root.fillIdle
+            border.width: 0
             clip: true
 
-            // ---------------- CARD 1: OUTPUT & INPUT DEVICES (Full Width) ----------------
-            Rectangle {
-                id: card1
-                anchors.fill: parent
-                visible: volSection.currentTab === 0
-                radius: 20
-                color: root.fillIdle
-                clip: true
+            // Top Bar
+            Item {
+                id: leftTopBar
+                anchors.top: parent.top
+                anchors.topMargin: 9
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                height: 26
 
-                Flickable {
+                // Status Badge Pill
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 26
+                    radius: 13
+                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                    width: leftStatusRow.implicitWidth + 18
+
+                    Row {
+                        id: leftStatusRow
+                        anchors.centerIn: parent
+                        spacing: 6
+
+                        Rectangle {
+                            width: 6; height: 6; radius: 3
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: volSection.muted ? "#ea6962" : "#a9b665"
+                        }
+
+                        IconText {
+                            text: volSection.muted ? "volume_off" : (volSection.volume > 50 ? "volume_up" : (volSection.volume > 0 ? "volume_down" : "volume_mute"))
+                            font.pixelSize: 13
+                            color: root.ink
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        Text {
+                            text: volSection.muted ? "Muted" : (volSection.volume + "% Volume")
+                            font.family: root.barFont
+                            font.pixelSize: 11
+                            font.weight: Font.Bold
+                            color: root.ink
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+                }
+
+                // Top Right: Mute Pill + Close Button
+                Row {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 6
+
+                    // Mute Button Pill
+                    Rectangle {
+                        height: 26
+                        radius: 13
+                        color: muteBtnMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                        width: mutePillRow.implicitWidth + 16
+
+                        Row {
+                            id: mutePillRow
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            IconText {
+                                text: volSection.muted ? "volume_off" : "volume_up"
+                                font.pixelSize: 11
+                                color: volSection.muted ? "#ea6962" : root.seal
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                            Text {
+                                text: volSection.muted ? "Unmute" : "Mute"
+                                font.family: root.barFont
+                                font.pixelSize: 10
+                                font.weight: Font.Bold
+                                color: root.ink
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        MouseArea {
+                            id: muteBtnMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: volSection.toggleOutputMute()
+                        }
+                    }
+
+                    // Close Button
+                    Rectangle {
+                        width: 26; height: 26; radius: 13
+                        color: closeLeftMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+
+                        IconText {
+                            anchors.centerIn: parent
+                            text: "close"
+                            font.pixelSize: 14
+                            color: root.ink
+                        }
+
+                        MouseArea {
+                            id: closeLeftMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: volSection.closeRequested()
+                        }
+                    }
+                }
+            }
+
+            // Left Column Body Content
+            Item {
+                anchors.top: leftTopBar.bottom
+                anchors.topMargin: 8
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 10
+
+                Rectangle {
                     anchors.fill: parent
-                    anchors.margins: 14
-                    contentWidth: width
-                    contentHeight: leftContentCol.implicitHeight
-                    boundsBehavior: Flickable.StopAtBounds
+                    radius: 14
+                    color: Qt.rgba(1, 1, 1, 0.03)
+                    border.width: 1
+                    border.color: Qt.rgba(1, 1, 1, 0.05)
                     clip: true
 
                     Column {
-                        id: leftContentCol
-                        width: parent.width
-                        spacing: 12
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        spacing: 6
 
-                        // --- 1. Master Output Section ---
-                        Item {
-                            width: parent.width
-                            height: 18
-
-                            Text {
-                                text: "MASTER OUTPUT"
-                                color: root.ink
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: Font.Bold
-                                font.letterSpacing: 0.6
-                                anchors.left: parent.left
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                            Text {
-                                text: volSection.muted ? "Muted" : (volSection.volume + "%")
-                                color: volSection.muted ? root.color01 : root.seal
-                                font.family: root.barFont
-                                font.pixelSize: 12
-                                font.weight: Font.Bold
-                                anchors.right: parent.right
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        // Master Volume Slider Track
+                        // 1. Master Volume Slider on Top
                         Rectangle {
-                            id: masterSliderTrack
+                            id: masterCard
                             width: parent.width
-                            height: 40
-                            radius: 20
-                            color: root.fillIdle
-                            clip: true
+                            height: 42
+                            radius: 12
+                            color: Qt.rgba(1, 1, 1, 0.04)
+                            border.width: 1
+                            border.color: Qt.rgba(1, 1, 1, 0.06)
 
                             property int localVal: volSection.volume
                             property bool dragging: false
 
-                            Item {
-                                id: masterFillItem
-                                property real val: masterSliderTrack.dragging ? masterSliderTrack.localVal : volSection.volume
-                                property real gap: val > 85 ? 23 * (100 - val) / 15 : 23
-                                property real barOpacity: val > 85 ? (100 - val) / 15 : 1
+                            Row {
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                spacing: 8
 
-                                width: Math.max(parent.height, parent.width * (val / 100))
-                                height: parent.height
-                                Behavior on width {
-                                    enabled: !masterSliderTrack.dragging
-                                    NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
-                                }
-
-                                // The actual fill
+                                // Mute icon button
                                 Rectangle {
-                                    anchors.left: parent.left
-                                    anchors.top: parent.top
-                                    anchors.bottom: parent.bottom
-                                    width: Math.max(parent.height, parent.width - masterFillItem.gap)
-                                    radius: 10 + (10 * (1 - masterFillItem.barOpacity))
-                                    color: volSection.muted ? root.fillHover : root.seal
-
-                                    // fully rounded on the left
-                                    Rectangle {
-                                        width: parent.height
-                                        height: parent.height
-                                        radius: height / 2
-                                        color: volSection.muted ? root.fillHover : root.seal
-                                        anchors.left: parent.left
-                                    }
-                                }
-
-                                // The vertical bar with "padding"
-                                Rectangle {
-                                    anchors.right: parent.right
+                                    width: 26
+                                    height: 26
+                                    radius: 13
+                                    color: volSection.muted ? Qt.rgba(0.92, 0.41, 0.38, 0.15) : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15)
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: 23 // 10px gap + 3px line + 10px gap
-                                    height: parent.height
-                                    color: "transparent"
-                                    opacity: masterFillItem.barOpacity
 
-                                    Rectangle {
+                                    IconText {
                                         anchors.centerIn: parent
-                                        width: 3
-                                        height: parent.height - 16
-                                        radius: 1.5
-                                        color: volSection.muted ? root.fillHover : root.seal
+                                        text: volSection.muted ? "volume_off" : (masterCard.localVal > 50 ? "volume_up" : (masterCard.localVal > 0 ? "volume_down" : "volume_mute"))
+                                        font.pixelSize: 14
+                                        color: volSection.muted ? "#ea6962" : root.seal
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: volSection.toggleOutputMute()
                                     }
                                 }
-                            }
 
-                            Row {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 16
-                                spacing: 12
-
-                                IconText {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: volSection.muted ? "volume_off" : (masterFillItem.val > 50 ? "volume_up" : (masterFillItem.val > 0 ? "volume_down" : "volume_mute"))
-                                    color: volSection.muted ? root.ink : root.paper
-                                    font.pixelSize: 18
-                                }
-
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: Math.round(masterFillItem.val) + "%"
-                                    color: volSection.muted ? root.ink : (masterFillItem.width > 70 ? root.paper : root.ink)
-                                    font.pixelSize: 13
-                                    font.family: root.barFont
-                                    font.weight: Font.DemiBold
-                                    opacity: masterSliderTrack.dragging ? 1 : (masterFillItem.width > 70 ? 1 : 0)
-                                    visible: opacity > 0
-                                    Behavior on opacity { NumberAnimation { duration: 200 } }
-                                }
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                function updateVal(mouse) {
-                                    let v = Math.max(0, Math.min(100, Math.round((mouse.x / width) * 100)))
-                                    masterSliderTrack.localVal = v
-                                }
-                                onPressed: (mouse) => {
-                                    masterSliderTrack.dragging = true
-                                    updateVal(mouse)
-                                }
-                                onPositionChanged: (mouse) => {
-                                    if (pressed) updateVal(mouse)
-                                }
-                                onReleased: (mouse) => {
-                                    masterSliderTrack.dragging = false
-                                    updateVal(mouse)
-                                    Quickshell.execDetached(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", masterSliderTrack.localVal + "%"])
-                                }
-                            }
-                        }
-
-                        // Mute Master Volume Pill Button
-                        Rectangle {
-                            width: parent.width
-                            height: 32
-                            radius: 16
-                            color: volSection.muted ? root.seal : (masterMuteMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.05))
-                            border.width: 1
-                            border.color: volSection.muted ? root.seal : Qt.rgba(1, 1, 1, 0.08)
-
-                            Row {
-                                anchors.centerIn: parent
-                                spacing: 6
-                                IconText {
-                                    text: volSection.muted ? "volume_off" : "volume_up"
-                                    color: volSection.muted ? root.paper : root.ink
-                                    font.pixelSize: 15
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-                                Text {
-                                    text: volSection.muted ? "Unmute Volume" : "Mute Volume"
-                                    color: volSection.muted ? root.paper : root.ink
-                                    font.family: root.barFont
-                                    font.pixelSize: 11
-                                    font.weight: Font.Medium
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-                            }
-
-                            MouseArea {
-                                id: masterMuteMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (!muteRunner.running) muteRunner.running = true
-                                }
-                            }
-                        }
-
-                        // Separator
-                        Rectangle {
-                            width: parent.width
-                            height: 1
-                            color: Qt.rgba(1, 1, 1, 0.08)
-                        }
-
-                        // --- 2. Output Device Switcher ---
-                        Item {
-                            width: parent.width
-                            height: 18
-
-                            Text {
-                                text: "OUTPUT DEVICES"
-                                color: root.ink
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: Font.Bold
-                                font.letterSpacing: 0.6
-                                anchors.left: parent.left
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                            Text {
-                                text: volSection.sinks.length + " available"
-                                color: root.ink
-                                opacity: 0.5
-                                font.family: root.barFont
-                                font.pixelSize: 10
-                                anchors.right: parent.right
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        Column {
-                            width: parent.width
-                            spacing: 6
-
-                            Repeater {
-                                model: volSection.sinks
-                                delegate: Rectangle {
-                                    id: devItem
-                                    required property var modelData
-                                    readonly property bool isSelected: modelData.name === volSection.defaultSink
-                                    readonly property bool isHovered: devMa.containsMouse
-
-                                    width: parent.width
-                                    height: 34
+                                // Interactive Master Slider Track
+                                Rectangle {
+                                    id: masterTrackRect
+                                    width: parent.width - 26 - 8 - 42 - 8
+                                    height: 24
                                     radius: 12
-                                    color: isSelected ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.16) : (isHovered ? root.fillHover : Qt.rgba(1, 1, 1, 0.04))
-                                    border.width: isSelected ? 1.5 : 1
-                                    border.color: isSelected ? root.seal : Qt.rgba(1, 1, 1, 0.06)
-                                    Behavior on color { ColorAnimation { duration: 120 } }
+                                    color: root.fillIdle
+                                    clip: true
+                                    anchors.verticalCenter: parent.verticalCenter
 
-                                    Row {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        spacing: 8
+                                    Item {
+                                        id: masterFillItem
+                                        readonly property real val: masterCard.dragging ? masterCard.localVal : volSection.volume
+                                        width: Math.max(parent.height, parent.width * (val / 100.0))
+                                        height: parent.height
 
-                                        // Radio indicator dot
                                         Rectangle {
-                                            width: 8
-                                            height: 8
-                                            radius: 4
-                                            color: devItem.isSelected ? root.seal : Qt.rgba(1, 1, 1, 0.25)
-                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.fill: parent
+                                            radius: 12
+                                            color: volSection.muted ? root.fillHover : root.seal
+
+                                            Behavior on color { ColorAnimation { duration: 150 } }
                                         }
 
-                                        IconText {
-                                            text: {
-                                                let d = (devItem.modelData.desc || "").toLowerCase()
-                                                if (d.indexOf("headphone") >= 0 || d.indexOf("headset") >= 0) return "headphones"
-                                                if (d.indexOf("hdmi") >= 0 || d.indexOf("display") >= 0) return "tv"
-                                                if (d.indexOf("blue") >= 0) return "bluetooth"
-                                                return "speaker"
-                                            }
-                                            color: devItem.isSelected ? root.seal : root.ink
-                                            font.pixelSize: 15
+                                        // Thumb notch indicator
+                                        Rectangle {
+                                            anchors.right: parent.right
+                                            anchors.rightMargin: 4
                                             anchors.verticalCenter: parent.verticalCenter
-                                        }
-
-                                        Text {
-                                            text: devItem.modelData.desc
-                                            color: devItem.isSelected ? root.seal : root.ink
-                                            font.family: root.barFont
-                                            font.pixelSize: 11
-                                            font.weight: devItem.isSelected ? Font.Bold : Font.Normal
-                                            elide: Text.ElideRight
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            width: parent.width - 60
+                                            width: 3
+                                            height: parent.height - 8
+                                            radius: 1.5
+                                            color: root.paper
+                                            opacity: 0.8
                                         }
                                     }
 
                                     MouseArea {
-                                        id: devMa
                                         anchors.fill: parent
-                                        hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
-                                        onClicked: volSection.setDefaultSink(devItem.modelData)
+                                        function updateMasterVal(mouse) {
+                                            let v = Math.max(0, Math.min(100, Math.round((mouse.x / masterTrackRect.width) * 100)))
+                                            masterCard.localVal = v
+                                        }
+                                        onPressed: (mouse) => {
+                                            masterCard.dragging = true
+                                            updateMasterVal(mouse)
+                                        }
+                                        onPositionChanged: (mouse) => {
+                                            if (pressed) updateMasterVal(mouse)
+                                        }
+                                        onReleased: (mouse) => {
+                                            masterCard.dragging = false
+                                            updateMasterVal(mouse)
+                                            Quickshell.execDetached(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", masterCard.localVal + "%"])
+                                        }
                                     }
+                                }
+
+                                // Volume percentage display
+                                Text {
+                                    text: (masterCard.dragging ? masterCard.localVal : volSection.volume) + "%"
+                                    font.family: root.barFont
+                                    font.pixelSize: 11
+                                    font.weight: Font.Bold
+                                    color: root.ink
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 42
+                                    horizontalAlignment: Text.AlignRight
                                 }
                             }
                         }
 
-                        // Separator
-                        Rectangle {
-                            width: parent.width
-                            height: 1
-                            color: Qt.rgba(1, 1, 1, 0.08)
-                        }
-
-                        // --- 3. Microphone & Input Section ---
+                        // 2. Section Header: Media Playing Apps
                         Item {
                             width: parent.width
-                            height: 18
-
-                            Text {
-                                text: "MICROPHONE INPUT"
-                                color: root.ink
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: Font.Bold
-                                font.letterSpacing: 0.6
-                                anchors.left: parent.left
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                            Text {
-                                text: volSection.micMuted ? "Muted" : "Active"
-                                color: volSection.micMuted ? "#f87171" : "#4ade80"
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: Font.Bold
-                                anchors.right: parent.right
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        // Live VU / Peak Level Meter
-                        Rectangle {
-                            width: parent.width
-                            height: 10
-                            radius: 5
-                            color: root.fillIdle
-                            clip: true
-
-                            Rectangle {
-                                anchors.left: parent.left
-                                anchors.top: parent.top
-                                anchors.bottom: parent.bottom
-                                width: Math.max(0, Math.min(parent.width, parent.width * (volSection.micMuted ? 0 : volSection.micLevel)))
-                                radius: 5
-                                color: volSection.micMuted ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25) : root.seal
-                                Behavior on width { NumberAnimation { duration: 80 } }
-                            }
-                        }
-
-                        // Mic Mute Toggle Pill Button
-                        Rectangle {
-                            width: parent.width
-                            height: 32
-                            radius: 16
-                            color: volSection.micMuted ? root.seal : (micMuteMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.05))
-                            border.width: 1
-                            border.color: volSection.micMuted ? root.seal : Qt.rgba(1, 1, 1, 0.08)
+                            height: 16
 
                             Row {
-                                anchors.centerIn: parent
-                                spacing: 6
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 4
+
                                 IconText {
-                                    text: volSection.micMuted ? "mic_off" : "mic"
-                                    color: volSection.micMuted ? root.paper : root.ink
-                                    font.pixelSize: 15
+                                    text: "graphic_eq"
+                                    font.pixelSize: 10
+                                    color: root.seal
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                                 Text {
-                                    text: volSection.micMuted ? "Unmute Microphone" : "Mute Microphone"
-                                    color: volSection.micMuted ? root.paper : root.ink
+                                    text: "PLAYING APPS (" + volSection.apps.length + ")"
                                     font.family: root.barFont
-                                    font.pixelSize: 11
-                                    font.weight: Font.Medium
+                                    font.pixelSize: 9
+                                    font.weight: Font.Bold
+                                    color: root.ink
+                                    opacity: 0.5
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                             }
+                        }
 
-                            MouseArea {
-                                id: micMuteMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (!micMuteRunner.running) micMuteRunner.running = true
+                        // 3. List of Apps Playing Media
+                        Item {
+                            width: parent.width
+                            height: parent.height - 42 - 6 - 16 - 6
+                            clip: true
+
+                            // Empty State
+                            Column {
+                                anchors.centerIn: parent
+                                spacing: 4
+                                visible: volSection.apps.length === 0
+
+                                IconText {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: "music_off"
+                                    font.pixelSize: 22
+                                    color: root.ink
+                                    opacity: 0.35
+                                }
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: "No apps currently playing audio"
+                                    font.family: root.barFont
+                                    font.pixelSize: 10
+                                    color: root.ink
+                                    opacity: 0.45
                                 }
                             }
-                        }
-                    }
-                }
-            }
 
-            // ---------------- CARD 2: PER-APP AUDIO MIXER (Full Width) ----------------
-            Rectangle {
-                id: card2
-                anchors.fill: parent
-                visible: volSection.currentTab === 1
-                radius: 20
-                color: root.fillIdle
-                clip: true
-
-                Column {
-                    anchors.fill: parent
-                    anchors.margins: 14
-                    spacing: 10
-
-                    // Header row
-                    Item {
-                        width: parent.width
-                        height: 18
-
-                        Row {
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: 8
-
-                            IconText {
-                                text: "tune"
-                                color: root.seal
-                                font.pixelSize: 16
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                            Text {
-                                text: "APPLICATION AUDIO MIXER"
-                                color: root.ink
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: Font.Bold
-                                font.letterSpacing: 0.6
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        Text {
-                            text: volSection.apps.length > 0 ? (volSection.apps.length + " active") : "Idle"
-                            color: root.ink
-                            opacity: 0.5
-                            font.family: root.barFont
-                            font.pixelSize: 10
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-
-                    Rectangle {
-                        width: parent.width
-                        height: 1
-                        color: Qt.rgba(1, 1, 1, 0.08)
-                    }
-
-                    // App Streams List (Flickable)
-                    Flickable {
-                        id: appsFlick
-                        width: parent.width
-                        height: parent.height - 45
-                        contentWidth: width
-                        contentHeight: Math.max(height, appItemsCol.implicitHeight)
-                        boundsBehavior: Flickable.StopAtBounds
-                        clip: true
-
-                        Column {
-                            id: appItemsCol
-                            width: parent.width
-                            spacing: 8
-                            visible: volSection.apps.length > 0
-
-                            Repeater {
+                            // App Sliders ListView
+                            ListView {
+                                anchors.fill: parent
+                                clip: true
+                                spacing: 5
                                 model: volSection.apps
+                                visible: volSection.apps.length > 0
+
                                 delegate: Rectangle {
-                                    id: appCard
+                                    id: appRowCard
                                     required property var modelData
                                     property int localAppVol: modelData.vol
                                     property bool dragging: false
 
-                                    width: parent.width
-                                    height: 72
-                                    radius: 14
-                                    color: Qt.rgba(1, 1, 1, 0.04)
+                                    width: ListView.view.width
+                                    height: 36
+                                    radius: 10
+                                    color: Qt.rgba(1, 1, 1, 0.03)
                                     border.width: 1
-                                    border.color: Qt.rgba(1, 1, 1, 0.06)
+                                    border.color: Qt.rgba(1, 1, 1, 0.05)
 
-                                    Column {
+                                    Row {
                                         anchors.fill: parent
-                                        anchors.margins: 10
+                                        anchors.leftMargin: 8
+                                        anchors.rightMargin: 8
                                         spacing: 8
 
-                                        // Top Row: Icon + Name (left) & % + Mute Toggle (right)
-                                        Item {
-                                            width: parent.width
+                                        // App Icon
+                                        Rectangle {
+                                            width: 22
                                             height: 22
+                                            radius: 11
+                                            color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15)
+                                            anchors.verticalCenter: parent.verticalCenter
 
-                                            Row {
-                                                anchors.left: parent.left
-                                                anchors.right: appControlsRow.left
-                                                anchors.rightMargin: 8
-                                                anchors.verticalCenter: parent.verticalCenter
-                                                spacing: 8
-
-                                                IconText {
-                                                    text: appCard.modelData.muted ? "volume_off" : "graphic_eq"
-                                                    color: appCard.modelData.muted ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.4) : root.seal
-                                                    font.pixelSize: 16
-                                                    anchors.verticalCenter: parent.verticalCenter
-                                                }
-
-                                                Text {
-                                                    text: appCard.modelData.name
-                                                    color: appCard.modelData.muted ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.45) : root.ink
-                                                    font.family: root.barFont
-                                                    font.pixelSize: 12
-                                                    font.weight: Font.DemiBold
-                                                    elide: Text.ElideRight
-                                                    width: parent.width - 24
-                                                    anchors.verticalCenter: parent.verticalCenter
-                                                }
-                                            }
-
-                                            Row {
-                                                id: appControlsRow
-                                                anchors.right: parent.right
-                                                anchors.verticalCenter: parent.verticalCenter
-                                                spacing: 8
-
-                                                Text {
-                                                    text: (appCard.dragging ? appCard.localAppVol : appCard.modelData.vol) + "%"
-                                                    color: appCard.modelData.muted ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.4) : root.seal
-                                                    font.family: root.barFont
-                                                    font.pixelSize: 11
-                                                    font.weight: Font.Medium
-                                                    anchors.verticalCenter: parent.verticalCenter
-                                                }
-
-                                                Rectangle {
-                                                    id: appMuteBtn
-                                                    width: 22
-                                                    height: 22
-                                                    radius: 11
-                                                    color: appCard.modelData.muted ? root.seal : (appMuteMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.08))
-
-                                                    IconText {
-                                                        anchors.centerIn: parent
-                                                        text: appCard.modelData.muted ? "volume_off" : "volume_up"
-                                                        color: appCard.modelData.muted ? root.paper : root.ink
-                                                        font.pixelSize: 12
-                                                    }
-
-                                                    MouseArea {
-                                                        id: appMuteMa
-                                                        anchors.fill: parent
-                                                        hoverEnabled: true
-                                                        cursorShape: Qt.PointingHandCursor
-                                                        onClicked: {
-                                                            volSection.run("pactl set-sink-input-mute " + appCard.modelData.idx + " toggle")
-                                                            Qt.callLater(function() { volSection.refreshAll() })
-                                                        }
-                                                    }
-                                                }
+                                            IconText {
+                                                anchors.centerIn: parent
+                                                text: appRowCard.modelData.muted ? "volume_off" : "music_note"
+                                                font.pixelSize: 12
+                                                color: appRowCard.modelData.muted ? "#ea6962" : root.seal
                                             }
                                         }
 
-                                        // Bottom Row: Draggable Volume Slider Track with vertical bar UI
+                                        // App Name
+                                        Text {
+                                            text: appRowCard.modelData.name
+                                            font.family: root.barFont
+                                            font.pixelSize: 10
+                                            font.weight: Font.Bold
+                                            color: root.ink
+                                            elide: Text.ElideRight
+                                            width: 68
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+
+                                        // App Slider Track
                                         Rectangle {
                                             id: appTrackRect
-                                            width: parent.width
-                                            height: 26
-                                            radius: 13
+                                            width: parent.width - 22 - 8 - 68 - 8 - 34 - 6 - 22 - 8
+                                            height: 18
+                                            radius: 9
                                             color: root.fillIdle
                                             clip: true
+                                            anchors.verticalCenter: parent.verticalCenter
 
                                             Item {
-                                                id: appFillItem
-                                                property real val: appCard.dragging ? appCard.localAppVol : appCard.modelData.vol
-                                                property real gap: val > 85 ? 18 * (100 - val) / 15 : 18
-                                                property real barOpacity: val > 85 ? (100 - val) / 15 : 1
-
-                                                width: Math.max(parent.height, parent.width * (val / 100))
+                                                readonly property real appVal: appRowCard.dragging ? appRowCard.localAppVol : appRowCard.modelData.vol
+                                                width: Math.max(parent.height, parent.width * (appVal / 100.0))
                                                 height: parent.height
-                                                Behavior on width {
-                                                    enabled: !appCard.dragging
-                                                    NumberAnimation { duration: 120; easing.type: Easing.OutQuad }
-                                                }
 
-                                                // The actual fill
                                                 Rectangle {
-                                                    anchors.left: parent.left
-                                                    anchors.top: parent.top
-                                                    anchors.bottom: parent.bottom
-                                                    width: Math.max(parent.height, parent.width - appFillItem.gap)
-                                                    radius: 7 + (6 * (1 - appFillItem.barOpacity))
-                                                    color: appCard.modelData.muted ? root.fillHover : root.seal
-
-                                                    // fully rounded on the left
-                                                    Rectangle {
-                                                        width: parent.height
-                                                        height: parent.height
-                                                        radius: height / 2
-                                                        color: appCard.modelData.muted ? root.fillHover : root.seal
-                                                        anchors.left: parent.left
-                                                    }
-                                                }
-
-                                                // The vertical bar with "padding"
-                                                Rectangle {
-                                                    anchors.right: parent.right
-                                                    anchors.verticalCenter: parent.verticalCenter
-                                                    width: 18 // 8px gap + 2.5px line + 8px gap
-                                                    height: parent.height
-                                                    color: "transparent"
-                                                    opacity: appFillItem.barOpacity
-
-                                                    Rectangle {
-                                                        anchors.centerIn: parent
-                                                        width: 2.5
-                                                        height: parent.height - 10
-                                                        radius: 1.25
-                                                        color: appCard.modelData.muted ? root.fillHover : root.seal
-                                                    }
+                                                    anchors.fill: parent
+                                                    radius: 9
+                                                    color: appRowCard.modelData.muted ? root.fillHover : root.seal
                                                 }
                                             }
 
@@ -1077,19 +665,58 @@ Item {
                                                 cursorShape: Qt.PointingHandCursor
                                                 function updateAppVal(mouse) {
                                                     let v = Math.max(0, Math.min(100, Math.round((mouse.x / appTrackRect.width) * 100)))
-                                                    appCard.localAppVol = v
+                                                    appRowCard.localAppVol = v
                                                 }
                                                 onPressed: (mouse) => {
-                                                    appCard.dragging = true
+                                                    appRowCard.dragging = true
                                                     updateAppVal(mouse)
                                                 }
                                                 onPositionChanged: (mouse) => {
                                                     if (pressed) updateAppVal(mouse)
                                                 }
                                                 onReleased: (mouse) => {
-                                                    appCard.dragging = false
+                                                    appRowCard.dragging = false
                                                     updateAppVal(mouse)
-                                                    volSection.run("pactl set-sink-input-volume " + appCard.modelData.idx + " " + appCard.localAppVol + "%")
+                                                    volSection.run("pactl set-sink-input-volume " + appRowCard.modelData.idx + " " + appRowCard.localAppVol + "%")
+                                                }
+                                            }
+                                        }
+
+                                        // App Percentage Text
+                                        Text {
+                                            text: (appRowCard.dragging ? appRowCard.localAppVol : appRowCard.modelData.vol) + "%"
+                                            font.family: root.barFont
+                                            font.pixelSize: 10
+                                            font.weight: Font.Bold
+                                            color: root.ink
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            width: 34
+                                            horizontalAlignment: Text.AlignRight
+                                        }
+
+                                        // App Mute Button
+                                        Rectangle {
+                                            width: 22
+                                            height: 22
+                                            radius: 11
+                                            color: appRowCard.modelData.muted ? root.seal : (appMuteMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.06))
+                                            anchors.verticalCenter: parent.verticalCenter
+
+                                            IconText {
+                                                anchors.centerIn: parent
+                                                text: appRowCard.modelData.muted ? "volume_off" : "volume_up"
+                                                font.pixelSize: 11
+                                                color: appRowCard.modelData.muted ? root.paper : root.ink
+                                            }
+
+                                            MouseArea {
+                                                id: appMuteMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    volSection.run("pactl set-sink-input-mute " + appRowCard.modelData.idx + " toggle")
+                                                    Qt.callLater(function() { volSection.refreshAll() })
                                                 }
                                             }
                                         }
@@ -1097,38 +724,397 @@ Item {
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
 
-                        // Empty State if no apps are playing audio
-                        Item {
+        // ═════════════════════════════════════════════════════════════════════
+        // ── RIGHT COLUMN: AUDIO DEVICE INFO & DETAILS ────────────────────────
+        // ═════════════════════════════════════════════════════════════════════
+        Rectangle {
+            id: rightColContainer
+            width: columnsRow.width - leftColContainer.width - columnsRow.spacing
+            height: columnsRow.height
+            radius: 20
+            color: root.fillIdle
+            border.width: 0
+            clip: true
+
+            // Top Bar
+            Item {
+                id: rightTopBar
+                anchors.top: parent.top
+                anchors.topMargin: 9
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                height: 26
+
+                // Section Title Pill
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 26
+                    radius: 13
+                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                    width: rightTitleRow.implicitWidth + 18
+
+                    Row {
+                        id: rightTitleRow
+                        anchors.centerIn: parent
+                        spacing: 6
+
+                        IconText {
+                            text: "headphones"
+                            font.pixelSize: 13
+                            color: root.ink
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        Text {
+                            text: "Audio Details"
+                            font.family: root.barFont
+                            font.pixelSize: 11
+                            font.weight: Font.Bold
+                            color: root.ink
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+                }
+
+                // Top Right: Mic Mute Pill + Close Button
+                Row {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 6
+
+                    // Mic Pill
+                    Rectangle {
+                        height: 26
+                        radius: 13
+                        color: micPillMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                        width: micPillRow.implicitWidth + 16
+
+                        Row {
+                            id: micPillRow
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            IconText {
+                                text: volSection.micMuted ? "mic_off" : "mic"
+                                font.pixelSize: 11
+                                color: volSection.micMuted ? "#ea6962" : root.seal
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                            Text {
+                                text: volSection.micMuted ? "Mic Off" : "Mic On"
+                                font.family: root.barFont
+                                font.pixelSize: 10
+                                font.weight: Font.Bold
+                                color: root.ink
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        MouseArea {
+                            id: micPillMa
                             anchors.fill: parent
-                            visible: volSection.apps.length === 0
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: volSection.toggleMicMute()
+                        }
+                    }
+
+                    // Close Button
+                    Rectangle {
+                        width: 26; height: 26; radius: 13
+                        color: closeRightMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+
+                        IconText {
+                            anchors.centerIn: parent
+                            text: "close"
+                            font.pixelSize: 14
+                            color: root.ink
+                        }
+
+                        MouseArea {
+                            id: closeRightMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: volSection.closeRequested()
+                        }
+                    }
+                }
+            }
+
+            // Right Column Body Content
+            Item {
+                anchors.top: rightTopBar.bottom
+                anchors.topMargin: 8
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 10
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 14
+                    color: Qt.rgba(1, 1, 1, 0.03)
+                    border.width: 1
+                    border.color: Qt.rgba(1, 1, 1, 0.05)
+                    clip: true
+
+                    Column {
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        spacing: 6
+
+                        // 1. Output Device Card
+                        Rectangle {
+                            width: parent.width
+                            height: 48
+                            radius: 10
+                            color: Qt.rgba(1, 1, 1, 0.04)
+                            border.width: 1
+                            border.color: Qt.rgba(1, 1, 1, 0.06)
+
+                            Row {
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                spacing: 10
+
+                                Rectangle {
+                                    width: 32
+                                    height: 32
+                                    radius: 16
+                                    color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18)
+                                    anchors.verticalCenter: parent.verticalCenter
+
+                                    IconText {
+                                        anchors.centerIn: parent
+                                        text: (volSection.defaultSinkDesc.toLowerCase().indexOf("head") !== -1 || volSection.defaultSinkDesc.toLowerCase().indexOf("duke") !== -1) ? "headphones" : "speaker"
+                                        font.pixelSize: 16
+                                        color: root.seal
+                                    }
+                                }
+
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parent.width - 32 - 10
+                                    spacing: 2
+                                    clip: true
+
+                                    Text {
+                                        text: volSection.defaultSinkDesc
+                                        font.family: root.barFont
+                                        font.pixelSize: 11
+                                        font.weight: Font.Bold
+                                        color: root.ink
+                                        elide: Text.ElideRight
+                                        width: parent.width
+                                    }
+
+                                    Text {
+                                        text: "Default Audio Output Sink"
+                                        font.family: root.barFont
+                                        font.pixelSize: 9
+                                        color: root.ink
+                                        opacity: 0.5
+                                    }
+                                }
+                            }
+                        }
+
+                        // 2. Telemetry Badges Row
+                        Row {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: 6
+
+                            // Server Badge
+                            Rectangle {
+                                height: 22
+                                radius: 11
+                                color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15)
+                                border.width: 1
+                                border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25)
+                                width: serverRow.implicitWidth + 12
+
+                                Row {
+                                    id: serverRow
+                                    anchors.centerIn: parent
+                                    spacing: 4
+                                    IconText {
+                                        text: "tune"
+                                        font.pixelSize: 10
+                                        color: root.seal
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                    Text {
+                                        text: "PipeWire Audio"
+                                        font.family: root.barFont
+                                        font.pixelSize: 9
+                                        font.weight: Font.Bold
+                                        color: root.seal
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+                            }
+
+                            // Format Badge
+                            Rectangle {
+                                height: 22
+                                radius: 11
+                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+                                width: fmtRow.implicitWidth + 12
+
+                                Row {
+                                    id: fmtRow
+                                    anchors.centerIn: parent
+                                    spacing: 4
+                                    IconText {
+                                        text: "graphic_eq"
+                                        font.pixelSize: 10
+                                        color: root.ink
+                                        opacity: 0.6
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                    Text {
+                                        text: "48 kHz • Stereo"
+                                        font.family: root.barFont
+                                        font.pixelSize: 9
+                                        font.weight: Font.Bold
+                                        color: root.ink
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. Microphone Input Live Peak Level Card
+                        Rectangle {
+                            width: parent.width
+                            height: 48
+                            radius: 10
+                            color: Qt.rgba(1, 1, 1, 0.04)
+                            border.width: 1
+                            border.color: Qt.rgba(1, 1, 1, 0.06)
 
                             Column {
-                                anchors.centerIn: parent
-                                spacing: 8
-                                IconText {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: "music_off"
-                                    color: root.ink
-                                    opacity: 0.25
-                                    font.pixelSize: 36
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                spacing: 6
+
+                                Item {
+                                    width: parent.width
+                                    height: 14
+
+                                    Row {
+                                        anchors.left: parent.left
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 6
+
+                                        IconText {
+                                            text: volSection.micMuted ? "mic_off" : "mic"
+                                            font.pixelSize: 12
+                                            color: volSection.micMuted ? "#ea6962" : root.seal
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+
+                                        Text {
+                                            text: "Microphone Input"
+                                            font.family: root.barFont
+                                            font.pixelSize: 10
+                                            font.weight: Font.DemiBold
+                                            color: root.ink
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                    }
+
+                                    Text {
+                                        text: volSection.micMuted ? "MUTED" : (Math.round(volSection.micLevel * 100) + "%")
+                                        font.family: root.barFont
+                                        font.pixelSize: 9
+                                        font.weight: Font.Bold
+                                        color: volSection.micMuted ? "#ea6962" : root.seal
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
                                 }
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: "No Active Audio Streams"
-                                    color: root.ink
-                                    opacity: 0.7
-                                    font.family: root.barFont
-                                    font.pixelSize: 13
-                                    font.weight: Font.DemiBold
+
+                                // Peak Meter Bar
+                                Rectangle {
+                                    width: parent.width
+                                    height: 6
+                                    radius: 3
+                                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+
+                                    Rectangle {
+                                        width: Math.min(parent.width, Math.round(parent.width * (volSection.micMuted ? 0 : volSection.micLevel)))
+                                        height: parent.height
+                                        radius: parent.radius
+                                        color: volSection.micLevel > 0.8 ? "#ea6962" : (volSection.micLevel > 0.5 ? "#e78a4e" : "#a9b665")
+
+                                        Behavior on width { NumberAnimation { duration: 60 } }
+                                    }
                                 }
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: "Applications playing sound will appear here."
-                                    color: root.ink
-                                    opacity: 0.4
-                                    font.family: root.barFont
-                                    font.pixelSize: 11
+                            }
+                        }
+
+                        // 4. Output Device Quick Switcher (if multiple sinks)
+                        Row {
+                            width: parent.width
+                            spacing: 6
+                            visible: volSection.sinks.length > 1
+
+                            Repeater {
+                                model: volSection.sinks
+
+                                Rectangle {
+                                    id: sinkChip
+                                    required property var modelData
+                                    readonly property bool isSelected: modelData.name === volSection.defaultSink
+                                    width: Math.floor((parent.width - (volSection.sinks.length - 1) * 6) / volSection.sinks.length)
+                                    height: 24
+                                    radius: 12
+                                    color: isSelected ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.2) : (chipMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.04))
+                                    border.width: 1
+                                    border.color: isSelected ? root.seal : Qt.rgba(1, 1, 1, 0.06)
+
+                                    Row {
+                                        anchors.centerIn: parent
+                                        spacing: 4
+
+                                        IconText {
+                                            text: (sinkChip.modelData.desc.toLowerCase().indexOf("head") !== -1 || sinkChip.modelData.desc.toLowerCase().indexOf("duke") !== -1) ? "headphones" : "speaker"
+                                            font.pixelSize: 10
+                                            color: sinkChip.isSelected ? root.seal : root.ink
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+
+                                        Text {
+                                            text: sinkChip.modelData.desc
+                                            font.family: root.barFont
+                                            font.pixelSize: 9
+                                            font.weight: sinkChip.isSelected ? Font.Bold : Font.Normal
+                                            color: sinkChip.isSelected ? root.seal : root.ink
+                                            elide: Text.ElideRight
+                                            width: parent.parent.width - 24
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: chipMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: volSection.setDefaultSink(sinkChip.modelData)
+                                    }
                                 }
                             }
                         }

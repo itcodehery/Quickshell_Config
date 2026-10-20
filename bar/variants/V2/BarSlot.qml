@@ -10,6 +10,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
 import Quickshell.Hyprland
+import Quickshell.Services.Mpris
 import "modules"
 import "IconMap.js" as IconMap
 
@@ -26,7 +27,7 @@ PanelWindow {
     property bool dashboardEverActivated: false
 
     readonly property real dashboardExpandedWidth: Math.min(800, barSlot.width - 32)
-    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - 40, (barSlot.root.dashboardDetail !== "" && barSlot.root.dashboardDetail !== "system" && barSlot.root.dashboardDetail !== "calendar" && barSlot.root.dashboardDetail !== "wifi" && barSlot.root.dashboardDetail !== "bluetooth" && barSlot.root.dashboardDetail !== "screentime") ? 520 : 292)
+    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - 40, 292)
 
     readonly property real dashboardTopRadius: barSlot.root.barPosition === "bottom" ? 24 : 10
     readonly property real dashboardBottomRadius: barSlot.root.barPosition === "bottom" ? 10 : 24
@@ -35,16 +36,19 @@ PanelWindow {
         ? (island.notifPeekBody !== "" ? Math.min(88, Math.max(64, islandNotifPeekItem.desiredCardHeight)) : 44)
         : barSlot.root.v2BarHeight
     readonly property int chargingTargetHeight: 40
+    readonly property int barExpandedHeight: Math.round(barSlot.root.v2BarHeight * 2.5)
     readonly property int shellVisibleHeight: isDashboardActive
         ? Math.round(dashboardExpandedHeight)
         : (island && island.chargingProgress > 0
             ? Math.round(barSlot.root.v2BarHeight + (chargingTargetHeight - barSlot.root.v2BarHeight) * island.chargingProgress)
             : (island && island.notifPeekActive
                 ? Math.round(barSlot.root.v2BarHeight + (notifTargetHeight - barSlot.root.v2BarHeight) * island.notifPeekProgress)
-                : barSlot.root.v2BarHeight))
+                : Math.round(barSlot.root.v2BarHeight + (barExpandedHeight - barSlot.root.v2BarHeight) * (1.0 - island.islandShrinkProgress))))
     readonly property int shellRadius: isDashboardActive
         ? 24
-        : ((island && island.notifPeekActive && island.notifPeekBody !== "") ? 18 : Math.round(shellVisibleHeight / 2))
+        : ((island && island.notifPeekActive && island.notifPeekBody !== "")
+            ? 18
+            : (island && island.islandShrinkProgress < 0.5 ? 20 : Math.round(shellVisibleHeight / 2)))
     readonly property real shellTargetWidth: isDashboardActive
         ? dashboardExpandedWidth
         : Math.max(80,
@@ -103,6 +107,18 @@ PanelWindow {
 
     readonly property color accent: barSlot.root.seal
 
+    function formatTitleCase(str) {
+        if (!str || typeof str !== "string") return ""
+        return str.replace(/\b[a-zA-Z]/g, function(c) { return c.toUpperCase() })
+    }
+
+    function formatSentenceCase(str) {
+        if (!str || typeof str !== "string") return ""
+        var s = str.trim()
+        if (s.length === 0) return ""
+        return s.charAt(0).toUpperCase() + s.slice(1)
+    }
+
     // One uninterrupted surface across the output. On the default top edge the
     // border is literally the bottom border requested for V2; the optional V1
     // bottom placement mirrors it so the shadow still opens toward the desktop.
@@ -124,21 +140,21 @@ PanelWindow {
         Behavior on width {
             enabled: barSlot.isDashboardActive || barSlot.isDashboardClosing
             NumberAnimation {
-                duration: barSlot.isDashboardActive ? 420 : 300
+                duration: barSlot.isDashboardActive ? 240 : 180
                 easing.type: barSlot.isDashboardActive ? Easing.OutBack : Easing.OutCubic
-                easing.overshoot: 1.15
+                easing.overshoot: 1.10
             }
         }
         height: barSlot.shellVisibleHeight
         Behavior on height {
             NumberAnimation {
-                duration: barSlot.isDashboardActive ? 420 : 300
+                duration: barSlot.isDashboardActive ? 240 : 180
                 easing.type: barSlot.isDashboardActive ? Easing.OutBack : Easing.OutCubic
-                easing.overshoot: 1.15
+                easing.overshoot: 1.10
             }
         }
         radius: barSlot.shellRadius
-        Behavior on radius { NumberAnimation { duration: barSlot.isDashboardActive ? 350 : 280; easing.type: Easing.OutCubic } }
+        Behavior on radius { NumberAnimation { duration: barSlot.isDashboardActive ? 220 : 160; easing.type: Easing.OutCubic } }
         color: "transparent"
         z: (barSlot.isDashboardActive || barSlot.isDashboardClosing) ? 20 : 0
 
@@ -146,10 +162,10 @@ PanelWindow {
         readonly property real targetBottomCornerRadius: barSlot.isDashboardActive ? barSlot.dashboardBottomRadius : radius
 
         property real topCornerRadius: targetTopCornerRadius
-        Behavior on topCornerRadius { NumberAnimation { duration: barSlot.isDashboardActive ? 350 : 280; easing.type: Easing.OutCubic } }
+        Behavior on topCornerRadius { NumberAnimation { duration: barSlot.isDashboardActive ? 220 : 160; easing.type: Easing.OutCubic } }
 
         property real bottomCornerRadius: targetBottomCornerRadius
-        Behavior on bottomCornerRadius { NumberAnimation { duration: barSlot.isDashboardActive ? 350 : 280; easing.type: Easing.OutCubic } }
+        Behavior on bottomCornerRadius { NumberAnimation { duration: barSlot.isDashboardActive ? 220 : 160; easing.type: Easing.OutCubic } }
 
         RectangularShadow {
             anchors.fill: parent
@@ -395,8 +411,9 @@ PanelWindow {
     }
     // which slot (model+index) is under a window-point?
     function slotAt(wx, wy) {
-        var rows = [leftRowItem, centerRowItem, rightRowItem]
+        var rows = [row1PriorityItem, row2SecondaryItem, centerRowItem]
         for (var r = 0; r < rows.length; r++) {
+            if (!rows[r]) continue
             var rep = rows[r].rep
             for (var k = 0; k < rep.count; k++) {
                 var it = rep.itemAt(k)
@@ -438,12 +455,12 @@ PanelWindow {
 
     // ── order persistence (survives restart) ──
     readonly property string orderCachePath: Quickshell.env("HOME") + "/.cache/quickshell_barorder_v2"
-    readonly property int leftBaseSlotCount: 11
+    readonly property int leftBaseSlotCount: 4
     readonly property int centerBaseSlotCount: 1
-    readonly property int rightBaseSlotCount: 7
+    readonly property int rightBaseSlotCount: 5
     // Both side regions can reach the same total capacity. The right side has
     // fewer built-in groups, so it receives three more optional slots.
-    readonly property int sideSlotCapacity: 16
+    readonly property int sideSlotCapacity: 12
     readonly property int leftExtraSlotLimit: sideSlotCapacity - leftBaseSlotCount
     readonly property int rightExtraSlotLimit: sideSlotCapacity - rightBaseSlotCount
     readonly property int centerExtraSlotLimit: 3
@@ -601,9 +618,8 @@ PanelWindow {
     // Restore the confirmed V2 default snapshot, including its intentional
     // empty base cells and the six optional cells on the right.
     function resetOrder() {
-        var dL = ["G1","G2","G3","G22","","G5","G6","","G7","",""]
-        var dR = ["G9","G10","","G14","G12","G13","G16",
-                  "G18","G17","G19","G21","","G20","",""]
+        var dL = ["G1","G2","G3","G22"]
+        var dR = ["G9","G19","G20","G12","G21"]
         resetModel(leftModel, dL, leftBaseSlotCount)
         resetModel(centerModel, ["G8"], centerBaseSlotCount)
         resetModel(rightModel, dR, rightBaseSlotCount)
@@ -721,66 +737,10 @@ PanelWindow {
         }
     }
     Component {
-        id: compMem
-        MemoryWidget {
-            root: barSlot.root
-            readonly property real barContentLeftInset: 8
-            readonly property real barContentRightInset: 10
-        }
-    }
-    Component {
-        id: compCpu
-        CpuWidget {
-            root: barSlot.root
-            readonly property real barContentLeftInset: 9
-            readonly property real barContentRightInset: 9
-        }
-    }
-    Component {
-        id: compCpuTemperature
-        CpuTemperatureWidget {
-            root: barSlot.root
-            readonly property real barContentLeftInset: 9
-            readonly property real barContentRightInset: 9
-        }
-    }
-    Component {
-        id: compGpu
-        GpuWidget {
-            root: barSlot.root
-            readonly property real barContentLeftInset: 9
-            readonly property real barContentRightInset: 9
-        }
-    }
-    Component {
-        id: compStorage
-        StorageWidget {
-            root: barSlot.root
-            readonly property real barContentLeftInset: 9
-            readonly property real barContentRightInset: 9
-        }
-    }
-    Component {
-        id: compVol
-        AudioWidget {
-            root: barSlot.root
-            readonly property real barContentLeftInset: 9
-            readonly property real barContentRightInset: 9
-        }
-    }
-    Component {
-        id: compClaude
-        ClaudeWidget {
-            root: barSlot.root
-            readonly property real barContentLeftInset: 9
-            readonly property real barContentRightInset: 9
-        }
-    }
-    Component {
         id: compShellFallbackUpdater
         Item {
             width: 26
-            height: 28
+            height: 24
             ArchUpdaterWidget {
                 root: barSlot.root
                 colorGid: "G8"
@@ -794,6 +754,8 @@ PanelWindow {
         id: compCenter                                   // G8: weather·clock·date·indicators
         Item {
             id: g8
+            width: implicitWidth
+            height: implicitHeight
             readonly property real barContentLeftInset: 9
             readonly property real barContentRightInset: 9
             readonly property color contentColor:
@@ -803,7 +765,7 @@ PanelWindow {
             readonly property real calendarCaretX:
                 centerRow.x + dateSlot.x + dateSlot.width / 2
             implicitWidth: Math.round(centerRow.implicitWidth) + 18
-            implicitHeight: 28
+            implicitHeight: 24
 
             // ── responsive stage (narrow-monitor overlap fix) ──
             // Presentation-only inside G8 — never touches root.mod* user toggles.
@@ -855,12 +817,14 @@ PanelWindow {
                 id: centerRow
                 anchors.verticalCenter: parent.verticalCenter
                 x: Math.round((parent.width - width) / 2)   // integer center → sharp text
+                height: 24
                 spacing: barSlot.root.v2SectionSpacing
                 Item {                                   // weather wrapper (stage-gated)
                     id: weatherSlot
                     visible: width > 0.5
                     width: g8.showWeather ? weather.implicitWidth : 0
-                    height: 28
+                    height: 24
+                    anchors.verticalCenter: parent.verticalCenter
                     clip: true
                     opacity: g8.showWeather ? 1 : 0
                     Behavior on width   { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
@@ -871,12 +835,17 @@ PanelWindow {
                         root: barSlot.root
                     }
                 }
-                ClockWidget   { id: clock;   root: barSlot.root }
+                ClockWidget {
+                    id: clock
+                    root: barSlot.root
+                    anchors.verticalCenter: parent.verticalCenter
+                }
                 Item {                                   // date (stage-gated)
                     id: dateSlot
                     visible: width > 0.5
                     width: g8.showDate ? dateLabel.implicitWidth : 0
-                    height: 28
+                    height: 24
+                    anchors.verticalCenter: parent.verticalCenter
                     clip: true
                     opacity: g8.showDate ? 1 : 0
                     Behavior on width   { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
@@ -914,7 +883,8 @@ PanelWindow {
                 Item {                                   // indicator icons wrapper (stage-gated)
                     visible: g8.showIcons || width > 0.5
                     width: g8.showIcons ? iconsRow.implicitWidth : 0
-                    height: 28
+                    height: 24
+                    anchors.verticalCenter: parent.verticalCenter
                     clip: true
                     opacity: g8.showIcons ? 1 : 0
                     Behavior on width   { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
@@ -922,6 +892,7 @@ PanelWindow {
                     Row {
                         id: iconsRow
                         anchors.verticalCenter: parent.verticalCenter
+                        height: 24
                         spacing: barSlot.root.v2InlineSpacing
                         readonly property bool shellFallbackActive: !barSlot.root.modStatus
                             && (barSlot.root.shellUpdateBehind > 0 || barSlot.root.shellUpdateProgressVisible)
@@ -941,7 +912,8 @@ PanelWindow {
                             visible: iconsRow.shellFallbackActive || width > 0.5
                             active: iconsRow.shellFallbackActive
                             width: iconsRow.shellFallbackActive ? 26 : 0
-                            height: 28
+                            height: 24
+                            anchors.verticalCenter: parent.verticalCenter
                             sourceComponent: compShellFallbackUpdater
                             Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
                         }
@@ -960,70 +932,14 @@ PanelWindow {
         }
     }
     Component {
-        id: compQuick                                    // G10: idle-inhib · media · theme
-        Item {
-            readonly property real barContentLeftInset: barSlot.root.v2IconGroupPadding
-            readonly property real barContentRightInset: barSlot.root.v2IconGroupPadding
-            visible: implicitWidth > 0.5
-            implicitWidth: barSlot.root.modQuick
-                ? Math.round(qcRow.implicitWidth) + 2 * barSlot.root.v2IconGroupPadding
-                : 0
-            implicitHeight: 28
-            opacity: barSlot.root.modQuick ? 1 : 0
-            Behavior on implicitWidth { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
-            Behavior on opacity      { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
-            Row {
-                id: qcRow
-                anchors.verticalCenter: parent.verticalCenter
-                x: Math.round((parent.width - width) / 2)
-                spacing: barSlot.root.v2IconClusterSpacing
-                IdleInhibitorWidget { root: barSlot.root; anchors.verticalCenter: parent.verticalCenter }
-                MediaBrowserWidget  { root: barSlot.root; screen: barSlot.screen; anchors.verticalCenter: parent.verticalCenter }
-                ThemeDisplayWidget  { root: barSlot.root; screen: barSlot.screen; anchors.verticalCenter: parent.verticalCenter }
-            }
-        }
-    }
-    Component {
-        id: compNetwork
-        NetworkWidget {
-            root: barSlot.root
-            readonly property real barContentLeftInset: 9
-            readonly property real barContentRightInset: 9
-        }
-    }
-    Component {
         id: compGithubHeatmap
         GithubHeatmapWidget {
             root: barSlot.root
         }
     }
     Component {
-        id: compPower
-        PowerProfileWidget {
-            root: barSlot.root
-            readonly property real barContentLeftInset: 9
-            readonly property real barContentRightInset: 9
-        }
-    }
-    Component {
         id: compBattery
         BatteryWidget {
-            root: barSlot.root
-            readonly property real barContentLeftInset: 9
-            readonly property real barContentRightInset: 9
-        }
-    }
-    Component {
-        id: compBrightness
-        BrightnessWidget {
-            root: barSlot.root
-            readonly property real barContentLeftInset: 9
-            readonly property real barContentRightInset: 9
-        }
-    }
-    Component {
-        id: compBluetooth
-        BluetoothWidget {
             root: barSlot.root
             readonly property real barContentLeftInset: 9
             readonly property real barContentRightInset: 9
@@ -1048,12 +964,10 @@ PanelWindow {
     }
     readonly property var registry: ({
         "G1": compLauncher, "G2": compWorkspace, "G3": compStatus,
-        "G5": compCpu, "G6": compVol, "G7": compClaude,
         "G8": compCenter,
-        "G9": compMpris, "G10": compQuick,
-        "G12": compBattery, "G13": compBrightness, "G14": compPower,
-        "G16": compCpuTemperature, "G17": compGpu, "G18": compStorage,
-        "G21": compScreentime, "G19": compGithubHeatmap, "G20": compNotes, "G22": compNotification
+        "G9": compMpris,
+        "G12": compBattery,
+        "G19": compGithubHeatmap, "G20": compNotes, "G21": compScreentime, "G22": compNotification
     })
 
     // ───────────────────── reusable region row of slots ─────────────────────
@@ -1065,7 +979,7 @@ PanelWindow {
         property alias rep: repeater
         readonly property int extraCount: rmodel ? barSlot.extraSlotCount(rmodel, baseCount) : 0
         spacing: barSlot.root.v2WidgetSpacing
-        height: 32
+        height: island.islandShrinkProgress < 0.5 ? 30 : 24
         // index of the LAST currently shown slot (skips disabled and auto-hidden
         // narrow-stage widgets) — a separator only makes sense BEFORE this gap.
         readonly property int lastVisibleIndex: {
@@ -1095,22 +1009,38 @@ PanelWindow {
                 required property bool extra
                 required property int index
                 readonly property bool occupied: gid !== "" && barSlot.registry[gid] !== undefined
+                readonly property bool isButton: slot.gid !== "G8" && slot.occupied && slot.hasContent && island.islandShrinkProgress < 0.5
+                readonly property int squareSize: 30
+                readonly property bool supportsFull: ["G12", "G21"].indexOf(slot.gid) >= 0
+                readonly property bool isFullOption: supportsFull && !barSlot.root.iconOnly(slot.gid)
+                readonly property bool isComposite: ["G2", "G3"].indexOf(slot.gid) >= 0
+                readonly property bool isPriority: ["G1", "G2"].indexOf(slot.gid) >= 0
+                readonly property real buttonContentWidth: Math.round(ldr.implicitWidth)
+                readonly property real buttonWidth: {
+                    if (!isButton) return buttonContentWidth
+                    if (isFullOption) {
+                        if (slot.gid === "G21") return Math.max(squareSize * 2, 64)
+                        return squareSize * 2 // twice the width of the square = 60px
+                    }
+                    if (isComposite) return Math.max(squareSize, buttonContentWidth + 12)
+                    return squareSize // rounded square = 30px
+                }
                 // workspace draws a pill 4px wider than its implicitWidth on each
                 // side; pad its slot symmetrically so inter-group gaps stay uniform.
-                readonly property int pad: slot.gid === "G2" ? barSlot.root.wsPillPad : 0
+                readonly property int pad: (slot.gid === "G2" && !isButton) ? barSlot.root.wsPillPad : 0
                 readonly property var contentItem: ldr.item
                 readonly property bool hasContent: occupied && Math.round(ldr.implicitWidth) > 0.5
-                readonly property real contentLeftInset: contentItem
+                readonly property real contentLeftInset: (contentItem && contentItem.barContentLeftInset !== undefined)
                     ? contentItem.barContentLeftInset : 0
-                readonly property real contentRightInset: contentItem
+                readonly property real contentRightInset: (contentItem && contentItem.barContentRightInset !== undefined)
                     ? contentItem.barContentRightInset : 0
                 readonly property bool hasVisualSurface:
-                    barSlot.root.widgetHasFill(gid) || barSlot.root.widgetHasBorder(gid)
-                readonly property real visualLeftEdge: pad
-                    + (hasVisualSurface ? 0 : contentLeftInset)
-                readonly property real visualRightEdge: pad
+                    isButton || barSlot.root.widgetHasFill(gid) || barSlot.root.widgetHasBorder(gid)
+                readonly property real visualLeftEdge: isButton ? 0 : (pad
+                    + (hasVisualSurface ? 0 : contentLeftInset))
+                readonly property real visualRightEdge: isButton ? buttonWidth : (pad
                     + Math.round(ldr.implicitWidth)
-                    - (hasVisualSurface ? 0 : contentRightInset)
+                    - (hasVisualSurface ? 0 : contentRightInset))
                 readonly property var nextVisualSlot: slotRow.nextVisibleSlot(index)
                 readonly property real nextVisualLeftEdge: nextVisualSlot
                     ? nextVisualSlot.x - slot.x + nextVisualSlot.visualLeftEdge
@@ -1124,52 +1054,81 @@ PanelWindow {
                 readonly property int sepW: 15
                 readonly property real naturalSlotWidth: placeholderShown
                     ? 28
-                    : Math.round(ldr.implicitWidth) + 2 * pad + (sepOn && hasContent ? sepW : 0)
+                    : ((isButton ? buttonWidth : buttonContentWidth) + 2 * pad + (sepOn && hasContent ? sepW : 0))
                 // Empty edit slots do not influence the locked narrow-layout budget.
                 readonly property real budgetSlotWidth: hasContent
-                    ? Math.round(ldr.implicitWidth) + 2 * pad + (sepOn ? sepW : 0)
+                    ? ((isButton ? buttonWidth : buttonContentWidth) + 2 * pad + (sepOn ? sepW : 0))
                     : 0
                 readonly property bool autoShown: placeholderShown
                     || (occupied && island.groupVisibleAtStage(slot.gid, island.narrowStage))
                 onBudgetSlotWidthChanged: island.scheduleNarrowUpdate()
                 width: autoShown ? naturalSlotWidth : 0
-                height: 32
+                height: island.islandShrinkProgress < 0.5 ? 30 : 24
                 visible: placeholderShown || (hasContent && (autoShown || width > 0.5))
                 opacity: autoShown ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
                 Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
 
                 Rectangle {
-                    id: widgetColorSurface
-                    x: slot.pad
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Math.round(ldr.implicitWidth)
-                    height: 24
-                    radius: height / 2
+                    id: properButtonSurface
+                    anchors.centerIn: parent
+                    width: isButton ? buttonWidth : buttonContentWidth
+                    height: isButton ? 30 : 24
+                    radius: isButton ? 10 : (height / 2)
                     clip: true
                     visible: slot.occupied && slot.hasContent && slot.autoShown
-                        && (barSlot.root.widgetHasFill(slot.gid)
-                            || barSlot.root.widgetHasBorder(slot.gid))
-                    color: barSlot.root.widgetFillColor(slot.gid)
-                    border.color: barSlot.root.widgetBorderColor(slot.gid)
-                    border.width: barSlot.root.widgetHasBorder(slot.gid)
-                        ? barSlot.root.panelBorderW
-                        : 0
-                    Behavior on color {
-                        ColorAnimation { duration: 140 }
+                        && (isButton || barSlot.root.widgetHasFill(slot.gid) || barSlot.root.widgetHasBorder(slot.gid))
+
+                    color: {
+                        if (barSlot.root.widgetHasFill(slot.gid)) {
+                            return barSlot.root.widgetFillColor(slot.gid)
+                        }
+                        if (isButton) {
+                            if (isPriority) {
+                                return btnHover.hovered
+                                    ? Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.28)
+                                    : Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.14)
+                            }
+                            return btnHover.hovered
+                                ? Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.16)
+                                : Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.08)
+                        }
+                        return "transparent"
                     }
 
+                    border.width: (isButton || barSlot.root.widgetHasBorder(slot.gid)) ? 1 : 0
+                    border.color: {
+                        if (isButton) {
+                            if (isPriority) {
+                                return btnHover.hovered
+                                    ? Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.70)
+                                    : Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.32)
+                            }
+                            return btnHover.hovered
+                                ? Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.48)
+                                : Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.12)
+                        }
+                        if (barSlot.root.widgetHasBorder(slot.gid)) {
+                            return barSlot.root.widgetBorderColor(slot.gid)
+                        }
+                        return "transparent"
+                    }
 
+                    scale: (isButton && btnHover.hovered && !barSlot.dragging) ? 1.05 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+                    Behavior on color { ColorAnimation { duration: 140 } }
+                    Behavior on border.color { ColorAnimation { duration: 140 } }
 
-
-
-
+                    HoverHandler {
+                        id: btnHover
+                        enabled: isButton && !barSlot.root.barUnlocked
+                        cursorShape: Qt.PointingHandCursor
+                    }
                 }
 
                 Loader {
                     id: ldr
-                    x: slot.pad
-                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.centerIn: parent
                     sourceComponent: slot.occupied ? barSlot.registry[slot.gid] : null
                     // dim the original while its ghost is being dragged
                     opacity: (barSlot.dragItem === ldr && barSlot.dragActive) ? 0.25 : 1.0
@@ -1369,10 +1328,7 @@ PanelWindow {
 
         readonly property int fitPadding: Math.floor((barSlot.root.v2BarHeight - 24) / 2.0)
         readonly property int fitRegionGap: 12
-        readonly property int fitRegionCount:
-            (leftRowItem.implicitWidth > 0.5 ? 1 : 0)
-            + (centerRowItem.implicitWidth > 0.5 ? 1 : 0)
-            + (rightRowItem.implicitWidth > 0.5 ? 1 : 0)
+        readonly property int fitRegionCount: 3
 
         // The base shell draws a black hole around the island when hovered.
         property bool isIslandHidden: (!island.isHovered || island.osdActive || island.notifPeekActive) && !barSlot.root.anyPopupVisible
@@ -1442,6 +1398,30 @@ PanelWindow {
             }
         }
 
+        function getNotifIcon(appName, iconHint) {
+            if (iconHint && typeof iconHint === "string" && iconHint.length > 0) {
+                if (!iconHint.startsWith("/") && !iconHint.startsWith("file://")) {
+                    if (iconHint.indexOf(" ") === -1 && iconHint.length < 30) {
+                        return iconHint
+                    }
+                }
+            }
+            var a = (appName || "").toLowerCase()
+            if (a.indexOf("spotify") !== -1 || a.indexOf("music") !== -1) return "music_note"
+            if (a.indexOf("screenshot") !== -1 || a.indexOf("capture") !== -1 || a.indexOf("action") !== -1 || a.indexOf("grim") !== -1) return "screenshot_monitor"
+            if (a.indexOf("bluetooth") !== -1) return "bluetooth"
+            if (a.indexOf("wifi") !== -1 || a.indexOf("network") !== -1) return "wifi"
+            if (a.indexOf("battery") !== -1 || a.indexOf("power") !== -1) return "battery_charging_full"
+            if (a.indexOf("volume") !== -1 || a.indexOf("audio") !== -1) return "volume_up"
+            if (a.indexOf("terminal") !== -1 || a.indexOf("bash") !== -1 || a.indexOf("shell") !== -1) return "terminal"
+            if (a.indexOf("browser") !== -1 || a.indexOf("zen") !== -1 || a.indexOf("firefox") !== -1 || a.indexOf("chrome") !== -1) return "language"
+            if (a.indexOf("discord") !== -1 || a.indexOf("slack") !== -1 || a.indexOf("chat") !== -1 || a.indexOf("message") !== -1) return "chat"
+            if (a.indexOf("mail") !== -1) return "mail"
+            if (a.indexOf("timer") !== -1 || a.indexOf("clock") !== -1) return "schedule"
+            if (a.indexOf("update") !== -1 || a.indexOf("arch") !== -1 || a.indexOf("pacman") !== -1) return "system_update"
+            return "notifications"
+        }
+
         Connections {
             target: barSlot.root
             function onNotifPeekTickChanged() {
@@ -1454,10 +1434,16 @@ PanelWindow {
                 island.notifPeekProgress = 1.0
                 notifPeekTimer.restart()
             }
+            function onNotifPeekDismissTickChanged() {
+                notifPeekTimer.stop()
+                island.notifPeekActive = false
+                island.notifPeekProgress = 0.0
+            }
         }
 
         onIsIslandHiddenChanged: {
             if (!isIslandHidden) {
+                island.syncExpandedModels()
                 collapseAnim.stop()
                 expandAnim.restart()
             } else {
@@ -1466,33 +1452,34 @@ PanelWindow {
             }
         }
 
-        SequentialAnimation {
+        ParallelAnimation {
             id: expandAnim
             // Step 1: Fade out collapsed items quickly and bounce expand the bar!
-            ParallelAnimation {
-                NumberAnimation {
-                    target: island
-                    property: "islandCollapsedOpacity"
-                    to: 0.0
-                    duration: 100
-                    easing.type: Easing.OutQuad
-                }
-                NumberAnimation {
-                    target: island
-                    property: "islandShrinkProgress"
-                    to: 0.0
-                    duration: 380
-                    easing.type: Easing.OutBack
-                    easing.overshoot: 1.25
-                }
-            }
-            // Step 2: Once the bar has bounced open, fade and settle in all elements!
             NumberAnimation {
                 target: island
-                property: "islandElementsOpacity"
-                to: 1.0
-                duration: 200
-                easing.type: Easing.OutCubic
+                property: "islandCollapsedOpacity"
+                to: 0.0
+                duration: 80
+                easing.type: Easing.OutQuad
+            }
+            NumberAnimation {
+                target: island
+                property: "islandShrinkProgress"
+                to: 0.0
+                duration: 210
+                easing.type: Easing.OutBack
+                easing.overshoot: 1.12
+            }
+            // Step 2: Quickly fade and settle in all elements in parallel with slight lead
+            SequentialAnimation {
+                PauseAnimation { duration: 40 }
+                NumberAnimation {
+                    target: island
+                    property: "islandElementsOpacity"
+                    to: 1.0
+                    duration: 160
+                    easing.type: Easing.OutCubic
+                }
             }
         }
 
@@ -1504,40 +1491,38 @@ PanelWindow {
                     target: island
                     property: "islandElementsOpacity"
                     to: 0.0
-                    duration: 110
+                    duration: 80
                     easing.type: Easing.OutQuad
                 }
                 // Step 2: Bounce the bar closed to collapsed width and fade in collapsed items
+                NumberAnimation {
+                    target: island
+                    property: "islandShrinkProgress"
+                    to: 1.0
+                    duration: 190
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 1.10
+                }
                 SequentialAnimation {
-                    PauseAnimation { duration: 20 }
-                    ParallelAnimation {
-                        NumberAnimation {
-                            target: island
-                            property: "islandShrinkProgress"
-                            to: 1.0
-                            duration: 360
-                            easing.type: Easing.OutBack
-                            easing.overshoot: 1.15
-                        }
-                        SequentialAnimation {
-                            PauseAnimation { duration: 150 }
-                            NumberAnimation {
-                                target: island
-                                property: "islandCollapsedOpacity"
-                                to: 1.0
-                                duration: 180
-                                easing.type: Easing.OutCubic
-                            }
-                        }
+                    PauseAnimation { duration: 70 }
+                    NumberAnimation {
+                        target: island
+                        property: "islandCollapsedOpacity"
+                        to: 1.0
+                        duration: 120
+                        easing.type: Easing.OutCubic
                     }
                 }
             }
         }
 
-        property real leftVisibleWidth: (1.0 - islandShrinkProgress) * (leftRowItem.implicitWidth + (leftRowItem.implicitWidth > 0.5 ? fitRegionGap : 0))
-        property real rightVisibleWidth: (1.0 - islandShrinkProgress) * (rightRowItem.implicitWidth + (rightRowItem.implicitWidth > 0.5 ? fitRegionGap : 0))
-
-        readonly property real defaultCollapsedCenterWidth: Math.max(60, (islandCollapsedRightSlot.x + islandCollapsedRightSlot.width) - (island.fitPadding + island.leftVisibleWidth))
+        property real leftVisibleWidth: 0
+        property real rightVisibleWidth: 0
+        readonly property real collapsedItemsWidth: centerRowItem.implicitWidth + 4
+            + islandCollapsedItem.visibleWidth
+            + (islandTimerItem.active ? (islandTimerItem.targetWidth + 4) : 0)
+            + (islandCollapsedRightSlot.implicitWidth > 0 ? (islandCollapsedRightSlot.implicitWidth + 4) : 0)
+        readonly property real defaultCollapsedCenterWidth: Math.max(60, collapsedItemsWidth)
         readonly property real overlayProgress: Math.max(island.osdProgress, island.notifPeekProgress, island.dictationProgress, island.chargingProgress)
         readonly property real overlayTargetWidth: {
             if (island.dictationProgress > 0) return islandDictationItem.width
@@ -1545,13 +1530,25 @@ PanelWindow {
             if (island.notifPeekProgress > 0) return islandNotifPeekItem.width
             return islandOsdItem.width
         }
-        readonly property real collapsedCenterTotalWidth: (1.0 - overlayProgress) * defaultCollapsedCenterWidth + overlayProgress * overlayTargetWidth
-        readonly property real centerVisibleWidth: (1.0 - islandShrinkProgress) * centerRowItem.implicitWidth + islandShrinkProgress * collapsedCenterTotalWidth
+        readonly property real collapsedIslandWidth: 2 * fitPadding + ((1.0 - overlayProgress) * defaultCollapsedCenterWidth + overlayProgress * overlayTargetWidth)
+
+        readonly property real leftCardWidth: 140
+        readonly property real rightCardWidth: 205
+        readonly property real middleGap: 12
+        readonly property real middleButtonsWidth: (row1PriorityItem && row2SecondaryItem && Math.max(row1PriorityItem.implicitWidth, row2SecondaryItem.implicitWidth) > 10)
+            ? Math.max(row1PriorityItem.implicitWidth, row2SecondaryItem.implicitWidth)
+            : island.estimatedMiddleWidth
+        readonly property real maxMiddleWidth: Math.max(100, barSlot.width - leftCardWidth - rightCardWidth - 2 * middleGap - 32)
+        readonly property real middleWidth: Math.min(maxMiddleWidth, middleButtonsWidth)
+
+        readonly property real expandedContainerWidth: Math.min(
+            barSlot.width - 24,
+            leftCardWidth + middleGap + middleWidth + middleGap + rightCardWidth + 24
+        )
+
         readonly property real fitNaturalWidth: Math.ceil(
-            2 * fitPadding
-            + centerVisibleWidth
-            + leftVisibleWidth
-            + rightVisibleWidth
+            (1.0 - islandShrinkProgress) * expandedContainerWidth
+            + islandShrinkProgress * collapsedIslandWidth
         )
 
         // edit-mode frame around the bar while unlocked (gentle pulse)
@@ -1579,39 +1576,16 @@ PanelWindow {
             onDoubleClicked: barSlot.root.barUnlocked = true
         }
 
-        // ── Center-region collision handling (narrow-monitor overlap fix) ──
-        // free span between the side rows; the only stage-decision input — reads
-        // ONLY left/right geometry (never the center row), so stage changes that
-        // resize G8 cannot feed back into this value (no binding loop).
+        // ── Center-region metrics (clean bounds) ──
         readonly property int centerGap: 12
-        // Pull the first and last groups 2px closer to the physical screen edge.
         readonly property int rowMargin: 5
-        readonly property real centerAvail: Math.max(0, barSlot.width - 2 * barSlot.shellOuterMargin
-            - 2 * fitPadding - leftRowItem.implicitWidth - rightRowItem.implicitWidth
-            - 2 * fitRegionGap)
-        readonly property real centerOtherBudgetWidth: {
-            var sum = 0, visibleCount = 0
-            for (var i = 0; i < centerRowItem.rep.count; i++) {
-                var item = centerRowItem.rep.itemAt(i)
-                if (!item || !item.hasContent) continue
-                if (!groupVisibleAtStage(item.gid, narrowStage)) continue
-                visibleCount++
-                if (item.gid !== "G8") sum += item.budgetSlotWidth
-            }
-            return sum + Math.max(0, visibleCount - 1) * centerRowItem.spacing
-        }
-        // G8 may occupy any center slot after drag & drop. Reserve the other
-        // center widgets first so its internal responsive stage sees real space.
-        readonly property real g8AvailableWidth: Math.max(0, centerAvail - centerOtherBudgetWidth)
-        // centered while space allows; clamped between the rows when squeezed.
-        // If even the current G8 width cannot fit (max < min), fall back to the
-        // screen-clamped ideal — the documented extreme case may overlap.
+        readonly property real centerAvail: Math.max(0, barSlot.width - 2 * barSlot.shellOuterMargin - 2 * fitPadding - 2 * fitRegionGap)
+        readonly property real centerOtherBudgetWidth: 0
+        readonly property real g8AvailableWidth: centerAvail
         readonly property real idealCenterX: Math.round((width - centerRowItem.width) / 2)
-        readonly property real minCenterX: Math.round(leftRowItem.x + leftRowItem.width + centerGap)
-        readonly property real maxCenterX: Math.round(rightRowItem.x - centerGap - centerRowItem.width)
-        readonly property real centerTargetX: maxCenterX < minCenterX
-            ? Math.max(4, Math.min(idealCenterX, width - centerRowItem.width - 4))
-            : Math.max(minCenterX, Math.min(idealCenterX, maxCenterX))
+        readonly property real minCenterX: 8
+        readonly property real maxCenterX: Math.max(8, width - centerRowItem.width - 8)
+        readonly property real centerTargetX: idealCenterX
 
         // ── side-row auto-compact (portrait/narrow) ──
         // Presentation-only stages that hide low-priority side groups when the bar
@@ -1624,9 +1598,9 @@ PanelWindow {
         function groupVisibleAtStage(gid, stage) {
             if (gid === "G8") return true                                        // clock has its own stages
             if (stage <= 0) return true
-            if (stage === 1) return ["G7", "G9", "G10"].indexOf(gid) < 0         // drop AI · MPRIS · Quick
-            if (stage === 2) return ["G4", "G7", "G9", "G10", "G17", "G18", "G19"].indexOf(gid) < 0   // also MEM · GPU · HDD · Heatmap
-            return ["G1", "G2", "G6", "G8", "G11", "G14"].indexOf(gid) >= 0      // emergency whitelist
+            if (stage === 1) return ["G9"].indexOf(gid) < 0
+            if (stage === 2) return ["G9", "G19", "G20"].indexOf(gid) < 0
+            return ["G1", "G2", "G3", "G8", "G12"].indexOf(gid) >= 0
         }
         function sideNaturalWidth(row, stage) {
             var sum = 0, n = 0
@@ -1650,27 +1624,18 @@ PanelWindow {
             return sum + Math.max(0, n - 1) * centerRowItem.spacing
         }
         function narrowCandidateWidth(stage) {
-            // side rows + minimal viable center row + margins + center gaps
-            return sideNaturalWidth(leftRowItem, stage) + sideNaturalWidth(rightRowItem, stage)
-                 + centerFloorWidth(stage)
-                 + 2 * fitRegionGap + 2 * fitPadding
+            return row2SecondaryItem ? sideNaturalWidth(row2SecondaryItem, stage) : 0
         }
         function updateNarrowStage() {
-            // Compare against the available SCREEN width, never the
-            // content-driven width. Otherwise hiding a group would shrink
-            // the measurement that decided to hide it and create a feedback loop.
             var s = narrowStage
-            var W = barSlot.width - 2 * barSlot.shellOuterMargin
+            var W = maxMiddleWidth
             if (W < 1) return                              // no layout yet
-            // downshift while the CURRENT stage no longer fits (24px slack)…
-            if (s === 0 && narrowCandidateWidth(0) + 24 > W) s = 1
-            if (s === 1 && narrowCandidateWidth(1) + 24 > W) s = 2
-            if (s === 2 && narrowCandidateWidth(2) + 24 > W) s = 3
-            // …upshift only when the NEXT-LARGER stage fits with 48px slack,
-            // measured against that stage's own candidate width.
-            if (s === 3 && narrowCandidateWidth(2) + 48 <= W) s = 2
-            if (s === 2 && narrowCandidateWidth(1) + 48 <= W) s = 1
-            if (s === 1 && narrowCandidateWidth(0) + 48 <= W) s = 0
+            if (s === 0 && narrowCandidateWidth(0) + 16 > W) s = 1
+            if (s === 1 && narrowCandidateWidth(1) + 16 > W) s = 2
+            if (s === 2 && narrowCandidateWidth(2) + 16 > W) s = 3
+            if (s === 3 && narrowCandidateWidth(2) + 32 <= W) s = 2
+            if (s === 2 && narrowCandidateWidth(1) + 32 <= W) s = 1
+            if (s === 1 && narrowCandidateWidth(0) + 32 <= W) s = 0
             if (s !== narrowStage) narrowStage = s
         }
         function scheduleNarrowUpdate() { narrowTimer.restart() }
@@ -1687,15 +1652,17 @@ PanelWindow {
                 island.islandElementsOpacity = island.isIslandHidden ? 0.0 : 1.0
                 island.islandCollapsedOpacity = island.isIslandHidden ? 1.0 : 0.0
             }
+            function onBarUnlockedChanged() { syncModelsTimer.restart() }
+            function onV2WidgetSpacingChanged() { syncModelsTimer.restart() }
         }
 
         // ── region models (physical L→R order) ──
         ListModel {
             id: leftModel
-            ListElement { gid: "G1"; extra: false } ListElement { gid: "G2"; extra: false } ListElement { gid: "G3"; extra: false } ListElement { gid: "G22"; extra: false }
-            ListElement { gid: ""; extra: false }   ListElement { gid: "G5"; extra: false } ListElement { gid: "G6"; extra: false }
-            ListElement { gid: ""; extra: false } ListElement { gid: "G7"; extra: false } ListElement { gid: ""; extra: false }
-            ListElement { gid: ""; extra: false }
+            ListElement { gid: "G1"; extra: false }
+            ListElement { gid: "G2"; extra: false }
+            ListElement { gid: "G3"; extra: false }
+            ListElement { gid: "G22"; extra: false }
         }
         ListModel {
             id: centerModel
@@ -1703,47 +1670,107 @@ PanelWindow {
         }
         ListModel {
             id: rightModel
-            ListElement { gid: "G9"; extra: false }  ListElement { gid: "G10"; extra: false } ListElement { gid: ""; extra: false }
-            ListElement { gid: "G14"; extra: false } ListElement { gid: "G12"; extra: false } ListElement { gid: "G13"; extra: false }
-            ListElement { gid: "G16"; extra: false }  ListElement { gid: "G17"; extra: true }
-            ListElement { gid: "G19"; extra: true }  ListElement { gid: ""; extra: true }  ListElement { gid: "G20"; extra: true }
-            ListElement { gid: "G21"; extra: true }
-            ListElement { gid: ""; extra: true }
-            ListElement { gid: ""; extra: true }
+            ListElement { gid: "G9"; extra: false }
+            ListElement { gid: "G19"; extra: false }
+            ListElement { gid: "G20"; extra: false }
+            ListElement { gid: "G12"; extra: false }
+            ListElement { gid: "G21"; extra: false }
+        }
+
+        ListModel { id: row1PriorityModel }
+        ListModel { id: row2SecondaryModel }
+        property real estimatedMiddleWidth: 240
+
+        function estimateWidgetWidth(gid) {
+            if (!gid || gid === "") return 0
+            if (gid === "G1") return 30
+            if (gid === "G2") {
+                var wsCount = (Hyprland && Hyprland.workspaces && Hyprland.workspaces.values) ? Hyprland.workspaces.values.length : 5
+                return Math.max(60, wsCount * 18 + 24)
+            }
+            if (gid === "G3") return 30
+            var supportsFull = ["G12", "G21"].indexOf(gid) >= 0
+            var isFull = supportsFull && barSlot.root && !barSlot.root.iconOnly(gid)
+            if (isFull) {
+                if (gid === "G21") return 64
+                return 60
+            }
+            return 30
+        }
+
+        function isGidActive(gid) {
+            if (!gid || gid === "") return false
+            var r = barSlot.root
+            if (!r) return true
+            if (gid === "G1") return true
+            if (gid === "G2") return true
+            if (gid === "G3") return r.modStatus !== false
+            if (gid === "G8") return true
+            if (gid === "G9") return r.modMpris !== false
+            if (gid === "G12") return r.modBattery !== false
+            if (gid === "G19") return r.modGithubHeatmap !== false
+            if (gid === "G20") return r.modNotes !== false
+            if (gid === "G21") return r.modScreentime !== false
+            if (gid === "G22") return r.modNotif !== false
+            return false
+        }
+
+        function syncExpandedModels() {
+            row1PriorityModel.clear()
+            row2SecondaryModel.clear()
+
+            var r1Gids = ["G1", "G2", "G3", "G22"]
+            var r2Gids = ["G19", "G20", "G12", "G21"]
+
+            var w1 = 0, n1 = 0
+            for (var i = 0; i < r1Gids.length; i++) {
+                var g1 = r1Gids[i]
+                if (isGidActive(g1)) {
+                    row1PriorityModel.append({ gid: g1, extra: false })
+                    w1 += estimateWidgetWidth(g1)
+                    n1++
+                }
+            }
+            var spacing = (barSlot.root && barSlot.root.v2WidgetSpacing) ? barSlot.root.v2WidgetSpacing : 5
+            w1 += Math.max(0, n1 - 1) * spacing
+
+            var w2 = 0, n2 = 0
+            for (var j = 0; j < r2Gids.length; j++) {
+                var g2 = r2Gids[j]
+                if (isGidActive(g2)) {
+                    row2SecondaryModel.append({ gid: g2, extra: false })
+                    w2 += estimateWidgetWidth(g2)
+                    n2++
+                }
+            }
+            w2 += Math.max(0, n2 - 1) * spacing
+
+            island.estimatedMiddleWidth = Math.max(w1, w2, 200)
+        }
+
+        Timer {
+            id: syncModelsTimer
+            interval: 50
+            repeat: false
+            onTriggered: island.syncExpandedModels()
         }
 
         SlotRow {
-            id: leftRowItem
-            anchors.verticalCenter: parent.verticalCenter
-            x: island.fitPadding - (island.islandShrinkProgress * implicitWidth)
-            rmodel: leftModel
-            baseCount: barSlot.leftBaseSlotCount
-            maxExtraCount: barSlot.leftExtraSlotLimit
-            opacity: island.islandElementsOpacity
-            visible: opacity > 0.001
-            transform: Translate {
-                y: (1.0 - island.islandElementsOpacity) * (barSlot.root.barPosition === "bottom" ? 4 : -4)
-            }
-        }
-        SlotRow {
             id: centerRowItem
-            // no centerIn: x is clamped between the side rows on narrow monitors
+            height: 24
             anchors.verticalCenter: parent.verticalCenter
-            x: island.fitPadding + island.leftVisibleWidth
+            x: island.fitPadding
             rmodel: centerModel
             baseCount: barSlot.centerBaseSlotCount
             maxExtraCount: barSlot.centerExtraSlotLimit
             visible: opacity > 0.001
-            opacity: 1.0 * (1.0 - island.overlayProgress)
-            transform: Translate {
-                y: 0
-            }
+            opacity: island.islandCollapsedOpacity * (1.0 - island.overlayProgress)
         }
-        
+
         Rectangle {
             id: islandCollapsedItem
             anchors.verticalCenter: parent.verticalCenter
-            x: island.fitPadding + island.leftVisibleWidth + centerRowItem.implicitWidth + 4
+            x: centerRowItem.x + centerRowItem.implicitWidth + 4
             
             readonly property bool mediaActive: barSlot.mprisPanel && barSlot.mprisPanel.active
             readonly property bool hasLyrics: mediaActive && barSlot.mprisPanel.lyricsTrackId !== "" && barSlot.mprisPanel.lyricsTrackId === barSlot.mprisPanel.currentTrackId && barSlot.mprisPanel.lyricsList && barSlot.mprisPanel.lyricsList.length > 0 && barSlot.mprisPanel.currentLyricIndex >= 0
@@ -1755,11 +1782,13 @@ PanelWindow {
             readonly property real maxTextWidth: hasLyrics ? (barSlot.width - 120) : 350
             
             property string activeSlot: "A"
+            property string currentShownText: ""
+            property int lastLyricIndex: -1
             readonly property real targetTextWidth: activeSlot === "A" ? textA.implicitWidth : textB.implicitWidth
             readonly property real visibleWidth: Math.min(Math.max(targetTextWidth + 24, 60), maxTextWidth + 24)
             width: visibleWidth
             Behavior on width {
-                NumberAnimation { duration: 480; easing.type: Easing.OutCubic }
+                NumberAnimation { duration: 420; easing.type: Easing.OutCubic }
             }
             height: 24
             radius: height / 2
@@ -1768,23 +1797,23 @@ PanelWindow {
             opacity: island.islandCollapsedOpacity * (1.0 - island.overlayProgress)
             visible: opacity > 0.001
 
-            property int prevLyricIndex: -1
             property bool initialized: false
 
             function switchText(newText, forced) {
-                if (!forced && newText === (activeSlot === "A" ? textA.text : textB.text)) return
+                if (!forced && newText === currentShownText) return
 
                 var curIdx = (hasLyrics && barSlot.mprisPanel) ? barSlot.mprisPanel.currentLyricIndex : -1
-                var movingBackwards = hasLyrics && (curIdx >= 0) && (prevLyricIndex >= 0) && (curIdx < prevLyricIndex)
+                var movingBackwards = hasLyrics && (curIdx >= 0) && (lastLyricIndex >= 0) && (curIdx < lastLyricIndex)
                 if (hasLyrics && curIdx >= 0) {
-                    prevLyricIndex = curIdx
+                    lastLyricIndex = curIdx
                 } else {
-                    prevLyricIndex = -1
+                    lastLyricIndex = -1
                 }
+                currentShownText = newText
 
                 var dir = movingBackwards ? -1 : 1
-                var outY = -14 * dir
-                var inStartY = 14 * dir
+                var outY = -20 * dir
+                var inStartY = 20 * dir
 
                 animToB.stop()
                 animToA.stop()
@@ -1808,30 +1837,34 @@ PanelWindow {
 
             onDisplayTextChanged: {
                 if (!islandCollapsedItem.initialized) return
-                if (islandCollapsedItem.displayText === (islandCollapsedItem.activeSlot === "A" ? textA.text : textB.text)) return
-                islandCollapsedItem.switchText(islandCollapsedItem.displayText, false)
+                if (islandCollapsedItem.displayText !== islandCollapsedItem.currentShownText) {
+                    islandCollapsedItem.switchText(islandCollapsedItem.displayText, false)
+                }
             }
 
             Connections {
                 target: barSlot.mprisPanel ? barSlot.mprisPanel : null
                 function onCurrentLyricIndexChanged() {
                     if (!islandCollapsedItem.initialized || !islandCollapsedItem.hasLyrics) return
-                    if (islandCollapsedItem.displayText === (islandCollapsedItem.activeSlot === "A" ? textA.text : textB.text)) {
+                    var idx = barSlot.mprisPanel.currentLyricIndex
+                    if (idx === islandCollapsedItem.lastLyricIndex) return
+                    if (islandCollapsedItem.displayText === islandCollapsedItem.currentShownText) {
                         islandCollapsedItem.switchText(islandCollapsedItem.displayText, true)
                     }
                 }
             }
 
             Component.onCompleted: {
+                currentShownText = displayText
                 textA.text = displayText
                 textA.opacity = 1.0
                 transA.y = 0
                 textB.text = ""
                 textB.opacity = 0.0
-                transB.y = 14
+                transB.y = 20
                 activeSlot = "A"
                 if (hasLyrics && barSlot.mprisPanel) {
-                    prevLyricIndex = barSlot.mprisPanel.currentLyricIndex
+                    lastLyricIndex = barSlot.mprisPanel.currentLyricIndex
                 }
                 initialized = true
             }
@@ -1842,29 +1875,29 @@ PanelWindow {
                     id: animTransAY
                     target: transA
                     property: "y"
-                    to: -14
-                    duration: 480
+                    to: -20
+                    duration: 420
                     easing.type: Easing.OutCubic
                 }
                 NumberAnimation {
                     target: textA
                     property: "opacity"
                     to: 0.0
-                    duration: 380
+                    duration: 320
                     easing.type: Easing.OutQuad
                 }
                 NumberAnimation {
                     target: transB
                     property: "y"
                     to: 0
-                    duration: 480
+                    duration: 420
                     easing.type: Easing.OutCubic
                 }
                 NumberAnimation {
                     target: textB
                     property: "opacity"
                     to: 1.0
-                    duration: 440
+                    duration: 380
                     easing.type: Easing.OutCubic
                 }
             }
@@ -1875,29 +1908,29 @@ PanelWindow {
                     id: animTransBY
                     target: transB
                     property: "y"
-                    to: -14
-                    duration: 480
+                    to: -20
+                    duration: 420
                     easing.type: Easing.OutCubic
                 }
                 NumberAnimation {
                     target: textB
                     property: "opacity"
                     to: 0.0
-                    duration: 380
+                    duration: 320
                     easing.type: Easing.OutQuad
                 }
                 NumberAnimation {
                     target: transA
                     property: "y"
                     to: 0
-                    duration: 480
+                    duration: 420
                     easing.type: Easing.OutCubic
                 }
                 NumberAnimation {
                     target: textA
                     property: "opacity"
                     to: 1.0
-                    duration: 440
+                    duration: 380
                     easing.type: Easing.OutCubic
                 }
             }
@@ -1905,7 +1938,7 @@ PanelWindow {
             Text {
                 id: textA
                 anchors.centerIn: parent
-                text: islandCollapsedItem.displayText
+                text: ""
                 color: barSlot.root.ink
                 font.family: "DM Sans"
                 font.pixelSize: 12
@@ -1926,7 +1959,7 @@ PanelWindow {
                 elide: islandCollapsedItem.hasLyrics ? Text.ElideNone : Text.ElideRight
                 width: Math.min(implicitWidth, islandCollapsedItem.maxTextWidth)
                 opacity: 0.0
-                transform: Translate { id: transB; y: 14 }
+                transform: Translate { id: transB; y: 20 }
             }
         }
         ListModel {
@@ -2258,17 +2291,15 @@ PanelWindow {
                         anchors.fill: parent
                         radius: islandNotifPeekItem.hasBody ? 9 : (height / 2)
                         visible: !island.notifPeekIcon || (!island.notifPeekIcon.startsWith("file://") && !island.notifPeekIcon.startsWith("/"))
-                        color: Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.22)
-                        border.color: Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.4)
+                        color: Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.16)
+                        border.color: Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.32)
                         border.width: 1
 
-                        Text {
+                        IconText {
                             anchors.centerIn: parent
-                            font.pixelSize: islandNotifPeekItem.hasBody ? 16 : 12
+                            font.pixelSize: islandNotifPeekItem.hasBody ? 16 : 13
                             color: barSlot.accent
-                            text: (island.notifPeekIcon && !island.notifPeekIcon.startsWith("/") && !island.notifPeekIcon.startsWith("file://"))
-                                ? island.notifPeekIcon
-                                : (IconMap.icon("package_2") || "\uE7F4")
+                            text: island.getNotifIcon(island.notifPeekApp, island.notifPeekIcon)
                         }
                     }
                 }
@@ -2280,23 +2311,23 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 2
 
-                    // App / Category tiny subtitle if available and body is present
+                    // App / Category tiny subtitle if available and body is present (First Letter Capitalized / Title Case)
                     Text {
-                        visible: islandNotifPeekItem.hasBody && island.notifPeekApp !== "" && island.notifPeekApp !== island.notifPeekSummary
-                        text: island.notifPeekApp.toUpperCase()
+                        visible: islandNotifPeekItem.hasBody && island.notifPeekApp !== "" && island.notifPeekApp.toLowerCase() !== island.notifPeekSummary.toLowerCase()
+                        text: barSlot.formatTitleCase(island.notifPeekApp.replace(/[-_]/g, " "))
                         font.family: "DM Sans"
                         font.pixelSize: 9
                         font.weight: Font.Bold
-                        font.letterSpacing: 0.5
+                        font.letterSpacing: 0.3
                         color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.55)
                         elide: Text.ElideRight
                         width: parent.width
                     }
 
-                    // Summary / Title (full text, no 120px clamp!)
+                    // Summary / Title (First Letter Capitalized / Title Case, full text wrap)
                     Text {
                         id: summaryText
-                        text: island.notifPeekSummary !== "" ? island.notifPeekSummary : island.notifPeekApp
+                        text: barSlot.formatTitleCase(island.notifPeekSummary !== "" ? island.notifPeekSummary : island.notifPeekApp)
                         font.family: "DM Sans"
                         font.pixelSize: islandNotifPeekItem.hasBody ? 13 : 12
                         font.weight: Font.Bold
@@ -2307,11 +2338,11 @@ PanelWindow {
                         width: parent.width
                     }
 
-                    // Body / Description (full text, multi-line wrap!)
+                    // Body / Description (Sentence Case, multi-line wrap)
                     Text {
                         id: bodyText
                         visible: islandNotifPeekItem.hasBody
-                        text: island.notifPeekBody
+                        text: barSlot.formatSentenceCase(island.notifPeekBody)
                         font.family: "DM Sans"
                         font.pixelSize: 11
                         font.weight: Font.Normal
@@ -2324,7 +2355,7 @@ PanelWindow {
                     }
                 }
 
-                // Close "×" button
+                // Close button
                 Rectangle {
                     id: closeBtn
                     width: 22
@@ -2334,12 +2365,10 @@ PanelWindow {
                     color: closeHov.hovered ? Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.15) : "transparent"
                     Behavior on color { ColorAnimation { duration: 150 } }
 
-                    Text {
+                    IconText {
                         anchors.centerIn: parent
-                        text: "×"
-                        font.pixelSize: 15
-                        font.family: "DM Sans"
-                        font.weight: Font.Medium
+                        text: "close"
+                        font.pixelSize: 13
                         color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, closeHov.hovered ? 0.95 : 0.45)
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
@@ -2378,7 +2407,7 @@ PanelWindow {
                 y: (1.0 - island.dictationProgress) * (barSlot.root.barPosition === "bottom" ? 6 : -6)
             }
 
-            // ── 1. Listening State: 3-Element Theme Waveform (Image 0, No text) ──
+            // ── 1. Listening State: 3-Element Theme Waveform (No background, pure theme accent) ──
             Item {
                 id: listeningWaveformContainer
                 anchors.centerIn: parent
@@ -2387,16 +2416,6 @@ PanelWindow {
                 visible: opacity > 0.001
                 opacity: islandDictationItem.isTranscribing ? 0.0 : 1.0
                 Behavior on opacity { NumberAnimation { duration: 180 } }
-
-                // Soft ambient theme glow behind waveform
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: 32
-                    height: 20
-                    radius: 10
-                    color: barSlot.accent
-                    opacity: 0.20
-                }
 
                 Row {
                     id: listeningWaveformRow
@@ -2409,6 +2428,7 @@ PanelWindow {
                         width: 4.5
                         radius: 2.25
                         color: barSlot.accent
+                        Behavior on color { ColorAnimation { duration: 150 } }
 
                         SequentialAnimation on height {
                             loops: Animation.Infinite
@@ -2420,12 +2440,13 @@ PanelWindow {
                         }
                     }
 
-                    // Bar 2 (Middle): Tallest rounded capsule bar (Theme Color05)
+                    // Bar 2 (Middle): Tallest rounded capsule bar (Theme Accent)
                     Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         width: 4.5
                         radius: 2.25
-                        color: barSlot.root.color05
+                        color: barSlot.accent
+                        Behavior on color { ColorAnimation { duration: 150 } }
 
                         SequentialAnimation on height {
                             loops: Animation.Infinite
@@ -2437,13 +2458,14 @@ PanelWindow {
                         }
                     }
 
-                    // Dot 3 (Right): Circular dot (Theme Color04)
+                    // Dot 3 (Right): Circular dot (Theme Accent)
                     Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         width: 5
                         height: 5
                         radius: 2.5
-                        color: barSlot.root.color04
+                        color: barSlot.accent
+                        Behavior on color { ColorAnimation { duration: 150 } }
 
                         SequentialAnimation on scale {
                             loops: Animation.Infinite
@@ -2763,32 +2785,364 @@ PanelWindow {
             }
         }
 
-        SlotRow {
-            id: rightRowItem
-            anchors.verticalCenter: parent.verticalCenter
-            x: island.fitPadding + island.leftVisibleWidth + island.centerVisibleWidth + (island.centerVisibleWidth > 0.5 ? island.fitRegionGap : 0)
-            rmodel: rightModel
-            baseCount: barSlot.rightBaseSlotCount
-            maxExtraCount: barSlot.rightExtraSlotLimit
-            opacity: island.islandElementsOpacity
+        ClockWidget {
+            id: barClockShared
+            root: barSlot.root
+            visible: false
+        }
+
+        WeatherWidget {
+            id: barWeatherShared
+            root: barSlot.root
+            visible: false
+            Component.onCompleted: refresh(false)
+        }
+
+        MprisArtwork {
+            id: mediaCardArt
+            player: (barSlot.mprisPanel && barSlot.mprisPanel.player) ? barSlot.mprisPanel.player : null
+            root: barSlot.root
+        }
+
+        // ── Full-Height Left Widget: Time / Date / Weather Card ──
+        Rectangle {
+            id: expandedLeftTimeCard
             visible: opacity > 0.001
-            transform: Translate {
-                y: (1.0 - island.islandElementsOpacity) * (barSlot.root.barPosition === "bottom" ? 4 : -4)
+            opacity: island.islandElementsOpacity
+            width: island.leftCardWidth
+            height: island.height - 12
+            y: 6
+            x: 8
+            radius: 14
+            color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.08)
+            border.width: 1
+            border.color: timeCardHover.hovered
+                ? Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.5)
+                : Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.14)
+            Behavior on border.color { ColorAnimation { duration: 150 } }
+
+            Column {
+                anchors.centerIn: parent
+                spacing: 2
+
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: barClockShared.timeStr !== "" ? barClockShared.timeStr : "--:--"
+                    font.family: barSlot.root.barFont
+                    font.pixelSize: 15
+                    font.weight: Font.Bold
+                    color: barSlot.root.ink
+                }
+
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: {
+                        var d = barClockShared.now || new Date();
+                        var days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+                        var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                        return days[d.getDay()] + ", " + d.getDate() + " " + months[d.getMonth()];
+                    }
+                    font.family: barSlot.root.barFont
+                    font.pixelSize: 10
+                    font.weight: Font.Medium
+                    color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.6)
+                }
+
+                Row {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: 4
+                    topPadding: 1
+
+                    IconText {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: barWeatherShared.weatherLoaded ? barWeatherShared.weatherIcon : "sunny"
+                        font.pixelSize: 11
+                        color: barSlot.accent
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: barWeatherShared.weatherLoaded
+                            ? (barWeatherShared.weatherTempStr + (barWeatherShared.weatherDesc ? " · " + barSlot.formatTitleCase(barWeatherShared.weatherDesc) : ""))
+                            : "Weather…"
+                        font.family: barSlot.root.barFont
+                        font.pixelSize: 10
+                        color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.75)
+                        elide: Text.ElideRight
+                        maximumLineCount: 1
+                        width: Math.min(implicitWidth, 110)
+                    }
+                }
+            }
+
+            HoverHandler { id: timeCardHover }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    barSlot.root.activatePopupScreen(barSlot.screen)
+                    barSlot.root.dashboardExpanded = true
+                    barSlot.root.dashboardDetail = "calendar"
+                }
+            }
+        }
+
+        // ── Full-Height Right Widget: Media Player Card ──
+        Rectangle {
+            id: expandedRightMediaCard
+            visible: opacity > 0.001
+            opacity: island.islandElementsOpacity
+            width: island.rightCardWidth
+            height: island.height - 12
+            y: 6
+            x: island.width - width - 8
+            radius: 14
+
+            readonly property var player: (barSlot.mprisPanel && barSlot.mprisPanel.player) ? barSlot.mprisPanel.player : null
+            readonly property bool hasMedia: barSlot.mprisPanel && barSlot.mprisPanel.active && player !== null
+            readonly property string trackTitle: hasMedia ? (player.trackTitle || "No Track") : ""
+            readonly property string trackArtist: hasMedia ? (player.trackArtist || "Unknown Artist") : ""
+            readonly property bool isPlaying: hasMedia && ((barSlot.mprisPanel && barSlot.mprisPanel.playing) || (player && player.playbackState === MprisPlaybackState.Playing))
+            readonly property bool canPrev: hasMedia && player.canGoPrevious
+            readonly property bool canNext: hasMedia && player.canGoNext
+
+            readonly property bool hasDominantColor: {
+                var c = mediaCardArt.dominantColor
+                if (c && String(c) !== "#00000000" && String(c) !== "transparent") return true
+                var rc = barSlot.root ? barSlot.root.mprisDominantColor : null
+                if (rc && String(rc) !== "#00000000" && String(rc) !== "transparent") return true
+                return false
+            }
+            readonly property color artColor: {
+                if (mediaCardArt.dominantColor && String(mediaCardArt.dominantColor) !== "#00000000" && String(mediaCardArt.dominantColor) !== "transparent") {
+                    return mediaCardArt.dominantColor
+                }
+                if (barSlot.root && barSlot.root.mprisDominantColor && String(barSlot.root.mprisDominantColor) !== "#00000000" && String(barSlot.root.mprisDominantColor) !== "transparent") {
+                    return barSlot.root.mprisDominantColor
+                }
+                return barSlot.accent
+            }
+
+            color: hasMedia
+                ? Qt.rgba(artColor.r, artColor.g, artColor.b, mediaCardHover.hovered ? 0.32 : 0.24)
+                : Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.08)
+            border.width: 1
+            border.color: hasMedia
+                ? Qt.rgba(artColor.r, artColor.g, artColor.b, mediaCardHover.hovered ? 0.70 : 0.45)
+                : (mediaCardHover.hovered ? Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.5) : Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.14))
+            Behavior on color { ColorAnimation { duration: 250 } }
+            Behavior on border.color { ColorAnimation { duration: 250 } }
+
+            // Media Active Layout
+            Row {
+                anchors.fill: parent
+                anchors.margins: 7
+                spacing: 8
+                visible: expandedRightMediaCard.hasMedia
+
+                // Left: Album art thumbnail
+                Rectangle {
+                    id: mediaArtThumb
+                    width: 48
+                    height: 48
+                    anchors.verticalCenter: parent.verticalCenter
+                    radius: 10
+                    color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.12)
+                    border.width: 1
+                    border.color: Qt.rgba(expandedRightMediaCard.artColor.r, expandedRightMediaCard.artColor.g, expandedRightMediaCard.artColor.b, 0.50)
+                    clip: true
+
+                    Image {
+                        id: mediaArtThumbImg
+                        anchors.fill: parent
+                        source: mediaCardArt.source
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                        visible: status === Image.Ready && source != ""
+                    }
+
+                    IconText {
+                        anchors.centerIn: parent
+                        visible: !mediaArtThumbImg.visible
+                        text: "music_note"
+                        font.pixelSize: 22
+                        color: expandedRightMediaCard.artColor
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: barSlot.root.mprisVisible = !barSlot.root.mprisVisible
+                    }
+                }
+
+                // Right: Track title, artist, and playback controls
+                Column {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - mediaArtThumb.width - parent.spacing
+                    spacing: 2
+
+                    Text {
+                        text: barSlot.formatTitleCase(expandedRightMediaCard.trackTitle)
+                        font.family: barSlot.root.barFont
+                        font.pixelSize: 11
+                        font.weight: Font.Bold
+                        color: barSlot.root.ink
+                        elide: Text.ElideRight
+                        width: parent.width
+                    }
+
+                    Text {
+                        text: barSlot.formatTitleCase(expandedRightMediaCard.trackArtist)
+                        font.family: barSlot.root.barFont
+                        font.pixelSize: 10
+                        color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.65)
+                        elide: Text.ElideRight
+                        width: parent.width
+                    }
+
+                    Row {
+                        spacing: 12
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        topPadding: 2
+
+                        IconText {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "skip_previous"
+                            font.pixelSize: 15
+                            color: expandedRightMediaCard.canPrev ? (expandedRightMediaCard.hasMedia ? expandedRightMediaCard.artColor : barSlot.root.ink) : Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.3)
+                            MouseArea {
+                                anchors.fill: parent; anchors.margins: -4
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: if (expandedRightMediaCard.player) expandedRightMediaCard.player.previous()
+                            }
+                        }
+
+                        Rectangle {
+                            width: 22
+                            height: 22
+                            radius: 11
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: Qt.rgba(expandedRightMediaCard.artColor.r, expandedRightMediaCard.artColor.g, expandedRightMediaCard.artColor.b, 0.85)
+                            border.width: 1
+                            border.color: Qt.rgba(1, 1, 1, 0.25)
+
+                            IconText {
+                                anchors.centerIn: parent
+                                text: expandedRightMediaCard.isPlaying ? "pause" : "play_arrow"
+                                font.pixelSize: 14
+                                color: "#ffffff"
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: if (expandedRightMediaCard.player) expandedRightMediaCard.player.togglePlaying()
+                            }
+                        }
+
+                        IconText {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "skip_next"
+                            font.pixelSize: 15
+                            color: expandedRightMediaCard.canNext ? (expandedRightMediaCard.hasMedia ? expandedRightMediaCard.artColor : barSlot.root.ink) : Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.3)
+                            MouseArea {
+                                anchors.fill: parent; anchors.margins: -4
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: if (expandedRightMediaCard.player) expandedRightMediaCard.player.next()
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Idle Layout (When no media is playing)
+            Row {
+                anchors.centerIn: parent
+                spacing: 8
+                visible: !expandedRightMediaCard.hasMedia
+
+                IconText {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "music_note"
+                    font.pixelSize: 20
+                    color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.4)
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "No Media Playing"
+                    font.family: barSlot.root.barFont
+                    font.pixelSize: 11
+                    font.weight: Font.Medium
+                    color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.5)
+                }
+            }
+
+            HoverHandler { id: mediaCardHover }
+
+            MouseArea {
+                anchors.fill: parent
+                z: -1
+                cursorShape: Qt.PointingHandCursor
+                onClicked: barSlot.root.mprisVisible = !barSlot.root.mprisVisible
+            }
+        }
+
+        // ── Middle Section: Two-Row Button Hierarchy ──
+        Item {
+            id: expandedMiddleArea
+            visible: opacity > 0.001
+            opacity: island.islandElementsOpacity
+            x: expandedLeftTimeCard.x + expandedLeftTimeCard.width + Math.round((island.width - expandedLeftTimeCard.width - expandedRightMediaCard.width - 16 - width) / 2)
+            y: 6
+            width: island.middleWidth
+            height: island.height - 12
+            clip: false
+
+            // Row 1: Priority system navigation (G1 launcher, G2 workspaces, G10 quick settings, G3)
+            SlotRow {
+                id: row1PriorityItem
+                height: 30
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 3
+                rmodel: row1PriorityModel
+                baseCount: row1PriorityModel.count
+                maxExtraCount: 0
+            }
+
+            // Row 2: Secondary quick toggles (Volume, Mic, Wifi, Bluetooth, Battery, Backlight, Power, etc.)
+            SlotRow {
+                id: row2SecondaryItem
+                height: 30
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 37
+                rmodel: row2SecondaryModel
+                baseCount: row2SecondaryModel.count
+                maxExtraCount: 0
             }
         }
 
         // ── slot-aware panel X positions: publish per-screen anchors ──
         // find a group's slot and map its (frac·width) to window/screen X.
         function groupX(gid, frac) {
-            var rows = [leftRowItem, centerRowItem, rightRowItem]
+            if (gid === "G8" && island.islandShrinkProgress < 0.5) {
+                return island.x + expandedLeftTimeCard.x + expandedLeftTimeCard.width * frac
+            }
+            if (gid === "G9" && island.islandShrinkProgress < 0.5) {
+                return island.x + expandedRightMediaCard.x + expandedRightMediaCard.width * frac
+            }
+            var rows = [row1PriorityItem, row2SecondaryItem, centerRowItem]
             for (var r = 0; r < rows.length; r++) {
                 var row = rows[r]
+                if (!row) continue
                 var rep = row.rep
                 if (!rep) continue
                 for (var k = 0; k < rep.count; k++) {
                     var it = rep.itemAt(k)
                     if (it && it.gid === gid) {
-                        return island.x + row.x + it.x + it.width * frac
+                        var rowGlobalX = row.parent ? (row.parent === island ? row.x : row.parent.x + row.x) : row.x
+                        return island.x + rowGlobalX + it.x + it.width * frac
                     }
                 }
             }
@@ -2799,16 +3153,24 @@ PanelWindow {
         // Read their exact local center instead of pointing every panel at the
         // center of the entire group.
         function groupContentX(gid, propertyName, fallbackFrac) {
-            var rows = [leftRowItem, centerRowItem, rightRowItem]
+            if (gid === "G8" && island.islandShrinkProgress < 0.5) {
+                return island.x + expandedLeftTimeCard.x + expandedLeftTimeCard.width * 0.5
+            }
+            if (gid === "G9" && island.islandShrinkProgress < 0.5) {
+                return island.x + expandedRightMediaCard.x + expandedRightMediaCard.width * 0.5
+            }
+            var rows = [row1PriorityItem, row2SecondaryItem, centerRowItem]
             for (var r = 0; r < rows.length; r++) {
                 var row = rows[r]
+                if (!row) continue
                 var rep = row.rep
                 if (!rep) continue
                 for (var k = 0; k < rep.count; k++) {
                     var it = rep.itemAt(k)
                     if (it && it.gid === gid && it.contentItem
                             && it.contentItem[propertyName] !== undefined) {
-                        return island.x + row.x + it.x + it.pad
+                        var rowGlobalX = row.parent ? (row.parent === island ? row.x : row.parent.x + row.x) : row.x
+                        return island.x + rowGlobalX + it.x + it.pad
                             + Number(it.contentItem[propertyName])
                     }
                 }
@@ -2820,8 +3182,8 @@ PanelWindow {
         readonly property var panelAnchors: {
             void(island.width)
             void(island.x)
-            void(leftRowItem.x); void(centerRowItem.x); void(rightRowItem.x)
-            void(leftRowItem.width); void(centerRowItem.width); void(rightRowItem.width)
+            void(row1PriorityItem.x); void(centerRowItem.x); void(row2SecondaryItem.x)
+            void(row1PriorityItem.width); void(centerRowItem.width); void(row2SecondaryItem.width)
             return {
                 tray:         island.groupX("G3",  0.0),
                 trayCaret:    island.groupContentX("G3", "trayCaretX", 0.5),
@@ -2852,7 +3214,10 @@ PanelWindow {
             }
         }
         onPanelAnchorsChanged: barSlot.root.publishBarAnchors(panelScreenName, panelAnchors)
-        Component.onCompleted: barSlot.root.publishBarAnchors(panelScreenName, panelAnchors)
+        Component.onCompleted: {
+            island.syncExpandedModels()
+            barSlot.root.publishBarAnchors(panelScreenName, panelAnchors)
+        }
 
     }
 

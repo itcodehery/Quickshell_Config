@@ -449,48 +449,6 @@ Item {
                                 }
                             }
                         }
-
-                        // Disconnect Action Button
-                        Rectangle {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: 116
-                            height: 30
-                            radius: 15
-                            color: singleDiscMa.containsMouse ? Qt.rgba(0.92, 0.41, 0.38, 0.22) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                            border.width: 1
-                            border.color: singleDiscMa.containsMouse ? "#ea6962" : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.12)
-
-                            Row {
-                                anchors.centerIn: parent
-                                spacing: 6
-                                IconText {
-                                    text: "link_off"
-                                    font.pixelSize: 13
-                                    color: singleDiscMa.containsMouse ? "#ea6962" : root.ink
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-                                Text {
-                                    text: "Disconnect"
-                                    font.family: root.barFont
-                                    font.pixelSize: 11
-                                    font.weight: Font.Bold
-                                    color: singleDiscMa.containsMouse ? "#ea6962" : root.ink
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-                            }
-
-                            MouseArea {
-                                id: singleDiscMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (connectedModel.count > 0) {
-                                        btSection.doDisconnect(connectedModel.get(0).mac)
-                                    }
-                                }
-                            }
-                        }
                     }
 
                     // 2. Multiple Connected Devices List (if 2+ devices connected simultaneously)
@@ -560,31 +518,6 @@ Item {
                                             color: root.ink
                                             opacity: 0.6
                                         }
-                                    }
-                                }
-
-                                Rectangle {
-                                    width: 76; height: 26; radius: 13
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    color: multiDiscMa.containsMouse ? Qt.rgba(0.92, 0.41, 0.38, 0.22) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                                    border.width: 1
-                                    border.color: multiDiscMa.containsMouse ? "#ea6962" : "transparent"
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "Disconnect"
-                                        font.family: root.barFont
-                                        font.pixelSize: 10
-                                        font.weight: Font.Bold
-                                        color: multiDiscMa.containsMouse ? "#ea6962" : root.ink
-                                    }
-
-                                    MouseArea {
-                                        id: multiDiscMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: btSection.doDisconnect(model.mac)
                                     }
                                 }
                             }

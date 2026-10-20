@@ -413,7 +413,7 @@ Item {
                 // 1. Current Network Card (Minimal & Clean)
                 Rectangle {
                     width: parent.width
-                    height: 124
+                    height: wifiSection.statusObj.connected ? 98 : 62
                     radius: 14
                     color: Qt.rgba(1, 1, 1, 0.03)
                     border.width: 1
@@ -422,16 +422,16 @@ Item {
 
                     Column {
                         anchors.fill: parent
-                        anchors.margins: 12
-                        spacing: 10
+                        anchors.margins: 10
+                        spacing: 8
 
                         Row {
                             width: parent.width
                             spacing: 10
 
-                            // Big Wi-Fi Icon
+                            // Wi-Fi Icon
                             Rectangle {
-                                width: 44; height: 44; radius: 22
+                                width: 40; height: 40; radius: 20
                                 color: wifiSection.statusObj.connected ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.2) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
                                 border.width: 1
                                 border.color: wifiSection.statusObj.connected ? root.seal : "transparent"
@@ -441,19 +441,19 @@ Item {
                                     anchors.centerIn: parent
                                     text: wifiSection.statusObj.wifiBlocked ? "wifi_off" : wifiSection.getSignalIcon(wifiSection.statusObj.signal)
                                     color: wifiSection.statusObj.connected ? root.seal : root.ink
-                                    font.pixelSize: 22
+                                    font.pixelSize: 20
                                 }
                             }
 
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width - 44 - 10
+                                width: parent.width - 40 - 10
                                 spacing: 2
 
                                 Text {
                                     text: wifiSection.statusObj.wifiBlocked ? "Wi-Fi Off" : (wifiSection.statusObj.connected ? wifiSection.statusObj.ssid : "Not connected")
                                     font.family: root.barFont
-                                    font.pixelSize: 14
+                                    font.pixelSize: 13
                                     font.weight: Font.Bold
                                     color: root.ink
                                     elide: Text.ElideRight
@@ -465,7 +465,7 @@ Item {
                                         ? ("Signal " + wifiSection.statusObj.signal + "% • " + (wifiSection.statusObj.freq.indexOf("5") === 0 ? "5 GHz" : "2.4 GHz"))
                                         : (wifiSection.statusObj.wifiBlocked ? "Turn on Wi-Fi to browse networks" : "Select a network on the right to connect")
                                     font.family: root.barFont
-                                    font.pixelSize: 11
+                                    font.pixelSize: 10
                                     color: root.ink
                                     opacity: 0.65
                                     elide: Text.ElideRight
@@ -478,8 +478,8 @@ Item {
                         Rectangle {
                             visible: wifiSection.statusObj.connected
                             width: parent.width
-                            height: 28
-                            radius: 14
+                            height: 26
+                            radius: 13
                             color: discHeroMa.containsMouse ? Qt.rgba(0.92, 0.41, 0.38, 0.25) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
                             border.width: 1
                             border.color: discHeroMa.containsMouse ? "#ea6962" : "transparent"
@@ -489,14 +489,14 @@ Item {
                                 spacing: 5
                                 IconText {
                                     text: "link_off"
-                                    font.pixelSize: 13
+                                    font.pixelSize: 12
                                     color: discHeroMa.containsMouse ? "#ea6962" : root.ink
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                                 Text {
                                     text: "Disconnect"
                                     font.family: root.barFont
-                                    font.pixelSize: 11
+                                    font.pixelSize: 10
                                     font.weight: Font.Bold
                                     color: discHeroMa.containsMouse ? "#ea6962" : root.ink
                                     anchors.verticalCenter: parent.verticalCenter
@@ -514,103 +514,73 @@ Item {
                     }
                 }
 
-                // 2. Minimal Speed Test Action Card / Button
+                // 2. Speed Test Action Button (Full-width long button)
                 Rectangle {
+                    id: speedTestBtn
                     width: parent.width
-                    height: 56
-                    radius: 14
-                    color: Qt.rgba(1, 1, 1, 0.03)
+                    height: 32
+                    radius: 16
+                    color: speedBtnMa.containsMouse
+                        ? (speedTest.running ? Qt.rgba(0.92, 0.41, 0.38, 0.22) : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22))
+                        : (speedTest.running ? Qt.rgba(root.warn.r, root.warn.g, root.warn.b, 0.14) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06))
                     border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.05)
-                    clip: true
+                    border.color: speedBtnMa.containsMouse
+                        ? (speedTest.running ? "#ea6962" : root.seal)
+                        : (speedTest.running ? root.warn : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08))
 
                     Row {
+                        anchors.centerIn: parent
+                        spacing: 7
+
+                        IconText {
+                            text: speedTest.running
+                                ? (speedBtnMa.containsMouse ? "close" : "speed")
+                                : "speed"
+                            font.pixelSize: 13
+                            color: speedTest.running
+                                ? (speedBtnMa.containsMouse ? "#ea6962" : root.warn)
+                                : (speedBtnMa.containsMouse ? root.seal : root.ink)
+                            anchors.verticalCenter: parent.verticalCenter
+                            RotationAnimation on rotation {
+                                running: speedTest.running && !speedBtnMa.containsMouse
+                                loops: Animation.Infinite
+                                from: 0; to: 360; duration: 1000
+                            }
+                        }
+
+                        Text {
+                            text: {
+                                if (speedTest.running) {
+                                    if (speedBtnMa.containsMouse) return "Cancel Speed Test"
+                                    if (speedTest.phase === "download") return "Download: " + wifiSection.formatMbps(wifiSection.displayedSpeed)
+                                    if (speedTest.phase === "upload") return "Upload: " + wifiSection.formatMbps(wifiSection.displayedSpeed)
+                                    return "Measuring Ping…"
+                                }
+                                if (speedTest.phase === "success") {
+                                    if (speedBtnMa.containsMouse) return "Test Again (" + wifiSection.formatMbps(speedTest.downloadMbps) + " ↓)"
+                                    return wifiSection.formatMbps(speedTest.downloadMbps) + " ↓ • " + wifiSection.formatMbps(speedTest.uploadMbps) + " ↑ • " + wifiSection.formatPing(speedTest.latencyMs)
+                                }
+                                return "Run Speed Test"
+                            }
+                            font.family: root.barFont
+                            font.pixelSize: 10
+                            font.weight: Font.Bold
+                            color: speedTest.running
+                                ? (speedBtnMa.containsMouse ? "#ea6962" : root.warn)
+                                : (speedBtnMa.containsMouse ? root.seal : root.ink)
+                            anchors.verticalCenter: parent.verticalCenter
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    MouseArea {
+                        id: speedBtnMa
                         anchors.fill: parent
-                        anchors.margins: 10
-                        spacing: 10
-
-                        // Speed icon circle
-                        Rectangle {
-                            width: 36; height: 36; radius: 18
-                            color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15)
-                            anchors.verticalCenter: parent.verticalCenter
-
-                            IconText {
-                                anchors.centerIn: parent
-                                text: speedTest.running ? "speed" : "cloud_sync"
-                                font.pixelSize: 18
-                                color: root.seal
-                                RotationAnimation on rotation {
-                                    running: speedTest.running
-                                    loops: Animation.Infinite
-                                    from: 0; to: 360; duration: 1200
-                                }
-                            }
-                        }
-
-                        // Speed Test Status
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - 36 - speedActionBtn.width - 20
-                            spacing: 1
-                            clip: true
-
-                            Text {
-                                text: speedTest.running
-                                    ? (speedTest.phase === "download" ? "Testing Download…" : (speedTest.phase === "upload" ? "Testing Upload…" : "Measuring Ping…"))
-                                    : (speedTest.phase === "success" ? (wifiSection.formatMbps(speedTest.downloadMbps) + " • " + wifiSection.formatPing(speedTest.latencyMs)) : "Speed Test")
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: Font.Bold
-                                color: root.ink
-                                elide: Text.ElideRight
-                                width: parent.width
-                            }
-
-                            Text {
-                                text: speedTest.running 
-                                    ? (wifiSection.formatMbps(wifiSection.displayedSpeed) + " live")
-                                    : (speedTest.phase === "success" ? ("Upload: " + wifiSection.formatMbps(speedTest.uploadMbps)) : "Cloudflare Speed Test")
-                                font.family: root.barFont
-                                font.pixelSize: 10
-                                color: root.ink
-                                opacity: 0.5
-                                elide: Text.ElideRight
-                                width: parent.width
-                            }
-                        }
-
-                        // Compact Trigger Button
-                        Rectangle {
-                            id: speedActionBtn
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: speedBtnTxt.implicitWidth + 18
-                            height: 28
-                            radius: 14
-                            color: speedBtnMa.containsMouse ? root.fillHover : (speedTest.running ? Qt.rgba(root.warn.r, root.warn.g, root.warn.b, 0.2) : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.2))
-                            border.width: 1
-                            border.color: speedTest.running ? root.warn : root.seal
-
-                            Text {
-                                id: speedBtnTxt
-                                anchors.centerIn: parent
-                                text: speedTest.running ? "Cancel" : (speedTest.phase === "success" ? "Test Again" : "Run Test")
-                                font.family: root.barFont
-                                font.pixelSize: 10
-                                font.weight: Font.Bold
-                                color: speedTest.running ? root.warn : root.seal
-                            }
-
-                            MouseArea {
-                                id: speedBtnMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (speedTest.running) speedTest.cancel()
-                                    else wifiSection.startSpeedTestWithSweep()
-                                }
-                            }
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (speedTest.running) speedTest.cancel()
+                            else wifiSection.startSpeedTestWithSweep()
                         }
                     }
                 }

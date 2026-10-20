@@ -85,24 +85,33 @@ Item {
         }
     }
 
+    function extractColor() {
+        if (!source || source === "") return
+        var s = source.replace(/"/g, "\\\"")
+        var script = "f=$(mktemp); u=\"" + s + "\"; if [[ \"$u\" == http* ]] || [[ \"$u\" == file://* ]]; then curl -sL \"$u\" -o \"$f\"; else cp \"$u\" \"$f\" 2>/dev/null; fi; if [ -s \"$f\" ]; then magick \"$f\" -resize 1x1\\! -format \"#%[hex:u]\" info:; fi; rm -f \"$f\""
+        colorExtractor.command = ["bash", "-c", script]
+        colorExtractor.running = false
+        colorExtractor.running = true
+    }
+
     onSourceChanged: {
         dominantColor = "transparent"
-        if (source !== "") {
-            // handle both URLs and local file paths safely
-            var s = source.replace(/"/g, "\\\"")
-            var script = "f=$(mktemp); u=\"" + s + "\"; if [[ \"$u\" == http* ]] || [[ \"$u\" == file://* ]]; then curl -sL \"$u\" -o \"$f\"; else cp \"$u\" \"$f\" 2>/dev/null; fi; if [ -s \"$f\" ]; then magick \"$f\" -resize 1x1\\! -format \"#%[hex:u]\" info:; fi; rm -f \"$f\""
-            colorExtractor.command = ["bash", "-c", script]
-            colorExtractor.running = true
-        }
+        extractColor()
     }
 
     Connections {
         target: artwork.player
         ignoreUnknownSignals: true
-        function onTrackTitleChanged() { artwork.refresh() }
-        function onTrackArtUrlChanged() { artwork.refresh() }
+        function onTrackTitleChanged() { artwork.refresh(); artwork.extractColor() }
+        function onTrackArtUrlChanged() { artwork.refresh(); artwork.extractColor() }
     }
 
-    onPlayerChanged: refresh()
-    Component.onCompleted: refresh()
+    onPlayerChanged: {
+        refresh()
+        extractColor()
+    }
+    Component.onCompleted: {
+        refresh()
+        extractColor()
+    }
 }

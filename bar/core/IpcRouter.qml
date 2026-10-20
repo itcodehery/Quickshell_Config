@@ -120,6 +120,9 @@ Item {
         function peek(app: string, summary: string, body: string): void {
             router.invoke("triggerNotifPeek", app, summary, body, "")
         }
+        function dismiss(id: int): void {
+            router.invoke("dismissNotifPeek", id)
+        }
     }
 
     IpcHandler {
