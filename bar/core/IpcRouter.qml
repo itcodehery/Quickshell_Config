@@ -179,6 +179,7 @@ Item {
         function wallpaper(): void { router.openPicker("wallpaper") }
         function screenshots(): void { router.openPicker("screenshots") }
         function videos(): void { router.openPicker("videos") }
+        function style(name: string): void { router.invoke("setPickerStyle", name) }
     }
 
     IpcHandler {

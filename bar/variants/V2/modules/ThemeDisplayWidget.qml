@@ -15,7 +15,7 @@ Item {
         text: "palette"
         font.pixelSize: 14
         font.weight: Font.Normal
-        color: root.imagePickerVisible
+        color: (root.imagePickerVisible || (root.dashboardExpanded && (root.dashboardDetail === "theme" || root.dashboardDetail === "wallpaper")))
             ? (root.widgetHasFill("G10") ? rootMod.contentColor : root.seal)
             : rootMod.contentColor
         Behavior on color { ColorAnimation { duration: 150 } }

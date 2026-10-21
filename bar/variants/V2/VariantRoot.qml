@@ -68,6 +68,7 @@ Item {
     function applyLauncher(payload) { theme.ipcApplyLauncher(payload) }
     function reloadTheme() { theme.ipcReloadTheme() }
     function openPicker(mode) { theme.ipcOpenPicker(mode) }
+    function setPickerStyle(style) { theme.setPickerStyle(style) }
 
     // QtWayland creates a nameless 0x0 placeholder screen while no real output
     // exists; exclude it so no unusable layer surface is created. A new real

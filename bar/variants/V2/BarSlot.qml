@@ -26,8 +26,9 @@ PanelWindow {
     property bool isDashboardClosing: false
     property bool dashboardEverActivated: false
 
-    readonly property real dashboardExpandedWidth: Math.min(800, barSlot.width - 32)
-    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - 40, 292)
+    readonly property bool isPickerDetail: barSlot.root.dashboardDetail === "theme" || barSlot.root.dashboardDetail === "wallpaper"
+    readonly property real dashboardExpandedWidth: Math.min(isPickerDetail ? 920 : 840, barSlot.width - 32)
+    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - 40, isPickerDetail ? 390 : 306)
 
     readonly property real dashboardTopRadius: barSlot.root.barPosition === "bottom" ? 24 : 10
     readonly property real dashboardBottomRadius: barSlot.root.barPosition === "bottom" ? 10 : 24
@@ -3632,6 +3633,7 @@ PanelWindow {
             width: barSlot.dashboardExpandedWidth - 28
             height: Math.round(barSlot.dashboardExpandedHeight - 32 - 12 - 14 - 14)
             Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+            Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
             active: barSlot.dashboardEverActivated
             source: Qt.resolvedUrl("panels/HomescreenDashboardContent.qml")
             z: 5

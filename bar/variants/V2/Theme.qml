@@ -443,19 +443,31 @@ Item {
         }
     }
 
+    function applyTheme(name) {
+        if (!name) return
+        var installRoot = omarchyInstallRoot || (Quickshell.env("HOME") + "/.local/share/omarchy")
+        Quickshell.execDetached(["bash", "-c", "OMARCHY_PATH='" + installRoot + "' omarchy-theme-set '" + name.replace(/'/g, "'\\''") + "'"])
+    }
+
+    function applyWallpaper(path) {
+        if (!path) return
+        Quickshell.execDetached(["bash", "-c", "omarchy-theme-bg-set '" + path.replace(/'/g, "'\\''") + "'"])
+    }
+
     function openImagePicker(mode, screen) {
-        if (imagePickerVisible && imagePickerMode !== mode)
-            imagePickerVisible = false
         if (screen && screen.name !== "") activatePopupScreen(screen)
         else activateFocusedPopupScreen()
+        closePopups()
         mediaBrowserVisible = false
-        imagePickerMode = mode
-        imagePickerVisible = true
+        imagePickerMode = mode || "theme"
+        dashboardDetail = mode || "theme"
+        dashboardExpanded = true
     }
 
     function toggleImagePicker(mode, screen) {
-        if (imagePickerVisible && imagePickerMode === mode) {
-            imagePickerVisible = false
+        if (dashboardExpanded && (dashboardDetail === "theme" || dashboardDetail === "wallpaper") && (imagePickerMode === mode || dashboardDetail === mode)) {
+            dashboardExpanded = false
+            dashboardDetail = ""
             return
         }
 
@@ -2349,6 +2361,7 @@ Item {
 
     // ── picker visual style (theme/wallpaper/screenshot/video pickers) ──
     property string pickerStyle: "tanzaku"   // "tanzaku", "hearthstone", "carousel"
+    function setPickerStyle(style) { if (style) pickerStyle = style }
     property string launcherLogoMode: "text"     // "text" or "icon"
     property string launcherLogoText: "omarchy"  // "omarchy", "hyprland", "arch", or "omacom"
     property string launcherLogoIcon: "omarchy"  // see launcherLogoIconGlyph()

@@ -216,11 +216,17 @@ PanelWindow {
         var path = filtered[selFilt].filePath; if (!path) return
         if (isThemeMode) {
             var name = Model.nameForPath(path)
-            applyThemeProc.command = ["env", "OMARCHY_PATH=" + root.omarchyInstallRoot, "omarchy-theme-set", name]
-            applyThemeProc.running = false; applyThemeProc.running = true
+            if (root && root.applyTheme) root.applyTheme(name)
+            else {
+                applyThemeProc.command = ["env", "OMARCHY_PATH=" + root.omarchyInstallRoot, "omarchy-theme-set", name]
+                applyThemeProc.running = false; applyThemeProc.running = true
+            }
         } else {
-            applyBgProc.command = ["bash", "-c", "omarchy-theme-bg-set '" + path.replace(/'/g, "'\\''") + "'"]
-            applyBgProc.running = false; applyBgProc.running = true
+            if (root && root.applyWallpaper) root.applyWallpaper(path)
+            else {
+                applyBgProc.command = ["bash", "-c", "omarchy-theme-bg-set '" + path.replace(/'/g, "'\\''") + "'"]
+                applyBgProc.running = false; applyBgProc.running = true
+            }
         }
         root.imagePickerVisible = false
     }

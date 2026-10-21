@@ -32,7 +32,7 @@ Item {
         onClicked: {}
     }
 
-    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "battery", "screentime", "volume", "system", "calendar", "notifications"]
+    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "battery", "screentime", "volume", "system", "calendar", "notifications", "theme", "wallpaper"]
 
     function selectCategoryByIndex(idx) {
         if (idx < 0) idx = 0
@@ -63,6 +63,10 @@ Item {
     }
 
     function nextOption() {
+        if (dashboardContent.activeDetailView === "theme" || dashboardContent.activeDetailView === "wallpaper") {
+            if (themeLoader.item && themeLoader.item.moveSel) themeLoader.item.moveSel(1)
+            return
+        }
         // 1. Check if current active detail section has an internal sub-option to step forward into
         if (dashboardContent.activeDetailView === "bluetooth" && btDetailSection && btDetailSection.nextSubOption && btDetailSection.nextSubOption()) {
             return
@@ -78,6 +82,10 @@ Item {
     }
 
     function prevOption() {
+        if (dashboardContent.activeDetailView === "theme" || dashboardContent.activeDetailView === "wallpaper") {
+            if (themeLoader.item && themeLoader.item.moveSel) themeLoader.item.moveSel(-1)
+            return
+        }
         // 1. Check if current active detail section has an internal sub-option to step backward into
         if (dashboardContent.activeDetailView === "screentime" && stDetailSection && stDetailSection.prevSubOption && stDetailSection.prevSubOption()) {
             return
@@ -96,11 +104,63 @@ Item {
         jumpPrevCategory()
     }
 
-    Keys.onUpPressed: pageUp()
-    Keys.onDownPressed: pageDown()
+    Keys.onUpPressed: {
+        if (dashboardContent.activeDetailView === "theme" || dashboardContent.activeDetailView === "wallpaper") {
+            if (themeLoader.item && themeLoader.item.setMode) {
+                themeLoader.item.setMode(themeLoader.item.activeMode === "theme" ? "wallpaper" : "theme")
+            }
+            return
+        }
+        pageUp()
+    }
+    Keys.onDownPressed: {
+        if (dashboardContent.activeDetailView === "theme" || dashboardContent.activeDetailView === "wallpaper") {
+            if (themeLoader.item && themeLoader.item.setMode) {
+                themeLoader.item.setMode(themeLoader.item.activeMode === "theme" ? "wallpaper" : "theme")
+            }
+            return
+        }
+        pageDown()
+    }
     Keys.onLeftPressed: prevOption()
     Keys.onRightPressed: nextOption()
     Keys.onPressed: (event) => {
+        if (dashboardContent.activeDetailView === "theme" || dashboardContent.activeDetailView === "wallpaper") {
+            if (event.key === Qt.Key_Escape) {
+                dashboardContent.activeDetailView = ""
+                if (root) root.dashboardDetail = ""
+                event.accepted = true
+            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                if (themeLoader.item && themeLoader.item.applySelected) themeLoader.item.applySelected()
+                event.accepted = true
+            } else if (event.key === Qt.Key_Left) {
+                if (themeLoader.item && themeLoader.item.moveSel) themeLoader.item.moveSel(-1)
+                event.accepted = true
+            } else if (event.key === Qt.Key_Right) {
+                if (themeLoader.item && themeLoader.item.moveSel) themeLoader.item.moveSel(1)
+                event.accepted = true
+            } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
+                if (themeLoader.item && themeLoader.item.setMode) {
+                    themeLoader.item.setMode(themeLoader.item.activeMode === "theme" ? "wallpaper" : "theme")
+                }
+                event.accepted = true
+            } else if (event.key === Qt.Key_Backspace) {
+                if (themeLoader.item && themeLoader.item.filterText.length > 0) {
+                    themeLoader.item.filterText = themeLoader.item.filterText.slice(0, -1)
+                }
+                event.accepted = true
+            } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32
+                       && event.text.charCodeAt(0) !== 127
+                       && (event.modifiers === Qt.NoModifier || event.modifiers === Qt.ShiftModifier)) {
+                if (themeLoader.item) {
+                    if (event.text !== " " || (themeLoader.item.filterText.length > 0 && !themeLoader.item.filterText.endsWith(" "))) {
+                        themeLoader.item.filterText += event.text
+                    }
+                }
+                event.accepted = true
+            }
+            return
+        }
         if (event.key === Qt.Key_K) {
             pageUp()
             event.accepted = true
@@ -2878,6 +2938,8 @@ Item {
                         case "system": return "System & Power"
                         case "calendar": return "Calendar & Notes"
                         case "notifications": return "Notifications"
+                        case "theme": return "Themes"
+                        case "wallpaper": return "Wallpapers"
                         default: return ""
                     }
                 }
@@ -2954,6 +3016,18 @@ Item {
             DetailLoader { viewName: "system";        sourceComponent: SystemDetailSection        { root: dashboardContent.root; panel: dashboardContent.panel } }
             DetailLoader { viewName: "calendar";      sourceComponent: CalendarDetailSection      { root: dashboardContent.root; panel: dashboardContent.panel } }
             DetailLoader { viewName: "notifications"; sourceComponent: NotificationDetailSection  { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader {
+                id: themeLoader
+                viewName: "theme"
+                active: dashboardContent.activeDetailView === "theme" || dashboardContent.activeDetailView === "wallpaper"
+                visible: active
+                onLoaded: if (item) item.forceActiveFocus()
+                sourceComponent: ThemeWallpaperSwitcher {
+                    root: dashboardContent.root
+                    panel: dashboardContent.panel
+                    activeMode: dashboardContent.activeDetailView === "wallpaper" ? "wallpaper" : "theme"
+                }
+            }
         }
     }
 }
