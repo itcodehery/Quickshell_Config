@@ -801,7 +801,7 @@ Item {
                     readonly property var entry: switcher.filtered[index] || null
                     readonly property int relIdx: index - switcher.selFilt
                     readonly property bool focused: relIdx === 0
-                    readonly property bool near: Math.abs(relIdx) <= 2
+                    readonly property bool near: Math.abs(relIdx) <= 8
 
                     width: tanzakuStage.stripWidthFor(Math.abs(relIdx))
                     height: tanzakuStage.focusedH
@@ -928,8 +928,8 @@ Item {
 
             readonly property int cardW: 148
             readonly property int cardH: 210
-            readonly property int stepX: 68
-            readonly property real spreadDeg: 5.2
+            readonly property int stepX: 96
+            readonly property real spreadDeg: 3.8
             readonly property int focusLift: 28
             readonly property real focusScale: 1.16
 
@@ -942,7 +942,7 @@ Item {
                     readonly property var entry: switcher.filtered[index] || null
                     readonly property int relIdx: index - switcher.selFilt
                     readonly property bool focused: relIdx === 0
-                    readonly property bool nearby: Math.abs(relIdx) <= 2
+                    readonly property bool nearby: Math.abs(relIdx) <= 7
                     readonly property real dim: focused ? 0.0 : Math.min(0.60, 0.28 + Math.abs(relIdx) * 0.06)
 
                     width: hsStage.cardW
@@ -1095,9 +1095,9 @@ Item {
 
             readonly property int expandedW: 380
             readonly property int expandedH: 214
-            readonly property int sliceW: 88
+            readonly property int sliceW: 84
             readonly property int sliceH: 184
-            readonly property real itemStep: 104
+            readonly property real itemStep: 68
 
             readonly property real centerX: (width - expandedW) / 2
 
@@ -1110,8 +1110,7 @@ Item {
                     readonly property var entry: switcher.filtered[index] || null
                     readonly property int relIdx: index - switcher.selFilt
                     readonly property bool selected: relIdx === 0
-                    // Only show few items at a time: 2 on left, selected center, 2 on right
-                    readonly property bool nearby: Math.abs(relIdx) <= 2
+                    readonly property bool nearby: Math.abs(relIdx) <= 7
 
                     visible: nearby
                     width: selected ? cfStage.expandedW : cfStage.sliceW
@@ -1120,12 +1119,12 @@ Item {
                     // Dead-center vertically:
                     y: (cfStage.height - height) / 2
 
-                    // Dead-center horizontally for selected card, spaced out cleanly for side cards:
+                    // Dead-center horizontally for selected card, cascading out for side cards:
                     x: selected
                         ? cfStage.centerX
                         : (relIdx < 0
-                            ? (cfStage.centerX - 24 - cfStage.sliceW - (Math.abs(relIdx) - 1) * cfStage.itemStep)
-                            : (cfStage.centerX + cfStage.expandedW + 24 + (relIdx - 1) * cfStage.itemStep))
+                            ? (cfStage.centerX - 20 - cfStage.sliceW - (Math.abs(relIdx) - 1) * cfStage.itemStep)
+                            : (cfStage.centerX + cfStage.expandedW + 20 + (relIdx - 1) * cfStage.itemStep))
                     z: selected ? 100 : 50 - Math.min(Math.abs(relIdx), 30)
 
                     Behavior on x      { NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
