@@ -11,7 +11,9 @@ import Quickshell.Wayland
 import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Services.Mpris
+import Quickshell.Services.UPower
 import "modules"
+import "panels"
 import "IconMap.js" as IconMap
 
 PanelWindow {
@@ -36,8 +38,8 @@ PanelWindow {
     readonly property int notifTargetHeight: (island && island.notifPeekActive && typeof islandNotifPeekItem !== "undefined")
         ? (island.notifPeekBody !== "" ? Math.min(88, Math.max(64, islandNotifPeekItem.desiredCardHeight)) : 44)
         : barSlot.root.v2BarHeight
-    readonly property int chargingTargetHeight: 40
-    readonly property int barExpandedHeight: Math.round(barSlot.root.v2BarHeight * 2.5)
+    readonly property int chargingTargetHeight: barSlot.root.v2BarHeight
+    readonly property int barExpandedHeight: 156
     readonly property int shellVisibleHeight: isDashboardActive
         ? Math.round(dashboardExpandedHeight)
         : (island && island.chargingProgress > 0
@@ -49,7 +51,7 @@ PanelWindow {
         ? 24
         : ((island && island.notifPeekActive && island.notifPeekBody !== "")
             ? 18
-            : (island && island.islandShrinkProgress < 0.5 ? 20 : Math.round(shellVisibleHeight / 2)))
+            : (island && island.islandShrinkProgress < 0.5 ? 24 : Math.round(shellVisibleHeight / 2)))
     readonly property real shellTargetWidth: isDashboardActive
         ? dashboardExpandedWidth
         : Math.max(80,
@@ -1075,7 +1077,7 @@ PanelWindow {
                     anchors.centerIn: parent
                     width: isButton ? buttonWidth : buttonContentWidth
                     height: isButton ? 30 : 24
-                    radius: isButton ? 10 : (height / 2)
+                    radius: isButton ? 12 : (height / 2)
                     clip: true
                     visible: slot.occupied && slot.hasContent && slot.autoShown
                         && (isButton || barSlot.root.widgetHasFill(slot.gid) || barSlot.root.widgetHasBorder(slot.gid))
@@ -1087,8 +1089,8 @@ PanelWindow {
                         if (isButton) {
                             if (isPriority) {
                                 return btnHover.hovered
-                                    ? Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.28)
-                                    : Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.14)
+                                    ? Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.32)
+                                    : Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.16)
                             }
                             return btnHover.hovered
                                 ? Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.16)
@@ -1102,12 +1104,12 @@ PanelWindow {
                         if (isButton) {
                             if (isPriority) {
                                 return btnHover.hovered
-                                    ? Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.70)
-                                    : Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.32)
+                                    ? Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.65)
+                                    : Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.28)
                             }
                             return btnHover.hovered
-                                ? Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.48)
-                                : Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.12)
+                                ? Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.35)
+                                : Qt.rgba(255, 255, 255, 0.04)
                         }
                         if (barSlot.root.widgetHasBorder(slot.gid)) {
                             return barSlot.root.widgetBorderColor(slot.gid)
@@ -1299,7 +1301,7 @@ PanelWindow {
             }
         }
 
-        property bool isHovered: islandHover.hovered
+        property bool isHovered: islandHover.hovered || (barSlot.root && barSlot.root.hoverForce)
         HoverHandler {
             id: islandHover
             acceptedDevices: PointerDevice.AllDevices
@@ -1527,24 +1529,21 @@ PanelWindow {
         readonly property real overlayProgress: Math.max(island.osdProgress, island.notifPeekProgress, island.dictationProgress, island.chargingProgress)
         readonly property real overlayTargetWidth: {
             if (island.dictationProgress > 0) return islandDictationItem.width
-            if (island.chargingProgress > 0) return islandChargingItem.width
+            if (island.chargingProgress > 0) return islandChargingItem.targetWidth
             if (island.notifPeekProgress > 0) return islandNotifPeekItem.width
             return islandOsdItem.width
         }
-        readonly property real collapsedIslandWidth: 2 * fitPadding + ((1.0 - overlayProgress) * defaultCollapsedCenterWidth + overlayProgress * overlayTargetWidth)
+        readonly property real collapsedIslandWidth: (island.chargingProgress > 0)
+            ? (islandChargingItem.targetWidth)
+            : (2 * fitPadding + ((1.0 - overlayProgress) * defaultCollapsedCenterWidth + overlayProgress * overlayTargetWidth))
 
-        readonly property real leftCardWidth: 140
-        readonly property real rightCardWidth: 205
-        readonly property real middleGap: 12
-        readonly property real middleButtonsWidth: (row1PriorityItem && row2SecondaryItem && Math.max(row1PriorityItem.implicitWidth, row2SecondaryItem.implicitWidth) > 10)
-            ? Math.max(row1PriorityItem.implicitWidth, row2SecondaryItem.implicitWidth)
-            : island.estimatedMiddleWidth
-        readonly property real maxMiddleWidth: Math.max(100, barSlot.width - leftCardWidth - rightCardWidth - 2 * middleGap - 32)
-        readonly property real middleWidth: Math.min(maxMiddleWidth, middleButtonsWidth)
-
+        readonly property real leftCardWidth: 112
+        readonly property real rightCardWidth: 156
+        readonly property real middleGap: 8
+        readonly property real middleWidth: 380
         readonly property real expandedContainerWidth: Math.min(
             barSlot.width - 24,
-            leftCardWidth + middleGap + middleWidth + middleGap + rightCardWidth + 24
+            leftCardWidth + middleGap + middleWidth + middleGap + rightCardWidth + 16
         )
 
         readonly property real fitNaturalWidth: Math.ceil(
@@ -2583,27 +2582,71 @@ PanelWindow {
             }
         }
 
-        // ── Laptop Charging Dynamic Island Pill ──
+        // ── Laptop Charging Dynamic Island Pill (In-Bar Sleek Horizontal Design) ──
         Rectangle {
             id: islandChargingItem
             anchors.centerIn: parent
-            width: 380
-            height: barSlot.chargingTargetHeight
+            readonly property int targetWidth: 340
+            width: targetWidth
+            height: barSlot.root.v2BarHeight
             radius: height / 2
-            color: "transparent"
-            clip: false
+            clip: true
             opacity: island.islandCollapsedOpacity * island.chargingProgress * (1.0 - island.dictationProgress)
             visible: opacity > 0.001
 
-            transform: Translate {
-                y: (1.0 - island.chargingProgress) * (barSlot.root.barPosition === "bottom" ? 6 : -6)
+            readonly property int pct: Math.max(1, Math.min(100, barSlot.root.chargingPopupPercent))
+
+            // Percentage-driven dynamic background color palette
+            readonly property color bgBase: {
+                if (pct < 20) return "#220505"      // Deep Crimson (< 20%)
+                if (pct < 50) return "#240c03"      // Deep Amber (20-49%)
+                if (pct < 80) return "#07142b"      // Deep Cobalt Blue (50-79%)
+                return "#021a12"                    // Deep Emerald Green (80-100%)
+            }
+            readonly property color bgMid: {
+                if (pct < 20) return "#4a0a0a"
+                if (pct < 50) return "#541c05"
+                if (pct < 80) return "#0a2a66"
+                return "#043d2b"
+            }
+            readonly property color bgGlow: {
+                if (pct < 20) return "#b91c1c"      // Bright Red
+                if (pct < 50) return "#c2410c"      // Bright Orange
+                if (pct < 80) return "#1d4ed8"      // Vibrant Royal Blue
+                return "#059669"                    // Vibrant Emerald Green
+            }
+            readonly property color pillTextColor: {
+                if (pct < 20) return "#dc2626"
+                if (pct < 50) return "#ea580c"
+                if (pct < 80) return "#2563eb"
+                return "#059669"
             }
 
-            readonly property int pct: Math.max(1, Math.min(100, barSlot.root.chargingPopupPercent))
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.00; color: islandChargingItem.bgBase }
+                GradientStop { position: 0.45; color: islandChargingItem.bgMid }
+                GradientStop { position: 1.00; color: islandChargingItem.bgGlow }
+            }
+
+            // Subtle glass card border
+            border.color: Qt.rgba(255, 255, 255, 0.16)
+            border.width: 1
+
+            readonly property string timeLeftStr: {
+                var dev = UPower.displayDevice
+                if (!dev) return ""
+                var s = dev.timeToFull
+                if (!s || s <= 0) return ""
+                var h = Math.floor(s / 3600)
+                var m = Math.floor((s % 3600) / 60)
+                if (h > 0) return h + "h " + (m > 0 ? m + "m left" : "left")
+                return m + " min left"
+            }
 
             property real animatedPct: 0
             Behavior on animatedPct {
-                NumberAnimation { duration: 700; easing.type: Easing.OutCubic }
+                NumberAnimation { duration: 850; easing.type: Easing.OutCubic }
             }
 
             Connections {
@@ -2618,7 +2661,7 @@ PanelWindow {
 
             Timer {
                 id: chargeAnimTimer
-                interval: 40
+                interval: 50
                 onTriggered: islandChargingItem.animatedPct = islandChargingItem.pct
             }
 
@@ -2628,153 +2671,106 @@ PanelWindow {
                 }
             }
 
-            // Right: Charging Status Label
-            Text {
-                id: chargingLabel
-                anchors.right: parent.right
-                anchors.rightMargin: 18
-                anchors.verticalCenter: parent.verticalCenter
-                text: "Charging"
-                font.family: barSlot.root.barFont
-                font.pixelSize: 13
-                font.weight: Font.DemiBold
-                color: "#22c55e"
-            }
+            // Horizontal content layout fitting within the bar height
+            Row {
+                anchors.centerIn: parent
+                spacing: 10
 
-            // Left / Center: Animated Gradient Progress Bar with Head Badge
-            Item {
-                id: barTrackArea
-                anchors.left: parent.left
-                anchors.leftMargin: 18
-                anchors.right: chargingLabel.left
-                anchors.rightMargin: 20
-                anchors.verticalCenter: parent.verticalCenter
-                height: 28
-
-                // Subtle ambient glow behind progress fill
-                Rectangle {
-                    anchors.left: trackGroove.left
-                    anchors.verticalCenter: trackGroove.verticalCenter
-                    width: progressFillItem.width
-                    height: 12
-                    radius: 6
-                    color: "#22c55e"
-                    opacity: 0.22
-                }
-
-                // Background Track Groove
-                Rectangle {
-                    id: trackGroove
-                    anchors.left: parent.left
-                    anchors.right: parent.right
+                // Left: Bolt icon + "Charging"
+                Row {
                     anchors.verticalCenter: parent.verticalCenter
-                    height: 6
-                    radius: 3
-                    color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.16)
-                    border.color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.08)
-                    border.width: 1
+                    spacing: 4
+
+                    IconText {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "bolt"
+                        font.pixelSize: 13
+                        color: "#ffffff"
+                        opacity: 0.95
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Charging"
+                        font.family: barSlot.root.barFont
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        color: "#ffffff"
+                        opacity: 0.90
+                    }
                 }
 
-                // Progress Fill Container
-                Item {
-                    id: progressFillItem
-                    anchors.left: trackGroove.left
-                    anchors.verticalCenter: trackGroove.verticalCenter
-                    height: trackGroove.height
-                    width: Math.max(height, trackGroove.width * (islandChargingItem.animatedPct / 100))
+                // Center: Sleek Progress Bar Track with smoothly curved corners
+                Rectangle {
+                    id: chargeTrack
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 130
+                    height: 14
+                    radius: 7
+                    color: Qt.rgba(255, 255, 255, 0.15)
+                    border.color: Qt.rgba(255, 255, 255, 0.20)
+                    border.width: 1
                     clip: true
 
-                    // Multi-stop horizontal gradient
+                    // Animated White Fill Bar (inset by 1px so corners curve cleanly without border collision)
                     Rectangle {
-                        anchors.fill: parent
-                        radius: parent.height / 2
-                        gradient: Gradient {
-                            orientation: Gradient.Horizontal
-                            GradientStop { position: 0.00; color: "#059669" }
-                            GradientStop { position: 0.35; color: "#10b981" }
-                            GradientStop { position: 0.70; color: "#22c55e" }
-                            GradientStop { position: 1.00; color: "#4ade80" }
+                        id: chargeFill
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        anchors.margins: 1
+                        width: Math.max(0, Math.min(parent.width - 2, (parent.width - 2) * (islandChargingItem.animatedPct / 100)))
+                        radius: 6
+                        color: "#ffffff"
+
+                        // Percentage text inside pill if sufficiently wide
+                        Text {
+                            id: pillPctLabel
+                            anchors.right: parent.right
+                            anchors.rightMargin: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: islandChargingItem.pct + "%"
+                            font.family: barSlot.root.barFont
+                            font.pixelSize: 9
+                            font.weight: Font.Bold
+                            color: islandChargingItem.pillTextColor
+                            visible: chargeFill.width > 34
                         }
                     }
 
-                    // Shimmer wave traveling through the filled bar
+                    // Soft luminous glow around fill
                     Rectangle {
-                        id: chargeShimmer
-                        width: Math.min(65, Math.max(25, progressFillItem.width * 0.55))
-                        height: parent.height
-                        radius: parent.height / 2
-                        gradient: Gradient {
-                            orientation: Gradient.Horizontal
-                            GradientStop { position: 0.0; color: "transparent" }
-                            GradientStop { position: 0.5; color: Qt.rgba(1, 1, 1, 0.55) }
-                            GradientStop { position: 1.0; color: "transparent" }
-                        }
-
-                        SequentialAnimation on x {
-                            loops: Animation.Infinite
-                            running: island.chargingActive
-                            NumberAnimation {
-                                from: -chargeShimmer.width
-                                to: progressFillItem.width
-                                duration: 1250
-                                easing.type: Easing.InOutQuad
-                            }
-                            PauseAnimation { duration: 350 }
-                        }
+                        anchors.fill: chargeFill
+                        radius: chargeFill.radius
+                        color: "#ffffff"
+                        opacity: 0.35
+                        z: -1
                     }
                 }
 
-                // Floating Capsule Badge at the progress tip (matching reference image)
-                Item {
-                    id: chargeHeadBadge
-                    x: Math.max(0, Math.min(barTrackArea.width - width, progressFillItem.width - width / 2))
+                // Right: Percentage (if not inside pill) and Time remaining
+                Row {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: Math.max(36, pctNumText.implicitWidth + 14)
-                    height: 22
+                    spacing: 5
 
-                    // Soft glowing aura / halo
-                    Rectangle {
-                        anchors.centerIn: parent
-                        width: parent.width + 10
-                        height: parent.height + 8
-                        radius: height / 2
-                        color: Qt.rgba(0.06, 0.73, 0.51, 0.35)
-
-                        SequentialAnimation on scale {
-                            loops: Animation.Infinite
-                            running: island.chargingActive
-                            NumberAnimation { to: 1.14; duration: 850; easing.type: Easing.InOutSine }
-                            NumberAnimation { to: 1.00; duration: 850; easing.type: Easing.InOutSine }
-                        }
-                        SequentialAnimation on opacity {
-                            loops: Animation.Infinite
-                            running: island.chargingActive
-                            NumberAnimation { to: 0.55; duration: 850; easing.type: Easing.InOutSine }
-                            NumberAnimation { to: 0.25; duration: 850; easing.type: Easing.InOutSine }
-                        }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: chargeFill.width <= 34
+                        text: islandChargingItem.pct + "%"
+                        font.family: barSlot.root.barFont
+                        font.pixelSize: 11
+                        font.weight: Font.Bold
+                        color: "#ffffff"
                     }
 
-                    // Solid capsule body
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: height / 2
-                        gradient: Gradient {
-                            orientation: Gradient.Vertical
-                            GradientStop { position: 0.00; color: "#22c55e" }
-                            GradientStop { position: 1.00; color: "#15803d" }
-                        }
-                        border.color: Qt.rgba(1, 1, 1, 0.35)
-                        border.width: 1
-
-                        Text {
-                            id: pctNumText
-                            anchors.centerIn: parent
-                            text: islandChargingItem.pct
-                            font.family: barSlot.root.barFont
-                            font.pixelSize: 11
-                            font.weight: Font.Bold
-                            color: "#ffffff"
-                        }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: islandChargingItem.timeLeftStr !== "" ? islandChargingItem.timeLeftStr : (chargeFill.width > 34 ? (islandChargingItem.pct + "%") : "")
+                        visible: text !== ""
+                        font.family: barSlot.root.barFont
+                        font.pixelSize: 11
+                        font.weight: Font.Medium
+                        color: Qt.rgba(255, 255, 255, 0.85)
                     }
                 }
             }
@@ -2804,346 +2800,34 @@ PanelWindow {
             root: barSlot.root
         }
 
-        // ── Full-Height Left Widget: Time / Date / Weather Card ──
-        Rectangle {
-            id: expandedLeftTimeCard
-            visible: opacity > 0.001
-            opacity: island.islandElementsOpacity
-            width: island.leftCardWidth
-            height: island.height - 12
-            y: 6
-            x: 8
-            radius: 14
-            color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.08)
-            border.width: 1
-            border.color: timeCardHover.hovered
-                ? Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.5)
-                : Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.14)
-            Behavior on border.color { ColorAnimation { duration: 150 } }
-
-            Column {
-                anchors.centerIn: parent
-                spacing: 2
-
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: barClockShared.timeStr !== "" ? barClockShared.timeStr : "--:--"
-                    font.family: barSlot.root.barFont
-                    font.pixelSize: 15
-                    font.weight: Font.Bold
-                    color: barSlot.root.ink
-                }
-
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: {
-                        var d = barClockShared.now || new Date();
-                        var days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-                        var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-                        return days[d.getDay()] + ", " + d.getDate() + " " + months[d.getMonth()];
-                    }
-                    font.family: barSlot.root.barFont
-                    font.pixelSize: 10
-                    font.weight: Font.Medium
-                    color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.6)
-                }
-
-                Row {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: 4
-                    topPadding: 1
-
-                    IconText {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: barWeatherShared.weatherLoaded ? barWeatherShared.weatherIcon : "sunny"
-                        font.pixelSize: 11
-                        color: barSlot.accent
-                    }
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: barWeatherShared.weatherLoaded
-                            ? (barWeatherShared.weatherTempStr + (barWeatherShared.weatherDesc ? " · " + barSlot.formatTitleCase(barWeatherShared.weatherDesc) : ""))
-                            : "Weather…"
-                        font.family: barSlot.root.barFont
-                        font.pixelSize: 10
-                        color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.75)
-                        elide: Text.ElideRight
-                        maximumLineCount: 1
-                        width: Math.min(implicitWidth, 110)
-                    }
-                }
-            }
-
-            HoverHandler { id: timeCardHover }
-
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    barSlot.root.activatePopupScreen(barSlot.screen)
-                    barSlot.root.dashboardExpanded = true
-                    barSlot.root.dashboardDetail = "calendar"
-                }
-            }
+        AudioData {
+            id: barAudioShared
         }
 
-        // ── Full-Height Right Widget: Media Player Card ──
-        Rectangle {
-            id: expandedRightMediaCard
-            visible: opacity > 0.001
+        // ── Extracted Modular Hover Quick Settings Panel ──
+        HoverQuickSettingsPanel {
+            id: hoverQuickPanel
+            barSlot: barSlot
+            island: island
             opacity: island.islandElementsOpacity
-            width: island.rightCardWidth
-            height: island.height - 12
-            y: 6
-            x: island.width - width - 8
-            radius: 14
-
-            readonly property var player: (barSlot.mprisPanel && barSlot.mprisPanel.player) ? barSlot.mprisPanel.player : null
-            readonly property bool hasMedia: barSlot.mprisPanel && barSlot.mprisPanel.active && player !== null
-            readonly property string trackTitle: hasMedia ? (player.trackTitle || "No Track") : ""
-            readonly property string trackArtist: hasMedia ? (player.trackArtist || "Unknown Artist") : ""
-            readonly property bool isPlaying: hasMedia && ((barSlot.mprisPanel && barSlot.mprisPanel.playing) || (player && player.playbackState === MprisPlaybackState.Playing))
-            readonly property bool canPrev: hasMedia && player.canGoPrevious
-            readonly property bool canNext: hasMedia && player.canGoNext
-
-            readonly property bool hasDominantColor: {
-                var c = mediaCardArt.dominantColor
-                if (c && String(c) !== "#00000000" && String(c) !== "transparent") return true
-                var rc = barSlot.root ? barSlot.root.mprisDominantColor : null
-                if (rc && String(rc) !== "#00000000" && String(rc) !== "transparent") return true
-                return false
-            }
-            readonly property color artColor: {
-                if (mediaCardArt.dominantColor && String(mediaCardArt.dominantColor) !== "#00000000" && String(mediaCardArt.dominantColor) !== "transparent") {
-                    return mediaCardArt.dominantColor
-                }
-                if (barSlot.root && barSlot.root.mprisDominantColor && String(barSlot.root.mprisDominantColor) !== "#00000000" && String(barSlot.root.mprisDominantColor) !== "transparent") {
-                    return barSlot.root.mprisDominantColor
-                }
-                return barSlot.accent
-            }
-
-            color: hasMedia
-                ? Qt.rgba(artColor.r, artColor.g, artColor.b, mediaCardHover.hovered ? 0.32 : 0.24)
-                : Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.08)
-            border.width: 1
-            border.color: hasMedia
-                ? Qt.rgba(artColor.r, artColor.g, artColor.b, mediaCardHover.hovered ? 0.70 : 0.45)
-                : (mediaCardHover.hovered ? Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.5) : Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.14))
-            Behavior on color { ColorAnimation { duration: 250 } }
-            Behavior on border.color { ColorAnimation { duration: 250 } }
-
-            // Media Active Layout
-            Row {
-                anchors.fill: parent
-                anchors.margins: 7
-                spacing: 8
-                visible: expandedRightMediaCard.hasMedia
-
-                // Left: Album art thumbnail
-                Rectangle {
-                    id: mediaArtThumb
-                    width: 48
-                    height: 48
-                    anchors.verticalCenter: parent.verticalCenter
-                    radius: 10
-                    color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.12)
-                    border.width: 1
-                    border.color: Qt.rgba(expandedRightMediaCard.artColor.r, expandedRightMediaCard.artColor.g, expandedRightMediaCard.artColor.b, 0.50)
-                    clip: true
-
-                    Image {
-                        id: mediaArtThumbImg
-                        anchors.fill: parent
-                        source: mediaCardArt.source
-                        sourceSize: Qt.size(96, 96)
-                        fillMode: Image.PreserveAspectCrop
-                        asynchronous: true
-                        visible: status === Image.Ready && source != ""
-                    }
-
-                    IconText {
-                        anchors.centerIn: parent
-                        visible: !mediaArtThumbImg.visible
-                        text: "music_note"
-                        font.pixelSize: 22
-                        color: expandedRightMediaCard.artColor
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: barSlot.root.mprisVisible = !barSlot.root.mprisVisible
-                    }
-                }
-
-                // Right: Track title, artist, and playback controls
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - mediaArtThumb.width - parent.spacing
-                    spacing: 2
-
-                    Text {
-                        text: barSlot.formatTitleCase(expandedRightMediaCard.trackTitle)
-                        font.family: barSlot.root.barFont
-                        font.pixelSize: 11
-                        font.weight: Font.Bold
-                        color: barSlot.root.ink
-                        elide: Text.ElideRight
-                        width: parent.width
-                    }
-
-                    Text {
-                        text: barSlot.formatTitleCase(expandedRightMediaCard.trackArtist)
-                        font.family: barSlot.root.barFont
-                        font.pixelSize: 10
-                        color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.65)
-                        elide: Text.ElideRight
-                        width: parent.width
-                    }
-
-                    Row {
-                        spacing: 12
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        topPadding: 2
-
-                        IconText {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "skip_previous"
-                            font.pixelSize: 15
-                            color: expandedRightMediaCard.canPrev ? (expandedRightMediaCard.hasMedia ? expandedRightMediaCard.artColor : barSlot.root.ink) : Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.3)
-                            MouseArea {
-                                anchors.fill: parent; anchors.margins: -4
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: if (expandedRightMediaCard.player) expandedRightMediaCard.player.previous()
-                            }
-                        }
-
-                        Rectangle {
-                            width: 22
-                            height: 22
-                            radius: 11
-                            anchors.verticalCenter: parent.verticalCenter
-                            color: Qt.rgba(expandedRightMediaCard.artColor.r, expandedRightMediaCard.artColor.g, expandedRightMediaCard.artColor.b, 0.85)
-                            border.width: 1
-                            border.color: Qt.rgba(1, 1, 1, 0.25)
-
-                            IconText {
-                                anchors.centerIn: parent
-                                text: expandedRightMediaCard.isPlaying ? "pause" : "play_arrow"
-                                font.pixelSize: 14
-                                color: "#ffffff"
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: if (expandedRightMediaCard.player) expandedRightMediaCard.player.togglePlaying()
-                            }
-                        }
-
-                        IconText {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "skip_next"
-                            font.pixelSize: 15
-                            color: expandedRightMediaCard.canNext ? (expandedRightMediaCard.hasMedia ? expandedRightMediaCard.artColor : barSlot.root.ink) : Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.3)
-                            MouseArea {
-                                anchors.fill: parent; anchors.margins: -4
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: if (expandedRightMediaCard.player) expandedRightMediaCard.player.next()
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Idle Layout (When no media is playing)
-            Row {
-                anchors.centerIn: parent
-                spacing: 8
-                visible: !expandedRightMediaCard.hasMedia
-
-                IconText {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "music_note"
-                    font.pixelSize: 20
-                    color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.4)
-                }
-
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "No Media Playing"
-                    font.family: barSlot.root.barFont
-                    font.pixelSize: 11
-                    font.weight: Font.Medium
-                    color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.5)
-                }
-            }
-
-            HoverHandler { id: mediaCardHover }
-
-            MouseArea {
-                anchors.fill: parent
-                z: -1
-                cursorShape: Qt.PointingHandCursor
-                onClicked: barSlot.root.mprisVisible = !barSlot.root.mprisVisible
-            }
-        }
-
-        // ── Middle Section: Two-Row Button Hierarchy ──
-        Item {
-            id: expandedMiddleArea
             visible: opacity > 0.001
-            opacity: island.islandElementsOpacity
-            x: expandedLeftTimeCard.x + expandedLeftTimeCard.width + Math.round((island.width - expandedLeftTimeCard.width - expandedRightMediaCard.width - 16 - width) / 2)
-            y: 6
-            width: island.middleWidth
-            height: island.height - 12
-            clip: false
-
-            // Row 1: Priority system navigation (G1 launcher, G2 workspaces, G10 quick settings, G3)
-            SlotRow {
-                id: row1PriorityItem
-                height: 30
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: 3
-                rmodel: row1PriorityModel
-                baseCount: row1PriorityModel.count
-                maxExtraCount: 0
-            }
-
-            // Row 2: Secondary quick toggles (Volume, Mic, Wifi, Bluetooth, Battery, Backlight, Power, etc.)
-            SlotRow {
-                id: row2SecondaryItem
-                height: 30
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: 37
-                rmodel: row2SecondaryModel
-                baseCount: row2SecondaryModel.count
-                maxExtraCount: 0
-            }
         }
 
         // ── slot-aware panel X positions: publish per-screen anchors ──
         // find a group's slot and map its (frac·width) to window/screen X.
         function groupX(gid, frac) {
             if (gid === "G8" && island.islandShrinkProgress < 0.5) {
-                return island.x + expandedLeftTimeCard.x + expandedLeftTimeCard.width * frac
+                return island.x + 8 + island.leftCardWidth * frac
             }
             if (gid === "G9" && island.islandShrinkProgress < 0.5) {
-                return island.x + expandedRightMediaCard.x + expandedRightMediaCard.width * frac
+                return island.x + (island.width - island.rightCardWidth - 8) + island.rightCardWidth * frac
             }
-            var rows = [row1PriorityItem, row2SecondaryItem, centerRowItem]
-            for (var r = 0; r < rows.length; r++) {
-                var row = rows[r]
-                if (!row) continue
-                var rep = row.rep
-                if (!rep) continue
-                for (var k = 0; k < rep.count; k++) {
-                    var it = rep.itemAt(k)
+            var row = centerRowItem
+            if (row && row.rep) {
+                for (var k = 0; k < row.rep.count; k++) {
+                    var it = row.rep.itemAt(k)
                     if (it && it.gid === gid) {
-                        var rowGlobalX = row.parent ? (row.parent === island ? row.x : row.parent.x + row.x) : row.x
-                        return island.x + rowGlobalX + it.x + it.width * frac
+                        return island.x + row.x + it.x + it.width * frac
                     }
                 }
             }
@@ -3155,23 +2839,18 @@ PanelWindow {
         // center of the entire group.
         function groupContentX(gid, propertyName, fallbackFrac) {
             if (gid === "G8" && island.islandShrinkProgress < 0.5) {
-                return island.x + expandedLeftTimeCard.x + expandedLeftTimeCard.width * 0.5
+                return island.x + 8 + island.leftCardWidth * 0.5
             }
             if (gid === "G9" && island.islandShrinkProgress < 0.5) {
-                return island.x + expandedRightMediaCard.x + expandedRightMediaCard.width * 0.5
+                return island.x + (island.width - island.rightCardWidth - 8) + island.rightCardWidth * 0.5
             }
-            var rows = [row1PriorityItem, row2SecondaryItem, centerRowItem]
-            for (var r = 0; r < rows.length; r++) {
-                var row = rows[r]
-                if (!row) continue
-                var rep = row.rep
-                if (!rep) continue
-                for (var k = 0; k < rep.count; k++) {
-                    var it = rep.itemAt(k)
+            var row = centerRowItem
+            if (row && row.rep) {
+                for (var k = 0; k < row.rep.count; k++) {
+                    var it = row.rep.itemAt(k)
                     if (it && it.gid === gid && it.contentItem
                             && it.contentItem[propertyName] !== undefined) {
-                        var rowGlobalX = row.parent ? (row.parent === island ? row.x : row.parent.x + row.x) : row.x
-                        return island.x + rowGlobalX + it.x + it.pad
+                        return island.x + row.x + it.x + it.pad
                             + Number(it.contentItem[propertyName])
                     }
                 }
@@ -3183,8 +2862,7 @@ PanelWindow {
         readonly property var panelAnchors: {
             void(island.width)
             void(island.x)
-            void(row1PriorityItem.x); void(centerRowItem.x); void(row2SecondaryItem.x)
-            void(row1PriorityItem.width); void(centerRowItem.width); void(row2SecondaryItem.width)
+            void(centerRowItem.x); void(centerRowItem.width)
             return {
                 tray:         island.groupX("G3",  0.0),
                 trayCaret:    island.groupContentX("G3", "trayCaretX", 0.5),

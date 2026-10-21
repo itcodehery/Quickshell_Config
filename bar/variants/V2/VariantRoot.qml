@@ -33,6 +33,7 @@ Item {
     function deactivationReady() { return !theme.anyPopupVisible }
     function layoutLock() { theme.barUnlocked = false }
     function layoutUnlock() { theme.barUnlocked = true }
+    function setHover(on) { theme.hoverForce = on }
     function toggleBar() { theme.barHidden = !theme.barHidden }
     function toggleDashboard() {
         if (!theme.dashboardExpanded) {

@@ -23,8 +23,6 @@ PanelWindow {
     // power sub-menu starts CLOSED — no destructive tile is ever pre-shown
     property bool powerOpen: false
     property bool wsOpen: false   // Workspaces collapsible inside the WW fly-out
-    property string widgetColorMenuGid: ""
-    property string widgetColorMenuLabel: ""
     readonly property string barctlPath: Quickshell.env("HOME") + "/.config/quickshell/bin/qs-barctl"
 
     // ── System info card ──────────────────────────────────────────────────────
@@ -128,16 +126,15 @@ PanelWindow {
     property real reveal: root.controlVisible ? 1 : 0
     Behavior on reveal {
         NumberAnimation {
-            duration: root.controlVisible ? 160 : 120
-            easing.type: root.controlVisible ? Easing.OutCubic : Easing.InCubic
+            duration: root.controlVisible ? 280 : 160
+            easing.type: root.controlVisible ? Easing.OutBack : Easing.InCubic
+            easing.overshoot: 1.15
         }
     }
     visible: reveal > 0.001
     onRevealChanged: if (reveal < 0.01) {
         powerOpen = false
         wsOpen = false
-        widgetColorMenuGid = ""
-        widgetColorMenuLabel = ""
         root.wwSubVisible = false
     }
     WlrLayershell.keyboardFocus: root.controlVisible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
@@ -350,155 +347,7 @@ PanelWindow {
         }
     }
 
-    // ── widget chip: body toggles visibility, trailing zone = colour / eye / density ──
-    component WidgetStateTile: Rectangle {
-        id: _wst
-        property string gid
-        property string label
-        property bool shown: true
-        property bool canHide: true
-        property bool supportsCompact: false
-        property bool compact: false
-        property string modeOffLabel: "Full"
-        property string modeOnLabel: "Icon"
-        signal visibilityToggled()
-        signal modeToggled()
 
-        readonly property bool hovered: bodyMa.containsMouse || colorMa.containsMouse
-            || eyeMa.containsMouse || modeMa.containsMouse
-        readonly property bool interactive: gid !== "" || canHide || (shown && supportsCompact)
-        readonly property bool menuOpen: ctrlPanel.widgetColorMenuGid === gid
-
-        height: 30
-        radius: height / 2
-        opacity: interactive ? 1 : 0.4
-        // shown → tinted accent, hidden → neutral chip; hover lifts either one
-        color: menuOpen
-            ? root.seal
-            : shown
-                ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, hovered ? 0.36 : root.fillActiveAlpha)
-                : (hovered ? ctrlPanel.chipHover : ctrlPanel.chipBg)
-        Behavior on color { ColorAnimation { duration: 140 } }
-
-        readonly property color fg: menuOpen ? root.paper : (shown ? root.ink : root.sumi)
-        readonly property color fgMuted: menuOpen ? root.paper : root.sumiHi
-
-        UiText {
-            anchors.left: parent.left; anchors.leftMargin: 12
-            anchors.right: stateArea.left; anchors.rightMargin: 2
-            anchors.verticalCenter: parent.verticalCenter
-            text: _wst.label
-            color: _wst.fg
-            font.family: root.barFont
-            font.pixelSize: 10
-            font.weight: _wst.shown ? Font.Medium : Font.Normal
-            elide: Text.ElideRight
-        }
-
-        Item {
-            id: stateArea
-            anchors.right: parent.right
-            anchors.rightMargin: 4
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: 22 + 22 + (_wst.supportsCompact ? 32 : 0)
-
-            IconText {
-                id: colorChip
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                width: 22
-                horizontalAlignment: Text.AlignHCenter
-                text: "palette"
-                fill: root.widgetHasFill(_wst.gid) ? 1 : 0
-                color: _wst.menuOpen ? root.paper
-                    : root.widgetHasFill(_wst.gid) ? root.widgetAssignedColor(_wst.gid)
-                    : (colorMa.containsMouse ? root.seal : _wst.fgMuted)
-                font.pixelSize: 14
-                Behavior on color { ColorAnimation { duration: 120 } }
-            }
-            IconText {
-                anchors.left: colorChip.right
-                anchors.verticalCenter: parent.verticalCenter
-                width: 22
-                horizontalAlignment: Text.AlignHCenter
-                text: _wst.shown ? "visibility" : "visibility_off"
-                color: eyeMa.containsMouse ? root.seal : _wst.fgMuted
-                font.pixelSize: 14
-                opacity: _wst.canHide ? 1 : 0.4
-                Behavior on color { ColorAnimation { duration: 120 } }
-            }
-            Rectangle {
-                id: modePill
-                visible: _wst.supportsCompact
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                width: 30; height: 20; radius: 10
-                opacity: _wst.shown ? 1 : 0.4
-                color: modeMa.containsMouse ? ctrlPanel.chipHover : ctrlPanel.chipBg
-                Behavior on color { ColorAnimation { duration: 120 } }
-                UiText {
-                    anchors.centerIn: parent
-                    text: _wst.compact ? _wst.modeOnLabel : _wst.modeOffLabel
-                    color: _wst.menuOpen ? root.paper
-                        : (modeMa.containsMouse || (_wst.shown && _wst.compact)) ? root.seal : _wst.fgMuted
-                    font.family: root.barFont; font.pixelSize: 9
-                }
-            }
-            MouseArea {
-                id: colorMa
-                anchors.left: parent.left
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: 22
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    if (_wst.menuOpen) {
-                        ctrlPanel.widgetColorMenuGid = ""
-                        ctrlPanel.widgetColorMenuLabel = ""
-                    } else {
-                        ctrlPanel.widgetColorMenuGid = _wst.gid
-                        ctrlPanel.widgetColorMenuLabel = _wst.label
-                    }
-                }
-            }
-            MouseArea {
-                id: eyeMa
-                anchors.left: colorMa.right
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: 22
-                enabled: _wst.canHide
-                hoverEnabled: true
-                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                onClicked: _wst.visibilityToggled()
-            }
-            MouseArea {
-                id: modeMa
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: 32
-                enabled: _wst.shown && _wst.supportsCompact
-                hoverEnabled: true
-                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                onClicked: _wst.modeToggled()
-            }
-        }
-
-        MouseArea {
-            id: bodyMa
-            anchors.left: parent.left
-            anchors.right: stateArea.left
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            enabled: _wst.canHide
-            hoverEnabled: true
-            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-            onClicked: _wst.visibilityToggled()
-        }
-    }
 
     // ── system spec tile: tinted icon squircle + vendor chip, label, short value ──
     component InfoTile: Rectangle {
@@ -578,9 +427,11 @@ PanelWindow {
 
         x: Math.round(Math.max(6, Math.min(root.launcherBarX - width / 2, parent.width - width - 6)))
         y: root.barPosition === "bottom"
-            ? (parent.height - barBottom - gap - height) + 2 * (1 - ctrlPanel.reveal)
-            : (barBottom + gap) - 2 * (1 - ctrlPanel.reveal)
-        opacity: ctrlPanel.reveal
+            ? (parent.height - barBottom - gap - height) + Math.round(18 * (1 - Math.min(1.0, ctrlPanel.reveal)))
+            : (barBottom + gap) - Math.round(18 * (1 - Math.min(1.0, ctrlPanel.reveal)))
+        scale: 0.94 + 0.06 * Math.min(1.0, ctrlPanel.reveal)
+        transformOrigin: root.barPosition === "bottom" ? Item.Bottom : Item.Top
+        opacity: Math.min(1.0, ctrlPanel.reveal * 1.2)
         focus: root.controlVisible
 
         Keys.onPressed: function(event) {
@@ -781,7 +632,9 @@ PanelWindow {
            ? card.x + card.width + ctrlPanel.gap
            : card.x - ctrlPanel.gap - width
         y: root.barPosition === "bottom" ? card.y + card.height - height : card.y
-        opacity: ctrlPanel.reveal
+        scale: 0.94 + 0.06 * Math.min(1.0, ctrlPanel.reveal)
+        transformOrigin: root.barPosition === "bottom" ? Item.Bottom : Item.Top
+        opacity: Math.min(1.0, ctrlPanel.reveal * 1.2)
 
         MouseArea { anchors.fill: parent; onClicked: {} }
 
@@ -815,11 +668,11 @@ PanelWindow {
                 }
             }
 
-            // ── WIDGETS: one chip per widget, quiet interaction zones ──
+            // ── WIDGETS: toggle on/off for visibility ──
             Card {
                 id: widgetsCard
                 title: "Widgets"
-                trailing: "tap to show / hide"
+                trailing: "tap to toggle"
                 Grid {
                     id: widgetGrid
                     width: parent.width
@@ -827,116 +680,63 @@ PanelWindow {
                     columnSpacing: 4
                     rowSpacing: 4
                     readonly property real tileW: root.evenW((width - columnSpacing) / 2)
-                    WidgetStateTile { gid: "G1";  width: widgetGrid.tileW; label: "Launcher";      shown: true; canHide: false }
-                    WidgetStateTile { gid: "G2";  width: widgetGrid.tileW; label: "Workspaces";    shown: true; canHide: false }
-                    WidgetStateTile { gid: "G3";  width: widgetGrid.tileW; label: "Status";        shown: root.modStatus;          onVisibilityToggled: root.modStatus = !root.modStatus }
-                    WidgetStateTile { gid: "G22"; width: widgetGrid.tileW; label: "Notifications"; shown: root.modNotif;           onVisibilityToggled: root.modNotif = !root.modNotif }
-                    WidgetStateTile { gid: "G8";  width: widgetGrid.tileW; label: "Clock/Weather"; shown: true; canHide: false }
-                    WidgetStateTile { gid: "G9";  width: widgetGrid.tileW; label: "Now playing";   shown: root.modMpris; supportsCompact: true; compact: root.mprisBarStyle !== "default"; modeOffLabel: "Def"; modeOnLabel: root.mprisBarStyle === "island" ? "Isle" : "Full"; onVisibilityToggled: root.modMpris = !root.modMpris; onModeToggled: root.mprisBarStyle = root.mprisBarStyle === "full" ? "island" : (root.mprisBarStyle === "island" ? "default" : "full") }
-                    WidgetStateTile { gid: "G19"; width: widgetGrid.tileW; label: "GH Heatmap";    shown: root.modGithubHeatmap;   onVisibilityToggled: root.modGithubHeatmap = !root.modGithubHeatmap }
-                    WidgetStateTile { gid: "G20"; width: widgetGrid.tileW; label: "Notes";         shown: root.modNotes;           onVisibilityToggled: root.modNotes = !root.modNotes }
-                    WidgetStateTile { gid: "G12"; width: widgetGrid.tileW; label: "Battery";       shown: root.hasBattery && root.modBattery; canHide: root.hasBattery; supportsCompact: true; compact: root.iconOnly("G12"); onVisibilityToggled: root.modBattery = !root.modBattery; onModeToggled: root.toggleIconOnly("G12") }
-                    WidgetStateTile { gid: "G21"; width: widgetGrid.tileW; label: "Screentime";    shown: root.modScreentime;      supportsCompact: true; compact: root.iconOnly("G21"); onVisibilityToggled: root.modScreentime = !root.modScreentime; onModeToggled: root.toggleIconOnly("G21") }
-                }
 
-                // per-widget colour sheet (nested tonal surface, no outline)
-                Rectangle {
-                    id: widgetColorMenu
-                    width: parent.width
-                    height: visible ? widgetMenuCol.implicitHeight + 20 : 0
-                    radius: 14
-                    visible: ctrlPanel.widgetColorMenuGid !== ""
-                    color: ctrlPanel.chipBg
-
-                    Column {
-                        id: widgetMenuCol
-                        anchors.fill: parent
-                        anchors.margins: 10
-                        spacing: 8
-
-                        Item {
-                            width: parent.width
-                            height: 20
-                            UiText {
-                                anchors.left: parent.left; anchors.leftMargin: 2
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: ctrlPanel.widgetColorMenuLabel + " color"
-                                color: root.ink
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: Font.Medium
-                            }
-                            Rectangle {
-                                anchors.right: parent.right
-                                anchors.verticalCenter: parent.verticalCenter
-                                readonly property bool inherits: root.widgetPaletteId(ctrlPanel.widgetColorMenuGid) === "inherit"
-                                width: resetTxt.implicitWidth + 16; height: 20; radius: 10
-                                opacity: inherits ? 0.5 : 1
-                                color: resetColorMa.containsMouse ? ctrlPanel.chipHover : ctrlPanel.chipBg
-                                UiText {
-                                    id: resetTxt
-                                    anchors.centerIn: parent
-                                    text: parent.inherits ? "Inherit" : "Reset"
-                                    color: resetColorMa.containsMouse ? root.seal : root.sumiHi
-                                    font.family: root.barFont
-                                    font.pixelSize: 9
-                                }
-                                MouseArea {
-                                    id: resetColorMa
-                                    anchors.fill: parent
-                                    enabled: !parent.inherits
-                                    hoverEnabled: enabled
-                                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                    onClicked: root.resetWidgetColor(ctrlPanel.widgetColorMenuGid)
-                                }
-                            }
-                        }
-
-                        Grid {
-                            id: widgetSwatches
-                            width: parent.width
-                            columns: 8
-                            readonly property int size: Math.min(26, Math.floor((width - 7 * 4) / 8))
-                            columnSpacing: Math.floor((width - size * 8) / 7)
-                            Repeater {
-                                model: root.barColorOptions
-                                delegate: Swatch {
-                                    required property string modelData
-                                    width: widgetSwatches.size
-                                    paletteId: modelData
-                                    selected: root.widgetPaletteId(ctrlPanel.widgetColorMenuGid) === modelData
-                                    onPicked: {
-                                        if (selected)
-                                            root.resetWidgetColor(ctrlPanel.widgetColorMenuGid)
-                                        else
-                                            root.setWidgetPaletteColor(ctrlPanel.widgetColorMenuGid, modelData)
-                                    }
-                                }
-                            }
-                        }
-
-                        Tile {
-                            width: parent.width
-                            height: 28
-                            icon: "border_style"
-                            label: "Border"
-                            active: root.widgetHasBorder(ctrlPanel.widgetColorMenuGid)
-                            onActivated: root.setWidgetBorderEnabled(
-                                ctrlPanel.widgetColorMenuGid,
-                                !root.widgetHasBorder(ctrlPanel.widgetColorMenuGid))
-                        }
-
-                        Segmented {
-                            width: parent.width
-                            visible: root.widgetHasFill(ctrlPanel.widgetColorMenuGid)
-                            options: [
-                                { label: "Auto", value: "auto" },
-                                { label: "BG",   value: "background" },
-                                { label: "FG",   value: "foreground" }
-                            ]
-                            current: root.widgetTone(ctrlPanel.widgetColorMenuGid)
-                            onChosen: (v) => root.setWidgetTone(ctrlPanel.widgetColorMenuGid, v)
-                        }
+                    Tile {
+                        width: widgetGrid.tileW
+                        icon: "info"
+                        label: "Status"
+                        active: root.modStatus
+                        onActivated: root.modStatus = !root.modStatus
+                    }
+                    Tile {
+                        width: widgetGrid.tileW
+                        icon: "notifications"
+                        label: "Notifications"
+                        active: root.modNotif
+                        onActivated: root.modNotif = !root.modNotif
+                    }
+                    Tile {
+                        width: widgetGrid.tileW
+                        icon: "music_note"
+                        label: "Now playing"
+                        active: root.modMpris
+                        onActivated: root.modMpris = !root.modMpris
+                    }
+                    Tile {
+                        width: widgetGrid.tileW
+                        icon: "data_object"
+                        label: "GH Heatmap"
+                        active: root.modGithubHeatmap
+                        onActivated: root.modGithubHeatmap = !root.modGithubHeatmap
+                    }
+                    Tile {
+                        width: widgetGrid.tileW
+                        icon: "sticky_note_2"
+                        label: "Notes"
+                        active: root.modNotes
+                        onActivated: root.modNotes = !root.modNotes
+                    }
+                    Tile {
+                        width: widgetGrid.tileW
+                        icon: "battery_charging_full"
+                        label: "Battery"
+                        visible: root.hasBattery
+                        active: root.modBattery
+                        onActivated: root.modBattery = !root.modBattery
+                    }
+                    Tile {
+                        width: widgetGrid.tileW
+                        icon: "hourglass_top"
+                        label: "Screentime"
+                        active: root.modScreentime
+                        onActivated: root.modScreentime = !root.modScreentime
+                    }
+                    Tile {
+                        width: widgetGrid.tileW
+                        icon: "thermostat"
+                        label: "Weather"
+                        active: root.modWeather
+                        onActivated: root.modWeather = !root.modWeather
                     }
                 }
             }

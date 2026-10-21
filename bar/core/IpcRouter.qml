@@ -95,6 +95,7 @@ Item {
         target: "layout"
         function lock() { router.invoke("layoutLock") }
         function unlock() { router.invoke("layoutUnlock") }
+        function hover(on: bool) { router.invoke("setHover", on) }
         function togglebar() { router.invoke("toggleBar") }
         function toggledashboard() { router.invoke("toggleDashboard") }
         function opendetail(name: string) { router.invoke("openDashboardDetail", name) }

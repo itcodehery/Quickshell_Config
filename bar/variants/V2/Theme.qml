@@ -1646,6 +1646,7 @@ Item {
 
     // ── Bar layout / unlock (drag&drop reorder). barUnlocked is transient. ──
     property bool barUnlocked: false
+    property bool hoverForce: false
     property bool barHidden: false
     // Lock-screen transition (Island only): true slides the bar up off-screen
     // before hyprlock starts; false drops it back in after unlock.
@@ -2318,7 +2319,7 @@ Item {
 
     Timer {
         id: chargingPopupTimer
-        interval: 2800
+        interval: 4500
         onTriggered: theme.chargingPopupActive = false
     }
 
