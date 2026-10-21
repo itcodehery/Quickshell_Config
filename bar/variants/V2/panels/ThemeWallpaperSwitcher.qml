@@ -801,7 +801,7 @@ Item {
                     readonly property var entry: switcher.filtered[index] || null
                     readonly property int relIdx: index - switcher.selFilt
                     readonly property bool focused: relIdx === 0
-                    readonly property bool near: Math.abs(relIdx) <= 6
+                    readonly property bool near: Math.abs(relIdx) <= 2
 
                     width: tanzakuStage.stripWidthFor(Math.abs(relIdx))
                     height: tanzakuStage.focusedH
@@ -843,6 +843,35 @@ Item {
                                 color: "black"
                                 opacity: tCard.focused ? 0 : (Math.abs(tCard.relIdx) === 1 ? 0.35 : 0.60)
                                 Behavior on opacity { NumberAnimation { duration: 180 } }
+                            }
+
+                            // Gradient shadow on focused card
+                            Rectangle {
+                                visible: tCard.focused
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                height: 56
+                                gradient: Gradient {
+                                    GradientStop { position: 0.0; color: "transparent" }
+                                    GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.82) }
+                                }
+                            }
+
+                            // Theme/Wallpaper title on focused card
+                            Text {
+                                visible: tCard.focused
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                anchors.margins: 10
+                                text: tCard.entry ? tCard.entry.label : ""
+                                color: "#ECECEE"
+                                font.family: root.barFont
+                                font.pixelSize: 13
+                                font.weight: Font.Medium
+                                horizontalAlignment: Text.AlignHCenter
+                                elide: Text.ElideRight
                             }
 
                             // Label overlay on peek cards
@@ -913,7 +942,7 @@ Item {
                     readonly property var entry: switcher.filtered[index] || null
                     readonly property int relIdx: index - switcher.selFilt
                     readonly property bool focused: relIdx === 0
-                    readonly property bool nearby: Math.abs(relIdx) <= 5
+                    readonly property bool nearby: Math.abs(relIdx) <= 2
                     readonly property real dim: focused ? 0.0 : Math.min(0.60, 0.28 + Math.abs(relIdx) * 0.06)
 
                     width: hsStage.cardW
@@ -1133,6 +1162,35 @@ Item {
                                 color: "black"
                                 opacity: cfSlice.selected ? 0 : 0.50
                                 Behavior on opacity { NumberAnimation { duration: 180 } }
+                            }
+
+                            // Gradient shadow on selected card
+                            Rectangle {
+                                visible: cfSlice.selected
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                height: 56
+                                gradient: Gradient {
+                                    GradientStop { position: 0.0; color: "transparent" }
+                                    GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.82) }
+                                }
+                            }
+
+                            // Theme/Wallpaper title on selected card
+                            Text {
+                                visible: cfSlice.selected
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                anchors.margins: 10
+                                text: cfSlice.entry ? cfSlice.entry.label : ""
+                                color: "#ECECEE"
+                                font.family: root.barFont
+                                font.pixelSize: 13
+                                font.weight: Font.Medium
+                                horizontalAlignment: Text.AlignHCenter
+                                elide: Text.ElideRight
                             }
                         }
                     }
