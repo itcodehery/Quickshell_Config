@@ -88,19 +88,19 @@ Item {
         function current(): string { return router.variantHost.runningVariant }
         function state(): string { return router.variantHost.phase }
         function error(): string { return router.variantHost.lastError }
-        function activate(version: string): void { router.variantHost.requestSwitch(version) }
+        function activate(version: string) { router.variantHost.requestSwitch(version) }
     }
 
     IpcHandler {
         target: "layout"
-        function lock(): void { router.invoke("layoutLock") }
-        function unlock(): void { router.invoke("layoutUnlock") }
-        function togglebar(): void { router.invoke("toggleBar") }
-        function toggledashboard(): void { router.invoke("toggleDashboard") }
-        function opendetail(name: string): void { router.invoke("openDashboardDetail", name) }
+        function lock() { router.invoke("layoutLock") }
+        function unlock() { router.invoke("layoutUnlock") }
+        function togglebar() { router.invoke("toggleBar") }
+        function toggledashboard() { router.invoke("toggleDashboard") }
+        function opendetail(name: string) { router.invoke("openDashboardDetail", name) }
         // Lock-screen slide: retract before hyprlock, reveal after unlock.
-        function lockretract(): void { router.invoke("lockRetract") }
-        function lockreveal(): void { router.invoke("lockReveal") }
+        function lockretract() { router.invoke("lockRetract") }
+        function lockreveal() { router.invoke("lockReveal") }
         function shellstyle(): string {
             if (!router.canDispatch()) return ""
             var fn = router.variantHost.activeItem.currentShellStyle
@@ -110,76 +110,76 @@ Item {
 
     IpcHandler {
         target: "osd"
-        function show(kind: string, value: int): void {
+        function show(kind: string, value: int) {
             router.invoke("showIslandOsd", kind, value)
         }
     }
 
     IpcHandler {
         target: "notif"
-        function peek(app: string, summary: string, body: string): void {
+        function peek(app: string, summary: string, body: string) {
             router.invoke("triggerNotifPeek", app, summary, body, "")
         }
-        function dismiss(id: int): void {
+        function dismiss(id: int) {
             router.invoke("dismissNotifPeek", id)
         }
     }
 
     IpcHandler {
         target: "timer"
-        function start(minutes: int, label: string): void {
+        function start(minutes: int, label: string) {
             router.invoke("startTimer", minutes, label)
         }
-        function toggle(): void {
+        function toggle() {
             router.invoke("toggleTimer")
         }
-        function reset(): void {
+        function reset() {
             router.invoke("resetTimer")
         }
-        function stopwatch(): void {
+        function stopwatch() {
             router.invoke("startStopwatch")
         }
     }
 
     IpcHandler {
         target: "task"
-        function start(label: string, percent: int): void {
+        function start(label: string, percent: int) {
             router.invoke("startSysTask", label, percent)
         }
-        function update(percent: int): void {
+        function update(percent: int) {
             router.invoke("updateSysTask", percent)
         }
-        function done(): void {
+        function done() {
             router.invoke("finishSysTask")
         }
     }
 
     IpcHandler {
         target: "omarchy.system-update"
-        function refresh(): void { router.systemRefresh() }
+        function refresh() { router.systemRefresh() }
     }
 
     IpcHandler {
         target: "reactor"
-        function test(kind: string, arg: string): void { router.invoke("runReactor", kind, arg) }
-        function monsweep(): void { router.invoke("runReactor", "monsweep", "") }
-        function clear(): void { router.invoke("runReactor", "clear", "") }
+        function test(kind: string, arg: string) { router.invoke("runReactor", kind, arg) }
+        function monsweep() { router.invoke("runReactor", "monsweep", "") }
+        function clear() { router.invoke("runReactor", "clear", "") }
     }
 
     IpcHandler {
         target: "theme"
-        function apply(payload: string): void { router.applyTheme(payload) }
-        function applyLauncher(payload: string): void { router.applyLauncher(payload) }
-        function reload(): void { router.reloadTheme() }
+        function apply(payload: string) { router.applyTheme(payload) }
+        function applyLauncher(payload: string) { router.applyLauncher(payload) }
+        function reload() { router.reloadTheme() }
     }
 
     IpcHandler {
         target: "picker"
-        function theme(): void { router.openPicker("theme") }
-        function wallpaper(): void { router.openPicker("wallpaper") }
-        function screenshots(): void { router.openPicker("screenshots") }
-        function videos(): void { router.openPicker("videos") }
-        function style(name: string): void { router.invoke("setPickerStyle", name) }
+        function theme() { router.openPicker("theme") }
+        function wallpaper() { router.openPicker("wallpaper") }
+        function screenshots() { router.openPicker("screenshots") }
+        function videos() { router.openPicker("videos") }
+        function style(name: string) { router.invoke("setPickerStyle", name) }
     }
 
     IpcHandler {
