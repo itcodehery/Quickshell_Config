@@ -130,8 +130,13 @@ Item {
                 dashboardContent.activeDetailView = ""
                 if (root) root.dashboardDetail = ""
                 event.accepted = true
-            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                 if (themeLoader.item && themeLoader.item.applySelected) themeLoader.item.applySelected()
+                event.accepted = true
+            } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
+                if (themeLoader.item && themeLoader.item.setMode) {
+                    themeLoader.item.setMode(themeLoader.item.activeMode === "theme" ? "wallpaper" : "theme")
+                }
                 event.accepted = true
             } else if (event.key === Qt.Key_Left) {
                 if (themeLoader.item && themeLoader.item.moveSel) themeLoader.item.moveSel(-1)
@@ -153,9 +158,7 @@ Item {
                        && event.text.charCodeAt(0) !== 127
                        && (event.modifiers === Qt.NoModifier || event.modifiers === Qt.ShiftModifier)) {
                 if (themeLoader.item) {
-                    if (event.text !== " " || (themeLoader.item.filterText.length > 0 && !themeLoader.item.filterText.endsWith(" "))) {
-                        themeLoader.item.filterText += event.text
-                    }
+                    themeLoader.item.filterText += event.text
                 }
                 event.accepted = true
             }
@@ -3026,6 +3029,13 @@ Item {
                     root: dashboardContent.root
                     panel: dashboardContent.panel
                     activeMode: dashboardContent.activeDetailView === "wallpaper" ? "wallpaper" : "theme"
+                    onCloseRequested: {
+                        dashboardContent.activeDetailView = ""
+                        if (dashboardContent.root) {
+                            dashboardContent.root.dashboardDetail = ""
+                            dashboardContent.root.dashboardExpanded = false
+                        }
+                    }
                 }
             }
         }

@@ -27,8 +27,8 @@ PanelWindow {
     property bool dashboardEverActivated: false
 
     readonly property bool isPickerDetail: barSlot.root.dashboardDetail === "theme" || barSlot.root.dashboardDetail === "wallpaper"
-    readonly property real dashboardExpandedWidth: Math.min(isPickerDetail ? 920 : 840, barSlot.width - 32)
-    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - 40, isPickerDetail ? 390 : 306)
+    readonly property real dashboardExpandedWidth: Math.min(isPickerDetail ? 960 : 840, barSlot.width - 32)
+    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - 40, isPickerDetail ? 430 : 306)
 
     readonly property real dashboardTopRadius: barSlot.root.barPosition === "bottom" ? 24 : 10
     readonly property real dashboardBottomRadius: barSlot.root.barPosition === "bottom" ? 10 : 24

@@ -36,6 +36,13 @@ Item {
     readonly property var selMeta: (focusedEntry && focusedEntry.dir && metaCache[focusedEntry.dir])
         ? metaCache[focusedEntry.dir] : null
 
+    // Helper for high-contrast text inside dynamic button backgrounds
+    function contrastText(bg, darkCol, lightCol) {
+        if (!bg) return lightCol || "#ffffff"
+        var luma = 0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b
+        return luma > 0.55 ? (darkCol || "#101014") : (lightCol || "#ffffff")
+    }
+
     // ── Keyboard Navigation ──
     Keys.priority: Keys.BeforeItem
     Keys.onPressed: function(event) {
@@ -45,8 +52,11 @@ Item {
         } else if (event.key === Qt.Key_Right) {
             moveSel(1)
             event.accepted = true
-        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             applySelected()
+            event.accepted = true
+        } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
+            setMode(activeMode === "theme" ? "wallpaper" : "theme")
             event.accepted = true
         } else if (event.key === Qt.Key_Escape) {
             if (filterText.length > 0) {
@@ -64,9 +74,7 @@ Item {
         } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32
                    && event.text.charCodeAt(0) !== 127
                    && (event.modifiers === Qt.NoModifier || event.modifiers === Qt.ShiftModifier)) {
-            if (event.text !== " " || (filterText.length > 0 && !filterText.endsWith(" "))) {
-                filterText += event.text
-            }
+            filterText += event.text
             event.accepted = true
         }
     }
@@ -75,6 +83,8 @@ Item {
         forceActiveFocus()
         loadCurrent()
     }
+
+    onVisibleChanged: if (visible) forceActiveFocus()
 
     onActiveModeChanged: {
         filterText = ""
@@ -118,6 +128,13 @@ Item {
         currentImage = item.filePath
         justApplied = true
         appliedTimer.restart()
+
+        // Close dashboard immediately on applying theme or wallpaper
+        if (root) {
+            root.dashboardExpanded = false
+            root.dashboardDetail = ""
+        }
+        switcher.closeRequested()
     }
 
     Timer {
@@ -313,7 +330,6 @@ Item {
     }
 
     function warmVisible() {
-        // Thumbnail generator runner if magick exists
         var visiblePaths = []
         for (var i = Math.max(0, selFilt - 3); i <= Math.min(filtered.length - 1, selFilt + 3); i++) {
             if (filtered[i]) visiblePaths.push(filtered[i].filePath)
@@ -349,64 +365,25 @@ Item {
     }
 
     // ─────────────────────────────────────────────────────────
-    // ── TOP HEADER BAR: Back, Mode Tabs, Style Pills, Search ─
+    // ── TOP HEADER BAR: Mode Tabs, Style Pills, Search ───────
     // ─────────────────────────────────────────────────────────
     Item {
         id: headerBar
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 36
-        z: 20
+        height: 34
+        z: 30
 
         Row {
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 10
-
-            // Back Button
-            Rectangle {
-                width: backRow.width + 16
-                height: 28
-                radius: 14
-                color: backMa.containsMouse ? root.fillHover : root.fillIdle
-                scale: backMa.pressed ? 0.94 : 1.0
-                Behavior on scale { NumberAnimation { duration: 120 } }
-                Behavior on color { ColorAnimation { duration: 150 } }
-
-                Row {
-                    id: backRow
-                    anchors.centerIn: parent
-                    spacing: 4
-                    IconText {
-                        text: "arrow_back"
-                        font.pixelSize: 14
-                        color: root.ink
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                    Text {
-                        text: "Back"
-                        font.family: root.barFont
-                        font.pixelSize: 11
-                        font.weight: Font.DemiBold
-                        color: root.ink
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                MouseArea {
-                    id: backMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: switcher.closeRequested()
-                }
-            }
+            spacing: 8
 
             // Mode Tabs: [ Themes | Wallpapers ]
             Rectangle {
                 height: 28
-                width: modeRow.width + 8
+                width: modeRow.width + 6
                 radius: 14
                 color: Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.45)
                 border.color: root.frameWeak
@@ -415,15 +392,20 @@ Item {
                 Row {
                     id: modeRow
                     anchors.centerIn: parent
-                    spacing: 4
+                    spacing: 3
 
                     // Themes Tab
                     Rectangle {
+                        id: themeTabBtn
                         width: themeTabRow.width + 16
                         height: 22
                         radius: 11
                         color: switcher.isThemeMode ? root.seal : (themeTabMa.containsMouse ? root.fillHover : "transparent")
                         Behavior on color { ColorAnimation { duration: 150 } }
+
+                        readonly property color tabTextCol: switcher.isThemeMode
+                            ? switcher.contrastText(root.seal, "#101014", "#ffffff")
+                            : root.ink
 
                         Row {
                             id: themeTabRow
@@ -432,15 +414,16 @@ Item {
                             IconText {
                                 text: "palette"
                                 font.pixelSize: 12
-                                color: switcher.isThemeMode ? "#ffffff" : root.ink
+                                color: themeTabBtn.tabTextCol
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Text {
                                 text: "Themes"
                                 font.family: root.barFont
                                 font.pixelSize: 11
-                                font.weight: switcher.isThemeMode ? Font.Bold : Font.Medium
-                                color: switcher.isThemeMode ? "#ffffff" : root.ink
+                                font.weight: switcher.isThemeMode ? Font.Medium : Font.Normal
+                                color: themeTabBtn.tabTextCol
+                                opacity: switcher.isThemeMode ? 1.0 : 0.75
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }
@@ -456,11 +439,16 @@ Item {
 
                     // Wallpapers Tab
                     Rectangle {
+                        id: wpTabBtn
                         width: wpTabRow.width + 16
                         height: 22
                         radius: 11
                         color: !switcher.isThemeMode ? root.seal : (wpTabMa.containsMouse ? root.fillHover : "transparent")
                         Behavior on color { ColorAnimation { duration: 150 } }
+
+                        readonly property color tabTextCol: !switcher.isThemeMode
+                            ? switcher.contrastText(root.seal, "#101014", "#ffffff")
+                            : root.ink
 
                         Row {
                             id: wpTabRow
@@ -469,15 +457,16 @@ Item {
                             IconText {
                                 text: "image"
                                 font.pixelSize: 12
-                                color: !switcher.isThemeMode ? "#ffffff" : root.ink
+                                color: wpTabBtn.tabTextCol
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Text {
                                 text: "Wallpapers"
                                 font.family: root.barFont
                                 font.pixelSize: 11
-                                font.weight: !switcher.isThemeMode ? Font.Bold : Font.Medium
-                                color: !switcher.isThemeMode ? "#ffffff" : root.ink
+                                font.weight: !switcher.isThemeMode ? Font.Medium : Font.Normal
+                                color: wpTabBtn.tabTextCol
+                                opacity: !switcher.isThemeMode ? 1.0 : 0.75
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }
@@ -496,7 +485,7 @@ Item {
             // Style Selector: [ 3D Fan | Hearthstone | Coverflow ]
             Rectangle {
                 height: 28
-                width: styleRow.width + 8
+                width: styleRow.width + 6
                 radius: 14
                 color: Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.45)
                 border.color: root.frameWeak
@@ -532,8 +521,9 @@ Item {
                                 text: "3D Fan"
                                 font.family: root.barFont
                                 font.pixelSize: 10
-                                font.weight: parent.parent.sel ? Font.Bold : Font.Normal
+                                font.weight: parent.parent.sel ? Font.Medium : Font.Normal
                                 color: root.ink
+                                opacity: parent.parent.sel ? 1.0 : 0.7
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }
@@ -572,8 +562,9 @@ Item {
                                 text: "Hearthstone"
                                 font.family: root.barFont
                                 font.pixelSize: 10
-                                font.weight: parent.parent.sel ? Font.Bold : Font.Normal
+                                font.weight: parent.parent.sel ? Font.Medium : Font.Normal
                                 color: root.ink
+                                opacity: parent.parent.sel ? 1.0 : 0.7
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }
@@ -612,8 +603,9 @@ Item {
                                 text: "Coverflow"
                                 font.family: root.barFont
                                 font.pixelSize: 10
-                                font.weight: parent.parent.sel ? Font.Bold : Font.Normal
+                                font.weight: parent.parent.sel ? Font.Medium : Font.Normal
                                 color: root.ink
+                                opacity: parent.parent.sel ? 1.0 : 0.7
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }
@@ -655,7 +647,7 @@ Item {
                     text: "search"
                     font.pixelSize: 13
                     color: switcher.filterText ? root.seal : root.ink
-                    opacity: 0.7
+                    opacity: 0.75
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
@@ -698,16 +690,20 @@ Item {
     }
 
     // ─────────────────────────────────────────────────────────
-    // ── MAIN STAGE AREA: Hosting the 3 visual switchers ──────
+    // ── STAGE CARD CONTAINER: Recessed rounded gallery card ───
     // ─────────────────────────────────────────────────────────
-    Item {
+    Rectangle {
         id: stageContainer
         anchors.top: headerBar.bottom
-        anchors.topMargin: 4
+        anchors.topMargin: 8
         anchors.bottom: footerBar.top
-        anchors.bottomMargin: 4
+        anchors.bottomMargin: 8
         anchors.left: parent.left
         anchors.right: parent.right
+        radius: 20
+        color: Qt.rgba(0.04, 0.04, 0.07, 0.65)
+        border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.12)
+        border.width: 1
         clip: true
 
         MouseArea {
@@ -767,11 +763,11 @@ Item {
             visible: switcher.currentPickerStyle === "tanzaku" || switcher.currentPickerStyle === ""
             anchors.fill: parent
 
-            readonly property int focusedW: 340
-            readonly property int focusedH: 192
-            readonly property int peekW: 56
-            readonly property int stripW: 18
-            readonly property int gap: 6
+            readonly property int focusedW: 390
+            readonly property int focusedH: 220
+            readonly property int peekW: 68
+            readonly property int stripW: 22
+            readonly property int gap: 8
 
             function stripWidthFor(d) {
                 if (d <= 0) return focusedW
@@ -820,45 +816,53 @@ Item {
 
                     Rectangle {
                         anchors.fill: parent
-                        radius: 8
-                        color: root.frameWeak
-                        border.width: focused ? 2 : 1
-                        border.color: focused ? root.seal : root.frameWeak
-                        clip: true
+                        radius: 16
+                        color: "#16161c"
+                        border.width: focused ? 2.5 : 1
+                        border.color: focused ? "#ffffff" : Qt.rgba(1, 1, 1, 0.15)
 
-                        Image {
+                        // Strict rounded clipping masks images & overlays cleanly
+                        ClippingRectangle {
                             anchors.fill: parent
-                            source: (tCard.near && tCard.entry && tCard.entry.thumb) ? tCard.entry.thumb : ""
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
-                            cache: true
-                            smooth: true
-                        }
+                            anchors.margins: focused ? 2.5 : 1
+                            radius: 14
+                            color: "#16161c"
 
-                        // Wash overlay for non-focused cards
-                        Rectangle {
-                            anchors.fill: parent
-                            color: root.paper
-                            opacity: tCard.focused ? 0 : (Math.abs(tCard.relIdx) === 1 ? 0.32 : 0.55)
-                            Behavior on opacity { NumberAnimation { duration: 180 } }
-                        }
+                            Image {
+                                anchors.fill: parent
+                                source: (tCard.near && tCard.entry && tCard.entry.thumb) ? tCard.entry.thumb : ""
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                cache: true
+                                smooth: true
+                            }
 
-                        // Label overlay on peek cards
-                        Rectangle {
-                            visible: Math.abs(tCard.relIdx) === 1
-                            anchors.bottom: parent.bottom
-                            width: parent.width
-                            height: 24
-                            color: Qt.rgba(0, 0, 0, 0.6)
-                            Text {
-                                anchors.centerIn: parent
-                                text: tCard.entry ? tCard.entry.label : ""
-                                color: "#ffffff"
-                                font.family: root.barFont
-                                font.pixelSize: 9
-                                elide: Text.ElideRight
-                                width: parent.width - 6
-                                horizontalAlignment: Text.AlignHCenter
+                            // Wash overlay for non-focused cards
+                            Rectangle {
+                                anchors.fill: parent
+                                color: "black"
+                                opacity: tCard.focused ? 0 : (Math.abs(tCard.relIdx) === 1 ? 0.35 : 0.60)
+                                Behavior on opacity { NumberAnimation { duration: 180 } }
+                            }
+
+                            // Label overlay on peek cards
+                            Rectangle {
+                                visible: Math.abs(tCard.relIdx) === 1
+                                anchors.bottom: parent.bottom
+                                width: parent.width
+                                height: 28
+                                color: Qt.rgba(0, 0, 0, 0.72)
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: tCard.entry ? tCard.entry.label : ""
+                                    color: "#ECECEE"
+                                    font.family: root.barFont
+                                    font.pixelSize: 10
+                                    font.weight: Font.Medium
+                                    elide: Text.ElideRight
+                                    width: parent.width - 6
+                                    horizontalAlignment: Text.AlignHCenter
+                                }
                             }
                         }
                     }
@@ -869,7 +873,7 @@ Item {
                         anchors.top: parent.bottom
                         anchors.topMargin: 4
                         anchors.horizontalCenter: parent.horizontalCenter
-                        width: 48; height: 3; radius: 1.5
+                        width: 52; height: 3; radius: 1.5
                         color: root.seal
                     }
 
@@ -893,12 +897,12 @@ Item {
             visible: switcher.currentPickerStyle === "hearthstone"
             anchors.fill: parent
 
-            readonly property int cardW: 130
-            readonly property int cardH: 180
-            readonly property int stepX: 46
-            readonly property real spreadDeg: 4.5
-            readonly property int focusLift: 18
-            readonly property real focusScale: 1.12
+            readonly property int cardW: 148
+            readonly property int cardH: 210
+            readonly property int stepX: 68
+            readonly property real spreadDeg: 5.2
+            readonly property int focusLift: 28
+            readonly property real focusScale: 1.16
 
             Repeater {
                 model: switcher.filtered.length
@@ -910,6 +914,7 @@ Item {
                     readonly property int relIdx: index - switcher.selFilt
                     readonly property bool focused: relIdx === 0
                     readonly property bool nearby: Math.abs(relIdx) <= 5
+                    readonly property real dim: focused ? 0.0 : Math.min(0.60, 0.28 + Math.abs(relIdx) * 0.06)
 
                     width: hsStage.cardW
                     height: hsStage.cardH
@@ -917,26 +922,26 @@ Item {
                     transformOrigin: Item.Bottom
 
                     x: (hsStage.width - hsStage.cardW) / 2 + relIdx * hsStage.stepX
-                    y: (hsStage.height - hsStage.cardH) - (focused ? hsStage.focusLift : 0) - 10
+                    y: (hsStage.height - hsStage.cardH) - (focused ? hsStage.focusLift : 0) - 8
                     rotation: relIdx * hsStage.spreadDeg
                     scale: focused ? hsStage.focusScale : 1.0
-                    z: focused ? 100 : 50 - Math.min(Math.abs(relIdx), 30)
+                    z: focused ? 1000 : 500 - Math.min(Math.abs(relIdx), 40)
 
-                    Behavior on x        { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
-                    Behavior on y        { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
-                    Behavior on rotation { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
-                    Behavior on scale    { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                    Behavior on x        { NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.18 } }
+                    Behavior on y        { NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.18 } }
+                    Behavior on rotation { NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.18 } }
+                    Behavior on scale    { NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.18 } }
 
-                    Rectangle {
+                    // Card contents strictly clipped to card outer radius (18px)
+                    ClippingRectangle {
                         anchors.fill: parent
-                        radius: 12
-                        color: "#18181b"
-                        border.width: focused ? 2.5 : 1
-                        border.color: focused ? root.seal : root.frameWeak
-                        clip: true
+                        radius: 18
+                        color: "#141418"
 
                         Image {
+                            id: thumbImage
                             anchors.fill: parent
+                            anchors.margins: 6
                             source: (hCard.nearby && hCard.entry && hCard.entry.thumb) ? hCard.entry.thumb : ""
                             fillMode: Image.PreserveAspectCrop
                             asynchronous: true
@@ -949,23 +954,24 @@ Item {
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.bottom: parent.bottom
-                            height: 48
+                            height: 64
                             gradient: Gradient {
                                 GradientStop { position: 0.0; color: "transparent" }
-                                GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.78) }
+                                GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.80) }
                             }
                         }
 
+                        // Theme/Wallpaper title on the card
                         Text {
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.bottom: parent.bottom
-                            anchors.margins: 6
+                            anchors.margins: 10
                             text: hCard.entry ? hCard.entry.label : ""
-                            color: "#ffffff"
+                            color: "#ECECEE"
                             font.family: root.barFont
-                            font.pixelSize: 11
-                            font.weight: Font.DemiBold
+                            font.pixelSize: 12
+                            font.weight: Font.Medium
                             horizontalAlignment: Text.AlignHCenter
                             elide: Text.ElideRight
                         }
@@ -974,8 +980,67 @@ Item {
                         Rectangle {
                             anchors.fill: parent
                             color: "black"
-                            opacity: hCard.focused ? 0 : Math.min(0.55, 0.25 + Math.abs(hCard.relIdx) * 0.08)
+                            opacity: hCard.dim
                             Behavior on opacity { NumberAnimation { duration: 180 } }
+                        }
+                    }
+
+                    // Passepartout Shape - CurveRenderer with OddEvenFill outer/inner cutouts
+                    Shape {
+                        id: frameShape
+                        anchors.fill: parent
+                        preferredRendererType: Shape.CurveRenderer
+                        readonly property real w: hCard.width
+                        readonly property real h: hCard.height
+                        readonly property real ro: 18    // outer radius
+                        readonly property real m: 7      // mat width
+                        readonly property real ri: 11    // inner (photo) radius
+
+                        ShapePath {
+                            fillRule: ShapePath.OddEvenFill
+                            fillColor: "#141418"
+                            strokeColor: "transparent"
+                            strokeWidth: 0
+
+                            // outer rounded rect
+                            startX: frameShape.ro; startY: 0
+                            PathLine { x: frameShape.w - frameShape.ro; y: 0 }
+                            PathArc  { x: frameShape.w; y: frameShape.ro; radiusX: frameShape.ro; radiusY: frameShape.ro }
+                            PathLine { x: frameShape.w; y: frameShape.h - frameShape.ro }
+                            PathArc  { x: frameShape.w - frameShape.ro; y: frameShape.h; radiusX: frameShape.ro; radiusY: frameShape.ro }
+                            PathLine { x: frameShape.ro; y: frameShape.h }
+                            PathArc  { x: 0; y: frameShape.h - frameShape.ro; radiusX: frameShape.ro; radiusY: frameShape.ro }
+                            PathLine { x: 0; y: frameShape.ro }
+                            PathArc  { x: frameShape.ro; y: 0; radiusX: frameShape.ro; radiusY: frameShape.ro }
+
+                            // inner rounded hole (photo cut-out)
+                            PathMove { x: frameShape.m + frameShape.ri; y: frameShape.m }
+                            PathLine { x: frameShape.w - frameShape.m - frameShape.ri; y: frameShape.m }
+                            PathArc  { x: frameShape.w - frameShape.m; y: frameShape.m + frameShape.ri; radiusX: frameShape.ri; radiusY: frameShape.ri }
+                            PathLine { x: frameShape.w - frameShape.m; y: frameShape.h - frameShape.m - frameShape.ri }
+                            PathArc  { x: frameShape.w - frameShape.m - frameShape.ri; y: frameShape.h - frameShape.m; radiusX: frameShape.ri; radiusY: frameShape.ri }
+                            PathLine { x: frameShape.m + frameShape.ri; y: frameShape.h - frameShape.m }
+                            PathArc  { x: frameShape.m; y: frameShape.h - frameShape.m - frameShape.ri; radiusX: frameShape.ri; radiusY: frameShape.ri }
+                            PathLine { x: frameShape.m; y: frameShape.m + frameShape.ri }
+                            PathArc  { x: frameShape.m + frameShape.ri; y: frameShape.m; radiusX: frameShape.ri; radiusY: frameShape.ri }
+                        }
+
+                        // Focused accent border — glowing white border when focused
+                        ShapePath {
+                            fillColor: "transparent"
+                            strokeColor: hCard.focused ? "#ffffff" : Qt.rgba(1, 1, 1, 0.12)
+                            strokeWidth: hCard.focused ? 2.5 : 1
+                            Behavior on strokeColor { ColorAnimation { duration: 160 } }
+
+                            startX: frameShape.ro; startY: 0
+                            PathLine { x: frameShape.w - frameShape.ro; y: 0 }
+                            PathArc  { x: frameShape.w; y: frameShape.ro; radiusX: frameShape.ro; radiusY: frameShape.ro }
+                            PathLine { x: frameShape.w; y: frameShape.h - frameShape.ro }
+                            PathArc  { x: frameShape.w - frameShape.ro; y: frameShape.h; radiusX: frameShape.ro; radiusY: frameShape.ro }
+                            PathLine { x: frameShape.ro; y: frameShape.h }
+                            PathArc  { x: 0; y: frameShape.h - frameShape.ro; radiusX: frameShape.ro; radiusY: frameShape.ro }
+                            PathLine { x: 0; y: frameShape.ro }
+                            PathArc  { x: frameShape.ro; y: 0; radiusX: frameShape.ro; radiusY: frameShape.ro }
                         }
                     }
 
@@ -992,22 +1057,20 @@ Item {
         }
 
         // ═════════════════════════════════════════════════════
-        // STYLE 3: CAROUSEL (Coverflow with Skewed Side Slices)
+        // STYLE 3: CAROUSEL (Coverflow with Dead-Center Hero Card)
         // ═════════════════════════════════════════════════════
         Item {
             id: cfStage
             visible: switcher.currentPickerStyle === "carousel"
             anchors.fill: parent
 
-            readonly property int expandedW: 340
-            readonly property int expandedH: 192
-            readonly property int sliceW: 58
-            readonly property int sliceH: 172
-            readonly property int sliceGap: -16
-            readonly property int skew: 18
+            readonly property int expandedW: 380
+            readonly property int expandedH: 214
+            readonly property int sliceW: 88
+            readonly property int sliceH: 184
+            readonly property real itemStep: 104
 
-            readonly property real previewX: (width - expandedW) / 2
-            readonly property real itemStep: sliceW + sliceGap
+            readonly property real centerX: (width - expandedW) / 2
 
             Repeater {
                 model: switcher.filtered.length
@@ -1018,52 +1081,70 @@ Item {
                     readonly property var entry: switcher.filtered[index] || null
                     readonly property int relIdx: index - switcher.selFilt
                     readonly property bool selected: relIdx === 0
-                    readonly property bool nearby: Math.abs(relIdx) <= 6
+                    // Only show few items at a time: 2 on left, selected center, 2 on right
+                    readonly property bool nearby: Math.abs(relIdx) <= 2
 
                     visible: nearby
                     width: selected ? cfStage.expandedW : cfStage.sliceW
                     height: selected ? cfStage.expandedH : cfStage.sliceH
-                    anchors.verticalCenter: parent.verticalCenter
-                    x: relIdx === 0
-                        ? cfStage.previewX
+
+                    // Dead-center vertically:
+                    y: (cfStage.height - height) / 2
+
+                    // Dead-center horizontally for selected card, spaced out cleanly for side cards:
+                    x: selected
+                        ? cfStage.centerX
                         : (relIdx < 0
-                            ? cfStage.previewX - (Math.abs(relIdx) * cfStage.itemStep)
-                            : cfStage.previewX + cfStage.expandedW + cfStage.sliceGap + (relIdx - 1) * cfStage.itemStep)
+                            ? (cfStage.centerX - 24 - cfStage.sliceW - (Math.abs(relIdx) - 1) * cfStage.itemStep)
+                            : (cfStage.centerX + cfStage.expandedW + 24 + (relIdx - 1) * cfStage.itemStep))
                     z: selected ? 100 : 50 - Math.min(Math.abs(relIdx), 30)
 
-                    Behavior on x     { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
-                    Behavior on width { NumberAnimation { duration: 240; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
-
-                    readonly property real skAbs: Math.abs(cfStage.skew)
-                    readonly property real topLeft: cfStage.skew >= 0 ? skAbs : 0
-                    readonly property real topRight: cfStage.skew >= 0 ? width : width - skAbs
-                    readonly property real botRight: cfStage.skew >= 0 ? width - skAbs : width
-                    readonly property real botLeft: cfStage.skew >= 0 ? 0 : skAbs
+                    Behavior on x      { NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                    Behavior on y      { NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                    Behavior on width  { NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                    Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
 
                     Rectangle {
                         anchors.fill: parent
-                        radius: selected ? 8 : 4
-                        color: root.frameWeak
+                        radius: selected ? 16 : 10
+                        color: "#16161c"
                         border.width: selected ? 2.5 : 1
-                        border.color: selected ? root.seal : root.frameWeak
-                        clip: true
+                        border.color: selected ? "#ffffff" : Qt.rgba(1, 1, 1, 0.15)
 
-                        Image {
+                        // Strict rounded clipping masks image and overlays cleanly
+                        ClippingRectangle {
                             anchors.fill: parent
-                            source: (cfSlice.nearby && cfSlice.entry && cfSlice.entry.thumb) ? cfSlice.entry.thumb : ""
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
-                            cache: true
-                            smooth: true
-                        }
+                            anchors.margins: selected ? 2.5 : 1
+                            radius: selected ? 14 : 9
+                            color: "#16161c"
 
-                        // Dim overlay on side slices
-                        Rectangle {
-                            anchors.fill: parent
-                            color: root.paper
-                            opacity: cfSlice.selected ? 0 : 0.45
-                            Behavior on color { ColorAnimation { duration: 180 } }
+                            Image {
+                                anchors.fill: parent
+                                source: (cfSlice.nearby && cfSlice.entry && cfSlice.entry.thumb) ? cfSlice.entry.thumb : ""
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                cache: true
+                                smooth: true
+                            }
+
+                            // Dim overlay on side slices
+                            Rectangle {
+                                anchors.fill: parent
+                                color: "black"
+                                opacity: cfSlice.selected ? 0 : 0.50
+                                Behavior on opacity { NumberAnimation { duration: 180 } }
+                            }
                         }
+                    }
+
+                    // Red seal stroke under selected card
+                    Rectangle {
+                        visible: cfSlice.selected
+                        anchors.top: parent.bottom
+                        anchors.topMargin: 4
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: 52; height: 3; radius: 1.5
+                        color: root.seal
                     }
 
                     MouseArea {
@@ -1077,93 +1158,30 @@ Item {
                 }
             }
         }
-
-        // ── Floating Left & Right Chevrons ──
-        Rectangle {
-            anchors.left: parent.left
-            anchors.leftMargin: 8
-            anchors.verticalCenter: parent.verticalCenter
-            width: 32; height: 32; radius: 16
-            color: leftChevMa.containsMouse ? root.fillHover : root.fillIdle
-            border.color: root.frameWeak; border.width: 1
-            opacity: leftChevMa.containsMouse ? 1.0 : 0.6
-            z: 200
-
-            IconText {
-                anchors.centerIn: parent
-                text: "chevron_left"
-                font.pixelSize: 20
-                color: root.ink
-            }
-
-            MouseArea {
-                id: leftChevMa
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: switcher.moveSel(-1)
-            }
-        }
-
-        Rectangle {
-            anchors.right: parent.right
-            anchors.rightMargin: 8
-            anchors.verticalCenter: parent.verticalCenter
-            width: 32; height: 32; radius: 16
-            color: rightChevMa.containsMouse ? root.fillHover : root.fillIdle
-            border.color: root.frameWeak; border.width: 1
-            opacity: rightChevMa.containsMouse ? 1.0 : 0.6
-            z: 200
-
-            IconText {
-                anchors.centerIn: parent
-                text: "chevron_right"
-                font.pixelSize: 20
-                color: root.ink
-            }
-
-            MouseArea {
-                id: rightChevMa
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: switcher.moveSel(1)
-            }
-        }
     }
 
     // ─────────────────────────────────────────────────────────
-    // ── BOTTOM INFO & APPLY BAR ──────────────────────────────
+    // ── FOOTER BAR: Metadata (Author/Repo/Palette), Counter ───
     // ─────────────────────────────────────────────────────────
     Item {
         id: footerBar
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 38
-        z: 20
+        height: 34
+        z: 30
 
-        // Left: Title, Author/Repo, Palette Swatches
+        // Left: Metadata Pill (Author & Repo)
         Row {
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 12
+            spacing: 8
 
-            // Name
-            Text {
-                text: switcher.focusedEntry ? switcher.focusedEntry.label : ""
-                font.family: root.barFont
-                font.pixelSize: 14
-                font.weight: Font.Bold
-                color: root.ink
-                anchors.verticalCenter: parent.verticalCenter
-            }
-
-            // Theme metadata: Author & Repo
+            // Author Pill
             Item {
                 visible: switcher.isThemeMode && switcher.selMeta && switcher.selMeta.author
-                width: metaRow.implicitWidth
                 height: 22
+                width: metaRow.implicitWidth
                 anchors.verticalCenter: parent.verticalCenter
 
                 Row {
@@ -1172,9 +1190,9 @@ Item {
                     spacing: 6
 
                     Rectangle {
-                        height: 20
-                        width: authorTxt.implicitWidth + 12
-                        radius: 10
+                        height: 22
+                        width: authorTxt.implicitWidth + 14
+                        radius: 11
                         color: root.fillIdle
                         border.color: root.frameWeak; border.width: 1
 
@@ -1183,36 +1201,37 @@ Item {
                             anchors.centerIn: parent
                             text: "@" + (switcher.selMeta ? switcher.selMeta.author : "")
                             font.family: root.barFont
-                            font.pixelSize: 10
-                            font.weight: Font.DemiBold
+                            font.pixelSize: 11
+                            font.weight: Font.Medium
                             color: root.ink
-                            opacity: 0.8
+                            opacity: 0.85
                         }
                     }
 
                     // Clickable Repo link
                     Rectangle {
                         visible: switcher.selMeta && switcher.selMeta.repo
-                        height: 20
-                        width: repoRow.implicitWidth + 10
-                        radius: 10
+                        height: 22
+                        width: repoRow.implicitWidth + 12
+                        radius: 11
                         color: repoMa.containsMouse ? root.fillHover : root.fillIdle
                         border.color: root.frameWeak; border.width: 1
 
                         Row {
                             id: repoRow
                             anchors.centerIn: parent
-                            spacing: 3
+                            spacing: 4
                             IconText {
                                 text: "code"
-                                font.pixelSize: 11
+                                font.pixelSize: 12
                                 color: root.seal
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Text {
                                 text: "Repo"
                                 font.family: root.barFont
-                                font.pixelSize: 10
+                                font.pixelSize: 11
+                                font.weight: Font.Medium
                                 color: root.ink
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -1240,7 +1259,7 @@ Item {
             Row {
                 visible: switcher.isThemeMode && switcher.selMeta && switcher.selMeta.palette
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 4
+                spacing: 5
 
                 readonly property var colors: (switcher.selMeta && switcher.selMeta.palette)
                     ? switcher.selMeta.palette.split(",") : []
@@ -1250,9 +1269,9 @@ Item {
 
                     delegate: Rectangle {
                         required property string modelData
-                        width: 11; height: 11; radius: 5.5
+                        width: 12; height: 12; radius: 6
                         color: modelData
-                        border.color: Qt.rgba(0, 0, 0, 0.25)
+                        border.color: Qt.rgba(0, 0, 0, 0.35)
                         border.width: 1
                     }
                 }
@@ -1265,9 +1284,19 @@ Item {
                 font.family: root.barFont
                 font.pixelSize: 11
                 color: root.ink
-                opacity: 0.55
+                opacity: 0.60
                 anchors.verticalCenter: parent.verticalCenter
             }
+        }
+
+        // Center: Subtle Keyboard Navigation Hint
+        Text {
+            anchors.centerIn: parent
+            text: "← → navigate   Tab switch   ↵ apply   Esc back   type to filter"
+            font.family: root.barFont
+            font.pixelSize: 10
+            color: root.ink
+            opacity: 0.40
         }
 
         // Right: Item counter and Apply Button
@@ -1276,27 +1305,32 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 12
 
-            // Counter (e.g. "4 / 22")
+            // Counter (e.g. "4 / 30")
             Text {
                 visible: switcher.filtered.length > 0
                 text: (switcher.selFilt + 1) + " / " + switcher.filtered.length
                 font.family: root.barFont
-                font.pixelSize: 11
+                font.pixelSize: 12
+                font.weight: Font.Medium
                 color: root.ink
-                opacity: 0.5
+                opacity: 0.60
                 anchors.verticalCenter: parent.verticalCenter
             }
 
             // Apply Button
             Rectangle {
                 id: applyBtn
-                height: 30
-                width: applyRow.implicitWidth + 20
-                radius: 15
-                color: switcher.justApplied ? "#22c55e" : (applyMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                height: 32
+                width: applyRow.implicitWidth + 22
+                radius: 16
+                color: switcher.justApplied ? "#22c55e" : (applyMa.containsMouse ? Qt.lighter(root.seal, 1.10) : root.seal)
                 scale: applyMa.pressed ? 0.94 : 1.0
                 Behavior on scale { NumberAnimation { duration: 100 } }
                 Behavior on color { ColorAnimation { duration: 180 } }
+
+                readonly property color btnTextCol: switcher.justApplied
+                    ? "#ffffff"
+                    : switcher.contrastText(applyBtn.color, "#101014", "#ffffff")
 
                 Row {
                     id: applyRow
@@ -1306,7 +1340,7 @@ Item {
                     IconText {
                         text: switcher.justApplied ? "check" : (switcher.isThemeMode ? "palette" : "wallpaper")
                         font.pixelSize: 14
-                        color: "#ffffff"
+                        color: applyBtn.btnTextCol
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
@@ -1316,8 +1350,8 @@ Item {
                             : (switcher.isThemeMode ? "Apply Theme (↵)" : "Apply Wallpaper (↵)")
                         font.family: root.barFont
                         font.pixelSize: 11
-                        font.weight: Font.Bold
-                        color: "#ffffff"
+                        font.weight: Font.Medium
+                        color: applyBtn.btnTextCol
                         anchors.verticalCenter: parent.verticalCenter
                     }
                 }
