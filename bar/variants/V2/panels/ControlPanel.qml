@@ -44,7 +44,7 @@ PanelWindow {
             "cpu=$(grep 'model name' /proc/cpuinfo | head -1 | sed 's/.*: //' | sed 's/ with.*//'); " +
             "ram=$(awk '/MemTotal/{printf \"%.0f GB\", $2/1024/1024}' /proc/meminfo); " +
             "gpu=$(glxinfo 2>/dev/null | grep 'OpenGL renderer' | sed 's/OpenGL renderer string: //' | sed 's/\\/PCIe.*//' || echo 'N/A'); " +
-            "display=$(hyprctl monitors -j 2>/dev/null | python3 -c \"import sys,json; d=json.load(sys.stdin); print(', '.join(f'{m[\\\"width\\\"]}x{m[\\\"height\\\"]} @{int(m[\\\"refreshRate\\\"])}Hz' for m in d))\"); " +
+            "display=$(hyprctl monitors -j 2>/dev/null | python3 -c \"import sys,json; d=json.load(sys.stdin); print(', '.join(str(m['width']) + 'x' + str(m['height']) + ' @' + str(int(m['refreshRate'])) + 'Hz' for m in d))\"); " +
             "os=$(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '\"'); " +
             "kernel=$(uname -r); " +
             "printf '%s\\n%s\\n%s\\n%s\\n%s\\n%s\\n%s\\n%s' \"$hostname\" \"$model\" \"$cpu\" \"$ram\" \"$gpu\" \"$display\" \"$os\" \"$kernel\""
@@ -414,6 +414,9 @@ PanelWindow {
         id: card
         width: 396
         height: col.implicitHeight + 24
+        Behavior on height {
+            NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+        }
         radius: ctrlPanel.reveal > 0.001 ? root.panelRadius : 0
         color: "transparent"
         border.width: 0
@@ -427,9 +430,9 @@ PanelWindow {
 
         x: Math.round(Math.max(6, Math.min(root.launcherBarX - width / 2, parent.width - width - 6)))
         y: root.barPosition === "bottom"
-            ? (parent.height - barBottom - gap - height) + Math.round(18 * (1 - Math.min(1.0, ctrlPanel.reveal)))
-            : (barBottom + gap) - Math.round(18 * (1 - Math.min(1.0, ctrlPanel.reveal)))
-        scale: 0.94 + 0.06 * Math.min(1.0, ctrlPanel.reveal)
+            ? (parent.height - barBottom - gap - height) + Math.round(20 * (1 - ctrlPanel.reveal))
+            : (barBottom + gap) - Math.round(20 * (1 - ctrlPanel.reveal))
+        scale: 0.94 + 0.06 * ctrlPanel.reveal
         transformOrigin: root.barPosition === "bottom" ? Item.Bottom : Item.Top
         opacity: Math.min(1.0, ctrlPanel.reveal * 1.2)
         focus: root.controlVisible
@@ -502,6 +505,17 @@ PanelWindow {
             }
 
             // ── quick settings tiles ──
+            QuickTile {
+                width: parent.width
+                icon: "data_object"
+                title: "GitHub Heatmap"
+                subtitle: "View contribution activity"
+                onActivated: {
+                    root.controlVisible = false
+                    root.githubHeatmapVisible = true
+                }
+            }
+
             Grid {
                 width: parent.width
                 columns: 2
@@ -509,24 +523,6 @@ PanelWindow {
                 rowSpacing: 6
                 readonly property real tileW: root.evenW((width - columnSpacing) / 2)
 
-                QuickTile {
-                    width: parent.tileW
-                    icon: "tune"
-                    title: "Bar functions"
-                    subtitle: root.wwSubVisible ? "Open" : "Widgets & layout"
-                    active: root.wwSubVisible
-                    onActivated: root.wwSubVisible = !root.wwSubVisible
-                }
-                QuickTile {
-                    width: parent.tileW
-                    icon: "edit"
-                    title: "Edit slots"
-                    subtitle: "Rearrange bar"
-                    onActivated: {
-                        root.controlVisible = false
-                        root.barUnlocked = true
-                    }
-                }
                 QuickTile {
                     width: parent.tileW
                     icon: root.barPosition === "bottom" ? "vertical_align_bottom" : "vertical_align_top"
@@ -622,6 +618,9 @@ PanelWindow {
         visible: root.controlVisible && root.wwSubVisible
         width: 372
         height: wwCol.implicitHeight + 24
+        Behavior on height {
+            NumberAnimation { duration: 220; easing.type: Easing.OutCubic }
+        }
         radius: (root.controlVisible && root.wwSubVisible) ? root.panelRadius : 0
         color: root.bg
         border.color: root.panelOuterBorderColor
@@ -632,7 +631,7 @@ PanelWindow {
            ? card.x + card.width + ctrlPanel.gap
            : card.x - ctrlPanel.gap - width
         y: root.barPosition === "bottom" ? card.y + card.height - height : card.y
-        scale: 0.94 + 0.06 * Math.min(1.0, ctrlPanel.reveal)
+        scale: 0.94 + 0.06 * ctrlPanel.reveal
         transformOrigin: root.barPosition === "bottom" ? Item.Bottom : Item.Top
         opacity: Math.min(1.0, ctrlPanel.reveal * 1.2)
 
@@ -647,24 +646,11 @@ PanelWindow {
             // ── LAYOUT ──
             Card {
                 title: "Layout"
-                Row {
+                Tile {
                     width: parent.width
-                    spacing: 4
-                    Tile {
-                        width: root.evenW((parent.width - 4) / 2)
-                        icon: "edit"
-                        label: "Edit slots"
-                        onActivated: {
-                            root.controlVisible = false
-                            root.barUnlocked = true
-                        }
-                    }
-                    Tile {
-                        width: root.evenW((parent.width - 4) / 2)
-                        icon: "restart_alt"
-                        label: "Default layout"
-                        onActivated: if (root.fnDefaultLayout) root.fnDefaultLayout()
-                    }
+                    icon: "restart_alt"
+                    label: "Default layout"
+                    onActivated: if (root.fnDefaultLayout) root.fnDefaultLayout()
                 }
             }
 

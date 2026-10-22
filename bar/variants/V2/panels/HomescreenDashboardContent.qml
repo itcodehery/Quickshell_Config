@@ -8,6 +8,7 @@ import "../modules"
 Item {
     id: dashboardContent
     anchors.fill: parent
+    implicitHeight: 220
     focus: true
     onVisibleChanged: {
         if (visible) {
@@ -32,7 +33,7 @@ Item {
         onClicked: {}
     }
 
-    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "battery", "screentime", "volume", "system", "calendar", "notifications", "theme", "wallpaper"]
+    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "battery", "screentime", "volume", "system", "calendar", "notifications", "updates", "theme", "wallpaper"]
 
     function selectCategoryByIndex(idx) {
         if (idx < 0) idx = 0
@@ -47,6 +48,8 @@ Item {
         } else if (cat === "wifi" || cat === "bluetooth" || cat === "cpu" || cat === "memory" || cat === "") {
             pageUp()
         }
+
+        dashboardContent.forceActiveFocus()
     }
 
     function jumpNextCategory() {
@@ -67,17 +70,6 @@ Item {
             if (themeLoader.item && themeLoader.item.moveSel) themeLoader.item.moveSel(1)
             return
         }
-        // 1. Check if current active detail section has an internal sub-option to step forward into
-        if (dashboardContent.activeDetailView === "bluetooth" && btDetailSection && btDetailSection.nextSubOption && btDetailSection.nextSubOption()) {
-            return
-        }
-        if (dashboardContent.activeDetailView === "battery" && batDetailSection && batDetailSection.nextSubOption && batDetailSection.nextSubOption()) {
-            return
-        }
-        if (dashboardContent.activeDetailView === "screentime" && stDetailSection && stDetailSection.nextSubOption && stDetailSection.nextSubOption()) {
-            return
-        }
-        // 2. Otherwise advance to next category
         jumpNextCategory()
     }
 
@@ -86,21 +78,6 @@ Item {
             if (themeLoader.item && themeLoader.item.moveSel) themeLoader.item.moveSel(-1)
             return
         }
-        // 1. Check if current active detail section has an internal sub-option to step backward into
-        if (dashboardContent.activeDetailView === "screentime" && stDetailSection && stDetailSection.prevSubOption && stDetailSection.prevSubOption()) {
-            return
-        }
-        if (dashboardContent.activeDetailView === "battery" && batDetailSection && batDetailSection.prevSubOption && batDetailSection.prevSubOption()) {
-            return
-        }
-        if (dashboardContent.activeDetailView === "bluetooth" && btDetailSection && btDetailSection.prevSubOption && btDetailSection.prevSubOption()) {
-            return
-        }
-        if (dashboardContent.activeDetailView === "wifi" && wifiDetailSection && wifiDetailSection.speedTestActive) {
-            wifiDetailSection.exitSpeedTest()
-            return
-        }
-        // 2. Otherwise move to previous category
         jumpPrevCategory()
     }
 
@@ -295,6 +272,18 @@ Item {
     property var root
     property var panel
     property string activeDetailView: root && root.dashboardDetail ? root.dashboardDetail : ""
+
+    readonly property var wifiDetailSection: wifiDetailLoader.item
+    readonly property var btDetailSection: btDetailLoader.item
+    readonly property var cpuDetailSection: cpuDetailLoader.item
+    readonly property var memDetailSection: memDetailLoader.item
+    readonly property var batDetailSection: batDetailLoader.item
+    readonly property var stDetailSection: stDetailLoader.item
+    readonly property var volDetailSection: volDetailLoader.item
+    readonly property var sysDetailSection: sysDetailLoader.item
+    readonly property var calDetailSection: calDetailLoader.item
+    readonly property var notifDetailSection: notifDetailLoader.item
+    readonly property var updatesDetailSection: updatesDetailLoader.item
 
     Connections {
         target: dashboardContent.root
@@ -624,7 +613,13 @@ Item {
         anchors.fill: parent
         visible: opacity > 0.001
         opacity: dashboardContent.activeDetailView === "" ? 1.0 : 0.0
+        scale: dashboardContent.activeDetailView === "" ? 1.0 : 0.98
+        transform: Translate {
+            y: dashboardContent.activeDetailView === "" ? 0 : (root && root.barPosition === "bottom" ? -10 : 10)
+            Behavior on y { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        }
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
         Row {
             anchors.left: parent.left
@@ -2870,7 +2865,13 @@ Item {
         anchors.fill: parent
         visible: opacity > 0.001
         opacity: dashboardContent.activeDetailView !== "" ? 1.0 : 0.0
-        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+        scale: dashboardContent.activeDetailView !== "" ? 1.0 : 0.98
+        transform: Translate {
+            y: dashboardContent.activeDetailView !== "" ? 0 : (root && root.barPosition === "bottom" ? 14 : -14)
+            Behavior on y { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        }
+        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
         z: 10
 
         // Subpage Header Bar
@@ -2941,6 +2942,8 @@ Item {
                         case "system": return "System & Power"
                         case "calendar": return "Calendar & Notes"
                         case "notifications": return "Notifications"
+                        case "updates": return "Software Updates"
+                        case "packages": return "Software Updates"
                         case "theme": return "Themes"
                         case "wallpaper": return "Wallpapers"
                         default: return ""
@@ -3009,16 +3012,25 @@ Item {
                 }
             }
 
-            DetailLoader { viewName: "wifi";          sourceComponent: WifiDetailSection          { root: dashboardContent.root; panel: dashboardContent.panel } }
-            DetailLoader { viewName: "bluetooth";     sourceComponent: BluetoothDetailSection     { root: dashboardContent.root; panel: dashboardContent.panel } }
-            DetailLoader { viewName: "cpu";           sourceComponent: CpuDetailSection           { root: dashboardContent.root; panel: dashboardContent.panel } }
-            DetailLoader { viewName: "memory";        sourceComponent: MemoryDetailSection        { root: dashboardContent.root; panel: dashboardContent.panel } }
-            DetailLoader { viewName: "battery";       sourceComponent: BatteryDetailSection       { root: dashboardContent.root; panel: dashboardContent.panel } }
-            DetailLoader { viewName: "screentime";    sourceComponent: ScreentimeDetailSection    { root: dashboardContent.root; panel: dashboardContent.panel } }
-            DetailLoader { viewName: "volume";        sourceComponent: VolumeDetailSection        { root: dashboardContent.root; panel: dashboardContent.panel } }
-            DetailLoader { viewName: "system";        sourceComponent: SystemDetailSection        { root: dashboardContent.root; panel: dashboardContent.panel } }
-            DetailLoader { viewName: "calendar";      sourceComponent: CalendarDetailSection      { root: dashboardContent.root; panel: dashboardContent.panel } }
-            DetailLoader { viewName: "notifications"; sourceComponent: NotificationDetailSection  { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { id: wifiDetailLoader;  viewName: "wifi";          sourceComponent: WifiDetailSection          { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { id: btDetailLoader;    viewName: "bluetooth";     sourceComponent: BluetoothDetailSection     { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { id: cpuDetailLoader;   viewName: "cpu";           sourceComponent: CpuDetailSection           { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { id: memDetailLoader;   viewName: "memory";        sourceComponent: MemoryDetailSection        { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { id: batDetailLoader;   viewName: "battery";       sourceComponent: BatteryDetailSection       { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { id: stDetailLoader;    viewName: "screentime";    sourceComponent: ScreentimeDetailSection    { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { id: volDetailLoader;   viewName: "volume";        sourceComponent: VolumeDetailSection        { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { id: sysDetailLoader;   viewName: "system";        sourceComponent: SystemDetailSection        { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { id: calDetailLoader;   viewName: "calendar";      sourceComponent: CalendarDetailSection      { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader { id: notifDetailLoader; viewName: "notifications"; sourceComponent: NotificationDetailSection  { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader {
+                id: updatesDetailLoader
+                viewName: "updates"
+                active: dashboardContent.activeDetailView === "updates" || dashboardContent.activeDetailView === "packages"
+                sourceComponent: UpdatesDetailSection {
+                    root: dashboardContent.root
+                    panel: dashboardContent.panel
+                }
+            }
             DetailLoader {
                 id: themeLoader
                 viewName: "theme"

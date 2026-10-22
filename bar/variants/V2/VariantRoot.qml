@@ -317,18 +317,6 @@ Item {
         }
     }
 
-    Variants {
-        model: root.barScreens
-
-        delegate: Component {
-            PowerNotchPanel {
-                required property var modelData
-
-                root: theme
-                targetScreen: modelData
-            }
-        }
-    }
 
     Variants {
         model: root.barScreens

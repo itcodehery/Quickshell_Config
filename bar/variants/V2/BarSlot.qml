@@ -30,7 +30,7 @@ PanelWindow {
 
     readonly property bool isPickerDetail: barSlot.root.dashboardDetail === "theme" || barSlot.root.dashboardDetail === "wallpaper"
     readonly property real dashboardExpandedWidth: Math.min(isPickerDetail ? 960 : 840, barSlot.width - 32)
-    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - 40, isPickerDetail ? 430 : 306)
+    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - 40, isPickerDetail ? 430 : 292)
 
     readonly property real dashboardTopRadius: barSlot.root.barPosition === "bottom" ? 24 : 10
     readonly property real dashboardBottomRadius: barSlot.root.barPosition === "bottom" ? 10 : 24
@@ -40,23 +40,28 @@ PanelWindow {
         : barSlot.root.v2BarHeight
     readonly property int chargingTargetHeight: barSlot.root.v2BarHeight
     readonly property int barExpandedHeight: 156
+    readonly property bool isHoverExpanded: !isDashboardActive && (typeof island !== "undefined" && island) && !island.isIslandHidden
+    readonly property real hoverMaskHeight: Math.max(continuousBarSurface.height, barExpandedHeight)
+    readonly property real hoverMaskWidth: (typeof island !== "undefined" && island) ? Math.max(continuousBarSurface.width, island.expandedContainerWidth) : continuousBarSurface.width
     readonly property int shellVisibleHeight: isDashboardActive
         ? Math.round(dashboardExpandedHeight)
-        : (island && island.chargingProgress > 0
-            ? Math.round(barSlot.root.v2BarHeight + (chargingTargetHeight - barSlot.root.v2BarHeight) * island.chargingProgress)
-            : (island && island.notifPeekActive
-                ? Math.round(barSlot.root.v2BarHeight + (notifTargetHeight - barSlot.root.v2BarHeight) * island.notifPeekProgress)
-                : Math.round(barSlot.root.v2BarHeight + (barExpandedHeight - barSlot.root.v2BarHeight) * (1.0 - island.islandShrinkProgress))))
+        : (isHoverExpanded
+            ? barExpandedHeight
+            : (island && island.chargingProgress > 0
+                ? Math.round(barSlot.root.v2BarHeight + (chargingTargetHeight - barSlot.root.v2BarHeight) * island.chargingProgress)
+                : (island && island.notifPeekActive
+                    ? Math.round(barSlot.root.v2BarHeight + (notifTargetHeight - barSlot.root.v2BarHeight) * island.notifPeekProgress)
+                    : barSlot.root.v2BarHeight)))
     readonly property int shellRadius: isDashboardActive
         ? 24
         : ((island && island.notifPeekActive && island.notifPeekBody !== "")
             ? 18
-            : (island && island.islandShrinkProgress < 0.5 ? 24 : Math.round(shellVisibleHeight / 2)))
+            : (isHoverExpanded ? 24 : Math.round(shellVisibleHeight / 2)))
     readonly property real shellTargetWidth: isDashboardActive
         ? dashboardExpandedWidth
         : Math.max(80,
             Math.min(barSlot.width - 2 * shellOuterMargin,
-                island.fitNaturalWidth))
+                isHoverExpanded ? island.expandedContainerWidth : island.collapsedIslandWidth))
 
     visible: !barSlot.root.barHidden
     color: "transparent"
@@ -78,14 +83,23 @@ PanelWindow {
     readonly property bool effectivelyHidden: false
 
     mask: Region {
-        x: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? 0 : Math.round(continuousBarSurface.x)
+        x: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? 0
+           : (barSlot.isHoverExpanded
+               ? Math.round((barSlot.width - barSlot.hoverMaskWidth) / 2)
+               : Math.round(continuousBarSurface.x))
         y: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? 0
            : barSlot.effectivelyHidden
                ? (barSlot.root.barPosition === "bottom" ? barSlot.height - 1 : 0)
-               : (barSlot.root.barPosition === "bottom" ? barSlot.height - Math.round(continuousBarSurface.height) - 4 : 4)
-        width: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? barSlot.width : Math.round(continuousBarSurface.width)
+               : (barSlot.root.barPosition === "bottom"
+                   ? (barSlot.isHoverExpanded
+                       ? barSlot.height - Math.round(barSlot.hoverMaskHeight) - 4
+                       : barSlot.height - Math.round(continuousBarSurface.height) - 4)
+                   : 4)
+        width: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? barSlot.width
+           : (barSlot.isHoverExpanded ? Math.round(barSlot.hoverMaskWidth) : Math.round(continuousBarSurface.width))
         height: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? barSlot.height
-           : barSlot.effectivelyHidden ? 1 : Math.round(continuousBarSurface.height)
+           : barSlot.effectivelyHidden ? 1
+           : (barSlot.isHoverExpanded ? Math.round(barSlot.hoverMaskHeight) : Math.round(continuousBarSurface.height))
     }
     // grab keyboard while unlocked or dashboard is expanded so ESC / typing can work
     WlrLayershell.keyboardFocus: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
@@ -129,31 +143,44 @@ PanelWindow {
         id: continuousBarSurface
         x: Math.round((barSlot.width - width) / 2)
         readonly property int islandMargin: 4
+        property string lastBarPos: barSlot.root.barPosition
+        property bool barPosTransitioning: false
+        Timer {
+            id: barPosTimer
+            interval: 420
+            onTriggered: continuousBarSurface.barPosTransitioning = false
+        }
+        onYChanged: {
+            if (barSlot.root.barPosition !== lastBarPos) {
+                lastBarPos = barSlot.root.barPosition
+                barPosTransitioning = true
+                barPosTimer.restart()
+            }
+        }
         y: barSlot.root.barPosition === "bottom"
             ? (barSlot.effectivelyHidden ? barSlot.height : barSlot.height - height - islandMargin)
             : (barSlot.effectivelyHidden ? -height : islandMargin)
         Behavior on y {
+            enabled: barSlot.effectivelyHidden || continuousBarSurface.barPosTransitioning
             NumberAnimation {
-                duration: 400
-                easing.type: Easing.OutBack
-                easing.overshoot: 1.2
+                duration: 380
+                easing.type: Easing.OutCubic
             }
         }
         width: barSlot.shellTargetWidth
         Behavior on width {
-            enabled: barSlot.isDashboardActive || barSlot.isDashboardClosing
             NumberAnimation {
-                duration: barSlot.isDashboardActive ? 240 : 180
-                easing.type: barSlot.isDashboardActive ? Easing.OutBack : Easing.OutCubic
-                easing.overshoot: 1.10
+                duration: (barSlot.isDashboardActive || barSlot.isHoverExpanded) ? 240 : 200
+                easing.type: (barSlot.isDashboardActive || barSlot.isHoverExpanded) ? Easing.OutBack : Easing.OutCubic
+                easing.overshoot: 1.08
             }
         }
         height: barSlot.shellVisibleHeight
         Behavior on height {
             NumberAnimation {
-                duration: barSlot.isDashboardActive ? 240 : 180
-                easing.type: barSlot.isDashboardActive ? Easing.OutBack : Easing.OutCubic
-                easing.overshoot: 1.10
+                duration: (barSlot.isDashboardActive || barSlot.isHoverExpanded) ? 240 : 200
+                easing.type: (barSlot.isDashboardActive || barSlot.isHoverExpanded) ? Easing.OutBack : Easing.OutCubic
+                easing.overshoot: 1.08
             }
         }
         radius: barSlot.shellRadius
@@ -174,7 +201,7 @@ PanelWindow {
             anchors.fill: parent
             visible: true
             radius: continuousBarSurface.bottomCornerRadius
-            blur: barSlot.isDashboardActive ? 24 : 9
+            blur: (barSlot.isDashboardActive || barSlot.isHoverExpanded) ? 22 : 9
             Behavior on blur { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
             spread: 0
             offset: Qt.vector2d(0, barSlot.root.barPosition === "bottom" ? -2 : 2)
@@ -1301,7 +1328,31 @@ PanelWindow {
             }
         }
 
-        property bool isHovered: islandHover.hovered || (barSlot.root && barSlot.root.hoverForce)
+        clip: true
+
+        property bool rawHovered: islandHover.hovered || (barSlot.root && barSlot.root.hoverForce)
+        property bool isHovered: false
+
+        Timer {
+            id: unhoverDebounceTimer
+            interval: 180
+            repeat: false
+            onTriggered: {
+                if (!island.rawHovered) {
+                    island.isHovered = false
+                }
+            }
+        }
+
+        onRawHoveredChanged: {
+            if (rawHovered) {
+                unhoverDebounceTimer.stop()
+                island.isHovered = true
+            } else {
+                unhoverDebounceTimer.restart()
+            }
+        }
+
         HoverHandler {
             id: islandHover
             acceptedDevices: PointerDevice.AllDevices
@@ -1335,9 +1386,18 @@ PanelWindow {
 
         // The base shell draws a black hole around the island when hovered.
         property bool isIslandHidden: (!island.isHovered || island.osdActive || island.notifPeekActive) && !barSlot.root.anyPopupVisible
-        property real islandShrinkProgress: 1.0
-        property real islandElementsOpacity: 0.0
-        property real islandCollapsedOpacity: 1.0
+        property real islandShrinkProgress: barSlot.isHoverExpanded ? 0.0 : 1.0
+        Behavior on islandShrinkProgress {
+            NumberAnimation { duration: barSlot.isHoverExpanded ? 240 : 200; easing.type: Easing.OutCubic }
+        }
+        property real islandElementsOpacity: barSlot.isHoverExpanded ? 1.0 : 0.0
+        Behavior on islandElementsOpacity {
+            NumberAnimation { duration: barSlot.isHoverExpanded ? 200 : 120; easing.type: Easing.OutCubic }
+        }
+        property real islandCollapsedOpacity: barSlot.isHoverExpanded ? 0.0 : 1.0
+        Behavior on islandCollapsedOpacity {
+            NumberAnimation { duration: barSlot.isHoverExpanded ? 100 : 180; easing.type: Easing.OutCubic }
+        }
 
         property bool osdActive: false
         property real osdProgress: 0.0
@@ -1447,75 +1507,6 @@ PanelWindow {
         onIsIslandHiddenChanged: {
             if (!isIslandHidden) {
                 island.syncExpandedModels()
-                collapseAnim.stop()
-                expandAnim.restart()
-            } else {
-                expandAnim.stop()
-                collapseAnim.restart()
-            }
-        }
-
-        ParallelAnimation {
-            id: expandAnim
-            // Step 1: Fade out collapsed items quickly and bounce expand the bar!
-            NumberAnimation {
-                target: island
-                property: "islandCollapsedOpacity"
-                to: 0.0
-                duration: 80
-                easing.type: Easing.OutQuad
-            }
-            NumberAnimation {
-                target: island
-                property: "islandShrinkProgress"
-                to: 0.0
-                duration: 210
-                easing.type: Easing.OutBack
-                easing.overshoot: 1.12
-            }
-            // Step 2: Quickly fade and settle in all elements in parallel with slight lead
-            SequentialAnimation {
-                PauseAnimation { duration: 40 }
-                NumberAnimation {
-                    target: island
-                    property: "islandElementsOpacity"
-                    to: 1.0
-                    duration: 160
-                    easing.type: Easing.OutCubic
-                }
-            }
-        }
-
-        SequentialAnimation {
-            id: collapseAnim
-            ParallelAnimation {
-                // Step 1: Quickly fade out the expanded elements
-                NumberAnimation {
-                    target: island
-                    property: "islandElementsOpacity"
-                    to: 0.0
-                    duration: 80
-                    easing.type: Easing.OutQuad
-                }
-                // Step 2: Bounce the bar closed to collapsed width and fade in collapsed items
-                NumberAnimation {
-                    target: island
-                    property: "islandShrinkProgress"
-                    to: 1.0
-                    duration: 190
-                    easing.type: Easing.OutBack
-                    easing.overshoot: 1.10
-                }
-                SequentialAnimation {
-                    PauseAnimation { duration: 70 }
-                    NumberAnimation {
-                        target: island
-                        property: "islandCollapsedOpacity"
-                        to: 1.0
-                        duration: 120
-                        easing.type: Easing.OutCubic
-                    }
-                }
             }
         }
 
@@ -1540,16 +1531,15 @@ PanelWindow {
         readonly property real leftCardWidth: 112
         readonly property real rightCardWidth: 156
         readonly property real middleGap: 8
-        readonly property real middleWidth: 380
+        readonly property real middleWidth: (hoverQuickPanel && hoverQuickPanel.omarchyMenuOpen) ? 580 : 380
         readonly property real expandedContainerWidth: Math.min(
             barSlot.width - 24,
             leftCardWidth + middleGap + middleWidth + middleGap + rightCardWidth + 16
         )
 
-        readonly property real fitNaturalWidth: Math.ceil(
-            (1.0 - islandShrinkProgress) * expandedContainerWidth
-            + islandShrinkProgress * collapsedIslandWidth
-        )
+        readonly property real fitNaturalWidth: barSlot.isHoverExpanded
+            ? expandedContainerWidth
+            : collapsedIslandWidth
 
         // edit-mode frame around the bar while unlocked (gentle pulse)
         Rectangle {
@@ -1646,11 +1636,6 @@ PanelWindow {
             target: barSlot.root
             function onBarShellStyleChanged() {
                 island.scheduleNarrowUpdate()
-                expandAnim.stop()
-                collapseAnim.stop()
-                island.islandShrinkProgress = island.isIslandHidden ? 1.0 : 0.0
-                island.islandElementsOpacity = island.isIslandHidden ? 0.0 : 1.0
-                island.islandCollapsedOpacity = island.isIslandHidden ? 1.0 : 0.0
             }
             function onBarUnlockedChanged() { syncModelsTimer.restart() }
             function onV2WidgetSpacingChanged() { syncModelsTimer.restart() }
@@ -1781,14 +1766,15 @@ PanelWindow {
             readonly property string displayText: hasLyrics ? lyricText : (windowTitle !== "" ? windowTitle : "Desktop")
             readonly property real maxTextWidth: hasLyrics ? (barSlot.width - 120) : 350
             
-            property string activeSlot: "A"
             property string currentShownText: ""
             property int lastLyricIndex: -1
-            readonly property real targetTextWidth: activeSlot === "A" ? textA.implicitWidth : textB.implicitWidth
-            readonly property real visibleWidth: Math.min(Math.max(targetTextWidth + 24, 60), maxTextWidth + 24)
+            property bool useB: false
+
+            readonly property real activeTextWidth: useB ? textB.implicitWidth : textA.implicitWidth
+            readonly property real visibleWidth: Math.min(Math.max(activeTextWidth + 20, 56), maxTextWidth + 20)
             width: visibleWidth
             Behavior on width {
-                NumberAnimation { duration: 420; easing.type: Easing.OutCubic }
+                NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
             }
             height: 24
             radius: height / 2
@@ -1799,8 +1785,9 @@ PanelWindow {
 
             property bool initialized: false
 
-            function switchText(newText, forced) {
-                if (!forced && newText === currentShownText) return
+            function transitionTo(newText, force) {
+                if (!force && newText === currentShownText) return
+                currentShownText = newText
 
                 var curIdx = (hasLyrics && barSlot.mprisPanel) ? barSlot.mprisPanel.currentLyricIndex : -1
                 var movingBackwards = hasLyrics && (curIdx >= 0) && (lastLyricIndex >= 0) && (curIdx < lastLyricIndex)
@@ -1809,36 +1796,107 @@ PanelWindow {
                 } else {
                     lastLyricIndex = -1
                 }
-                currentShownText = newText
 
+                // Vertical drift direction: +1 scrolls down-to-up, -1 scrolls up-to-down
                 var dir = movingBackwards ? -1 : 1
-                var outY = -20 * dir
-                var inStartY = 20 * dir
+                var enterY = 7 * dir
+                var exitY = -7 * dir
 
-                animToB.stop()
-                animToA.stop()
+                animSwitch.stop()
 
-                if (activeSlot === "A") {
+                if (!useB) {
+                    // Switch to B
                     textB.text = newText
-                    transB.y = inStartY
+                    transB.y = enterY
                     textB.opacity = 0.0
-                    animTransAY.to = outY
-                    activeSlot = "B"
-                    animToB.restart()
+                    textB.scale = 0.98
+
+                    animExitTrans.target = transA
+                    animExitTrans.to = exitY
+                    animExitOpacity.target = textA
+                    animExitScale.target = textA
+
+                    animEnterTrans.target = transB
+                    animEnterTrans.to = 0
+                    animEnterOpacity.target = textB
+                    animEnterScale.target = textB
+
+                    useB = true
                 } else {
+                    // Switch to A
                     textA.text = newText
-                    transA.y = inStartY
+                    transA.y = enterY
                     textA.opacity = 0.0
-                    animTransBY.to = outY
-                    activeSlot = "A"
-                    animToA.restart()
+                    textA.scale = 0.98
+
+                    animExitTrans.target = transB
+                    animExitTrans.to = exitY
+                    animExitOpacity.target = textB
+                    animExitScale.target = textB
+
+                    animEnterTrans.target = transA
+                    animEnterTrans.to = 0
+                    animEnterOpacity.target = textA
+                    animEnterScale.target = textA
+
+                    useB = false
+                }
+
+                animSwitch.restart()
+            }
+
+            ParallelAnimation {
+                id: animSwitch
+
+                // Exit animation (fast fade out & subtle drift)
+                NumberAnimation {
+                    id: animExitTrans
+                    property: "y"
+                    duration: 170
+                    easing.type: Easing.OutQuad
+                }
+                NumberAnimation {
+                    id: animExitOpacity
+                    property: "opacity"
+                    to: 0.0
+                    duration: 160
+                    easing.type: Easing.OutQuad
+                }
+                NumberAnimation {
+                    id: animExitScale
+                    property: "scale"
+                    to: 0.97
+                    duration: 170
+                    easing.type: Easing.OutQuad
+                }
+
+                // Enter animation (smooth glide & crisp fade in)
+                NumberAnimation {
+                    id: animEnterTrans
+                    property: "y"
+                    duration: 230
+                    easing.type: Easing.OutCubic
+                }
+                NumberAnimation {
+                    id: animEnterOpacity
+                    property: "opacity"
+                    to: 1.0
+                    duration: 210
+                    easing.type: Easing.OutCubic
+                }
+                NumberAnimation {
+                    id: animEnterScale
+                    property: "scale"
+                    to: 1.0
+                    duration: 230
+                    easing.type: Easing.OutCubic
                 }
             }
 
             onDisplayTextChanged: {
                 if (!islandCollapsedItem.initialized) return
                 if (islandCollapsedItem.displayText !== islandCollapsedItem.currentShownText) {
-                    islandCollapsedItem.switchText(islandCollapsedItem.displayText, false)
+                    islandCollapsedItem.transitionTo(islandCollapsedItem.displayText, false)
                 }
             }
 
@@ -1848,9 +1906,7 @@ PanelWindow {
                     if (!islandCollapsedItem.initialized || !islandCollapsedItem.hasLyrics) return
                     var idx = barSlot.mprisPanel.currentLyricIndex
                     if (idx === islandCollapsedItem.lastLyricIndex) return
-                    if (islandCollapsedItem.displayText === islandCollapsedItem.currentShownText) {
-                        islandCollapsedItem.switchText(islandCollapsedItem.displayText, true)
-                    }
+                    islandCollapsedItem.transitionTo(islandCollapsedItem.displayText, true)
                 }
             }
 
@@ -1858,81 +1914,17 @@ PanelWindow {
                 currentShownText = displayText
                 textA.text = displayText
                 textA.opacity = 1.0
+                textA.scale = 1.0
                 transA.y = 0
                 textB.text = ""
                 textB.opacity = 0.0
-                transB.y = 20
-                activeSlot = "A"
+                textB.scale = 0.98
+                transB.y = 7
+                useB = false
                 if (hasLyrics && barSlot.mprisPanel) {
                     lastLyricIndex = barSlot.mprisPanel.currentLyricIndex
                 }
                 initialized = true
-            }
-
-            ParallelAnimation {
-                id: animToB
-                NumberAnimation {
-                    id: animTransAY
-                    target: transA
-                    property: "y"
-                    to: -20
-                    duration: 420
-                    easing.type: Easing.OutCubic
-                }
-                NumberAnimation {
-                    target: textA
-                    property: "opacity"
-                    to: 0.0
-                    duration: 320
-                    easing.type: Easing.OutQuad
-                }
-                NumberAnimation {
-                    target: transB
-                    property: "y"
-                    to: 0
-                    duration: 420
-                    easing.type: Easing.OutCubic
-                }
-                NumberAnimation {
-                    target: textB
-                    property: "opacity"
-                    to: 1.0
-                    duration: 380
-                    easing.type: Easing.OutCubic
-                }
-            }
-
-            ParallelAnimation {
-                id: animToA
-                NumberAnimation {
-                    id: animTransBY
-                    target: transB
-                    property: "y"
-                    to: -20
-                    duration: 420
-                    easing.type: Easing.OutCubic
-                }
-                NumberAnimation {
-                    target: textB
-                    property: "opacity"
-                    to: 0.0
-                    duration: 320
-                    easing.type: Easing.OutQuad
-                }
-                NumberAnimation {
-                    target: transA
-                    property: "y"
-                    to: 0
-                    duration: 420
-                    easing.type: Easing.OutCubic
-                }
-                NumberAnimation {
-                    target: textA
-                    property: "opacity"
-                    to: 1.0
-                    duration: 380
-                    easing.type: Easing.OutCubic
-                }
             }
 
             Text {
@@ -1940,7 +1932,7 @@ PanelWindow {
                 anchors.centerIn: parent
                 text: ""
                 color: barSlot.root.ink
-                font.family: "DM Sans"
+                font.family: barSlot.root.barFont || "DM Sans"
                 font.pixelSize: 12
                 font.weight: Font.Medium
                 elide: islandCollapsedItem.hasLyrics ? Text.ElideNone : Text.ElideRight
@@ -1953,13 +1945,13 @@ PanelWindow {
                 anchors.centerIn: parent
                 text: ""
                 color: barSlot.root.ink
-                font.family: "DM Sans"
+                font.family: barSlot.root.barFont || "DM Sans"
                 font.pixelSize: 12
                 font.weight: Font.Medium
                 elide: islandCollapsedItem.hasLyrics ? Text.ElideNone : Text.ElideRight
                 width: Math.min(implicitWidth, islandCollapsedItem.maxTextWidth)
                 opacity: 0.0
-                transform: Translate { id: transB; y: 20 }
+                transform: Translate { id: transB; y: 7 }
             }
         }
         ListModel {
@@ -2591,47 +2583,20 @@ PanelWindow {
             height: barSlot.root.v2BarHeight
             radius: height / 2
             clip: true
+            color: "transparent"
+            border.width: 0
             opacity: island.islandCollapsedOpacity * island.chargingProgress * (1.0 - island.dictationProgress)
             visible: opacity > 0.001
 
             readonly property int pct: Math.max(1, Math.min(100, barSlot.root.chargingPopupPercent))
 
-            // Percentage-driven dynamic background color palette
-            readonly property color bgBase: {
-                if (pct < 20) return "#220505"      // Deep Crimson (< 20%)
-                if (pct < 50) return "#240c03"      // Deep Amber (20-49%)
-                if (pct < 80) return "#07142b"      // Deep Cobalt Blue (50-79%)
-                return "#021a12"                    // Deep Emerald Green (80-100%)
+            // Percentage-driven dynamic foreground accent color
+            readonly property color batteryPercentColor: {
+                if (pct < 20) return "#ef4444"      // Red (< 20%)
+                if (pct < 50) return "#f97316"      // Orange (20-49%)
+                if (pct < 80) return "#3b82f6"      // Royal Blue (50-79%)
+                return "#10b981"                    // Emerald Green (80-100%)
             }
-            readonly property color bgMid: {
-                if (pct < 20) return "#4a0a0a"
-                if (pct < 50) return "#541c05"
-                if (pct < 80) return "#0a2a66"
-                return "#043d2b"
-            }
-            readonly property color bgGlow: {
-                if (pct < 20) return "#b91c1c"      // Bright Red
-                if (pct < 50) return "#c2410c"      // Bright Orange
-                if (pct < 80) return "#1d4ed8"      // Vibrant Royal Blue
-                return "#059669"                    // Vibrant Emerald Green
-            }
-            readonly property color pillTextColor: {
-                if (pct < 20) return "#dc2626"
-                if (pct < 50) return "#ea580c"
-                if (pct < 80) return "#2563eb"
-                return "#059669"
-            }
-
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-                GradientStop { position: 0.00; color: islandChargingItem.bgBase }
-                GradientStop { position: 0.45; color: islandChargingItem.bgMid }
-                GradientStop { position: 1.00; color: islandChargingItem.bgGlow }
-            }
-
-            // Subtle glass card border
-            border.color: Qt.rgba(255, 255, 255, 0.16)
-            border.width: 1
 
             readonly property string timeLeftStr: {
                 var dev = UPower.displayDevice
@@ -2684,9 +2649,9 @@ PanelWindow {
                     IconText {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "bolt"
-                        font.pixelSize: 13
-                        color: "#ffffff"
-                        opacity: 0.95
+                        font.pixelSize: 14
+                        color: islandChargingItem.batteryPercentColor
+                        Behavior on color { ColorAnimation { duration: 200 } }
                     }
 
                     Text {
@@ -2695,7 +2660,7 @@ PanelWindow {
                         font.family: barSlot.root.barFont
                         font.pixelSize: 11
                         font.weight: Font.DemiBold
-                        color: "#ffffff"
+                        color: barSlot.root.ink
                         opacity: 0.90
                     }
                 }
@@ -2707,12 +2672,12 @@ PanelWindow {
                     width: 130
                     height: 14
                     radius: 7
-                    color: Qt.rgba(255, 255, 255, 0.15)
-                    border.color: Qt.rgba(255, 255, 255, 0.20)
+                    color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.12)
+                    border.color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.18)
                     border.width: 1
                     clip: true
 
-                    // Animated White Fill Bar (inset by 1px so corners curve cleanly without border collision)
+                    // Animated Fill Bar
                     Rectangle {
                         id: chargeFill
                         anchors.left: parent.left
@@ -2721,7 +2686,8 @@ PanelWindow {
                         anchors.margins: 1
                         width: Math.max(0, Math.min(parent.width - 2, (parent.width - 2) * (islandChargingItem.animatedPct / 100)))
                         radius: 6
-                        color: "#ffffff"
+                        color: islandChargingItem.batteryPercentColor
+                        Behavior on color { ColorAnimation { duration: 200 } }
 
                         // Percentage text inside pill if sufficiently wide
                         Text {
@@ -2733,7 +2699,7 @@ PanelWindow {
                             font.family: barSlot.root.barFont
                             font.pixelSize: 9
                             font.weight: Font.Bold
-                            color: islandChargingItem.pillTextColor
+                            color: "#ffffff"
                             visible: chargeFill.width > 34
                         }
                     }
@@ -2742,9 +2708,10 @@ PanelWindow {
                     Rectangle {
                         anchors.fill: chargeFill
                         radius: chargeFill.radius
-                        color: "#ffffff"
-                        opacity: 0.35
+                        color: islandChargingItem.batteryPercentColor
+                        opacity: 0.25
                         z: -1
+                        Behavior on color { ColorAnimation { duration: 200 } }
                     }
                 }
 
@@ -2760,17 +2727,18 @@ PanelWindow {
                         font.family: barSlot.root.barFont
                         font.pixelSize: 11
                         font.weight: Font.Bold
-                        color: "#ffffff"
+                        color: islandChargingItem.batteryPercentColor
+                        Behavior on color { ColorAnimation { duration: 200 } }
                     }
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: islandChargingItem.timeLeftStr !== "" ? islandChargingItem.timeLeftStr : (chargeFill.width > 34 ? (islandChargingItem.pct + "%") : "")
+                        text: islandChargingItem.timeLeftStr !== "" ? islandChargingItem.timeLeftStr : ""
                         visible: text !== ""
                         font.family: barSlot.root.barFont
                         font.pixelSize: 11
                         font.weight: Font.Medium
-                        color: Qt.rgba(255, 255, 255, 0.85)
+                        color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.75)
                     }
                 }
             }
@@ -2809,8 +2777,17 @@ PanelWindow {
             id: hoverQuickPanel
             barSlot: barSlot
             island: island
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: (barSlot.root.barPosition === "bottom") ? (island.height - height) : 0
             opacity: island.islandElementsOpacity
+            scale: barSlot.isHoverExpanded ? 1.0 : 0.96
+            transform: Translate {
+                y: barSlot.isHoverExpanded ? 0 : (barSlot.root.barPosition === "bottom" ? 12 : -12)
+                Behavior on y { NumberAnimation { duration: barSlot.isHoverExpanded ? 240 : 160; easing.type: Easing.OutCubic } }
+            }
             visible: opacity > 0.001
+            enabled: barSlot.isHoverExpanded
+            Behavior on scale { NumberAnimation { duration: barSlot.isHoverExpanded ? 240 : 160; easing.type: Easing.OutCubic } }
         }
 
         // ── slot-aware panel X positions: publish per-screen anchors ──
@@ -2912,9 +2889,20 @@ PanelWindow {
         z: 25
         clip: true
         opacity: barSlot.isDashboardActive ? 1.0 : 0.0
+        scale: barSlot.isDashboardActive ? 1.0 : 0.97
+        transform: Translate {
+            y: barSlot.isDashboardActive ? 0 : (barSlot.root.barPosition === "bottom" ? 14 : -14)
+            Behavior on y { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+        }
         visible: opacity > 0.001
         enabled: barSlot.isDashboardActive
         Behavior on opacity {
+            NumberAnimation {
+                duration: barSlot.isDashboardActive ? 250 : 160
+                easing.type: Easing.OutCubic
+            }
+        }
+        Behavior on scale {
             NumberAnimation {
                 duration: barSlot.isDashboardActive ? 250 : 160
                 easing.type: Easing.OutCubic

@@ -197,7 +197,9 @@ Item {
                 root.archRefreshTick++;
             } else {
                 if (root.shellUpdateProgressVisible || rootMod.preferShell) {
-                    root.showShellUpdateTabFromWidget()
+                    root.activeUpdateTab = "shell"
+                    root.dashboardExpanded = true
+                    root.dashboardDetail = "updates"
                     return
                 }
                 if (root.shellUpdateBehind > 0
@@ -205,8 +207,11 @@ Item {
                         && !rootMod.hasThemeUpdates
                         && root.themeUpdLocalEdits <= 0) {
                     root.activeUpdateTab = "shell"
+                } else {
+                    root.activeUpdateTab = "packages"
                 }
-                root.archVisible = true;
+                root.dashboardExpanded = true
+                root.dashboardDetail = "updates"
             }
         }
     }
