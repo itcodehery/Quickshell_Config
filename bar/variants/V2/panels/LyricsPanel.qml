@@ -66,7 +66,9 @@ PanelWindow {
 
             UiText {
                 id: lyricsText
-                text: (lyricsCard.hasLyrics && mprisPanel.currentLyricIndex >= 0 && mprisPanel.currentLyricIndex < mprisPanel.lyricsList.length) ? mprisPanel.lyricsList[mprisPanel.currentLyricIndex].text : (lyricsCard.hasLyrics ? "..." : "No lyrics found")
+                text: (lyricsCard.hasLyrics && mprisPanel.currentLyricIndex >= 0 && mprisPanel.currentLyricIndex < mprisPanel.lyricsList.length)
+                    ? mprisPanel.lyricsList[mprisPanel.currentLyricIndex].text
+                    : (lyricsCard.hasLyrics ? "..." : (mprisPanel._isFetchingLyrics ? "Searching lyrics…" : "No lyrics found"))
                 color: root.ink
                 font.family: root.barFont
                 font.pixelSize: 14

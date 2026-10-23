@@ -4,6 +4,7 @@ import QtQuick.Shapes
 import Quickshell
 import Quickshell.Io
 import "../modules"
+import "../motion"
 
 Item {
     id: systemSection
@@ -213,6 +214,7 @@ Item {
                         color: root.ink
                     }
 
+                    SpringPress {}
                     MouseArea {
                         id: closeLeftMa
                         anchors.fill: parent
@@ -331,6 +333,7 @@ Item {
                                         }
                                     }
 
+                                    SpringPress {}
                                     MouseArea {
                                         id: cardMa
                                         anchors.fill: parent
@@ -482,6 +485,7 @@ Item {
                             color: root.ink
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: closeRightMa
                             anchors.fill: parent

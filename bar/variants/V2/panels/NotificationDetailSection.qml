@@ -3,6 +3,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import "../modules"
+import "../motion"
 
 Item {
     id: notifSection
@@ -166,71 +167,15 @@ Item {
                 anchors.rightMargin: 12
                 height: 26
 
-                // Segmented Pill [ Active | History ]
-                Rectangle {
+                // Tab switcher [ Active | History ]
+                PillTabs {
                     id: tabPill
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 140
-                    height: 26
-                    radius: 13
-                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                    border.width: 0
-
-                    Rectangle {
-                        id: activeTabHighlight
-                        width: 68
-                        height: 22
-                        radius: 11
-                        y: 2
-                        x: notifSection.viewMode === "active" ? 2 : 70
-                        color: root.seal
-                        Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-                    }
-
-                    Row {
-                        anchors.fill: parent
-
-                        // Active Tab
-                        Item {
-                            width: 70
-                            height: parent.height
-                            UiText {
-                                anchors.centerIn: parent
-                                text: notifSection.activeList.length > 0 ? ("Active (" + notifSection.activeList.length + ")") : "Active"
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: notifSection.viewMode === "active" ? Font.Bold : Font.Medium
-                                color: notifSection.viewMode === "active" ? root.paper : root.ink
-                                opacity: notifSection.viewMode === "active" ? 1.0 : 0.65
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: notifSection.viewMode = "active"
-                            }
-                        }
-
-                        // History Tab
-                        Item {
-                            width: 70
-                            height: parent.height
-                            UiText {
-                                anchors.centerIn: parent
-                                text: "History"
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: notifSection.viewMode === "history" ? Font.Bold : Font.Medium
-                                color: notifSection.viewMode === "history" ? root.paper : root.ink
-                                opacity: notifSection.viewMode === "history" ? 1.0 : 0.65
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: notifSection.viewMode = "history"
-                            }
-                        }
-                    }
+                    theme: root
+                    model: [ { id: "active", label: "Active" }, { id: "history", label: "History" } ]
+                    current: notifSection.viewMode
+                    onActivated: (id) => notifSection.viewMode = id
                 }
 
                 // DND Status Pill Badge
@@ -316,8 +261,6 @@ Item {
                         height: 32
                         radius: 16
                         color: dndBtnMa.containsMouse ? root.fillHover : (notifSection.isDnd ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08))
-                        scale: dndBtnMa.pressed ? 0.94 : 1.0
-                        Behavior on scale { NumberAnimation { duration: 120 } }
                         Behavior on color { ColorAnimation { duration: 150 } }
 
                         Row {
@@ -341,6 +284,7 @@ Item {
                             }
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: dndBtnMa
                             anchors.fill: parent
@@ -358,8 +302,6 @@ Item {
                         enabled: notifSection.currentList.length > 0
                         opacity: enabled ? 1.0 : 0.4
                         color: clearBtnMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                        scale: clearBtnMa.pressed ? 0.94 : 1.0
-                        Behavior on scale { NumberAnimation { duration: 120 } }
                         Behavior on color { ColorAnimation { duration: 150 } }
 
                         Row {
@@ -383,6 +325,7 @@ Item {
                             }
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: clearBtnMa
                             anchors.fill: parent
@@ -580,6 +523,7 @@ Item {
                                 color: dismissMa.containsMouse ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.5)
                             }
 
+                            SpringPress {}
                             MouseArea {
                                 id: dismissMa
                                 anchors.fill: parent
@@ -592,6 +536,7 @@ Item {
                         }
                     }
 
+                    SpringPress {}
                     MouseArea {
                         id: notifCardMa
                         anchors.fill: parent

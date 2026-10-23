@@ -1,3 +1,4 @@
+import "../motion"
 import QtQuick
 import QtQuick.Effects
 import Quickshell
@@ -77,258 +78,204 @@ Item {
         close()
     }
 
-    // Main search pill
+    readonly property color engineColor: engine === "ddg" ? "#E35934" : "#D97757"
+    readonly property color iconOnEngine: "#2B1710"
+
+    // Main search pill (engine-coloured, like a chat composer)
     Rectangle {
         id: pillBody
         anchors.fill: parent
         radius: searchBar.contentHeight / 2
-        color: textInput.activeFocus ? root.fillHover : (pillMa.containsMouse ? root.fillHover : root.fillIdle)
-        border.width: textInput.activeFocus ? 1.5 : 1
-        border.color: textInput.activeFocus
-            ? (engine === "ddg" ? "#E35934" : "#D97757")
-            : (pillMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.22) : root.islandBorder)
-
-        Behavior on border.color { ColorAnimation { duration: 180 } }
+        color: searchBar.engineColor
         Behavior on color { ColorAnimation { duration: 180 } }
 
-        MouseArea {
-            id: pillMa
-            anchors.fill: parent
-            hoverEnabled: true
-            acceptedButtons: Qt.NoButton
-        }
-
+        // Engine icon buttons (DuckDuckGo, Claude) sitting directly on the pill
         Row {
-            anchors.fill: parent
-            anchors.leftMargin: 4
-            anchors.rightMargin: 4
-            spacing: 5
+            id: engineRow
+            anchors.left: parent.left
+            anchors.leftMargin: 6
             anchors.verticalCenter: parent.verticalCenter
+            spacing: 2
 
-            // ── Engine Toggle Switch (DuckDuckGo vs Claude) ────
-            Rectangle {
-                id: togglePill
-                anchors.verticalCenter: parent.verticalCenter
-                width: 48
-                height: 20
-                radius: 10
-                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                border.width: 1
-                border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
-
-                // Sliding indicator bubble
-                Rectangle {
-                    id: slidingIndicator
-                    y: 1.5
-                    width: 22
-                    height: 17
-                    radius: 8.5
-                    x: searchBar.engine === "ddg" ? 2 : 24
-                    color: searchBar.engine === "ddg" ? "#E35934" : "#D97757"
-
-                    Behavior on x {
-                        NumberAnimation {
-                            duration: 220
-                            easing.type: Easing.OutCubic
-                        }
-                    }
-                    Behavior on color { ColorAnimation { duration: 200 } }
-                }
-
-                // DuckDuckGo button (Left)
-                Item {
-                    id: ddgBtn
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    width: 24
-
-                    Image {
-                        id: ddgIcon
-                        anchors.centerIn: parent
-                        width: 12
-                        height: 12
-                        fillMode: Image.PreserveAspectFit
-                        source: Quickshell.env("HOME") + "/.config/quickshell/bar/duckduckgo.svg"
-                        layer.enabled: true
-                        layer.effect: MultiEffect {
-                            colorization: 1.0
-                            colorizationColor: searchBar.engine === "ddg" ? "#FFFFFF" : root.ink
-                        }
-                        opacity: searchBar.engine === "ddg" ? 1.0 : 0.55
-                        Behavior on opacity { NumberAnimation { duration: 150 } }
-                    }
-
-                    MouseArea {
-                        id: ddgMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            if (searchBar.engine !== "ddg") {
-                                searchBar.toggleEngine()
-                            }
-                            textInput.forceActiveFocus()
-                        }
-                    }
-                }
-
-                // Claude button (Right)
-                Item {
-                    id: claudeBtn
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    width: 24
-
-                    Image {
-                        id: claudeIcon
-                        anchors.centerIn: parent
-                        width: 11
-                        height: 11
-                        fillMode: Image.PreserveAspectFit
-                        source: Quickshell.env("HOME") + "/.config/quickshell/bar/claude.svg"
-                        layer.enabled: true
-                        layer.effect: MultiEffect {
-                            colorization: 1.0
-                            colorizationColor: searchBar.engine === "claude" ? "#FFFFFF" : root.ink
-                        }
-                        opacity: searchBar.engine === "claude" ? 1.0 : 0.55
-                        Behavior on opacity { NumberAnimation { duration: 150 } }
-                    }
-
-                    MouseArea {
-                        id: claudeMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            if (searchBar.engine !== "claude") {
-                                searchBar.toggleEngine()
-                            }
-                            textInput.forceActiveFocus()
-                        }
-                    }
-                }
-            }
-
-            // ── Input Field Container ──────────────────────────────
             Item {
-                id: inputContainer
-                width: Math.max(60, parent.width - togglePill.width - goBtn.width - (clearBtn.width > 0 ? (clearBtn.width + parent.spacing) : 0) - (parent.spacing * 2) - 8)
-                height: parent.height
-                anchors.verticalCenter: parent.verticalCenter
-                clip: true
+                id: ddgBtn
+                width: 24
+                height: searchBar.contentHeight
 
-                TextInput {
-                    id: textInput
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    verticalAlignment: TextInput.AlignVCenter
-                    font.family: root.barFont
-                    font.pixelSize: 11
-                    font.weight: Font.Medium
-                    color: root.ink
-                    selectionColor: searchBar.engine === "ddg" ? "#E35934" : "#D97757"
-                    selectedTextColor: "#FFFFFF"
-                    selectByMouse: true
-                    clip: true
-
-                    Keys.onTabPressed: (event) => {
-                        searchBar.toggleEngine()
-                        event.accepted = true
-                    }
-                    Keys.onBacktabPressed: (event) => {
-                        searchBar.toggleEngine()
-                        event.accepted = true
-                    }
-
-                    Keys.onEscapePressed: (event) => {
-                        searchBar.close()
-                        event.accepted = true
-                    }
-
-                    onAccepted: searchBar.doSearch()
-
-                    // Placeholder text
-                    UiText {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: searchBar.engine === "ddg" ? "Search web..." : "Ask Claude..."
-                        font.family: root.barFont
-                        font.pixelSize: 11
-                        font.weight: Font.Medium
-                        color: root.ink
-                        opacity: 0.4
-                        visible: textInput.text === ""
-                        Behavior on opacity { NumberAnimation { duration: 150 } }
-                    }
-                }
-            }
-
-            // ── Clear Button (when text is present) ──
-            Item {
-                id: clearBtn
-                width: textInput.text.length > 0 ? 16 : 0
-                height: 20
-                visible: width > 0
-                anchors.verticalCenter: parent.verticalCenter
-                clip: true
-                Behavior on width { NumberAnimation { duration: 150 } }
-
-                IconText {
+                Image {
                     anchors.centerIn: parent
-                    text: "close"
-                    font.pixelSize: 12
-                    color: root.ink
-                    opacity: clearMa.containsMouse ? 0.9 : 0.5
+                    width: 14
+                    height: 14
+                    fillMode: Image.PreserveAspectFit
+                    source: Quickshell.env("HOME") + "/.config/quickshell/bar/duckduckgo.svg"
+                    layer.enabled: true
+                    layer.effect: MultiEffect {
+                        colorization: 1.0
+                        colorizationColor: searchBar.iconOnEngine
+                    }
+                    opacity: searchBar.engine === "ddg" ? 1.0 : (ddgMa.containsMouse ? 0.7 : 0.45)
+                    Behavior on opacity { NumberAnimation { duration: 150 } }
                 }
 
+                SpringPress {}
                 MouseArea {
-                    id: clearMa
+                    id: ddgMa
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
-                        textInput.text = ""
+                        if (searchBar.engine !== "ddg") searchBar.toggleEngine()
                         textInput.forceActiveFocus()
                     }
                 }
             }
 
-            // ── Cute Search / Send Button ──────────────────────────
-            Rectangle {
-                id: goBtn
-                anchors.verticalCenter: parent.verticalCenter
-                width: 20
-                height: 20
-                radius: 10
-                color: goMa.containsMouse
-                    ? (searchBar.engine === "ddg" ? "#E35934" : "#D97757")
-                    : (textInput.text.trim() !== ""
-                        ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.12)
-                        : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06))
+            Item {
+                id: claudeBtn
+                width: 24
+                height: searchBar.contentHeight
 
-                scale: goMa.pressed ? 0.88 : (goMa.containsMouse ? 1.08 : 1.0)
-                Behavior on scale { NumberAnimation { duration: 120 } }
-                Behavior on color { ColorAnimation { duration: 150 } }
-
-                IconText {
+                Image {
                     anchors.centerIn: parent
-                    text: textInput.text.trim() === "" ? "search" : "arrow_forward"
-                    font.pixelSize: 11
-                    color: goMa.containsMouse ? "#FFFFFF" : root.ink
-                    opacity: goMa.containsMouse ? 1.0 : 0.75
-                    Behavior on color { ColorAnimation { duration: 150 } }
+                    width: 13
+                    height: 13
+                    fillMode: Image.PreserveAspectFit
+                    source: Quickshell.env("HOME") + "/.config/quickshell/bar/claude.svg"
+                    layer.enabled: true
+                    layer.effect: MultiEffect {
+                        colorization: 1.0
+                        colorizationColor: searchBar.iconOnEngine
+                    }
+                    opacity: searchBar.engine === "claude" ? 1.0 : (claudeMa.containsMouse ? 0.7 : 0.45)
+                    Behavior on opacity { NumberAnimation { duration: 150 } }
                 }
 
+                SpringPress {}
                 MouseArea {
-                    id: goMa
+                    id: claudeMa
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: searchBar.doSearch()
+                    onClicked: {
+                        if (searchBar.engine !== "claude") searchBar.toggleEngine()
+                        textInput.forceActiveFocus()
+                    }
+                }
+            }
+        }
+
+        // Light inner subsection holding the input, clear and go buttons
+        Rectangle {
+            id: innerSection
+            anchors.left: engineRow.right
+            anchors.leftMargin: 4
+            anchors.right: parent.right
+            anchors.rightMargin: 3
+            anchors.verticalCenter: parent.verticalCenter
+            height: searchBar.contentHeight - 6
+            radius: height / 2
+            color: root.paper
+
+            Row {
+                anchors.fill: parent
+                anchors.leftMargin: 9
+                anchors.rightMargin: 3
+                spacing: 5
+
+                Item {
+                    id: inputContainer
+                    width: Math.max(40, parent.width - goBtn.width - (clearBtn.width > 0 ? clearBtn.width + parent.spacing : 0) - parent.spacing)
+                    height: parent.height
+                    clip: true
+
+                    TextInput {
+                        id: textInput
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        verticalAlignment: TextInput.AlignVCenter
+                        font.family: root.barFont
+                        font.pixelSize: 11
+                        font.weight: Font.Medium
+                        color: root.ink
+                        selectionColor: searchBar.engineColor
+                        selectedTextColor: "#FFFFFF"
+                        selectByMouse: true
+                        clip: true
+
+                        Keys.onTabPressed: (event) => { searchBar.toggleEngine(); event.accepted = true }
+                        Keys.onBacktabPressed: (event) => { searchBar.toggleEngine(); event.accepted = true }
+                        Keys.onEscapePressed: (event) => { searchBar.close(); event.accepted = true }
+
+                        onAccepted: searchBar.doSearch()
+
+                        UiText {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: searchBar.engine === "ddg" ? "Search web..." : "Ask Claude..."
+                            font.family: root.barFont
+                            font.pixelSize: 11
+                            font.weight: Font.Medium
+                            color: root.ink
+                            opacity: 0.4
+                            visible: textInput.text === ""
+                        }
+                    }
+                }
+
+                Item {
+                    id: clearBtn
+                    width: textInput.text.length > 0 ? 16 : 0
+                    height: 20
+                    visible: width > 0
+                    anchors.verticalCenter: parent.verticalCenter
+                    clip: true
+                    Behavior on width { NumberAnimation { duration: 150 } }
+
+                    IconText {
+                        anchors.centerIn: parent
+                        text: "close"
+                        font.pixelSize: 12
+                        color: root.ink
+                        opacity: clearMa.containsMouse ? 0.9 : 0.5
+                    }
+
+                    SpringPress {}
+                    MouseArea {
+                        id: clearMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            textInput.text = ""
+                            textInput.forceActiveFocus()
+                        }
+                    }
+                }
+
+                Item {
+                    id: goBtn
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 20
+                    height: 20
+
+                    IconText {
+                        anchors.centerIn: parent
+                        text: textInput.text.trim() === "" ? "search" : "arrow_forward"
+                        font.pixelSize: 13
+                        color: goMa.containsMouse ? searchBar.engineColor : root.ink
+                        opacity: goMa.containsMouse ? 1.0 : 0.7
+                        Behavior on color { ColorAnimation { duration: 150 } }
+                    }
+
+                    SpringPress {}
+                    MouseArea {
+                        id: goMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: searchBar.doSearch()
+                    }
                 }
             }
         }

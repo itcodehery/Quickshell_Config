@@ -378,247 +378,35 @@ Item {
         Row {
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 8
+            spacing: 18
 
             // Mode Tabs: [ Themes | Wallpapers ]
-            Rectangle {
-                height: 28
-                width: modeRow.width + 6
-                radius: 14
-                color: Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.45)
-                border.color: root.frameWeak
-                border.width: 1
-
-                Row {
-                    id: modeRow
-                    anchors.centerIn: parent
-                    spacing: 3
-
-                    // Themes Tab
-                    Rectangle {
-                        id: themeTabBtn
-                        width: themeTabRow.width + 16
-                        height: 22
-                        radius: 11
-                        color: switcher.isThemeMode ? root.seal : (themeTabMa.containsMouse ? root.fillHover : "transparent")
-                        Behavior on color { ColorAnimation { duration: 150 } }
-
-                        readonly property color tabTextCol: switcher.isThemeMode
-                            ? switcher.contrastText(root.seal, "#101014", "#ffffff")
-                            : root.ink
-
-                        Row {
-                            id: themeTabRow
-                            anchors.centerIn: parent
-                            spacing: 4
-                            IconText {
-                                text: "palette"
-                                font.pixelSize: 12
-                                color: themeTabBtn.tabTextCol
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                            Text {
-                                text: "Themes"
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: switcher.isThemeMode ? Font.Medium : Font.Normal
-                                color: themeTabBtn.tabTextCol
-                                opacity: switcher.isThemeMode ? 1.0 : 0.75
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        MouseArea {
-                            id: themeTabMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: switcher.setMode("theme")
-                        }
-                    }
-
-                    // Wallpapers Tab
-                    Rectangle {
-                        id: wpTabBtn
-                        width: wpTabRow.width + 16
-                        height: 22
-                        radius: 11
-                        color: !switcher.isThemeMode ? root.seal : (wpTabMa.containsMouse ? root.fillHover : "transparent")
-                        Behavior on color { ColorAnimation { duration: 150 } }
-
-                        readonly property color tabTextCol: !switcher.isThemeMode
-                            ? switcher.contrastText(root.seal, "#101014", "#ffffff")
-                            : root.ink
-
-                        Row {
-                            id: wpTabRow
-                            anchors.centerIn: parent
-                            spacing: 4
-                            IconText {
-                                text: "image"
-                                font.pixelSize: 12
-                                color: wpTabBtn.tabTextCol
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                            Text {
-                                text: "Wallpapers"
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: !switcher.isThemeMode ? Font.Medium : Font.Normal
-                                color: wpTabBtn.tabTextCol
-                                opacity: !switcher.isThemeMode ? 1.0 : 0.75
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        MouseArea {
-                            id: wpTabMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: switcher.setMode("wallpaper")
-                        }
-                    }
-                }
+            PillTabs {
+                anchors.verticalCenter: parent.verticalCenter
+                theme: root
+                tabHeight: 28
+                model: [
+                    { id: "theme", label: "Themes", icon: "palette" },
+                    { id: "wallpaper", label: "Wallpapers", icon: "image" }
+                ]
+                current: switcher.isThemeMode ? "theme" : "wallpaper"
+                onActivated: (id) => switcher.setMode(id)
             }
 
             // Style Selector: [ 3D Fan | Hearthstone | Coverflow ]
-            Rectangle {
-                height: 28
-                width: styleRow.width + 6
-                radius: 14
-                color: Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.45)
-                border.color: root.frameWeak
-                border.width: 1
-
-                Row {
-                    id: styleRow
-                    anchors.centerIn: parent
-                    spacing: 3
-
-                    // Tanzaku (3D Fan)
-                    Rectangle {
-                        property bool sel: switcher.currentPickerStyle === "tanzaku" || switcher.currentPickerStyle === ""
-                        width: tanzakuTabRow.width + 14
-                        height: 22
-                        radius: 11
-                        color: sel ? root.fillHover : (tanzakuMa.containsMouse ? root.fillIdle : "transparent")
-                        border.color: sel ? root.seal : "transparent"
-                        border.width: 1
-                        Behavior on color { ColorAnimation { duration: 150 } }
-
-                        Row {
-                            id: tanzakuTabRow
-                            anchors.centerIn: parent
-                            spacing: 4
-                            IconText {
-                                text: "view_carousel"
-                                font.pixelSize: 12
-                                color: parent.parent.sel ? root.seal : root.ink
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                            Text {
-                                text: "3D Fan"
-                                font.family: root.barFont
-                                font.pixelSize: 10
-                                font.weight: parent.parent.sel ? Font.Medium : Font.Normal
-                                color: root.ink
-                                opacity: parent.parent.sel ? 1.0 : 0.7
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        MouseArea {
-                            id: tanzakuMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: switcher.setStyle("tanzaku")
-                        }
-                    }
-
-                    // Hearthstone
-                    Rectangle {
-                        property bool sel: switcher.currentPickerStyle === "hearthstone"
-                        width: hsTabRow.width + 14
-                        height: 22
-                        radius: 11
-                        color: sel ? root.fillHover : (hsMa.containsMouse ? root.fillIdle : "transparent")
-                        border.color: sel ? root.seal : "transparent"
-                        border.width: 1
-                        Behavior on color { ColorAnimation { duration: 150 } }
-
-                        Row {
-                            id: hsTabRow
-                            anchors.centerIn: parent
-                            spacing: 4
-                            IconText {
-                                text: "style"
-                                font.pixelSize: 12
-                                color: parent.parent.sel ? root.seal : root.ink
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                            Text {
-                                text: "Hearthstone"
-                                font.family: root.barFont
-                                font.pixelSize: 10
-                                font.weight: parent.parent.sel ? Font.Medium : Font.Normal
-                                color: root.ink
-                                opacity: parent.parent.sel ? 1.0 : 0.7
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        MouseArea {
-                            id: hsMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: switcher.setStyle("hearthstone")
-                        }
-                    }
-
-                    // Carousel (Coverflow)
-                    Rectangle {
-                        property bool sel: switcher.currentPickerStyle === "carousel"
-                        width: cfTabRow.width + 14
-                        height: 22
-                        radius: 11
-                        color: sel ? root.fillHover : (cfMa.containsMouse ? root.fillIdle : "transparent")
-                        border.color: sel ? root.seal : "transparent"
-                        border.width: 1
-                        Behavior on color { ColorAnimation { duration: 150 } }
-
-                        Row {
-                            id: cfTabRow
-                            anchors.centerIn: parent
-                            spacing: 4
-                            IconText {
-                                text: "view_array"
-                                font.pixelSize: 12
-                                color: parent.parent.sel ? root.seal : root.ink
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                            Text {
-                                text: "Coverflow"
-                                font.family: root.barFont
-                                font.pixelSize: 10
-                                font.weight: parent.parent.sel ? Font.Medium : Font.Normal
-                                color: root.ink
-                                opacity: parent.parent.sel ? 1.0 : 0.7
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        MouseArea {
-                            id: cfMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: switcher.setStyle("carousel")
-                        }
-                    }
-                }
+            PillTabs {
+                anchors.verticalCenter: parent.verticalCenter
+                theme: root
+                variant: "tonal"
+                tabHeight: 24
+                fontSize: 10
+                model: [
+                    { id: "tanzaku", label: "3D Fan", icon: "view_carousel" },
+                    { id: "hearthstone", label: "Hearthstone", icon: "style" },
+                    { id: "carousel", label: "Coverflow", icon: "view_array" }
+                ]
+                current: switcher.currentPickerStyle === "" ? "tanzaku" : switcher.currentPickerStyle
+                onActivated: (id) => switcher.setStyle(id)
             }
         }
 

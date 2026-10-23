@@ -41,6 +41,9 @@ PanelWindow {
     property bool showingLyrics: false
     property string lyricsTrackId: ""
     property int _lyricsFetchSeq: 0
+    property bool _isFetchingLyrics: false
+    property int _lyricsRetryCount: 0
+    property var _lyricsCache: ({})
 
     readonly property string currentTrackId: {
         if (!player) return ""
@@ -52,12 +55,53 @@ PanelWindow {
     Connections {
         target: mprisPanel.player
         ignoreUnknownSignals: true
-        function onTrackTitleChanged() { mprisPanel.fetchLyrics() }
-        function onTrackArtistChanged() { mprisPanel.fetchLyrics() }
+        function onTrackTitleChanged() { mprisPanel.triggerLyricsRefresh() }
+        function onTrackArtistChanged() { mprisPanel.triggerLyricsRefresh() }
     }
 
-    onPlayerChanged: fetchLyrics()
-    onCurrentTrackIdChanged: fetchLyrics()
+    onPlayerChanged: triggerLyricsRefresh()
+    onCurrentTrackIdChanged: triggerLyricsRefresh()
+
+    function triggerLyricsRefresh() {
+        var trackId = mprisPanel.currentTrackId
+        if (trackId === "") {
+            lyricsList = []
+            currentLyricIndex = -1
+            lyricsTrackId = ""
+            _lyricsRetryCount = 0
+            _isFetchingLyrics = false
+            return
+        }
+        if (_lyricsCache[trackId]) {
+            lyricsTrackId = trackId
+            lyricsList = _lyricsCache[trackId]
+            syncLyricIndex()
+            _lyricsRetryCount = 0
+            _isFetchingLyrics = false
+            return
+        }
+        if (lyricsTrackId !== trackId) {
+            lyricsList = []
+            currentLyricIndex = -1
+            lyricsTrackId = ""
+            _lyricsRetryCount = 0
+            _isFetchingLyrics = false
+        }
+        fetchLyrics()
+    }
+
+    // Regular interval polling system: continuously looks for lyrics in short intervals until found
+    Timer {
+        id: lyricsPollTimer
+        interval: mprisPanel._lyricsRetryCount < 4 ? 3000 : (mprisPanel._lyricsRetryCount < 10 ? 6000 : 12000)
+        repeat: true
+        running: mprisPanel.active && mprisPanel.currentTrackId !== "" && mprisPanel.lyricsTrackId !== mprisPanel.currentTrackId
+        onTriggered: {
+            if (!mprisPanel._isFetchingLyrics) {
+                mprisPanel.fetchLyrics()
+            }
+        }
+    }
 
     function syncLyricIndex() {
         if (!lyricsList || lyricsList.length === 0) {
@@ -81,71 +125,123 @@ PanelWindow {
         }
     }
 
+    function cleanTrackTitle(str) {
+        if (!str) return ""
+        return str.replace(/\s*[\(\[](feat\.|ft\.|remaster|live|official|deluxe|bonus|version|radio|edit|mono|stereo|anniversary).*?[\)\]]/gi, "")
+                  .replace(/\s*-\s*(remaster|live|radio|deluxe|bonus|anniversary).*$/gi, "")
+                  .trim()
+    }
+
+    function parseLrc(lrcText) {
+        if (!lrcText || typeof lrcText !== "string") return []
+        var parsed = []
+        var lines = lrcText.split('\n')
+        var regex = /^\[(\d{1,2}):(\d{2}(?:\.\d+)?)\]\s*(.*)/
+        for (var i = 0; i < lines.length; i++) {
+            var match = regex.exec(lines[i])
+            if (match) {
+                var m = parseFloat(match[1])
+                var s = parseFloat(match[2])
+                var txt = match[3].trim()
+                if (txt.length > 0) {
+                    parsed.push({ time: (m * 60) + s, text: txt })
+                }
+            }
+        }
+        return parsed
+    }
+
     function fetchLyrics() {
         var p = mprisPanel.player
         var title = p ? (p.trackTitle || "").trim() : ""
         var artist = p ? (p.trackArtist || "").trim() : ""
         var trackId = (title || artist) ? (title + "||" + artist) : ""
 
+        if (!p || title === "" || trackId === "") {
+            _isFetchingLyrics = false
+            return
+        }
+
+        if (_lyricsCache[trackId]) {
+            lyricsTrackId = trackId
+            lyricsList = _lyricsCache[trackId]
+            syncLyricIndex()
+            _isFetchingLyrics = false
+            return
+        }
+
+        if (_isFetchingLyrics) return
+        _isFetchingLyrics = true
         var seq = ++_lyricsFetchSeq
-        lyricsList = []
-        currentLyricIndex = -1
-        lyricsTrackId = ""
+        _lyricsRetryCount++
 
-        if (!p || title === "") return
+        var cleaned = cleanTrackTitle(title)
+        var targetTitle = cleaned !== "" ? cleaned : title
 
-        var xhr = new XMLHttpRequest()
-        var url = "https://lrclib.net/api/search?q=" + encodeURIComponent(title + " " + artist)
-        xhr.open("GET", url, true)
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === XMLHttpRequest.DONE) {
-                if (seq !== mprisPanel._lyricsFetchSeq || mprisPanel.currentTrackId !== trackId) {
-                    return
-                }
-                if (xhr.status === 200) {
-                    try {
-                        var resp = JSON.parse(xhr.responseText)
-                        if (Array.isArray(resp) && resp.length > 0) {
-                            var foundLyrics = null
-                            for (var r = 0; r < resp.length; r++) {
-                                if (resp[r] && resp[r].syncedLyrics && typeof resp[r].syncedLyrics === "string" && resp[r].syncedLyrics.trim().length > 0) {
-                                    foundLyrics = resp[r].syncedLyrics
-                                    break
-                                }
-                            }
-                            if (foundLyrics) {
-                                var parsed = []
-                                var lines = foundLyrics.split('\n')
-                                var regex = /^\[(\d{2}):(\d{2}\.\d{2})\]\s(.*)/
-                                for (var i = 0; i < lines.length; i++) {
-                                    var match = regex.exec(lines[i])
-                                    if (match) {
-                                        var m = parseFloat(match[1])
-                                        var s = parseFloat(match[2])
-                                        var txt = match[3].trim()
-                                        if (txt.length > 0) {
-                                            parsed.push({ time: (m * 60) + s, text: txt })
+        // 1. Specific search by title + artist fields
+        var url1 = "https://lrclib.net/api/search?track_name=" + encodeURIComponent(targetTitle) + "&artist_name=" + encodeURIComponent(artist)
+        // 2. Generic query search
+        var url2 = "https://lrclib.net/api/search?q=" + encodeURIComponent(targetTitle + " " + artist)
+
+        function finish(success, parsed) {
+            _isFetchingLyrics = false
+            if (seq !== mprisPanel._lyricsFetchSeq || mprisPanel.currentTrackId !== trackId) return
+            if (success && parsed && parsed.length > 0) {
+                mprisPanel._lyricsCache[trackId] = parsed
+                mprisPanel.lyricsTrackId = trackId
+                mprisPanel.lyricsList = parsed
+                mprisPanel.syncLyricIndex()
+            }
+        }
+
+        function queryUrl(url, nextFallback) {
+            var xhr = new XMLHttpRequest()
+            xhr.open("GET", url, true)
+            xhr.setRequestHeader("User-Agent", "Quickshell-Lyrics/2.0 (Linux)")
+            xhr.timeout = 5000
+            xhr.ontimeout = function() {
+                if (nextFallback) nextFallback()
+                else finish(false, null)
+            }
+            xhr.onerror = function() {
+                if (nextFallback) nextFallback()
+                else finish(false, null)
+            }
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (seq !== mprisPanel._lyricsFetchSeq || mprisPanel.currentTrackId !== trackId) {
+                        _isFetchingLyrics = false
+                        return
+                    }
+                    if (xhr.status === 200) {
+                        try {
+                            var resp = JSON.parse(xhr.responseText)
+                            if (Array.isArray(resp) && resp.length > 0) {
+                                for (var r = 0; r < resp.length; r++) {
+                                    if (resp[r] && resp[r].syncedLyrics && typeof resp[r].syncedLyrics === "string" && resp[r].syncedLyrics.trim().length > 0) {
+                                        var parsed = parseLrc(resp[r].syncedLyrics)
+                                        if (parsed.length > 0) {
+                                            finish(true, parsed)
+                                            return
                                         }
                                     }
                                 }
-                                if (parsed.length > 0) {
-                                    mprisPanel.lyricsTrackId = trackId
-                                    mprisPanel.lyricsList = parsed
-                                    mprisPanel.syncLyricIndex()
-                                    return
-                                }
                             }
-                        }
-                    } catch(e) {
-                        // ignore error
+                        } catch(e) {}
+                    }
+                    if (nextFallback) {
+                        nextFallback()
+                    } else {
+                        finish(false, null)
                     }
                 }
-                mprisPanel.lyricsTrackId = ""
-                mprisPanel.lyricsList = []
-                mprisPanel.currentLyricIndex = -1
             }
+            xhr.send()
         }
-        xhr.send()
+
+        queryUrl(url1, function() {
+            queryUrl(url2, null)
+        })
     }
 
     onCurPosChanged: syncLyricIndex()

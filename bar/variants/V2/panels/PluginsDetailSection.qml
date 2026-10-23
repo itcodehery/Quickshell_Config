@@ -4,6 +4,7 @@ import QtQuick.Shapes
 import Quickshell
 import Quickshell.Io
 import "../modules"
+import "../motion"
 
 Item {
     id: pluginsSection
@@ -82,8 +83,10 @@ try:
     result = []
     order_map = {pid: i for i, pid in enumerate(order)}
     for p in plugins:
-        if not p.get('enabled'): continue
-        if p.get('kinds') == ['service']: continue
+        enabled = bool(p.get('enabled'))
+        # Service-only plugins have nothing to launch; still list disabled third-party ones so they can be enabled
+        if p.get('kinds') == ['service'] and (enabled or p.get('firstParty', False)): continue
+        if not enabled and p.get('firstParty', False) and p['id'] in exclude: continue
         pid = p['id']
         if pid in exclude: continue
         name = p.get('name', pid)
@@ -94,10 +97,11 @@ try:
             'name': name,
             'icon': icon,
             'kinds': ', '.join(kinds),
-            'firstParty': bool(p.get('firstParty', False))
+            'firstParty': bool(p.get('firstParty', False)),
+            'enabled': enabled
         })
     
-    result.sort(key=lambda item: order_map.get(item['id'], 9999))
+    result.sort(key=lambda item: (not item['enabled'], order_map.get(item['id'], 9999)))
     print(json.dumps(result))
 except Exception:
     print('[]')
@@ -172,10 +176,38 @@ except Exception:
         pluginsSection.forceActiveFocus()
     }
 
+    Process {
+        id: enablePluginProc
+        stdout: StdioCollector {
+            onStreamFinished: {
+                queryPluginsProc.running = false
+                queryPluginsProc.running = true
+            }
+        }
+    }
+
+    function enablePlugin(id) {
+        enablePluginProc.command = ["bash", "-c", "omarchy plugin enable \"$1\" 2>&1", "_", id]
+        enablePluginProc.running = false
+        enablePluginProc.running = true
+    }
+
+    // Disabling a plugin also unpins it so no dead icon stays in the header
+    function disablePlugin(id) {
+        if (!id) return
+        if (root && root.isPluginPinned && root.isPluginPinned(id) && root.togglePinPlugin) {
+            root.togglePinPlugin(id)
+        }
+        enablePluginProc.command = ["bash", "-c", "omarchy plugin disable \"$1\" 2>&1", "_", id]
+        enablePluginProc.running = false
+        enablePluginProc.running = true
+    }
+
     function triggerLaunch(index) {
         if (index < 0 || index >= filteredPluginsModel.count) return
         var item = filteredPluginsModel.get(index)
         if (!item) return
+        if (item.enabled === false) { enablePlugin(item.id); return }
         if (root) root.dashboardExpanded = false
         closeRequested()
         Quickshell.execDetached(["omarchy-shell", "shell", "summon", item.id])
@@ -301,72 +333,35 @@ except Exception:
             Item {
                 id: leftTopBar
                 anchors.top: parent.top
-                anchors.topMargin: 9
+                anchors.topMargin: 6
                 anchors.left: parent.left
                 anchors.leftMargin: 12
                 anchors.right: parent.right
                 anchors.rightMargin: 12
-                height: 26
-
-                // Top Left: Status pill
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: 26
-                    radius: 13
-                    color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.12)
-                    width: leftStatusRow.implicitWidth + 18
-
-                    Row {
-                        id: leftStatusRow
-                        anchors.centerIn: parent
-                        spacing: 6
-
-                        Rectangle {
-                            width: 6
-                            height: 6
-                            radius: 3
-                            color: pluginsSection.isRemoving ? "#ea6962" : (leftColContainer.curItem ? "#a9b665" : root.sumiHi)
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        IconText {
-                            text: "widgets"
-                            font.pixelSize: 13
-                            color: root.seal
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Text {
-                            text: pluginsSection.isRemoving ? "Removing..." : "Plugin Spotlight"
-                            font.family: root.barFont
-                            font.pixelSize: 11
-                            font.weight: Font.Bold
-                            color: root.ink
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-                }
+                height: 36
+                z: 5
 
                 // Top Right: Refresh & Close Button
                 Row {
                     anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 8
                     spacing: 6
 
                     Rectangle {
-                        width: 26
-                        height: 26
-                        radius: 13
+                        width: 24
+                        height: 24
+                        radius: 12
                         color: refreshLeftMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
 
                         IconText {
                             anchors.centerIn: parent
                             text: "refresh"
-                            font.pixelSize: 14
+                            font.pixelSize: 13
                             color: root.ink
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: refreshLeftMa
                             anchors.fill: parent
@@ -380,18 +375,19 @@ except Exception:
                     }
 
                     Rectangle {
-                        width: 26
-                        height: 26
-                        radius: 13
+                        width: 24
+                        height: 24
+                        radius: 12
                         color: closeLeftMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
 
                         IconText {
                             anchors.centerIn: parent
                             text: "close"
-                            font.pixelSize: 14
+                            font.pixelSize: 13
                             color: root.ink
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: closeLeftMa
                             anchors.fill: parent
@@ -407,7 +403,7 @@ except Exception:
             Item {
                 id: leftBodyContainer
                 anchors.top: leftTopBar.bottom
-                anchors.topMargin: 8
+                anchors.topMargin: 0
                 anchors.left: parent.left
                 anchors.leftMargin: 12
                 anchors.right: parent.right
@@ -415,13 +411,12 @@ except Exception:
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 10
 
-                Rectangle {
+                ConnectedTabCard {
+                    root: pluginsSection.root
                     anchors.fill: parent
-                    radius: 14
-                    color: Qt.rgba(1, 1, 1, 0.03)
-                    border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.05)
-                    clip: true
+                    dotColor: pluginsSection.isRemoving ? "#ea6962" : (leftColContainer.curItem ? "#a9b665" : root.sumiHi)
+                    icon: "widgets"
+                    text: pluginsSection.isRemoving ? "Removing..." : "Plugin Spotlight"
 
                     // 1. Selected Plugin Spotlight Widget (Compact, No Scrolling Needed)
                     Column {
@@ -442,8 +437,6 @@ except Exception:
                                 radius: 12
                                 anchors.verticalCenter: parent.verticalCenter
                                 color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.16)
-                                border.color: root.seal
-                                border.width: 1.5
 
                                 IconText {
                                     anchors.centerIn: parent
@@ -464,7 +457,7 @@ except Exception:
                                     text: leftColContainer.curItem ? leftColContainer.curItem.name : ""
                                     font.family: root.barFont
                                     font.pixelSize: 13
-                                    font.weight: Font.Bold
+                                    font.weight: Font.DemiBold
                                     color: root.ink
                                     elide: Text.ElideRight
                                     maximumLineCount: 1
@@ -520,7 +513,6 @@ except Exception:
                             height: 32
                             radius: 16
                             color: launchMa.containsMouse ? Qt.lighter(root.seal, 1.1) : root.seal
-                            scale: launchMa.pressed ? 0.97 : 1.0
 
                             Behavior on scale { NumberAnimation { duration: 100 } }
                             Behavior on color { ColorAnimation { duration: 150 } }
@@ -529,21 +521,22 @@ except Exception:
                                 anchors.centerIn: parent
                                 spacing: 6
                                 IconText {
-                                    text: "open_in_new"
+                                    text: (leftColContainer.curItem && leftColContainer.curItem.enabled === false) ? "power_settings_new" : "open_in_new"
                                     font.pixelSize: 13
                                     color: root.paper
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                                 Text {
-                                    text: "Launch Plugin"
+                                    text: (leftColContainer.curItem && leftColContainer.curItem.enabled === false) ? "Enable Plugin" : "Launch Plugin"
                                     font.family: root.barFont
                                     font.pixelSize: 11
-                                    font.weight: Font.Bold
+                                    font.weight: Font.DemiBold
                                     color: root.paper
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                             }
 
+                            SpringPress {}
                             MouseArea {
                                 id: launchMa
                                 anchors.fill: parent
@@ -553,7 +546,7 @@ except Exception:
                             }
                         }
 
-                        // Secondary Action Row: Pin & Remove Buttons
+                        // Secondary Action Row: Pin, Disable & Remove Buttons
                         Row {
                             width: parent.width
                             spacing: 6
@@ -561,13 +554,14 @@ except Exception:
                             // Pin Button
                             Rectangle {
                                 id: pinSpotBtn
-                                width: Math.floor((parent.width - 6) / 2)
+                                readonly property int btnCount: disableSpotBtn.visible ? 3 : 2
+                                width: Math.floor((parent.width - 6 * (btnCount - 1)) / btnCount)
                                 height: 28
                                 radius: 14
                                 readonly property bool isPinned: (leftColContainer.curItem && root && root.isPluginPinned && root.isPluginPinned(leftColContainer.curItem.id))
-                                color: pinSpotMa.containsMouse ? root.fillHover : root.fillIdle
-                                border.color: isPinned ? root.seal : root.panelBorder
-                                border.width: 1
+                                color: isPinned
+                                    ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, pinSpotMa.containsMouse ? 0.34 : 0.24)
+                                    : (pinSpotMa.containsMouse ? root.fillHover : root.fillIdle)
 
                                 Row {
                                     anchors.centerIn: parent
@@ -596,6 +590,7 @@ except Exception:
                                     text: pinSpotBtn.isPinned ? "Unpin from top header" : "Pin icon to top header (left of Screentime)"
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: pinSpotMa
                                     anchors.fill: parent
@@ -610,15 +605,53 @@ except Exception:
                                 }
                             }
 
+                            // Disable Plugin Button (only for enabled plugins)
+                            Rectangle {
+                                id: disableSpotBtn
+                                visible: !!(leftColContainer.curItem && leftColContainer.curItem.enabled !== false)
+                                width: pinSpotBtn.width
+                                height: 28
+                                radius: 14
+                                color: disableSpotMa.containsMouse ? root.fillHover : root.fillIdle
+
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: 4
+                                    IconText {
+                                        text: "toggle_off"
+                                        font.pixelSize: 13
+                                        color: root.ink
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                    Text {
+                                        text: "Disable"
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.DemiBold
+                                        color: root.ink
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+
+                                SpringPress {}
+                                MouseArea {
+                                    id: disableSpotMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        if (leftColContainer.curItem) pluginsSection.disablePlugin(leftColContainer.curItem.id)
+                                    }
+                                }
+                            }
+
                             // Remove / Delete Plugin Button
                             Rectangle {
                                 id: removeSpotBtn
-                                width: parent.width - pinSpotBtn.width - 6
+                                width: parent.width - pinSpotBtn.width - (disableSpotBtn.visible ? disableSpotBtn.width + 6 : 0) - 6
                                 height: 28
                                 radius: 14
                                 color: removeSpotMa.containsMouse ? Qt.rgba(0.92, 0.41, 0.38, 0.22) : Qt.rgba(0.92, 0.41, 0.38, 0.08)
-                                border.color: removeSpotMa.containsMouse ? "#ea6962" : Qt.rgba(0.92, 0.41, 0.38, 0.3)
-                                border.width: 1
 
                                 Row {
                                     anchors.centerIn: parent
@@ -633,12 +666,13 @@ except Exception:
                                         text: "Remove"
                                         font.family: root.barFont
                                         font.pixelSize: 10
-                                        font.weight: Font.Bold
+                                        font.weight: Font.DemiBold
                                         color: "#ea6962"
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: removeSpotMa
                                     anchors.fill: parent
@@ -687,7 +721,7 @@ except Exception:
                                 text: "No Plugin Selected"
                                 font.family: root.barFont
                                 font.pixelSize: 12
-                                font.weight: Font.Bold
+                                font.weight: Font.DemiBold
                                 color: root.ink
                                 opacity: 0.8
                             }
@@ -760,7 +794,7 @@ except Exception:
                                 text: "Plugins"
                                 font.family: root.barFont
                                 font.pixelSize: 11
-                                font.weight: Font.Bold
+                                font.weight: Font.DemiBold
                                 color: root.ink
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -778,7 +812,7 @@ except Exception:
                                     text: String(filteredPluginsModel.count)
                                     font.family: root.mono
                                     font.pixelSize: 9
-                                    font.weight: Font.Bold
+                                    font.weight: Font.DemiBold
                                     color: root.seal
                                 }
                             }
@@ -791,11 +825,8 @@ except Exception:
                         height: 28
                         radius: 14
                         anchors.verticalCenter: parent.verticalCenter
-                        color: Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.6)
-                        border.color: filterTextInput.activeFocus ? root.seal : root.panelBorder
-                        border.width: 1
-
-                        Behavior on border.color { ColorAnimation { duration: 150 } }
+                        color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, filterTextInput.activeFocus ? 0.12 : 0.07)
+                        Behavior on color { ColorAnimation { duration: 150 } }
 
                         Row {
                             anchors.fill: parent
@@ -859,6 +890,7 @@ except Exception:
                                     color: root.sumi
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: clearFilterMa
                                     anchors.fill: parent
@@ -921,6 +953,7 @@ except Exception:
 
                     delegate: Rectangle {
                         id: pluginRowRect
+                        opacity: model.enabled === false ? 0.55 : 1.0
                         required property var model
                         required property int index
 
@@ -932,18 +965,14 @@ except Exception:
                         radius: 12
 
                         color: isFocused
-                            ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18)
-                            : (rowMa.containsMouse
-                                ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.08)
-                                : Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.45))
-
-                        border.color: isFocused
                             ? root.seal
-                            : (isPinned ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.35) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06))
-                        border.width: isFocused ? 1.5 : 1
+                            : (rowMa.containsMouse
+                                ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.14)
+                                : (isPinned
+                                    ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.10)
+                                    : Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.45)))
 
                         Behavior on color { ColorAnimation { duration: 120 } }
-                        Behavior on border.color { ColorAnimation { duration: 120 } }
 
                         Row {
                             anchors.fill: parent
@@ -957,7 +986,9 @@ except Exception:
                                 height: 30
                                 radius: 8
                                 anchors.verticalCenter: parent.verticalCenter
-                                color: pluginRowRect.isFocused || pluginRowRect.isPinned
+                                color: pluginRowRect.isFocused
+                                    ? Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.2)
+                                    : pluginRowRect.isPinned
                                     ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22)
                                     : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
 
@@ -965,7 +996,7 @@ except Exception:
                                     anchors.centerIn: parent
                                     text: model.icon
                                     font.pixelSize: 16
-                                    color: pluginRowRect.isFocused || pluginRowRect.isPinned ? root.seal : root.ink
+                                    color: pluginRowRect.isFocused ? root.paper : (pluginRowRect.isPinned ? root.seal : root.ink)
                                 }
                             }
 
@@ -980,18 +1011,18 @@ except Exception:
                                     text: model.name
                                     font.family: root.barFont
                                     font.pixelSize: 11
-                                    font.weight: pluginRowRect.isFocused ? Font.Bold : Font.DemiBold
-                                    color: root.ink
+                                    font.weight: Font.DemiBold
+                                    color: pluginRowRect.isFocused ? root.paper : root.ink
                                     elide: Text.ElideRight
                                     maximumLineCount: 1
                                 }
 
                                 Text {
                                     width: parent.width
-                                    text: model.id.replace(/^omarchy\./, "") + " • " + model.kinds
+                                    text: model.id.replace(/^omarchy\./, "") + " • " + model.kinds + (model.enabled === false ? " • disabled" : "")
                                     font.family: root.mono
                                     font.pixelSize: 9
-                                    color: root.sumi
+                                    color: pluginRowRect.isFocused ? Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.75) : root.sumi
                                     elide: Text.ElideRight
                                     maximumLineCount: 1
                                 }
@@ -1015,9 +1046,10 @@ except Exception:
                                         text: "push_pin"
                                         font.pixelSize: 13
                                         fill: pluginRowRect.isPinned ? 1 : 0
-                                        color: pluginRowRect.isPinned ? root.seal : (pinRowMa.containsMouse ? root.seal : Qt.rgba(root.sumi.r, root.sumi.g, root.sumi.b, 0.45))
+                                        color: pluginRowRect.isFocused ? root.paper : (pluginRowRect.isPinned ? root.seal : (pinRowMa.containsMouse ? root.seal : Qt.rgba(root.sumi.r, root.sumi.g, root.sumi.b, 0.45)))
                                     }
 
+                                    SpringPress {}
                                     MouseArea {
                                         id: pinRowMa
                                         anchors.fill: parent
@@ -1043,9 +1075,10 @@ except Exception:
                                         anchors.centerIn: parent
                                         text: "delete_outline"
                                         font.pixelSize: 13
-                                        color: delRowMa.containsMouse ? "#ea6962" : Qt.rgba(root.sumi.r, root.sumi.g, root.sumi.b, 0.4)
+                                        color: pluginRowRect.isFocused ? Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.8) : (delRowMa.containsMouse ? "#ea6962" : Qt.rgba(root.sumi.r, root.sumi.g, root.sumi.b, 0.4))
                                     }
 
+                                    SpringPress {}
                                     MouseArea {
                                         id: delRowMa
                                         anchors.fill: parent
@@ -1059,6 +1092,7 @@ except Exception:
                             }
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: rowMa
                             anchors.fill: parent
@@ -1082,9 +1116,7 @@ except Exception:
                 anchors.rightMargin: 12
                 height: 24
                 radius: 12
-                color: Qt.rgba(1, 1, 1, 0.04)
-                border.width: 1
-                border.color: Qt.rgba(1, 1, 1, 0.06)
+                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.07)
 
                 Row {
                     anchors.centerIn: parent
@@ -1121,6 +1153,7 @@ except Exception:
         visible: pluginsSection.confirmingPluginId !== ""
         z: 100
 
+        SpringPress {}
         MouseArea {
             anchors.fill: parent
             // Prevent interaction behind the modal
@@ -1133,8 +1166,6 @@ except Exception:
             height: 154
             radius: 16
             color: root.fillIdle
-            border.color: "#ea6962"
-            border.width: 1.5
 
             Column {
                 anchors.fill: parent
@@ -1193,8 +1224,6 @@ except Exception:
                         height: 30
                         radius: 15
                         color: cancelMa.containsMouse ? root.fillHover : root.fillIdle
-                        border.color: root.panelBorder
-                        border.width: 1
 
                         Text {
                             anchors.centerIn: parent
@@ -1205,6 +1234,7 @@ except Exception:
                             color: root.ink
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: cancelMa
                             anchors.fill: parent
@@ -1234,12 +1264,13 @@ except Exception:
                                 text: "Remove"
                                 font.family: root.barFont
                                 font.pixelSize: 11
-                                font.weight: Font.Bold
+                                font.weight: Font.DemiBold
                                 color: "#ffffff"
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: confirmDeleteMa
                             anchors.fill: parent

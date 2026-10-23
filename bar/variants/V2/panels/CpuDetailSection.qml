@@ -4,6 +4,7 @@ import QtQuick.Shapes
 import Quickshell
 import Quickshell.Io
 import "../modules"
+import "../motion"
 
 Item {
     id: cpuSection
@@ -108,62 +109,26 @@ Item {
             Item {
                 id: leftTopBar
                 anchors.top: parent.top
-                anchors.topMargin: 9
+                anchors.topMargin: 6
                 anchors.left: parent.left
                 anchors.leftMargin: 12
                 anchors.right: parent.right
                 anchors.rightMargin: 12
-                height: 26
-
-                // Status Badge Pill
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: 26
-                    radius: 13
-                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                    width: leftStatusRow.implicitWidth + 18
-
-                    Row {
-                        id: leftStatusRow
-                        anchors.centerIn: parent
-                        spacing: 6
-
-                        Rectangle {
-                            width: 6; height: 6; radius: 3
-                            anchors.verticalCenter: parent.verticalCenter
-                            color: cpuSection.cpuPercent > 80 ? "#ea6962" : (cpuSection.cpuPercent > 40 ? "#e78a4e" : "#a9b665")
-                        }
-
-                        IconText {
-                            text: "memory"
-                            font.pixelSize: 13
-                            color: root.ink
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Text {
-                            text: "CPU " + cpuSection.cpuPercent + "%"
-                            font.family: root.barFont
-                            font.pixelSize: 11
-                            font.weight: Font.Bold
-                            color: root.ink
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-                }
+                height: 36
+                z: 5
 
                 // Top Right: Temperature Badge + Close Button
                 Row {
                     anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 8
                     spacing: 6
 
                     // Temp Pill
                     Rectangle {
                         visible: cpuSection.cpuObj.temp > 0
-                        height: 26
-                        radius: 13
+                        height: 24
+                        radius: 12
                         color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
                         width: tempRow.implicitWidth + 16
 
@@ -182,7 +147,7 @@ Item {
                                 text: cpuSection.cpuObj.temp + "°C"
                                 font.family: root.barFont
                                 font.pixelSize: 10
-                                font.weight: Font.Bold
+                                font.weight: Font.DemiBold
                                 color: root.ink
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -191,16 +156,17 @@ Item {
 
                     // Close Button
                     Rectangle {
-                        width: 26; height: 26; radius: 13
+                        width: 24; height: 24; radius: 12
                         color: closeLeftMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
 
                         IconText {
                             anchors.centerIn: parent
                             text: "close"
-                            font.pixelSize: 14
+                            font.pixelSize: 13
                             color: root.ink
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: closeLeftMa
                             anchors.fill: parent
@@ -215,7 +181,7 @@ Item {
             // Left Column Body Content
             Item {
                 anchors.top: leftTopBar.bottom
-                anchors.topMargin: 8
+                anchors.topMargin: 0
                 anchors.left: parent.left
                 anchors.leftMargin: 12
                 anchors.right: parent.right
@@ -223,13 +189,12 @@ Item {
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 10
 
-                Rectangle {
+                ConnectedTabCard {
+                    root: cpuSection.root
                     anchors.fill: parent
-                    radius: 14
-                    color: Qt.rgba(1, 1, 1, 0.03)
-                    border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.05)
-                    clip: true
+                    dotColor: cpuSection.cpuPercent > 80 ? "#ea6962" : (cpuSection.cpuPercent > 40 ? "#e78a4e" : "#a9b665")
+                    icon: "memory"
+                    text: "CPU " + cpuSection.cpuPercent + "%"
 
                     Column {
                         anchors.centerIn: parent
@@ -442,16 +407,17 @@ Item {
                 Rectangle {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 26; height: 26; radius: 13
+                    width: 24; height: 24; radius: 12
                     color: closeRightMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
 
                     IconText {
                         anchors.centerIn: parent
                         text: "close"
-                        font.pixelSize: 14
+                        font.pixelSize: 13
                         color: root.ink
                     }
 
+                    SpringPress {}
                     MouseArea {
                         id: closeRightMa
                         anchors.fill: parent
@@ -585,6 +551,7 @@ Item {
                                 opacity: killMa.containsMouse ? 1.0 : 0.4
                             }
 
+                            SpringPress {}
                             MouseArea {
                                 id: killMa
                                 anchors.fill: parent

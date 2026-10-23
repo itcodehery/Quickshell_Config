@@ -3,6 +3,7 @@ import QtQuick.Shapes
 import Quickshell
 import Quickshell.Io
 import "../modules"
+import "../motion"
 
 Item {
     id: calSection
@@ -301,76 +302,15 @@ Item {
                 anchors.rightMargin: 12
                 height: 26
 
-                // Segmented Pill [ Weekly | Monthly ]
-                Rectangle {
+                // Tab switcher [ Weekly | Monthly ]
+                PillTabs {
                     id: tabPill
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 136
-                    height: 26
-                    radius: 13
-                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                    border.width: 0
-
-                    // Sliding active highlight pill
-                    Rectangle {
-                        id: activeTabHighlight
-                        width: 66
-                        height: 22
-                        radius: 11
-                        y: 2
-                        x: calSection.viewMode === "weekly" ? 2 : 68
-                        color: root.seal
-                        Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-                    }
-
-                    Row {
-                        anchors.fill: parent
-
-                        // Weekly Tab
-                        Item {
-                            width: 68
-                            height: parent.height
-                            UiText {
-                                anchors.centerIn: parent
-                                text: "Weekly"
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: calSection.viewMode === "weekly" ? Font.Bold : Font.Medium
-                                color: calSection.viewMode === "weekly" 
-                                    ? (root.seal.hsvValue < 0.5 ? root.ink : root.paper) 
-                                    : root.ink
-                                opacity: calSection.viewMode === "weekly" ? 1.0 : 0.65
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: calSection.viewMode = "weekly"
-                            }
-                        }
-
-                        // Monthly Tab
-                        Item {
-                            width: 68
-                            height: parent.height
-                            UiText {
-                                anchors.centerIn: parent
-                                text: "Monthly"
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: calSection.viewMode === "monthly" ? Font.Bold : Font.Medium
-                                color: calSection.viewMode === "monthly" 
-                                    ? (root.seal.hsvValue < 0.5 ? root.ink : root.paper) 
-                                    : root.ink
-                                opacity: calSection.viewMode === "monthly" ? 1.0 : 0.65
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: calSection.viewMode = "monthly"
-                            }
-                        }
-                    }
+                    theme: root
+                    model: [ { id: "weekly", label: "Weekly" }, { id: "monthly", label: "Monthly" } ]
+                    current: calSection.viewMode
+                    onActivated: (id) => calSection.viewMode = id
                 }
 
                 // Top Right Action Buttons: Jump to Today + Close
@@ -394,6 +334,7 @@ Item {
                             font.pixelSize: 14
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: todayBtnMa
                             anchors.fill: parent
@@ -418,6 +359,7 @@ Item {
                             font.pixelSize: 14
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: closeBtnMa
                             anchors.fill: parent
@@ -715,6 +657,7 @@ Item {
                             color: root.ink
                             opacity: 0.7
                         }
+                        SpringPress {}
                         MouseArea {
                             id: prevDayMa
                             anchors.fill: parent
@@ -755,6 +698,7 @@ Item {
                             color: root.ink
                             opacity: 0.7
                         }
+                        SpringPress {}
                         MouseArea {
                             id: nextDayMa
                             anchors.fill: parent
@@ -798,6 +742,7 @@ Item {
                             color: root.ink
                             opacity: 0.8
                         }
+                        SpringPress {}
                         MouseArea {
                             id: prevMonMa
                             anchors.fill: parent
@@ -829,6 +774,7 @@ Item {
                             color: root.ink
                             opacity: 0.8
                         }
+                        SpringPress {}
                         MouseArea {
                             id: nextMonMa
                             anchors.fill: parent
@@ -939,6 +885,7 @@ Item {
                                     color: isSelectedCell ? root.paper : root.seal
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: mCellMa
                                     anchors.fill: parent
@@ -1127,6 +1074,7 @@ Item {
                                 opacity: noteTextInput.text.trim() !== "" ? 1.0 : 0.4
                             }
 
+                            SpringPress {}
                             MouseArea {
                                 anchors.fill: parent
                                 cursorShape: noteTextInput.text.trim() !== "" ? Qt.PointingHandCursor : Qt.ArrowCursor
@@ -1194,6 +1142,7 @@ Item {
                                         visible: modelData.done
                                     }
 
+                                    SpringPress {}
                                     MouseArea {
                                         anchors.fill: parent
                                         cursorShape: Qt.PointingHandCursor
@@ -1223,6 +1172,7 @@ Item {
                                     anchors.verticalCenter: parent.verticalCenter
                                     visible: noteItemMa.containsMouse
 
+                                    SpringPress {}
                                     MouseArea {
                                         id: delNoteMa
                                         anchors.fill: parent

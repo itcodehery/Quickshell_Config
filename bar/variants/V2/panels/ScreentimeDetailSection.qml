@@ -3,6 +3,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import "../modules"
+import "../motion"
 
 Item {
     id: stSection
@@ -42,6 +43,14 @@ Item {
     readonly property int totalWeeks: (stObj && stObj.weeks) ? stObj.weeks.length : 1
 
     property var selectedDay: null
+
+    // The selected day, if it belongs to the week being viewed (null otherwise)
+    readonly property var todayDay: {
+        if (!currentWeekData || !currentWeekData.days || !selectedDay) return null
+        for (var i = 0; i < currentWeekData.days.length; i++)
+            if (currentWeekData.days[i].dateKey === selectedDay.dateKey) return currentWeekData.days[i]
+        return null
+    }
 
     ListModel { id: appModel }
     ListModel { id: weekDaysModel }
@@ -259,6 +268,7 @@ Item {
                             color: root.ink
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: prevWkMa
                             anchors.fill: parent
@@ -303,6 +313,7 @@ Item {
                             color: root.ink
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: nextWkMa
                             anchors.fill: parent
@@ -343,6 +354,7 @@ Item {
                             color: root.seal
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: resetWkMa
                             anchors.fill: parent
@@ -364,6 +376,7 @@ Item {
                             color: root.ink
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: closeLeftMa
                             anchors.fill: parent
@@ -400,7 +413,8 @@ Item {
                         Row {
                             spacing: 6
                             Text {
-                                text: currentWeekData ? currentWeekData.avgPerDayFormatted : (stSection.stObj.today_formatted || "0m")
+                                text: stSection.todayDay ? (stSection.todayDay.formatted || "0m")
+                                    : (currentWeekData ? currentWeekData.avgPerDayFormatted : (stSection.stObj.today_formatted || "0m"))
                                 color: root.ink
                                 font.family: root.barFont
                                 font.pixelSize: 20
@@ -408,7 +422,9 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Text {
-                                text: "per day avg"
+                                text: stSection.todayDay
+                                    ? (stSection.todayDay.isToday ? "today" : (stSection.todayDay.dateFormatted || ""))
+                                    : "per day avg"
                                 color: root.ink
                                 opacity: 0.55
                                 font.family: root.barFont
@@ -418,7 +434,10 @@ Item {
                         }
 
                         Text {
-                            text: currentWeekData ? (currentWeekData.totalFormatted + " total this week") : ""
+                            text: !currentWeekData ? ""
+                                : (stSection.todayDay
+                                    ? (currentWeekData.avgPerDayFormatted + " per day avg  \u2022  " + currentWeekData.totalFormatted + " this week")
+                                    : (currentWeekData.totalFormatted + " total this week"))
                             color: root.seal
                             font.family: root.barFont
                             font.pixelSize: 10
@@ -448,6 +467,7 @@ Item {
 
                                 readonly property bool isSelected: stSection.selectedDay && stSection.selectedDay.dateKey === model.dateKey
 
+                                SpringPress {}
                                 MouseArea {
                                     id: barMa
                                     anchors.fill: parent
@@ -577,6 +597,7 @@ Item {
                             ? root.seal 
                             : (dayRowMa.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25) : Qt.rgba(1, 1, 1, 0.04))
 
+                        SpringPress {}
                         MouseArea {
                             id: dayRowMa
                             anchors.fill: parent
@@ -767,6 +788,7 @@ Item {
                             color: root.ink
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: closeRightMa
                             anchors.fill: parent

@@ -3,6 +3,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import "../modules"
+import "../motion"
 
 Item {
     id: batSection
@@ -124,68 +125,26 @@ Item {
             Item {
                 id: leftTopBar
                 anchors.top: parent.top
-                anchors.topMargin: 9
+                anchors.topMargin: 6
                 anchors.left: parent.left
                 anchors.leftMargin: 12
                 anchors.right: parent.right
                 anchors.rightMargin: 12
-                height: 26
-
-                // Status Badge Pill
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: 26
-                    radius: 13
-                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                    width: leftStatusRow.implicitWidth + 18
-
-                    Row {
-                        id: leftStatusRow
-                        anchors.centerIn: parent
-                        spacing: 6
-
-                        Rectangle {
-                            width: 6; height: 6; radius: 3
-                            anchors.verticalCenter: parent.verticalCenter
-                            color: batSection.batObj.percent < 20 ? "#ea6962" : (batSection.batObj.percent < 50 ? "#e78a4e" : "#a9b665")
-                        }
-
-                        IconText {
-                            text: {
-                                if (batSection.batObj.acOnline) return "battery_charging_full"
-                                if (batSection.batObj.percent >= 90) return "battery_full"
-                                if (batSection.batObj.percent >= 60) return "battery_5_bar"
-                                if (batSection.batObj.percent >= 30) return "battery_3_bar"
-                                return "battery_1_bar"
-                            }
-                            font.pixelSize: 14
-                            color: root.ink
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Text {
-                            text: batSection.batObj.percent + "% · " + (batSection.batObj.acOnline ? (batSection.batObj.percent >= 100 ? "Full" : "Charging") : "Battery")
-                            font.family: root.barFont
-                            font.pixelSize: 11
-                            font.weight: Font.Bold
-                            color: root.ink
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-                }
+                height: 36
+                z: 5
 
                 // Top Right: Time Remaining Pill + Close Button
                 Row {
                     anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 8
                     spacing: 6
 
                     // Time Remaining Pill
                     Rectangle {
                         visible: batSection.batObj.timeRemaining ? true : false
-                        height: 26
-                        radius: 13
+                        height: 24
+                        radius: 12
                         color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
                         width: timeRow.implicitWidth + 16
 
@@ -204,7 +163,7 @@ Item {
                                 text: batSection.batObj.timeRemaining || ""
                                 font.family: root.barFont
                                 font.pixelSize: 10
-                                font.weight: Font.Bold
+                                font.weight: Font.DemiBold
                                 color: root.ink
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -213,16 +172,17 @@ Item {
 
                     // Close Button
                     Rectangle {
-                        width: 26; height: 26; radius: 13
+                        width: 24; height: 24; radius: 12
                         color: closeLeftMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
 
                         IconText {
                             anchors.centerIn: parent
                             text: "close"
-                            font.pixelSize: 14
+                            font.pixelSize: 13
                             color: root.ink
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: closeLeftMa
                             anchors.fill: parent
@@ -237,7 +197,7 @@ Item {
             // Left Column Body Content
             Item {
                 anchors.top: leftTopBar.bottom
-                anchors.topMargin: 8
+                anchors.topMargin: 0
                 anchors.left: parent.left
                 anchors.leftMargin: 12
                 anchors.right: parent.right
@@ -245,13 +205,18 @@ Item {
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 10
 
-                Rectangle {
+                ConnectedTabCard {
+                    root: batSection.root
                     anchors.fill: parent
-                    radius: 14
-                    color: Qt.rgba(1, 1, 1, 0.03)
-                    border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.05)
-                    clip: true
+                    dotColor: batSection.batObj.percent < 20 ? "#ea6962" : (batSection.batObj.percent < 50 ? "#e78a4e" : "#a9b665")
+                    icon: {
+                        if (batSection.batObj.acOnline) return "battery_charging_full"
+                        if (batSection.batObj.percent >= 90) return "battery_full"
+                        if (batSection.batObj.percent >= 60) return "battery_5_bar"
+                        if (batSection.batObj.percent >= 30) return "battery_3_bar"
+                        return "battery_1_bar"
+                    }
+                    text: batSection.batObj.percent + "% · " + (batSection.batObj.acOnline ? (batSection.batObj.percent >= 100 ? "Full" : "Charging") : "Battery")
 
                     Column {
                         anchors.centerIn: parent
@@ -291,7 +256,7 @@ Item {
                                     text: batSection.batObj.percent + "%"
                                     font.family: root.barFont
                                     font.pixelSize: 18
-                                    font.weight: Font.Bold
+                                    font.weight: Font.DemiBold
                                     color: root.ink
                                 }
 
@@ -300,107 +265,28 @@ Item {
                                     text: batSection.batObj.acOnline ? "AC POWER" : "BATTERY"
                                     font.family: root.barFont
                                     font.pixelSize: 8
-                                    font.weight: Font.Bold
+                                    font.weight: Font.DemiBold
                                     color: root.ink
                                     opacity: 0.45
                                 }
                             }
                         }
 
-                        // 2. Power Profile Segmented Selector
-                        Rectangle {
+                        // 2. Power Profile Selector
+                        PillTabs {
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: parent.width - 8
-                            height: 28
-                            radius: 14
-                            color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
-
-                            Row {
-                                anchors.fill: parent
-                                anchors.margins: 2
-                                spacing: 2
-
-                                // Power Saver Option
-                                Rectangle {
-                                    readonly property bool active: batSection.batObj.profile === "power-saver"
-                                    width: Math.floor((parent.width - 4) / 3)
-                                    height: parent.height
-                                    radius: 12
-                                    color: active ? root.seal : (saverMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent")
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "Saver"
-                                        font.family: root.barFont
-                                        font.pixelSize: 10
-                                        font.weight: parent.active ? Font.Bold : Font.Normal
-                                        color: parent.active ? root.paper : root.ink
-                                        opacity: parent.active ? 1.0 : 0.65
-                                    }
-
-                                    MouseArea {
-                                        id: saverMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: batSection.doSetProfile("power-saver")
-                                    }
-                                }
-
-                                // Balanced Option
-                                Rectangle {
-                                    readonly property bool active: batSection.batObj.profile === "balanced"
-                                    width: Math.floor((parent.width - 4) / 3)
-                                    height: parent.height
-                                    radius: 12
-                                    color: active ? root.seal : (balMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent")
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "Balanced"
-                                        font.family: root.barFont
-                                        font.pixelSize: 10
-                                        font.weight: parent.active ? Font.Bold : Font.Normal
-                                        color: parent.active ? root.paper : root.ink
-                                        opacity: parent.active ? 1.0 : 0.65
-                                    }
-
-                                    MouseArea {
-                                        id: balMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: batSection.doSetProfile("balanced")
-                                    }
-                                }
-
-                                // Performance Option
-                                Rectangle {
-                                    readonly property bool active: batSection.batObj.profile === "performance"
-                                    width: (parent.width - 4) - (Math.floor((parent.width - 4) / 3) * 2)
-                                    height: parent.height
-                                    radius: 12
-                                    color: active ? root.seal : (perfMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : "transparent")
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "Performance"
-                                        font.family: root.barFont
-                                        font.pixelSize: 10
-                                        font.weight: parent.active ? Font.Bold : Font.Normal
-                                        color: parent.active ? root.paper : root.ink
-                                        opacity: parent.active ? 1.0 : 0.65
-                                    }
-
-                                    MouseArea {
-                                        id: perfMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: batSection.doSetProfile("performance")
-                                    }
-                                }
-                            }
+                            fill: true
+                            theme: root
+                            fontSize: 10
+                            tabHeight: 28
+                            model: [
+                                { id: "power-saver", label: "Saver" },
+                                { id: "balanced", label: "Balanced" },
+                                { id: "performance", label: "Performance" }
+                            ]
+                            current: batSection.batObj.profile
+                            onActivated: (id) => batSection.doSetProfile(id)
                         }
 
                         // 3. Telemetry Stats Badges
@@ -429,7 +315,7 @@ Item {
                                         text: "Health " + (batSection.batObj.health_str || (batSection.batObj.health + "%"))
                                         font.family: root.barFont
                                         font.pixelSize: 10
-                                        font.weight: Font.Bold
+                                        font.weight: Font.DemiBold
                                         color: root.ink
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
@@ -459,7 +345,7 @@ Item {
                                         text: (batSection.batObj.powerRate_str && batSection.batObj.powerRate_str !== "0.0 W") ? batSection.batObj.powerRate_str : (batSection.batObj.cycles + " Cycles")
                                         font.family: root.barFont
                                         font.pixelSize: 10
-                                        font.weight: Font.Bold
+                                        font.weight: Font.DemiBold
                                         color: root.seal
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
@@ -519,7 +405,7 @@ Item {
                             text: "Power Consumers (" + topProcModel.count + ")"
                             font.family: root.barFont
                             font.pixelSize: 11
-                            font.weight: Font.Bold
+                            font.weight: Font.DemiBold
                             color: root.ink
                             anchors.verticalCenter: parent.verticalCenter
                         }
@@ -530,16 +416,17 @@ Item {
                 Rectangle {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 26; height: 26; radius: 13
+                    width: 24; height: 24; radius: 12
                     color: closeRightMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
 
                     IconText {
                         anchors.centerIn: parent
                         text: "close"
-                        font.pixelSize: 14
+                        font.pixelSize: 13
                         color: root.ink
                     }
 
+                    SpringPress {}
                     MouseArea {
                         id: closeRightMa
                         anchors.fill: parent
@@ -605,7 +492,7 @@ Item {
                                 text: model.name
                                 font.family: root.barFont
                                 font.pixelSize: 11
-                                font.weight: Font.Bold
+                                font.weight: Font.DemiBold
                                 color: root.ink
                                 elide: Text.ElideRight
                                 width: parent.width
@@ -649,7 +536,7 @@ Item {
                                 text: model.cpu
                                 font.family: root.barFont
                                 font.pixelSize: 10
-                                font.weight: Font.Bold
+                                font.weight: Font.DemiBold
                                 color: root.ink
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: 36
@@ -672,6 +559,7 @@ Item {
                                 color: killBtnMa.containsMouse ? "#ffffff" : root.ink
                             }
 
+                            SpringPress {}
                             MouseArea {
                                 id: killBtnMa
                                 anchors.fill: parent

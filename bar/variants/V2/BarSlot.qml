@@ -3307,6 +3307,65 @@ PanelWindow {
                     }
                 }
 
+                // Notification Center Button
+                Rectangle {
+                    id: notifHeaderBtn
+                    height: 28
+                    width: 28
+                    radius: 14
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: barSlot.root.dashboardDetail === "notifications"
+                        ? Qt.rgba(barSlot.root.seal.r, barSlot.root.seal.g, barSlot.root.seal.b, 0.22)
+                        : (notifHeaderMa.containsMouse ? barSlot.root.fillHover : barSlot.root.fillIdle)
+                    border.width: barSlot.root.dashboardDetail === "notifications" ? 1.5 : 0
+                    border.color: barSlot.root.seal
+                    scale: notifHeaderMa.pressed ? 0.92 : (notifHeaderMa.containsMouse ? 1.06 : 1.0)
+                    Behavior on scale { NumberAnimation { duration: 120 } }
+                    Behavior on color { ColorAnimation { duration: 150 } }
+
+                    IconText {
+                        anchors.centerIn: parent
+                        text: barSlot.root.notifSilenced ? "\uE7F6" : (barSlot.root.notifCount > 0 ? "notifications_active" : "\uE7F4")
+                        color: barSlot.root.dashboardDetail === "notifications"
+                            ? barSlot.root.seal
+                            : (barSlot.root.notifCount > 0 ? barSlot.root.seal : barSlot.root.ink)
+                        font.pixelSize: 15
+                    }
+
+                    // Unread badge dot
+                    Rectangle {
+                        anchors.top: parent.top
+                        anchors.topMargin: 3
+                        anchors.right: parent.right
+                        anchors.rightMargin: 3
+                        width: 6
+                        height: 6
+                        radius: 3
+                        color: barSlot.root.seal
+                        visible: barSlot.root.notifCount > 0 && barSlot.root.dashboardDetail !== "notifications"
+                    }
+
+                    MouseArea {
+                        id: notifHeaderMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        onClicked: (mouse) => {
+                            if (mouse.button === Qt.RightButton) {
+                                Quickshell.execDetached(["quickshell", "-p", "/usr/share/omarchy/shell", "ipc", "call", "notifications", "toggleDnd"])
+                                barSlot.root.notifSilenced = !barSlot.root.notifSilenced
+                            } else {
+                                if (barSlot.root.dashboardDetail === "notifications") {
+                                    barSlot.root.dashboardDetail = ""
+                                } else {
+                                    barSlot.root.dashboardDetail = "notifications"
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // System / Power Settings Button
                 Rectangle {
                     id: systemBtn

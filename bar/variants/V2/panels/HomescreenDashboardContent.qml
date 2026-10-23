@@ -4,12 +4,26 @@ import Quickshell.Io
 import Quickshell.Widgets
 import QtQml.Models
 import "../modules"
+import "../motion"
 
 Item {
     id: dashboardContent
     anchors.fill: parent
     implicitHeight: 220
     focus: true
+
+    EmotionsManager {
+        id: emotionsManager
+    }
+
+    property bool showEmotionOverlay: false
+
+    function checkEmotionPrompt() {
+        if (emotionsManager && emotionsManager.shouldPromptToday()) {
+            showEmotionOverlay = true
+        }
+    }
+
     onVisibleChanged: {
         if (visible) {
             forceActiveFocus()
@@ -17,6 +31,7 @@ Item {
                 activeDetailView = ""
                 selectCategoryByIndex(0)
             }
+            checkEmotionPrompt()
         }
     }
     Component.onCompleted: {
@@ -25,15 +40,17 @@ Item {
             activeDetailView = ""
             selectCategoryByIndex(0)
         }
+        checkEmotionPrompt()
     }
 
+    SpringPress {}
     MouseArea {
         anchors.fill: parent
         // Prevent clicks anywhere on the dashboard background from closing the dashboard
         onClicked: {}
     }
 
-    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "notifications", "screentime", "plugins", "updates", "battery", "calendar", "volume", "system", "theme", "wallpaper"]
+    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "emotions", "screentime", "plugins", "updates", "battery", "calendar", "volume", "system", "theme", "wallpaper"]
 
     function selectCategoryByIndex(idx) {
         if (idx < 0) idx = 0
@@ -45,7 +62,7 @@ Item {
         // Keep left-hand tilesPager in sync so active tile is visible
         if (cat === "wifi" || cat === "bluetooth" || cat === "cpu" || cat === "memory" || cat === "") {
             goToPage(0)
-        } else if (cat === "notifications" || cat === "screentime" || cat === "battery") {
+        } else if (cat === "emotions" || cat === "screentime" || cat === "battery") {
             goToPage(1)
         } else if (cat === "plugins" || cat === "updates" || cat === "theme" || cat === "wallpaper") {
             goToPage(2)
@@ -389,6 +406,7 @@ Item {
     readonly property var volDetailSection: volDetailLoader.item
     readonly property var sysDetailSection: sysDetailLoader.item
     readonly property var calDetailSection: calDetailLoader.item
+    readonly property var emotionsDetailSection: emotionsDetailLoader.item
     readonly property var notifDetailSection: notifDetailLoader.item
     readonly property var updatesDetailSection: updatesDetailLoader.item
     readonly property var pluginsDetailSection: pluginsDetailLoader.item
@@ -399,6 +417,11 @@ Item {
         function onDashboardDetailChanged() {
             if (dashboardContent.root && dashboardContent.activeDetailView !== dashboardContent.root.dashboardDetail) {
                 dashboardContent.activeDetailView = dashboardContent.root.dashboardDetail || ""
+            }
+        }
+        function onDashboardExpandedChanged() {
+            if (dashboardContent.root && dashboardContent.root.dashboardExpanded) {
+                dashboardContent.checkEmotionPrompt()
             }
         }
     }
@@ -442,6 +465,7 @@ Item {
 
     property string currentWifiName: "Wi-Fi"
     property string currentBtName: "Bluetooth"
+    property bool btPowered: false
 
     property int nightMode: 0 // 0: Off, 1: Soft (4500K), 2: Intense (3000K)
     property real lastNightChange: 0
@@ -504,13 +528,16 @@ Item {
     
     Process {
         id: btUpdater
-        command: ["bash", "-c", "bluetoothctl devices Connected | head -n1 | cut -d ' ' -f 3-"]
+        command: ["bash", "-c", "if bluetoothctl show | grep -q 'Powered: yes'; then echo on; else echo off; fi; bluetoothctl devices Connected | head -n1 | cut -d ' ' -f 3-"]
         stdout: StdioCollector {
             onStreamFinished: {
-                let s = this.text.trim()
-                if (s !== "" && dashboardContent.currentBtName === "Searching...") {
+                let lines = this.text.split("\n")
+                let powered = (lines[0] || "").trim() === "on"
+                let s = (lines[1] || "").trim()
+                if (powered && dashboardContent.currentBtName === "Searching...") {
                     statusTimer.interval = 3000
                 }
+                dashboardContent.btPowered = powered
                 dashboardContent.currentBtName = s === "" ? "Bluetooth" : s
             }
         }
@@ -611,17 +638,41 @@ Item {
         if (idx !== localLyricIndex) localLyricIndex = idx
     }
 
+    function cleanTrackTitle(str) {
+        if (!str) return ""
+        return str.replace(/\s*[\(\[](feat\.|ft\.|remaster|live|official|deluxe|bonus|version|radio|edit|mono|stereo|anniversary).*?[\)\]]/gi, "")
+                  .replace(/\s*-\s*(remaster|live|radio|deluxe|bonus|anniversary).*$/gi, "")
+                  .trim()
+    }
+
+    function parseLocalLrc(lrcText) {
+        if (!lrcText || typeof lrcText !== "string") return []
+        var parsed = []
+        var lines = lrcText.split('\n')
+        var regex = /^\[(\d{1,2}):(\d{2}(?:\.\d+)?)\]\s*(.*)/
+        for (var i = 0; i < lines.length; i++) {
+            var match = regex.exec(lines[i])
+            if (match) {
+                var m = parseFloat(match[1])
+                var s = parseFloat(match[2])
+                var txt = match[3].trim()
+                if (txt.length > 0) parsed.push({ time: (m * 60) + s, text: txt })
+            }
+        }
+        return parsed
+    }
+
     function fetchLocalLyrics() {
         var title = curTitle ? curTitle.trim() : ""
         var artist = curArtist ? curArtist.trim() : ""
         var trackId = (title || artist) ? (title + "||" + artist) : ""
 
         var seq = ++_localLyricsFetchSeq
-        localLyricsList = []
-        localLyricIndex = -1
-        localLyricsTrackId = ""
 
         if (!title || !mprisSel.active) {
+            localLyricsList = []
+            localLyricIndex = -1
+            localLyricsTrackId = ""
             return
         }
 
@@ -630,56 +681,54 @@ Item {
             return
         }
 
-        var xhr = new XMLHttpRequest()
-        var url = "https://lrclib.net/api/search?q=" + encodeURIComponent(title + " " + artist)
-        xhr.open("GET", url, true)
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === XMLHttpRequest.DONE) {
-                if (seq !== dashboardContent._localLyricsFetchSeq || dashboardContent.currentTrackId !== trackId) {
-                    return
-                }
-                if (xhr.status === 200) {
-                    try {
-                        var resp = JSON.parse(xhr.responseText)
-                        if (Array.isArray(resp) && resp.length > 0) {
-                            var foundLyrics = null
-                            for (var r = 0; r < resp.length; r++) {
-                                if (resp[r] && resp[r].syncedLyrics && typeof resp[r].syncedLyrics === "string" && resp[r].syncedLyrics.trim().length > 0) {
-                                    foundLyrics = resp[r].syncedLyrics
-                                    break
-                                }
-                            }
-                            if (foundLyrics) {
-                                var parsed = []
-                                var lines = foundLyrics.split('\n')
-                                var regex = /^\[(\d{2}):(\d{2}\.\d{2})\]\s(.*)/
-                                for (var i = 0; i < lines.length; i++) {
-                                    var match = regex.exec(lines[i])
-                                    if (match) {
-                                        var m = parseFloat(match[1])
-                                        var s = parseFloat(match[2])
-                                        var txt = match[3].trim()
-                                        if (txt.length > 0) parsed.push({ time: (m * 60) + s, text: txt })
+        localLyricsList = []
+        localLyricIndex = -1
+        localLyricsTrackId = ""
+
+        var cleaned = cleanTrackTitle(title)
+        var targetTitle = cleaned !== "" ? cleaned : title
+        var url1 = "https://lrclib.net/api/search?track_name=" + encodeURIComponent(targetTitle) + "&artist_name=" + encodeURIComponent(artist)
+        var url2 = "https://lrclib.net/api/search?q=" + encodeURIComponent(targetTitle + " " + artist)
+
+        function queryUrl(url, fallback) {
+            var xhr = new XMLHttpRequest()
+            xhr.open("GET", url, true)
+            xhr.setRequestHeader("User-Agent", "Quickshell-Lyrics/2.0 (Linux)")
+            xhr.timeout = 5000
+            xhr.ontimeout = function() { if (fallback) fallback(); }
+            xhr.onerror = function() { if (fallback) fallback(); }
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (seq !== dashboardContent._localLyricsFetchSeq || dashboardContent.currentTrackId !== trackId) {
+                        return
+                    }
+                    if (xhr.status === 200) {
+                        try {
+                            var resp = JSON.parse(xhr.responseText)
+                            if (Array.isArray(resp) && resp.length > 0) {
+                                for (var r = 0; r < resp.length; r++) {
+                                    if (resp[r] && resp[r].syncedLyrics && typeof resp[r].syncedLyrics === "string" && resp[r].syncedLyrics.trim().length > 0) {
+                                        var parsed = parseLocalLrc(resp[r].syncedLyrics)
+                                        if (parsed.length > 0) {
+                                            dashboardContent.localLyricsTrackId = trackId
+                                            dashboardContent.localLyricsList = parsed
+                                            dashboardContent.syncLocalLyricIndex()
+                                            return
+                                        }
                                     }
                                 }
-                                if (parsed.length > 0) {
-                                    dashboardContent.localLyricsTrackId = trackId
-                                    dashboardContent.localLyricsList = parsed
-                                    dashboardContent.syncLocalLyricIndex()
-                                    return
-                                }
                             }
-                        }
-                    } catch(e) {
-                        // parse error
+                        } catch(e) {}
                     }
+                    if (fallback) fallback()
                 }
-                dashboardContent.localLyricsTrackId = ""
-                dashboardContent.localLyricsList = []
-                dashboardContent.localLyricIndex = -1
             }
+            xhr.send()
         }
-        xhr.send()
+
+        queryUrl(url1, function() {
+            queryUrl(url2, null)
+        })
     }
 
     onCurTitleChanged: {
@@ -719,8 +768,8 @@ Item {
     Item {
         id: mainControls
         anchors.fill: parent
-        visible: opacity > 0.001
-        opacity: dashboardContent.activeDetailView === "" ? 1.0 : 0.0
+        visible: !dashboardContent.showEmotionOverlay && (opacity > 0.001)
+        opacity: dashboardContent.showEmotionOverlay ? 0.0 : (dashboardContent.activeDetailView === "" ? 1.0 : 0.0)
         scale: dashboardContent.activeDetailView === "" ? 1.0 : 0.98
         transform: Translate {
             y: dashboardContent.activeDetailView === "" ? 0 : (root && root.barPosition === "bottom" ? -10 : 10)
@@ -860,7 +909,6 @@ Item {
                         readonly property int mode: dashboardContent.nightMode
                         
                         color: mode === 2 ? root.color01 : (mode === 1 ? root.color03 : root.fillIdle)
-                        scale: localNightMa.pressed ? 0.92 : (localNightHov.hovered ? 1.05 : 1.0)
                         
                         Behavior on color { ColorAnimation { duration: 200 } }
                         Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
@@ -1040,7 +1088,6 @@ Item {
                         height: 38
                         radius: 19
                         color: dashboardContent.activeDetailView === "volume" ? root.seal : root.fillIdle
-                        scale: audTuneMa.pressed ? 0.92 : (audTuneHov.hovered ? 1.05 : 1.0)
                         
                         Behavior on color { ColorAnimation { duration: 200 } }
                         Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
@@ -1056,6 +1103,7 @@ Item {
                             font.pixelSize: 16
                             Behavior on color { ColorAnimation { duration: 200 } }
                         }
+                        SpringPress {}
                         MouseArea {
                             id: audTuneMa
                             anchors.fill: parent
@@ -1108,23 +1156,20 @@ Item {
                             id: wifiTile
                             property bool connected: dashboardContent.currentWifiName !== "Wi-Fi"
                             property bool active: dashboardContent.activeDetailView === "wifi"
-                            readonly property bool isLit: active || connected
-                            readonly property color fg: isLit ? root.paper : root.ink
+                            readonly property bool isLit: connected
+                            readonly property color fg: root.ink
                             width: (parent.width - 10) / 2
                             height: 56
                             radius: 28
-                            color: isLit
-                                ? (wifiMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                : (wifiMa.containsMouse ? root.fillHover : root.fillIdle)
+                            color: wifiMa.containsMouse ? root.fillHover : root.fillIdle
                             Behavior on color { ColorAnimation { duration: 160 } }
-                            scale: (wifiMa.pressed || wifiInnerMa.pressed) ? 0.92 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                             
                             border.width: active ? 2 : 0
-                            border.color: isLit ? root.paper : root.seal
+                            border.color: root.seal
                             Behavior on border.width { NumberAnimation { duration: 150 } }
                             Behavior on border.color { ColorAnimation { duration: 150 } }
                             
+                            SpringPress {}
                             MouseArea {
                                 id: wifiMa
                                 anchors.fill: parent
@@ -1152,7 +1197,7 @@ Item {
                                     height: 40
                                     radius: 14
                                     color: wifiTile.isLit
-                                        ? (wifiInnerMa.containsMouse ? Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.28) : Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.18))
+                                        ? (wifiInnerMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                         : (wifiInnerMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.18) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.1))
                                     Behavior on color { ColorAnimation { duration: 160 } }
                                     
@@ -1160,11 +1205,12 @@ Item {
                                         anchors.centerIn: parent
                                         text: "wifi"
                                         fill: (wifiTile.connected || wifiTile.active) ? 1 : 0
-                                        color: wifiTile.fg
+                                        color: wifiTile.isLit ? root.paper : root.ink
                                         font.pixelSize: 20
                                         Behavior on color { ColorAnimation { duration: 160 } }
                                     }
                                     
+                                    SpringPress {}
                                     MouseArea {
                                         id: wifiInnerMa
                                         anchors.fill: parent
@@ -1211,25 +1257,22 @@ Item {
                         // Bluetooth Tile
                         Rectangle {
                             id: btTile
-                            property bool connected: dashboardContent.currentBtName !== "Bluetooth"
+                            property bool connected: dashboardContent.btPowered
                             property bool active: dashboardContent.activeDetailView === "bluetooth"
-                            readonly property bool isLit: active || connected
-                            readonly property color fg: isLit ? root.paper : root.ink
+                            readonly property bool isLit: connected
+                            readonly property color fg: root.ink
                             width: (parent.width - 10) / 2
                             height: 56
                             radius: 28
-                            color: isLit
-                                ? (btMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                : (btMa.containsMouse ? root.fillHover : root.fillIdle)
+                            color: btMa.containsMouse ? root.fillHover : root.fillIdle
                             Behavior on color { ColorAnimation { duration: 160 } }
-                            scale: (btMa.pressed || btInnerMa.pressed) ? 0.92 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                             
                             border.width: active ? 2 : 0
-                            border.color: isLit ? root.paper : root.seal
+                            border.color: root.seal
                             Behavior on border.width { NumberAnimation { duration: 150 } }
                             Behavior on border.color { ColorAnimation { duration: 150 } }
                             
+                            SpringPress {}
                             MouseArea {
                                 id: btMa
                                 anchors.fill: parent
@@ -1257,7 +1300,7 @@ Item {
                                     height: 40
                                     radius: 14
                                     color: btTile.isLit
-                                        ? (btInnerMa.containsMouse ? Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.28) : Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.18))
+                                        ? (btInnerMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                         : (btInnerMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.18) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.1))
                                     Behavior on color { ColorAnimation { duration: 160 } }
                                     
@@ -1265,11 +1308,12 @@ Item {
                                         anchors.centerIn: parent
                                         text: "bluetooth"
                                         fill: (btTile.connected || btTile.active) ? 1 : 0
-                                        color: btTile.fg
+                                        color: btTile.isLit ? root.paper : root.ink
                                         font.pixelSize: 20
                                         Behavior on color { ColorAnimation { duration: 160 } }
                                     }
                                     
+                                    SpringPress {}
                                     MouseArea {
                                         id: btInnerMa
                                         anchors.fill: parent
@@ -1277,8 +1321,10 @@ Item {
                                         cursorShape: Qt.PointingHandCursor
                                         onClicked: {
                                             if (btTile.connected) {
+                                                dashboardContent.btPowered = false
                                                 dashboardContent.currentBtName = "Bluetooth"
                                             } else {
+                                                dashboardContent.btPowered = true
                                                 dashboardContent.currentBtName = "Searching..."
                                             }
                                             Quickshell.execDetached(["bash", "-c", "bluetoothctl show | grep -q 'Powered: yes' && bluetoothctl power off || bluetoothctl power on"])
@@ -1300,7 +1346,9 @@ Item {
                                         Behavior on color { ColorAnimation { duration: 160 } }
                                     }
                                     Text {
-                                        text: dashboardContent.currentBtName
+                                        text: dashboardContent.currentBtName === "Bluetooth"
+                                            ? (dashboardContent.btPowered ? "On" : "Off")
+                                            : dashboardContent.currentBtName
                                         color: btTile.fg
                                         opacity: btTile.connected ? 0.75 : 0.6
                                         font.pixelSize: 11
@@ -1325,8 +1373,6 @@ Item {
                                 ? (cpuMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                 : (cpuMa.containsMouse ? root.fillHover : root.fillIdle)
                             Behavior on color { ColorAnimation { duration: 160 } }
-                            scale: cpuMa.pressed ? 0.92 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                             
                             border.width: active ? 2 : 0
                             border.color: active ? root.paper : root.seal
@@ -1369,6 +1415,7 @@ Item {
                                     }
                                 }
                             }
+                            SpringPress {}
                             MouseArea {
                                 id: cpuMa
                                 anchors.fill: parent
@@ -1398,8 +1445,6 @@ Item {
                                 ? (memMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                 : (memMa.containsMouse ? root.fillHover : root.fillIdle)
                             Behavior on color { ColorAnimation { duration: 160 } }
-                            scale: memMa.pressed ? 0.92 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                             
                             border.width: active ? 2 : 0
                             border.color: active ? root.paper : root.seal
@@ -1442,6 +1487,7 @@ Item {
                                     }
                                 }
                             }
+                            SpringPress {}
                             MouseArea {
                                 id: memMa
                                 anchors.fill: parent
@@ -1471,20 +1517,20 @@ Item {
                             width: parent.width
                             spacing: 10
 
-                            // Notifications Tile
+                            // Emotions Tile
                             Rectangle {
-                                id: notifTile
-                                property bool active: dashboardContent.activeDetailView === "notifications"
+                                id: emotionsTile
+                                property bool active: dashboardContent.activeDetailView === "emotions"
                                 readonly property color fg: active ? root.paper : root.ink
+                                readonly property var todayEntry: emotionsManager ? emotionsManager.todayEntry : null
+                                readonly property var todayLvl: (todayEntry && emotionsManager) ? emotionsManager.getLevel(todayEntry.level) : null
                                 width: (parent.width - 10) / 2
                                 height: 56
                                 radius: 28
                                 color: active
-                                    ? (notifMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                    : (notifMa.containsMouse ? root.fillHover : root.fillIdle)
+                                    ? (emotionsMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                    : (emotionsMa.containsMouse ? root.fillHover : root.fillIdle)
                                 Behavior on color { ColorAnimation { duration: 160 } }
-                                scale: notifMa.pressed ? 0.92 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
 
                                 border.width: active ? 2 : 0
                                 border.color: active ? root.paper : root.seal
@@ -1496,52 +1542,71 @@ Item {
                                     anchors.left: parent.left
                                     anchors.leftMargin: 14
                                     spacing: 10
-                                    IconText {
-                                        text: root.notifSilenced ? "\uE7F6" : (root.notifCount > 0 ? "notifications_active" : "\uE7F4")
-                                        color: notifTile.fg
-                                        font.pixelSize: 22
-                                        Behavior on color { ColorAnimation { duration: 160 } }
+
+                                    // Mood indicator / icon
+                                    Item {
+                                        width: 24
+                                        height: 24
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        Rectangle {
+                                            anchors.centerIn: parent
+                                            width: 22
+                                            height: 22
+                                            radius: 11
+                                            color: emotionsTile.todayLvl ? emotionsTile.todayLvl.color : "transparent"
+                                            opacity: emotionsTile.todayLvl ? (emotionsTile.active ? 0.35 : 0.2) : 0
+                                        }
+
+                                        IconText {
+                                            anchors.centerIn: parent
+                                            text: emotionsTile.todayLvl ? emotionsTile.todayLvl.icon : "spa"
+                                            color: emotionsTile.active
+                                                ? root.paper
+                                                : (emotionsTile.todayLvl ? emotionsTile.todayLvl.color : root.ink)
+                                            font.pixelSize: 22
+                                            Behavior on color { ColorAnimation { duration: 160 } }
+                                        }
                                     }
+
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
                                         spacing: 2
                                         Text {
-                                            text: "Notifications"
-                                            color: notifTile.fg
+                                            text: "Emotions"
+                                            color: emotionsTile.fg
                                             font.pixelSize: 13
                                             font.family: root.barFont
                                             font.weight: Font.DemiBold
                                             Behavior on color { ColorAnimation { duration: 160 } }
                                         }
                                         Text {
-                                            text: root.notifCount > 0
-                                                ? (root.notifCount + (root.notifCount === 1 ? " Unread" : " Unread"))
-                                                : (root.notifSilenced ? "DND On" : "All Caught Up")
-                                            color: notifTile.fg
-                                            opacity: notifTile.active ? 0.8 : 0.6
+                                            text: emotionsTile.todayLvl ? emotionsTile.todayLvl.name : "Log today's mood"
+                                            color: emotionsTile.fg
+                                            opacity: emotionsTile.active ? 0.8 : 0.6
                                             font.pixelSize: 11
                                             font.family: root.barFont
                                             Behavior on color { ColorAnimation { duration: 160 } }
                                         }
                                     }
                                 }
+                                SpringPress {}
                                 MouseArea {
-                                    id: notifMa
+                                    id: emotionsMa
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
                                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                                     onClicked: (mouse) => {
                                         if (mouse.button === Qt.RightButton) {
-                                            Quickshell.execDetached(["quickshell", "-p", "/usr/share/omarchy/shell", "ipc", "call", "notifications", "toggleDnd"])
-                                            root.notifSilenced = !root.notifSilenced
+                                            dashboardContent.showEmotionOverlay = true
                                         } else {
-                                            if (dashboardContent.activeDetailView === "notifications") {
+                                            if (dashboardContent.activeDetailView === "emotions") {
                                                 dashboardContent.activeDetailView = ""
                                                 if (root) root.dashboardDetail = ""
                                             } else {
-                                                dashboardContent.activeDetailView = "notifications"
-                                                if (root) root.dashboardDetail = "notifications"
+                                                dashboardContent.activeDetailView = "emotions"
+                                                if (root) root.dashboardDetail = "emotions"
                                             }
                                         }
                                     }
@@ -1560,8 +1625,6 @@ Item {
                                     ? (stMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                     : (stMa.containsMouse ? root.fillHover : root.fillIdle)
                                 Behavior on color { ColorAnimation { duration: 160 } }
-                                scale: stMa.pressed ? 0.92 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
 
                                 border.width: active ? 2 : 0
                                 border.color: active ? root.paper : root.seal
@@ -1602,6 +1665,7 @@ Item {
                                         }
                                     }
                                 }
+                                SpringPress {}
                                 MouseArea {
                                     id: stMa
                                     anchors.fill: parent
@@ -1635,8 +1699,6 @@ Item {
                                 height: 56
                                 radius: 18
                                 color: mode === 2 ? root.color01 : (mode === 1 ? root.color03 : (nightTileMa.containsMouse ? root.fillHover : root.fillIdle))
-                                scale: nightTileMa.pressed ? 0.90 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                                 Behavior on color { ColorAnimation { duration: 200 } }
 
                                 IconText {
@@ -1654,6 +1716,7 @@ Item {
                                     text: "Night Light: " + (nightTile.mode === 2 ? "Intense" : (nightTile.mode === 1 ? "Soft" : "Off")) + " (Right-click off)"
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: nightTileMa
                                     anchors.fill: parent
@@ -1690,8 +1753,6 @@ Item {
                                 height: 56
                                 radius: 18
                                 color: active ? root.color03 : (coffeeMa.containsMouse ? root.fillHover : root.fillIdle)
-                                scale: coffeeMa.pressed ? 0.90 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                                 Behavior on color { ColorAnimation { duration: 200 } }
 
                                 IconText {
@@ -1709,6 +1770,7 @@ Item {
                                     text: "Caffeine: " + (coffeeTile.active ? "Active (Keep Awake)" : "Sleepy")
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: coffeeMa
                                     anchors.fill: parent
@@ -1741,8 +1803,6 @@ Item {
                                     ? (powerMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                     : (powerMa.containsMouse ? root.fillHover : root.fillIdle)
                                 Behavior on color { ColorAnimation { duration: 160 } }
-                                scale: powerMa.pressed ? 0.90 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
 
                                 border.width: active ? 2 : 0
                                 border.color: active ? root.paper : root.seal
@@ -1762,6 +1822,7 @@ Item {
                                     text: "Battery & Power Health"
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: powerMa
                                     anchors.fill: parent
@@ -1798,8 +1859,6 @@ Item {
                                     return "#f87171" // Coral red
                                 }
 
-                                scale: tempMa.pressed ? 0.90 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                                 Behavior on color { ColorAnimation { duration: 180 } }
 
                                 Rectangle {
@@ -1851,6 +1910,7 @@ Item {
                                     text: "CPU Temp: " + tempTile.currentTemp + "°C (" + (tempTile.currentTemp < 52 ? "Cool" : (tempTile.currentTemp < 72 ? "Warm" : "Hot")) + ")"
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: tempMa
                                     anchors.fill: parent
@@ -1891,8 +1951,6 @@ Item {
                                     ? (pluginsMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                     : (pluginsMa.containsMouse ? root.fillHover : root.fillIdle)
                                 Behavior on color { ColorAnimation { duration: 160 } }
-                                scale: pluginsMa.pressed ? 0.92 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
 
                                 border.width: active ? 2 : 0
                                 border.color: active ? root.paper : root.seal
@@ -1934,6 +1992,7 @@ Item {
                                     }
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: pluginsMa
                                     anchors.fill: parent
@@ -1963,8 +2022,6 @@ Item {
                                     ? (updatesMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                     : (updatesMa.containsMouse ? root.fillHover : root.fillIdle)
                                 Behavior on color { ColorAnimation { duration: 160 } }
-                                scale: updatesMa.pressed ? 0.92 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
 
                                 border.width: active ? 2 : 0
                                 border.color: active ? root.paper : root.seal
@@ -2006,6 +2063,7 @@ Item {
                                     }
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: updatesMa
                                     anchors.fill: parent
@@ -2037,8 +2095,6 @@ Item {
                                 radius: 18
                                 clip: true
                                 color: root.timerActive ? (root.color03 || root.seal) : (pomodoroMa.containsMouse ? root.fillHover : root.fillIdle)
-                                scale: pomodoroMa.pressed ? 0.90 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                                 Behavior on color { ColorAnimation { duration: 180 } }
 
                                 IconText {
@@ -2063,6 +2119,7 @@ Item {
                                     }
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: pomodoroMa
                                     anchors.fill: parent
@@ -2093,8 +2150,6 @@ Item {
                                 height: 56
                                 radius: 18
                                 color: quickShareMa.containsMouse ? root.fillHover : root.fillIdle
-                                scale: quickShareMa.pressed ? 0.90 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                                 Behavior on color { ColorAnimation { duration: 160 } }
 
                                 IconText {
@@ -2111,6 +2166,7 @@ Item {
                                     text: "Quick Share (LocalSend)"
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: quickShareMa
                                     anchors.fill: parent
@@ -2137,8 +2193,6 @@ Item {
                                     ? (themeMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                     : (themeMa.containsMouse ? root.fillHover : root.fillIdle)
                                 Behavior on color { ColorAnimation { duration: 160 } }
-                                scale: themeMa.pressed ? 0.90 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
 
                                 border.width: active ? 2 : 0
                                 border.color: active ? root.paper : root.seal
@@ -2158,6 +2212,7 @@ Item {
                                     text: "Themes & Color Scheme"
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: themeMa
                                     anchors.fill: parent
@@ -2190,8 +2245,6 @@ Item {
                                     ? (wallpaperMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
                                     : (wallpaperMa.containsMouse ? root.fillHover : root.fillIdle)
                                 Behavior on color { ColorAnimation { duration: 160 } }
-                                scale: wallpaperMa.pressed ? 0.90 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
 
                                 border.width: active ? 2 : 0
                                 border.color: active ? root.paper : root.seal
@@ -2211,6 +2264,7 @@ Item {
                                     text: "Wallpapers (Gallery & Picker)"
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: wallpaperMa
                                     anchors.fill: parent
@@ -2267,8 +2321,6 @@ Item {
                         : (lyricsMa.containsMouse ? root.islandBorder : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.16))
                     border.width: 1
 
-                    scale: lyricsMa.pressed ? 0.99 : 1.0
-                    Behavior on scale { NumberAnimation { duration: 120 } }
                     Behavior on color { ColorAnimation { duration: 250 } }
                     Behavior on border.color { ColorAnimation { duration: 250 } }
 
@@ -2316,6 +2368,7 @@ Item {
                         }
                     }
 
+                    SpringPress {}
                     MouseArea {
                         id: lyricsMa
                         anchors.fill: parent
@@ -2374,7 +2427,7 @@ Item {
                                     text: lyricsPillTag.isShowing ? "FLOAT ON" : "LYRICS"
                                     font.family: root.barFont
                                     font.pixelSize: 9
-                                    font.weight: Font.Bold
+                                    font.weight: Font.DemiBold
                                     font.letterSpacing: 0.8
                                     color: lyricsPillTag.isShowing ? (mediaCard.hasDominant ? "#000000" : root.paper) : "#FFFFFF"
                                     anchors.verticalCenter: parent.verticalCenter
@@ -2732,7 +2785,7 @@ Item {
                                     color: "#ffffff"
                                     font.family: root.barFont
                                     font.pixelSize: 9
-                                    font.weight: Font.Bold
+                                    font.weight: Font.DemiBold
                                     font.letterSpacing: 0.8
                                 }
                             }
@@ -2743,40 +2796,62 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 8
 
-                            // Voice Dictation Button (triggers voxtype)
+                            // Reload Lyrics Button
                             Rectangle {
-                                id: contentDictationBtn
+                                id: reloadLyricsBtn
                                 width: 22
                                 height: 22
                                 radius: 11
                                 anchors.verticalCenter: parent.verticalCenter
-                                color: (root && root.dictationActive)
-                                    ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.40)
-                                    : (contentDictationMa.containsMouse ? root.fillHover : root.fillIdle)
-                                border.color: (root && root.dictationActive)
-                                    ? root.seal
-                                    : root.sep
+                                color: reloadLyricsMa.containsMouse ? root.fillHover : root.fillIdle
+                                border.color: root.sep
                                 border.width: 1
-                                scale: contentDictationMa.pressed ? 0.92 : (contentDictationMa.containsMouse ? 1.08 : 1.0)
-                                Behavior on scale { NumberAnimation { duration: 120 } }
                                 Behavior on color { ColorAnimation { duration: 150 } }
 
                                 IconText {
+                                    id: reloadIcon
                                     anchors.centerIn: parent
-                                    text: (root && root.dictationState === "transcribing") ? "auto_awesome" : "mic"
+                                    text: "refresh"
                                     font.pixelSize: 13
-                                    color: (root && root.dictationActive) ? root.seal : (root ? root.ink : "#ffffff")
+                                    color: (mprisPanel && mprisPanel._isFetchingLyrics) ? root.seal : (root ? root.ink : "#ffffff")
+
+                                    RotationAnimation on rotation {
+                                        running: mprisPanel ? mprisPanel._isFetchingLyrics : false
+                                        loops: Animation.Infinite
+                                        from: 0
+                                        to: 360
+                                        duration: 800
+                                    }
                                 }
 
+                                TooltipMixin {
+                                    id: reloadLyricsTip
+                                    root: dashboardContent.root
+                                    owner: reloadLyricsBtn
+                                    text: "Reload lyrics"
+                                }
+
+                                SpringPress {}
                                 MouseArea {
-                                    id: contentDictationMa
+                                    id: reloadLyricsMa
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
+                                    onEntered: reloadLyricsTip.show()
+                                    onExited: reloadLyricsTip.hide()
                                     onClicked: {
-                                        if (panel) panel.expanded = false
-                                        else if (root) root.dashboardExpanded = false
-                                        if (root && root.toggleDictation) root.toggleDictation()
+                                        var trackId = dashboardContent.currentTrackId
+                                        if (mprisPanel) {
+                                            if (trackId && mprisPanel._lyricsCache) {
+                                                delete mprisPanel._lyricsCache[trackId]
+                                            }
+                                            mprisPanel.lyricsTrackId = ""
+                                            mprisPanel._lyricsRetryCount = 0
+                                            mprisPanel._isFetchingLyrics = false
+                                            mprisPanel.fetchLyrics()
+                                        }
+                                        dashboardContent.localLyricsTrackId = ""
+                                        dashboardContent.fetchLocalLyrics()
                                     }
                                 }
                             }
@@ -2864,7 +2939,7 @@ Item {
                                     color: "#ffffff"
                                     font.family: root.barFont
                                     font.pixelSize: 17
-                                    font.weight: Font.Bold
+                                    font.weight: Font.DemiBold
                                     anchors.verticalCenter: parent.verticalCenter
 
                                     onTextChanged: marqueeTitleContainer.resetMarquee()
@@ -2914,8 +2989,6 @@ Item {
                             color: playMa.pressed ? Qt.rgba(1, 1, 1, 0.12) : (playMa.containsMouse ? Qt.rgba(1, 1, 1, 0.28) : Qt.rgba(1, 1, 1, 0.18))
                             border.color: Qt.rgba(1, 1, 1, 0.20)
                             border.width: 1
-                            scale: playMa.pressed ? 0.90 : (playMa.containsMouse ? 1.05 : 1.0)
-                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
                             Behavior on color { ColorAnimation { duration: 150 } }
 
                             // Geometric pause bars (100% mathematically centered)
@@ -2948,6 +3021,7 @@ Item {
                                 visible: !mprisSel.playing
                             }
 
+                            SpringPress {}
                             MouseArea {
                                 id: playMa
                                 anchors.fill: parent
@@ -2981,6 +3055,7 @@ Item {
                                 opacity: (mprisSel.player && mprisSel.player.canGoPrevious) ? 0.95 : 0.4
                             }
 
+                            SpringPress {}
                             MouseArea {
                                 id: prevMa
                                 anchors.fill: parent
@@ -3144,6 +3219,7 @@ Item {
                                 opacity: (mprisSel.player && mprisSel.player.canGoNext) ? 0.95 : 0.4
                             }
 
+                            SpringPress {}
                             MouseArea {
                                 id: nextMa
                                 anchors.fill: parent
@@ -3176,8 +3252,8 @@ Item {
     Item {
         id: detailOverlay
         anchors.fill: parent
-        visible: opacity > 0.001
-        opacity: dashboardContent.activeDetailView !== "" ? 1.0 : 0.0
+        visible: !dashboardContent.showEmotionOverlay && (opacity > 0.001)
+        opacity: dashboardContent.showEmotionOverlay ? 0.0 : (dashboardContent.activeDetailView !== "" ? 1.0 : 0.0)
         scale: dashboardContent.activeDetailView !== "" ? 1.0 : 0.98
         transform: Translate {
             y: dashboardContent.activeDetailView !== "" ? 0 : (root && root.barPosition === "bottom" ? 14 : -14)
@@ -3204,8 +3280,6 @@ Item {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 color: detailBackMa.containsMouse ? root.fillHover : root.fillIdle
-                scale: detailBackMa.pressed ? 0.94 : 1.0
-                Behavior on scale { NumberAnimation { duration: 120 } }
                 Behavior on color { ColorAnimation { duration: 150 } }
 
                 Row {
@@ -3228,6 +3302,7 @@ Item {
                     }
                 }
 
+                SpringPress {}
                 MouseArea {
                     id: detailBackMa
                     anchors.fill: parent
@@ -3254,6 +3329,7 @@ Item {
                         case "volume": return "Sound & Volume"
                         case "system": return "System & Power"
                         case "calendar": return "Calendar & Notes"
+                        case "emotions": return "Emotions & State of Mind"
                         case "notifications": return "Notifications"
                         case "updates": return "Software Updates"
                         case "packages": return "Software Updates"
@@ -3266,7 +3342,7 @@ Item {
                 color: root.ink
                 font.family: root.barFont
                 font.pixelSize: 13
-                font.weight: Font.Bold
+                font.weight: Font.DemiBold
             }
 
             // Close button
@@ -3277,8 +3353,6 @@ Item {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 color: detailCloseMa.containsMouse ? root.fillHover : root.fillIdle
-                scale: detailCloseMa.pressed ? 0.92 : 1.0
-                Behavior on scale { NumberAnimation { duration: 120 } }
                 Behavior on color { ColorAnimation { duration: 150 } }
 
                 IconText {
@@ -3288,6 +3362,7 @@ Item {
                     font.pixelSize: 16
                 }
 
+                SpringPress {}
                 MouseArea {
                     id: detailCloseMa
                     anchors.fill: parent
@@ -3346,7 +3421,24 @@ Item {
                 sourceComponent: PluginsDetailSection { root: dashboardContent.root; panel: dashboardContent.panel }
             }
             DetailLoader { id: calDetailLoader;   viewName: "calendar";      sourceComponent: CalendarDetailSection      { root: dashboardContent.root; panel: dashboardContent.panel } }
-            DetailLoader { id: notifDetailLoader; viewName: "notifications"; sourceComponent: NotificationDetailSection  { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader {
+                id: emotionsDetailLoader
+                viewName: "emotions"
+                sourceComponent: EmotionsDetailSection {
+                    root: dashboardContent.root
+                    panel: dashboardContent.panel
+                    emotionsManager: emotionsManager
+                    onRequestCheckin: dashboardContent.showEmotionOverlay = true
+                }
+            }
+            DetailLoader {
+                id: notifDetailLoader
+                viewName: "notifications"
+                sourceComponent: NotificationDetailSection {
+                    root: dashboardContent.root
+                    panel: dashboardContent.panel
+                }
+            }
             DetailLoader {
                 id: updatesDetailLoader
                 viewName: "updates"
@@ -3375,6 +3467,23 @@ Item {
                     }
                 }
             }
+        }
+    }
+
+    // Full-screen State of Mind Daily Emotion Check-in Modal Overlay
+    EmotionStateOfMindOverlay {
+        id: emotionOverlay
+        root: dashboardContent.root
+        emotionsManager: emotionsManager
+        visible: dashboardContent.showEmotionOverlay
+        z: 9999
+        onClosed: {
+            dashboardContent.showEmotionOverlay = false
+            dashboardContent.forceActiveFocus()
+        }
+        onSubmitted: {
+            dashboardContent.showEmotionOverlay = false
+            dashboardContent.forceActiveFocus()
         }
     }
 }

@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pipewire
 import "../modules"
+import "../motion"
 
 Item {
     id: volSection
@@ -357,6 +358,7 @@ Item {
                             }
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: muteBtnMa
                             anchors.fill: parent
@@ -378,6 +380,7 @@ Item {
                             color: root.ink
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: closeLeftMa
                             anchors.fill: parent
@@ -446,6 +449,7 @@ Item {
                                         color: volSection.muted ? "#ea6962" : root.seal
                                     }
 
+                                    SpringPress {}
                                     MouseArea {
                                         anchors.fill: parent
                                         cursorShape: Qt.PointingHandCursor
@@ -709,6 +713,7 @@ Item {
                                                 color: appRowCard.modelData.muted ? root.paper : root.ink
                                             }
 
+                                            SpringPress {}
                                             MouseArea {
                                                 id: appMuteMa
                                                 anchors.fill: parent
@@ -818,6 +823,7 @@ Item {
                             }
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: micPillMa
                             anchors.fill: parent
@@ -839,6 +845,7 @@ Item {
                             color: root.ink
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: closeRightMa
                             anchors.fill: parent
@@ -1108,6 +1115,7 @@ Item {
                                         }
                                     }
 
+                                    SpringPress {}
                                     MouseArea {
                                         id: chipMa
                                         anchors.fill: parent

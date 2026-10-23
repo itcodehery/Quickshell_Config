@@ -3,6 +3,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import "../modules"
+import "../motion"
 
 Item {
     id: updatesSection
@@ -101,94 +102,26 @@ Item {
                     text: "Software Updates"
                     font.family: root.barFont
                     font.pixelSize: 12
-                    font.weight: Font.Bold
+                    font.weight: Font.DemiBold
                     color: root.ink
                 }
             }
         }
 
-        // Center: Segmented Tab Switcher [ Packages | Themes | Shell ]
-        Rectangle {
+        // Center: Tab Switcher [ Packages | Themes | Shell ]
+        PillTabs {
             anchors.centerIn: parent
-            height: 32
-            radius: 16
-            color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-            width: tabSwitcherRow.implicitWidth + 8
-
-            Row {
-                id: tabSwitcherRow
-                anchors.centerIn: parent
-                spacing: 4
-
-                Repeater {
-                    model: [
-                        { id: "packages", label: "Packages", badge: updatesSection.totalCount, icon: "package_2" },
-                        { id: "themes",   label: "Themes",   badge: updatesSection.themeOutdated, icon: "palette" },
-                        { id: "shell",    label: "Shell",    badge: updatesSection.shellBehind, icon: "terminal" }
-                    ]
-
-                    delegate: Rectangle {
-                        id: tabItem
-                        required property var modelData
-                        readonly property bool isCur: updatesSection.activeTab === modelData.id
-                        height: 26
-                        width: Math.max(76, tabBtnRow.implicitWidth + 16)
-                        radius: 13
-                        color: isCur ? root.seal : (tabHov.hovered ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.12) : "transparent")
-                        Behavior on color { ColorAnimation { duration: 140 } }
-
-                        Row {
-                            id: tabBtnRow
-                            anchors.centerIn: parent
-                            spacing: 5
-
-                            IconText {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: tabItem.modelData.icon
-                                font.pixelSize: 12
-                                color: tabItem.isCur ? root.paper : root.ink
-                            }
-
-                            Text {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: tabItem.modelData.label
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: tabItem.isCur ? Font.Bold : Font.Medium
-                                color: tabItem.isCur ? root.paper : root.ink
-                            }
-
-                            // Badge count pill
-                            Rectangle {
-                                anchors.verticalCenter: parent.verticalCenter
-                                visible: tabItem.modelData.badge > 0
-                                height: 16
-                                width: Math.max(16, badgeNum.implicitWidth + 8)
-                                radius: 8
-                                color: tabItem.isCur ? Qt.rgba(root.paper.r, root.paper.g, root.paper.b, 0.28) : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.20)
-
-                                Text {
-                                    id: badgeNum
-                                    anchors.centerIn: parent
-                                    text: String(tabItem.modelData.badge)
-                                    font.family: root.barFont
-                                    font.pixelSize: 9
-                                    font.weight: Font.Bold
-                                    color: tabItem.isCur ? root.paper : root.seal
-                                }
-                            }
-                        }
-
-                        HoverHandler { id: tabHov; cursorShape: Qt.PointingHandCursor }
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                updatesSection.activeTab = tabItem.modelData.id
-                                if (updatesSection.root) updatesSection.root.activeUpdateTab = tabItem.modelData.id
-                            }
-                        }
-                    }
-                }
+            theme: root
+            tabHeight: 30
+            model: [
+                { id: "packages", label: "Packages", badge: updatesSection.totalCount, icon: "package_2" },
+                { id: "themes",   label: "Themes",   badge: updatesSection.themeOutdated, icon: "palette" },
+                { id: "shell",    label: "Shell",    badge: updatesSection.shellBehind, icon: "terminal" }
+            ]
+            current: updatesSection.activeTab
+            onActivated: (id) => {
+                updatesSection.activeTab = id
+                if (updatesSection.root) updatesSection.root.activeUpdateTab = id
             }
         }
 
@@ -223,6 +156,7 @@ Item {
                 }
 
                 HoverHandler { id: refHov; cursorShape: Qt.PointingHandCursor }
+                SpringPress {}
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
@@ -257,6 +191,7 @@ Item {
                 }
 
                 HoverHandler { id: closeHov; cursorShape: Qt.PointingHandCursor }
+                SpringPress {}
                 MouseArea {
                     anchors.fill: parent
                     onClicked: updatesSection.closeRequested()
@@ -288,203 +223,279 @@ Item {
             color: root.fillIdle
             clip: true
 
-            Column {
-                anchors.fill: parent
-                anchors.margins: 14
-                spacing: 12
+            // Top Bar
+            Item {
+                id: leftTopBar
+                anchors.top: parent.top
+                anchors.topMargin: 4
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                height: 32
+                z: 5
+            }
 
-                // Status Hero Card
-                Rectangle {
-                    width: parent.width
-                    height: 106
-                    radius: 16
-                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.05)
+            // Status Card with Connected Tab & Integrated Actions
+            ConnectedTabCard {
+                root: updatesSection.root
+                anchors.top: leftTopBar.bottom
+                anchors.topMargin: 0
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 10
 
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 6
-                        width: parent.width - 24
+                dotColor: updatesSection.totalCount > 0 ? "#ea6962" : "#a9b665"
+                icon: "system_update"
+                text: updatesSection.totalCount > 0 ? (updatesSection.totalCount + " Updates") : "System Up to Date"
 
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: 8
-
-                            Rectangle {
-                                width: 34
-                                height: 34
-                                radius: 17
-                                color: updatesSection.totalCount > 0
-                                    ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18)
-                                    : Qt.rgba(74/255, 222/255, 128/255, 0.18)
-
-                                IconText {
-                                    anchors.centerIn: parent
-                                    text: updatesSection.totalCount > 0 ? "system_update" : "check_circle"
-                                    font.pixelSize: 18
-                                    color: updatesSection.totalCount > 0 ? root.seal : "#4ADE80"
-                                }
-                            }
-
-                            Column {
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 1
-
-                                Text {
-                                    text: updatesSection.totalCount > 0
-                                        ? (updatesSection.totalCount + " Updates Available")
-                                        : "System Up to Date"
-                                    font.family: root.barFont
-                                    font.pixelSize: 13
-                                    font.weight: Font.Bold
-                                    color: root.ink
-                                }
-
-                                Text {
-                                    text: updatesSection.omarchyVersionStr !== ""
-                                        ? ("Omarchy " + (updatesSection.omarchyVersionStr.startsWith("v") ? updatesSection.omarchyVersionStr : ("v" + updatesSection.omarchyVersionStr)))
-                                        : "Arch Linux Rolling"
-                                    font.family: root.barFont
-                                    font.pixelSize: 10
-                                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.60)
-                                }
-                            }
-                        }
-
-                        // Summary stat pills
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: 6
-
-                            Rectangle {
-                                height: 20
-                                width: sysRow.implicitWidth + 12
-                                radius: 10
-                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.07)
-                                Row {
-                                    id: sysRow
-                                    anchors.centerIn: parent
-                                    spacing: 4
-                                    Text {
-                                        text: "Repo:"
-                                        font.family: root.barFont
-                                        font.pixelSize: 9
-                                        color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.55)
-                                    }
-                                    Text {
-                                        text: String(updatesSection.systemCount)
-                                        font.family: root.barFont
-                                        font.pixelSize: 9
-                                        font.weight: Font.Bold
-                                        color: root.ink
-                                    }
-                                }
-                            }
-
-                            Rectangle {
-                                height: 20
-                                width: aurRow.implicitWidth + 12
-                                radius: 10
-                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.07)
-                                Row {
-                                    id: aurRow
-                                    anchors.centerIn: parent
-                                    spacing: 4
-                                    Text {
-                                        text: "AUR:"
-                                        font.family: root.barFont
-                                        font.pixelSize: 9
-                                        color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.55)
-                                    }
-                                    Text {
-                                        text: String(updatesSection.aurCount)
-                                        font.family: root.barFont
-                                        font.pixelSize: 9
-                                        font.weight: Font.Bold
-                                        color: root.ink
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Action Buttons
                 Column {
-                    width: parent.width
+                    anchors.fill: parent
+                    anchors.margins: 12
                     spacing: 8
 
-                    // Primary Update Button
-                    Rectangle {
+                    // 1. Status Hero Row
+                    Row {
                         width: parent.width
-                        height: 36
-                        radius: 12
-                        color: btnUpdHov.hovered ? Qt.lighter(root.seal, 1.1) : root.seal
-                        Behavior on color { ColorAnimation { duration: 120 } }
+                        spacing: 10
 
-                        Row {
-                            anchors.centerIn: parent
-                            spacing: 6
+                        Rectangle {
+                            width: 34
+                            height: 34
+                            radius: 17
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: updatesSection.totalCount > 0
+                                ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18)
+                                : Qt.rgba(74/255, 222/255, 128/255, 0.18)
+
                             IconText {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: "download_for_offline"
-                                font.pixelSize: 15
-                                color: root.paper
-                            }
-                            Text {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: updatesSection.totalCount > 0 ? "Update All Packages" : "Upgrade System"
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: Font.Bold
-                                color: root.paper
+                                anchors.centerIn: parent
+                                text: updatesSection.totalCount > 0 ? "system_update" : "check_circle"
+                                font.pixelSize: 18
+                                color: updatesSection.totalCount > 0 ? root.seal : "#4ADE80"
                             }
                         }
 
-                        HoverHandler { id: btnUpdHov; cursorShape: Qt.PointingHandCursor }
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                Quickshell.execDetached(["bash", "-c", "omarchy-launch-floating-terminal-with-presentation omarchy-update"])
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width - 34 - 10
+                            spacing: 2
+
+                            Text {
+                                text: updatesSection.totalCount > 0
+                                    ? (updatesSection.totalCount + " Updates Available")
+                                    : "System Up to Date"
+                                font.family: root.barFont
+                                font.pixelSize: 12
+                                font.weight: Font.DemiBold
+                                color: root.ink
+                                elide: Text.ElideRight
+                                width: parent.width
+                            }
+
+                            Text {
+                                text: updatesSection.omarchyVersionStr !== ""
+                                    ? ("Omarchy " + (updatesSection.omarchyVersionStr.startsWith("v") ? updatesSection.omarchyVersionStr : ("v" + updatesSection.omarchyVersionStr)))
+                                    : "Arch Linux Rolling"
+                                font.family: root.barFont
+                                font.pixelSize: 9
+                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.60)
+                                elide: Text.ElideRight
+                                width: parent.width
                             }
                         }
                     }
 
-                    // Check Updates Button
-                    Rectangle {
+                    // 2. Summary Stat Pills Row
+                    Row {
                         width: parent.width
-                        height: 32
-                        radius: 12
-                        color: btnCheckHov.hovered
-                            ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.12)
-                            : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
-                        Behavior on color { ColorAnimation { duration: 120 } }
+                        spacing: 6
 
-                        Row {
-                            anchors.centerIn: parent
-                            spacing: 6
-                            IconText {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: "sync"
-                                font.pixelSize: 14
-                                color: root.ink
-                            }
-                            Text {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: "Check for Updates"
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: Font.Medium
-                                color: root.ink
+                        Rectangle {
+                            height: 20
+                            width: sysRow.implicitWidth + 12
+                            radius: 10
+                            color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.07)
+                            Row {
+                                id: sysRow
+                                anchors.centerIn: parent
+                                spacing: 4
+                                Text {
+                                    text: "Repo:"
+                                    font.family: root.barFont
+                                    font.pixelSize: 9
+                                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.55)
+                                }
+                                Text {
+                                    text: String(updatesSection.systemCount)
+                                    font.family: root.barFont
+                                    font.pixelSize: 9
+                                    font.weight: Font.DemiBold
+                                    color: root.ink
+                                }
                             }
                         }
 
-                        HoverHandler { id: btnCheckHov; cursorShape: Qt.PointingHandCursor }
-                        MouseArea {
+                        Rectangle {
+                            height: 20
+                            width: aurRow.implicitWidth + 12
+                            radius: 10
+                            color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.07)
+                            Row {
+                                id: aurRow
+                                anchors.centerIn: parent
+                                spacing: 4
+                                Text {
+                                    text: "AUR:"
+                                    font.family: root.barFont
+                                    font.pixelSize: 9
+                                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.55)
+                                }
+                                Text {
+                                    text: String(updatesSection.aurCount)
+                                    font.family: root.barFont
+                                    font.pixelSize: 9
+                                    font.weight: Font.DemiBold
+                                    color: root.ink
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. Action Buttons
+                    Item {
+                        width: parent.width
+                        height: 28
+
+                        // Mode A: Updates Available -> Prominent Update All Button
+                        Rectangle {
+                            visible: updatesSection.totalCount > 0
                             anchors.fill: parent
-                            onClicked: {
-                                updatesSection.refreshing = true
-                                if (updatesSection.root) updatesSection.root.archRefreshTick++
-                                refreshResetTimer.restart()
+                            radius: 14
+                            color: btnUpdHov.hovered ? Qt.lighter(root.seal, 1.1) : root.seal
+                            Behavior on color { ColorAnimation { duration: 120 } }
+
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: 6
+                                IconText {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "download_for_offline"
+                                    font.pixelSize: 14
+                                    color: root.paper
+                                }
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "Update All Packages (" + updatesSection.totalCount + ")"
+                                    font.family: root.barFont
+                                    font.pixelSize: 11
+                                    font.weight: Font.DemiBold
+                                    color: root.paper
+                                }
+                            }
+
+                            HoverHandler { id: btnUpdHov; cursorShape: Qt.PointingHandCursor }
+                            SpringPress {}
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    Quickshell.execDetached(["bash", "-c", "omarchy-launch-floating-terminal-with-presentation omarchy-update"])
+                                }
+                            }
+                        }
+
+                        // Mode B: System Up to Date -> Check for Updates & Upgrade buttons
+                        Row {
+                            visible: updatesSection.totalCount === 0
+                            width: parent.width
+                            height: parent.height
+                            spacing: 6
+
+                            // Check Updates Button
+                            Rectangle {
+                                width: Math.floor((parent.width - 6) / 2)
+                                height: parent.height
+                                radius: 14
+                                color: btnCheckHov.hovered
+                                    ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.12)
+                                    : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.07)
+                                Behavior on color { ColorAnimation { duration: 120 } }
+
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: 5
+                                    IconText {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "sync"
+                                        font.pixelSize: 13
+                                        color: root.ink
+                                    }
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "Check"
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.DemiBold
+                                        color: root.ink
+                                    }
+                                }
+
+                                HoverHandler { id: btnCheckHov; cursorShape: Qt.PointingHandCursor }
+                                SpringPress {}
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        updatesSection.refreshing = true
+                                        if (updatesSection.root) updatesSection.root.archRefreshTick++
+                                        verProc.running = false
+                                        verProc.running = true
+                                        refreshResetTimer.restart()
+                                    }
+                                }
+                            }
+
+                            // Upgrade / Terminal Button
+                            Rectangle {
+                                width: parent.width - Math.floor((parent.width - 6) / 2) - 6
+                                height: parent.height
+                                radius: 14
+                                color: btnUpgHov.hovered
+                                    ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25)
+                                    : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.14)
+                                border.width: 1
+                                border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25)
+                                Behavior on color { ColorAnimation { duration: 120 } }
+
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: 5
+                                    IconText {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "terminal"
+                                        font.pixelSize: 13
+                                        color: root.seal
+                                    }
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "Upgrade"
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.DemiBold
+                                        color: root.seal
+                                    }
+                                }
+
+                                HoverHandler { id: btnUpgHov; cursorShape: Qt.PointingHandCursor }
+                                SpringPress {}
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        Quickshell.execDetached(["bash", "-c", "omarchy-launch-floating-terminal-with-presentation omarchy-update"])
+                                    }
+                                }
                             }
                         }
                     }
@@ -566,6 +577,7 @@ Item {
                                     font.pixelSize: 12
                                     color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.50)
 
+                                    SpringPress {}
                                     MouseArea {
                                         anchors.fill: parent
                                         cursorShape: Qt.PointingHandCursor
@@ -594,7 +606,7 @@ Item {
                                 text: "PACKAGE (" + updatesSection.filteredUpdates.length + ")"
                                 font.family: root.barFont
                                 font.pixelSize: 9
-                                font.weight: Font.Bold
+                                font.weight: Font.DemiBold
                                 font.letterSpacing: 0.6
                                 color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.45)
                             }
@@ -604,7 +616,7 @@ Item {
                                 text: "CURRENT"
                                 font.family: root.barFont
                                 font.pixelSize: 9
-                                font.weight: Font.Bold
+                                font.weight: Font.DemiBold
                                 font.letterSpacing: 0.6
                                 color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.45)
                             }
@@ -614,7 +626,7 @@ Item {
                                 text: "NEW VERSION"
                                 font.family: root.barFont
                                 font.pixelSize: 9
-                                font.weight: Font.Bold
+                                font.weight: Font.DemiBold
                                 font.letterSpacing: 0.6
                                 color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.45)
                             }
@@ -687,7 +699,7 @@ Item {
                                                     text: pkgRow.modelData.name || ""
                                                     font.family: root.barFont
                                                     font.pixelSize: 11
-                                                    font.weight: Font.Bold
+                                                    font.weight: Font.DemiBold
                                                     color: root.ink
                                                     elide: Text.ElideRight
                                                     width: parent.width - 55
@@ -723,7 +735,7 @@ Item {
                                                     text: pkgRow.modelData.newVersion || pkgRow.modelData.version || "—"
                                                     font.family: root.barFont
                                                     font.pixelSize: 10
-                                                    font.weight: Font.Bold
+                                                    font.weight: Font.DemiBold
                                                     color: root.seal
                                                     elide: Text.ElideRight
                                                     width: parent.width - 16
@@ -779,9 +791,9 @@ Item {
                     anchors.margins: 14
                     spacing: 10
 
-                    Row {
+                    Item {
                         width: parent.width
-                        Item { width: 1; height: 1 }
+                        height: 28
 
                         Rectangle {
                             anchors.right: parent.right
@@ -803,12 +815,13 @@ Item {
                                     text: "Check & Update Themes"
                                     font.family: root.barFont
                                     font.pixelSize: 10
-                                    font.weight: Font.Bold
+                                    font.weight: Font.DemiBold
                                     color: root.paper
                                 }
                             }
 
                             HoverHandler { id: themeUpdBtnHov; cursorShape: Qt.PointingHandCursor }
+                            SpringPress {}
                             MouseArea {
                                 anchors.fill: parent
                                 onClicked: {
@@ -891,7 +904,7 @@ Item {
                             : "Omarchy Shell is up to date"
                         font.family: root.barFont
                         font.pixelSize: 13
-                        font.weight: Font.Bold
+                        font.weight: Font.DemiBold
                         color: root.ink
                     }
 
@@ -925,12 +938,13 @@ Item {
                                 text: updatesSection.shellBehind > 0 ? "Upgrade Omarchy Shell" : "Check Omarchy Updates"
                                 font.family: root.barFont
                                 font.pixelSize: 11
-                                font.weight: Font.Bold
+                                font.weight: Font.DemiBold
                                 color: root.paper
                             }
                         }
 
                         HoverHandler { id: shellBtnHov; cursorShape: Qt.PointingHandCursor }
+                        SpringPress {}
                         MouseArea {
                             anchors.fill: parent
                             onClicked: {

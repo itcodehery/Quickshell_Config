@@ -3,6 +3,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import "../modules"
+import "../motion"
 
 Item {
     id: btSection
@@ -206,63 +207,24 @@ Item {
             Item {
                 id: leftTopBar
                 anchors.top: parent.top
-                anchors.topMargin: 9
+                anchors.topMargin: 6
                 anchors.left: parent.left
                 anchors.leftMargin: 12
                 anchors.right: parent.right
                 anchors.rightMargin: 12
-                height: 26
-
-                // Top Left: Status pill
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: 26
-                    radius: 13
-                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                    width: Math.min(leftStatusRow.implicitWidth + 18, 160)
-                    clip: true
-
-                    Row {
-                        id: leftStatusRow
-                        anchors.centerIn: parent
-                        spacing: 6
-
-                        Rectangle {
-                            width: 6; height: 6; radius: 3
-                            anchors.verticalCenter: parent.verticalCenter
-                            color: !btSection.btObj.powered ? "#ea6962" : (connectedModel.count > 0 ? "#a9b665" : root.sumiHi)
-                        }
-
-                        IconText {
-                            text: btSection.btObj.powered ? "bluetooth" : "bluetooth_disabled"
-                            font.pixelSize: 13
-                            color: root.ink
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Text {
-                            text: !btSection.btObj.powered ? "Bluetooth Off" : (connectedModel.count === 1 ? connectedModel.get(0).name : (connectedModel.count > 1 ? ("Connected (" + connectedModel.count + ")") : "Bluetooth On"))
-                            font.family: root.barFont
-                            font.pixelSize: 11
-                            font.weight: Font.Bold
-                            color: root.ink
-                            anchors.verticalCenter: parent.verticalCenter
-                            elide: Text.ElideRight
-                            maximumLineCount: 1
-                        }
-                    }
-                }
+                height: 36
+                z: 5
 
                 // Top Right: Power Toggle & Close Button
                 Row {
                     anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 8
                     spacing: 6
 
                     // Power Toggle Pill
                     Rectangle {
-                        width: 58; height: 26; radius: 13
+                        width: 56; height: 24; radius: 12
                         color: btSection.btObj.powered ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
                         border.width: 1
                         border.color: btSection.btObj.powered ? root.seal : "transparent"
@@ -281,12 +243,13 @@ Item {
                                 text: btSection.btObj.powered ? "ON" : "OFF"
                                 font.family: root.barFont
                                 font.pixelSize: 10
-                                font.weight: Font.Bold
+                                font.weight: Font.DemiBold
                                 color: btSection.btObj.powered ? root.seal : root.ink
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }
 
+                        SpringPress {}
                         MouseArea {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
@@ -296,16 +259,17 @@ Item {
 
                     // Close Button
                     Rectangle {
-                        width: 26; height: 26; radius: 13
+                        width: 24; height: 24; radius: 12
                         color: closeLeftMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
 
                         IconText {
                             anchors.centerIn: parent
                             text: "close"
-                            font.pixelSize: 14
+                            font.pixelSize: 13
                             color: root.ink
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: closeLeftMa
                             anchors.fill: parent
@@ -320,7 +284,7 @@ Item {
             // Left Column Body Content (Connected Device Info Only)
             Item {
                 anchors.top: leftTopBar.bottom
-                anchors.topMargin: 8
+                anchors.topMargin: 0
                 anchors.left: parent.left
                 anchors.leftMargin: 12
                 anchors.right: parent.right
@@ -328,13 +292,12 @@ Item {
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 10
 
-                Rectangle {
+                ConnectedTabCard {
+                    root: btSection.root
                     anchors.fill: parent
-                    radius: 14
-                    color: Qt.rgba(1, 1, 1, 0.03)
-                    border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.05)
-                    clip: true
+                    dotColor: !btSection.btObj.powered ? "#ea6962" : (connectedModel.count > 0 ? "#a9b665" : root.sumiHi)
+                    icon: btSection.btObj.powered ? "bluetooth" : "bluetooth_disabled"
+                    text: !btSection.btObj.powered ? "Bluetooth Off" : (connectedModel.count === 1 ? connectedModel.get(0).name : (connectedModel.count > 1 ? ("Connected (" + connectedModel.count + ")") : "Bluetooth On"))
 
                     // 1. Single Connected Device Spotlight (Centered, clean & minimal)
                     Column {
@@ -600,73 +563,17 @@ Item {
                 anchors.rightMargin: 12
                 height: 28
 
-                // Top Left: Tab switch pill (Paired | All)
-                Row {
+                // Top Left: Tab switcher (Paired | All)
+                PillTabs {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 6
-
-                    Rectangle {
-                        height: 26
-                        radius: 13
-                        width: pairedTabRow.implicitWidth + 18
-                        color: btSection.currentTab === "paired" ? root.fillActive : (tabPairedMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06))
-                        border.width: btSection.currentTab === "paired" ? 1 : 0
-                        border.color: root.seal
-
-                        Row {
-                            id: pairedTabRow
-                            anchors.centerIn: parent
-                            spacing: 4
-                            Text {
-                                text: "Paired (" + pairedModel.count + ")"
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: btSection.currentTab === "paired" ? Font.Bold : Font.Normal
-                                color: btSection.currentTab === "paired" ? root.seal : root.ink
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        MouseArea {
-                            id: tabPairedMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: btSection.currentTab = "paired"
-                        }
-                    }
-
-                    Rectangle {
-                        height: 26
-                        radius: 13
-                        width: allTabRow.implicitWidth + 18
-                        color: btSection.currentTab === "all" ? root.fillActive : (tabAllMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06))
-                        border.width: btSection.currentTab === "all" ? 1 : 0
-                        border.color: root.seal
-
-                        Row {
-                            id: allTabRow
-                            anchors.centerIn: parent
-                            spacing: 4
-                            Text {
-                                text: "All (" + allModel.count + ")"
-                                font.family: root.barFont
-                                font.pixelSize: 11
-                                font.weight: btSection.currentTab === "all" ? Font.Bold : Font.Normal
-                                color: btSection.currentTab === "all" ? root.seal : root.ink
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        MouseArea {
-                            id: tabAllMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: btSection.currentTab = "all"
-                        }
-                    }
+                    theme: root
+                    model: [
+                        { id: "paired", label: "Paired (" + pairedModel.count + ")" },
+                        { id: "all", label: "All (" + allModel.count + ")" }
+                    ]
+                    current: btSection.currentTab
+                    onActivated: (id) => btSection.currentTab = id
                 }
 
                 // Top Right: Status / Scan / Close
@@ -720,6 +627,7 @@ Item {
                             }
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: scanBtnMa
                             anchors.fill: parent
@@ -731,16 +639,17 @@ Item {
 
                     // Close Button
                     Rectangle {
-                        width: 26; height: 26; radius: 13
+                        width: 24; height: 24; radius: 12
                         color: closeRightMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
 
                         IconText {
                             anchors.centerIn: parent
                             text: "close"
-                            font.pixelSize: 14
+                            font.pixelSize: 13
                             color: root.ink
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: closeRightMa
                             anchors.fill: parent
@@ -954,6 +863,7 @@ Item {
                                         font.weight: Font.Bold
                                     }
 
+                                    SpringPress {}
                                     MouseArea {
                                         id: devDiscMa
                                         anchors.fill: parent
@@ -980,6 +890,7 @@ Item {
                                         font.weight: Font.Bold
                                     }
 
+                                    SpringPress {}
                                     MouseArea {
                                         id: connBtnMa
                                         anchors.fill: parent
@@ -1006,6 +917,7 @@ Item {
                                         font.weight: Font.Bold
                                     }
 
+                                    SpringPress {}
                                     MouseArea {
                                         id: pairBtnMa
                                         anchors.fill: parent
@@ -1031,6 +943,7 @@ Item {
                                         font.pixelSize: 12
                                     }
 
+                                    SpringPress {}
                                     MouseArea {
                                         id: remMa
                                         anchors.fill: parent
@@ -1042,6 +955,7 @@ Item {
                             }
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: devItemMa
                             anchors.fill: parent

@@ -3,6 +3,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import "../modules"
+import "../motion"
 
 Item {
     id: wifiSection
@@ -286,62 +287,24 @@ Item {
             Item {
                 id: leftTopBar
                 anchors.top: parent.top
-                anchors.topMargin: 9
+                anchors.topMargin: 6
                 anchors.left: parent.left
                 anchors.leftMargin: 12
                 anchors.right: parent.right
                 anchors.rightMargin: 12
-                height: 26
-
-                // Status Badge Pill
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: 26
-                    radius: 13
-                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                    width: leftStatusRow.implicitWidth + 18
-
-                    Row {
-                        id: leftStatusRow
-                        anchors.centerIn: parent
-                        spacing: 6
-
-                        Rectangle {
-                            width: 6; height: 6; radius: 3
-                            anchors.verticalCenter: parent.verticalCenter
-                            color: wifiSection.statusObj.wifiBlocked ? "#ea6962" : (wifiSection.statusObj.connected ? "#a9b665" : root.sumiHi)
-                        }
-
-                        IconText {
-                            text: wifiSection.statusObj.wifiBlocked ? "wifi_off" : "wifi"
-                            font.pixelSize: 13
-                            color: root.ink
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Text {
-                            text: wifiSection.statusObj.wifiBlocked ? "Wi-Fi Off" : (wifiSection.statusObj.connected ? wifiSection.statusObj.ssid : "Disconnected")
-                            font.family: root.barFont
-                            font.pixelSize: 11
-                            font.weight: Font.Bold
-                            color: root.ink
-                            anchors.verticalCenter: parent.verticalCenter
-                            elide: Text.ElideRight
-                            maximumLineCount: 1
-                        }
-                    }
-                }
+                height: 36
+                z: 5
 
                 // Top Right: Radio Toggle & Close Button
                 Row {
                     anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 8
                     spacing: 6
 
                     // Radio Power Toggle Pill
                     Rectangle {
-                        width: 58; height: 26; radius: 13
+                        width: 56; height: 24; radius: 12
                         color: !wifiSection.statusObj.wifiBlocked ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
                         border.width: 1
                         border.color: !wifiSection.statusObj.wifiBlocked ? root.seal : "transparent"
@@ -360,12 +323,13 @@ Item {
                                 text: wifiSection.statusObj.wifiBlocked ? "OFF" : "ON"
                                 font.family: root.barFont
                                 font.pixelSize: 10
-                                font.weight: Font.Bold
+                                font.weight: Font.DemiBold
                                 color: !wifiSection.statusObj.wifiBlocked ? root.seal : root.ink
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }
 
+                        SpringPress {}
                         MouseArea {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
@@ -375,7 +339,7 @@ Item {
 
                     // Close Button
                     Rectangle {
-                        width: 26; height: 26; radius: 13
+                        width: 24; height: 24; radius: 12
                         color: closeBtnMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
                         border.width: 0
 
@@ -384,9 +348,10 @@ Item {
                             text: "close"
                             color: root.ink
                             opacity: 0.85
-                            font.pixelSize: 14
+                            font.pixelSize: 13
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: closeBtnMa
                             anchors.fill: parent
@@ -401,7 +366,7 @@ Item {
             // Left Column Body Content
             Column {
                 anchors.top: leftTopBar.bottom
-                anchors.topMargin: 8
+                anchors.topMargin: 0
                 anchors.left: parent.left
                 anchors.leftMargin: 12
                 anchors.right: parent.right
@@ -410,15 +375,14 @@ Item {
                 anchors.bottomMargin: 10
                 spacing: 8
 
-                // 1. Current Network Card (Minimal & Clean)
-                Rectangle {
+                // 1. Current Network Card with Connected Browser Tab
+                ConnectedTabCard {
+                    root: wifiSection.root
                     width: parent.width
                     height: wifiSection.statusObj.connected ? 98 : 62
-                    radius: 14
-                    color: Qt.rgba(1, 1, 1, 0.03)
-                    border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.05)
-                    clip: true
+                    dotColor: wifiSection.statusObj.wifiBlocked ? "#ea6962" : (wifiSection.statusObj.connected ? "#a9b665" : root.sumiHi)
+                    icon: wifiSection.statusObj.wifiBlocked ? "wifi_off" : "wifi"
+                    text: wifiSection.statusObj.wifiBlocked ? "Wi-Fi Off" : (wifiSection.statusObj.connected ? wifiSection.statusObj.ssid : "Disconnected")
 
                     Column {
                         anchors.fill: parent
@@ -503,6 +467,7 @@ Item {
                                 }
                             }
 
+                            SpringPress {}
                             MouseArea {
                                 id: discHeroMa
                                 anchors.fill: parent
@@ -573,6 +538,7 @@ Item {
                         }
                     }
 
+                    SpringPress {}
                     MouseArea {
                         id: speedBtnMa
                         anchors.fill: parent
@@ -671,6 +637,7 @@ Item {
                             }
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: rescanBtnMa
                             anchors.fill: parent
@@ -682,7 +649,7 @@ Item {
 
                     // Close Button
                     Rectangle {
-                        width: 26; height: 26; radius: 13
+                        width: 24; height: 24; radius: 12
                         color: rightCloseMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
                         border.width: 0
 
@@ -691,9 +658,10 @@ Item {
                             text: "close"
                             color: root.ink
                             opacity: 0.85
-                            font.pixelSize: 14
+                            font.pixelSize: 13
                         }
 
+                        SpringPress {}
                         MouseArea {
                             id: rightCloseMa
                             anchors.fill: parent
@@ -873,6 +841,7 @@ Item {
                                     color: root.warn
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: discMa
                                     anchors.fill: parent
@@ -901,6 +870,7 @@ Item {
                                     color: root.seal
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: connBtnMa
                                     anchors.fill: parent
@@ -971,6 +941,7 @@ Item {
                                     color: root.seal.hsvValue < 0.5 ? root.ink : root.paper
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     id: submitMa
                                     anchors.fill: parent
@@ -994,6 +965,7 @@ Item {
                                     color: root.ink
                                 }
 
+                                SpringPress {}
                                 MouseArea {
                                     anchors.fill: parent
                                     cursorShape: Qt.PointingHandCursor
@@ -1006,6 +978,7 @@ Item {
                         }
                     }
 
+                    SpringPress {}
                     MouseArea {
                         id: netRowMa
                         anchors.fill: parent
