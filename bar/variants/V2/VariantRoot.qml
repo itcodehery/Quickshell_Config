@@ -42,9 +42,15 @@ Item {
         theme.dashboardExpanded = !theme.dashboardExpanded
     }
     function openDashboardDetail(detail) {
-        theme.dashboardDetail = detail
-        theme.dashboardExpanded = true
+        if (theme.dashboardExpanded && theme.dashboardDetail === detail) {
+            theme.dashboardExpanded = false
+            theme.dashboardDetail = ""
+        } else {
+            theme.dashboardDetail = detail
+            theme.dashboardExpanded = true
+        }
     }
+    function togglePluginsDrawer() { theme.togglePluginsDrawer() }
     function lockRetract() {}
     function lockReveal() {}
     function currentShellStyle() { return theme.barShellStyle }
@@ -293,6 +299,7 @@ Item {
     OnDemandPanel { trigger: theme.workspaceVisible;                               WorkspacePanel     { root: theme } }
     OnDemandPanel { trigger: theme.controlVisible;                                 ControlPanel       { root: theme } }
     OnDemandPanel { trigger: theme.trayMenuVisible;                                TrayMenu           { root: theme } }
+    OnDemandPanel { trigger: theme.pluginsDrawerVisible;                           PluginsDrawer      { root: theme } }
 
     // Picker variants: only the selected pickerStyle is instantiated on demand.
     LazyLoader { active: theme.imagePickerVisible && (theme.pickerStyle === "tanzaku" || theme.pickerStyle === "");  ImageCarouselPanel       { root: theme } }

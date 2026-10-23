@@ -1617,6 +1617,7 @@ PanelWindow {
             return row2SecondaryItem ? sideNaturalWidth(row2SecondaryItem, stage) : 0
         }
         function updateNarrowStage() {
+            if (typeof maxMiddleWidth === "undefined") return
             var s = narrowStage
             var W = maxMiddleWidth
             if (W < 1) return                              // no layout yet
@@ -3160,6 +3161,62 @@ PanelWindow {
                 Timer {
                     interval: 60000; repeat: true; running: barSlot.isDashboardActive
                     onTriggered: { uptimeProc.running = false; uptimeProc.running = true }
+                }
+
+                // Pinned Plugin Icon Buttons (Placed to the left of the Screentime Pill)
+                Repeater {
+                    model: barSlot.root.pinnedPluginsData || []
+                    delegate: Rectangle {
+                        id: pinnedPlugBtn
+                        required property var modelData
+
+                        height: 28
+                        width: 28
+                        radius: 14
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: pinnedPlugMa.containsMouse
+                            ? Qt.rgba(barSlot.root.seal.r, barSlot.root.seal.g, barSlot.root.seal.b, 0.25)
+                            : barSlot.root.fillIdle
+                        border.width: pinnedPlugMa.containsMouse ? 1.5 : 0
+                        border.color: barSlot.root.seal
+
+                        scale: pinnedPlugMa.pressed ? 0.92 : (pinnedPlugMa.containsMouse ? 1.06 : 1.0)
+                        Behavior on scale { NumberAnimation { duration: 120 } }
+                        Behavior on color { ColorAnimation { duration: 150 } }
+
+                        IconText {
+                            anchors.centerIn: parent
+                            text: modelData.icon || "extension"
+                            color: pinnedPlugMa.containsMouse ? barSlot.root.seal : barSlot.root.ink
+                            font.pixelSize: 15
+                        }
+
+                        TooltipMixin {
+                            id: pinnedPlugTip
+                            root: barSlot.root
+                            owner: pinnedPlugBtn
+                            text: (modelData.name || modelData.id) + " (Right-click to unpin)"
+                        }
+
+                        MouseArea {
+                            id: pinnedPlugMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: pinnedPlugTip.show()
+                            onExited: pinnedPlugTip.hide()
+                            onClicked: (mouse) => {
+                                pinnedPlugTip.hide()
+                                if (mouse.button === Qt.RightButton) {
+                                    barSlot.root.togglePinPlugin(modelData.id)
+                                } else {
+                                    barSlot.root.dashboardExpanded = false
+                                    Quickshell.execDetached(["omarchy-shell", "shell", "summon", modelData.id])
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Screentime / Uptime Pill

@@ -7,6 +7,8 @@
 *.bak
 *~
 *.orig
+*.backup*
+*.backup.*
 
 # Temporary files
 *.swp
@@ -20,3 +22,5 @@ Thumbs.db
 __pycache__/
 *.py[cod]
 
+# Zip
+*.zip

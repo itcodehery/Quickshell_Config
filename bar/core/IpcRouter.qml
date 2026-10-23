@@ -110,6 +110,11 @@ Item {
     }
 
     IpcHandler {
+        target: "plugins"
+        function toggle(): void { router.invoke("togglePluginsDrawer") }
+    }
+
+    IpcHandler {
         target: "osd"
         function show(kind: string, value: int) {
             router.invoke("showIslandOsd", kind, value)

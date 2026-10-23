@@ -84,8 +84,12 @@ Item {
         if (visible) {
             sysInfoProc.running = false
             sysInfoProc.running = true
-            systemSection.focus = true
+            systemSection.forceActiveFocus()
         }
+    }
+
+    Component.onCompleted: {
+        systemSection.forceActiveFocus()
     }
 
     function triggerOption(index) {
@@ -112,10 +116,10 @@ Item {
         if (event.key === Qt.Key_Escape || event.key === Qt.Key_X) {
             closeRequested()
             event.accepted = true
-        } else if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
+        } else if (event.key === Qt.Key_J || event.key === Qt.Key_Down || event.key === Qt.Key_Right) {
             focusedIndex = (focusedIndex + 1) % 4
             event.accepted = true
-        } else if (event.key === Qt.Key_K || event.key === Qt.Key_Up) {
+        } else if (event.key === Qt.Key_K || event.key === Qt.Key_Up || event.key === Qt.Key_Left) {
             focusedIndex = (focusedIndex - 1 + 4) % 4
             event.accepted = true
         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {

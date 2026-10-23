@@ -33,7 +33,7 @@ Item {
         onClicked: {}
     }
 
-    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "battery", "screentime", "volume", "system", "calendar", "notifications", "updates", "theme", "wallpaper"]
+    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "notifications", "screentime", "plugins", "updates", "battery", "calendar", "volume", "system", "theme", "wallpaper"]
 
     function selectCategoryByIndex(idx) {
         if (idx < 0) idx = 0
@@ -43,10 +43,12 @@ Item {
         if (root) root.dashboardDetail = cat
 
         // Keep left-hand tilesPager in sync so active tile is visible
-        if (cat === "battery" || cat === "screentime" || cat === "notifications") {
-            pageDown()
-        } else if (cat === "wifi" || cat === "bluetooth" || cat === "cpu" || cat === "memory" || cat === "") {
-            pageUp()
+        if (cat === "wifi" || cat === "bluetooth" || cat === "cpu" || cat === "memory" || cat === "") {
+            goToPage(0)
+        } else if (cat === "notifications" || cat === "screentime" || cat === "battery") {
+            goToPage(1)
+        } else if (cat === "plugins" || cat === "updates" || cat === "theme" || cat === "wallpaper") {
+            goToPage(2)
         }
 
         dashboardContent.forceActiveFocus()
@@ -70,12 +72,20 @@ Item {
             if (themeLoader.item && themeLoader.item.moveSel) themeLoader.item.moveSel(1)
             return
         }
+        if (dashboardContent.activeDetailView === "system") {
+            if (sysDetailLoader.item) sysDetailLoader.item.focusedIndex = (sysDetailLoader.item.focusedIndex + 1) % 4
+            return
+        }
         jumpNextCategory()
     }
 
     function prevOption() {
         if (dashboardContent.activeDetailView === "theme" || dashboardContent.activeDetailView === "wallpaper") {
             if (themeLoader.item && themeLoader.item.moveSel) themeLoader.item.moveSel(-1)
+            return
+        }
+        if (dashboardContent.activeDetailView === "system") {
+            if (sysDetailLoader.item) sysDetailLoader.item.focusedIndex = (sysDetailLoader.item.focusedIndex - 1 + 4) % 4
             return
         }
         jumpPrevCategory()
@@ -88,6 +98,14 @@ Item {
             }
             return
         }
+        if (dashboardContent.activeDetailView === "system") {
+            if (sysDetailLoader.item) sysDetailLoader.item.focusedIndex = (sysDetailLoader.item.focusedIndex - 1 + 4) % 4
+            return
+        }
+        if (dashboardContent.activeDetailView === "plugins") {
+            if (pluginsDetailLoader.item) pluginsDetailLoader.item.focusedIndex = Math.max(0, pluginsDetailLoader.item.focusedIndex - 1)
+            return
+        }
         pageUp()
     }
     Keys.onDownPressed: {
@@ -97,11 +115,90 @@ Item {
             }
             return
         }
+        if (dashboardContent.activeDetailView === "system") {
+            if (sysDetailLoader.item) sysDetailLoader.item.focusedIndex = (sysDetailLoader.item.focusedIndex + 1) % 4
+            return
+        }
+        if (dashboardContent.activeDetailView === "plugins") {
+            if (pluginsDetailLoader.item) pluginsDetailLoader.item.focusedIndex = pluginsDetailLoader.item.focusedIndex + 1
+            return
+        }
         pageDown()
     }
     Keys.onLeftPressed: prevOption()
     Keys.onRightPressed: nextOption()
     Keys.onPressed: (event) => {
+        if (dashboardContent.activeDetailView === "system") {
+            if (event.key === Qt.Key_Escape || event.key === Qt.Key_X) {
+                dashboardContent.activeDetailView = ""
+                if (root) root.dashboardDetail = ""
+                event.accepted = true
+            } else if (event.key === Qt.Key_J || event.key === Qt.Key_Down || event.key === Qt.Key_Right) {
+                if (sysDetailLoader.item) sysDetailLoader.item.focusedIndex = (sysDetailLoader.item.focusedIndex + 1) % 4
+                event.accepted = true
+            } else if (event.key === Qt.Key_K || event.key === Qt.Key_Up || event.key === Qt.Key_Left) {
+                if (sysDetailLoader.item) sysDetailLoader.item.focusedIndex = (sysDetailLoader.item.focusedIndex - 1 + 4) % 4
+                event.accepted = true
+            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                if (sysDetailLoader.item) sysDetailLoader.item.triggerOption(sysDetailLoader.item.focusedIndex)
+                event.accepted = true
+            }
+            return
+        }
+        if (dashboardContent.activeDetailView === "plugins") {
+            if (event.key === Qt.Key_Escape) {
+                if (pluginsDetailLoader.item && pluginsDetailLoader.item.filterText.length > 0) {
+                    pluginsDetailLoader.item.filterText = ""
+                } else {
+                    dashboardContent.activeDetailView = ""
+                    if (root) root.dashboardDetail = ""
+                }
+                event.accepted = true
+            } else if (event.key === Qt.Key_H) {
+                if (event.modifiers & Qt.ShiftModifier) {
+                    jumpPrevCategory()
+                } else {
+                    prevOption()
+                }
+                event.accepted = true
+            } else if (event.key === Qt.Key_L) {
+                if (event.modifiers & Qt.ShiftModifier) {
+                    jumpNextCategory()
+                } else {
+                    nextOption()
+                }
+                event.accepted = true
+            } else if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
+                if (pluginsDetailLoader.item) {
+                    var count = pluginsDetailLoader.item.filteredCount || 1
+                    pluginsDetailLoader.item.focusedIndex = (pluginsDetailLoader.item.focusedIndex + 1) % count
+                }
+                event.accepted = true
+            } else if (event.key === Qt.Key_K || event.key === Qt.Key_Up) {
+                if (pluginsDetailLoader.item) {
+                    var count = pluginsDetailLoader.item.filteredCount || 1
+                    pluginsDetailLoader.item.focusedIndex = (pluginsDetailLoader.item.focusedIndex - 1 + count) % count
+                }
+                event.accepted = true
+            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                if (pluginsDetailLoader.item) pluginsDetailLoader.item.triggerLaunch(pluginsDetailLoader.item.focusedIndex)
+                event.accepted = true
+            } else if (event.key === Qt.Key_P) {
+                if (pluginsDetailLoader.item) pluginsDetailLoader.item.togglePinCurrent(pluginsDetailLoader.item.focusedIndex)
+                event.accepted = true
+            } else if (event.key === Qt.Key_Slash) {
+                if (pluginsDetailLoader.item && pluginsDetailLoader.item.focusSearch) {
+                    pluginsDetailLoader.item.focusSearch()
+                }
+                event.accepted = true
+            } else if (event.key === Qt.Key_Backspace) {
+                if (pluginsDetailLoader.item && pluginsDetailLoader.item.filterText.length > 0) {
+                    pluginsDetailLoader.item.filterText = pluginsDetailLoader.item.filterText.slice(0, -1)
+                }
+                event.accepted = true
+            }
+            return
+        }
         if (dashboardContent.activeDetailView === "theme" || dashboardContent.activeDetailView === "wallpaper") {
             if (event.key === Qt.Key_Escape) {
                 dashboardContent.activeDetailView = ""
@@ -269,6 +366,16 @@ Item {
         }
     }
 
+    function goToPage(idx) {
+        if (!tilesPager) return
+        if (idx < 0) idx = 0
+        if (idx >= tilesPager.count) idx = tilesPager.count - 1
+        let h = tilesPager.height + tilesPager.spacing
+        smoothScrollAnim.stop()
+        smoothScrollAnim.to = idx * h
+        smoothScrollAnim.start()
+    }
+
     property var root
     property var panel
     property string activeDetailView: root && root.dashboardDetail ? root.dashboardDetail : ""
@@ -284,6 +391,7 @@ Item {
     readonly property var calDetailSection: calDetailLoader.item
     readonly property var notifDetailSection: notifDetailLoader.item
     readonly property var updatesDetailSection: updatesDetailLoader.item
+    readonly property var pluginsDetailSection: pluginsDetailLoader.item
 
     Connections {
         target: dashboardContent.root
@@ -1352,498 +1460,91 @@ Item {
                         }
                     }
 
-                    // --- PAGE 2 ---
-                    Grid {
-                        width: tilesPager.width
-                        height: tilesPager.height
-                        columns: 2
-                        spacing: 10
-
-                        // Notifications Tile
-                        Rectangle {
-                            id: notifTile
-                            property bool active: dashboardContent.activeDetailView === "notifications"
-                            readonly property color fg: active ? root.paper : root.ink
-                            width: (parent.width - 10) / 2
-                            height: 56
-                            radius: 28
-                            color: active
-                                ? (notifMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                : (notifMa.containsMouse ? root.fillHover : root.fillIdle)
-                            Behavior on color { ColorAnimation { duration: 160 } }
-                            scale: notifMa.pressed ? 0.92 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-
-                            border.width: active ? 2 : 0
-                            border.color: active ? root.paper : root.seal
-                            Behavior on border.width { NumberAnimation { duration: 150 } }
-                            Behavior on border.color { ColorAnimation { duration: 150 } }
-
-                            Row {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 14
-                                spacing: 10
-                                IconText {
-                                    text: root.notifSilenced ? "\uE7F6" : (root.notifCount > 0 ? "notifications_active" : "\uE7F4")
-                                    color: notifTile.fg
-                                    font.pixelSize: 22
-                                    Behavior on color { ColorAnimation { duration: 160 } }
-                                }
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 2
-                                    Text {
-                                        text: "Notifications"
-                                        color: notifTile.fg
-                                        font.pixelSize: 13
-                                        font.family: root.barFont
-                                        font.weight: Font.DemiBold
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-                                    Text {
-                                        text: root.notifCount > 0
-                                            ? (root.notifCount + (root.notifCount === 1 ? " Unread" : " Unread"))
-                                            : (root.notifSilenced ? "DND On" : "All Caught Up")
-                                        color: notifTile.fg
-                                        opacity: notifTile.active ? 0.8 : 0.6
-                                        font.pixelSize: 11
-                                        font.family: root.barFont
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-                                }
-                            }
-                            MouseArea {
-                                id: notifMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                onClicked: (mouse) => {
-                                    if (mouse.button === Qt.RightButton) {
-                                        Quickshell.execDetached(["quickshell", "-p", "/usr/share/omarchy/shell", "ipc", "call", "notifications", "toggleDnd"])
-                                        root.notifSilenced = !root.notifSilenced
-                                    } else {
-                                        if (dashboardContent.activeDetailView === "notifications") {
-                                            dashboardContent.activeDetailView = ""
-                                            if (root) root.dashboardDetail = ""
-                                        } else {
-                                            dashboardContent.activeDetailView = "notifications"
-                                            if (root) root.dashboardDetail = "notifications"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Eye Comfort Tile
-                        Rectangle {
-                            id: nightTile
-                            readonly property int mode: dashboardContent.nightMode
-                            property bool active: mode > 0
-
-                            width: (parent.width - 10) / 2
-                            height: 56
-                            radius: 28
-                            color: mode === 2 ? root.color01 : (mode === 1 ? root.color03 : root.fillIdle)
-                            scale: nightTileMa.pressed ? 0.92 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-                            Behavior on color { ColorAnimation { duration: 200 } }
-                            
-                            Row {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 14
-                                spacing: 10
-                                IconText { 
-                                    text: "nightlight_round"
-                                    color: nightTile.active ? root.paper : root.ink
-                                    font.pixelSize: 22
-                                    Behavior on color { ColorAnimation { duration: 200 } } 
-                                }
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 2
-                                    Text { 
-                                        text: "Night Light"
-                                        color: nightTile.active ? root.paper : root.ink
-                                        font.pixelSize: 13
-                                        font.family: root.barFont
-                                        font.weight: Font.DemiBold
-                                        Behavior on color { ColorAnimation { duration: 200 } } 
-                                    }
-                                    Text { 
-                                        text: nightTile.mode === 2 ? "Intense" : (nightTile.mode === 1 ? "Soft" : "Off")
-                                        color: nightTile.active ? root.paper : root.ink
-                                        opacity: 0.6
-                                        font.pixelSize: 11
-                                        font.family: root.barFont
-                                        Behavior on color { ColorAnimation { duration: 200 } } 
-                                    }
-                                }
-                            }
-                            MouseArea {
-                                id: nightTileMa
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                onClicked: (mouse) => {
-                                    if (mouse.button === Qt.RightButton) {
-                                        dashboardContent.setNightMode(0)
-                                    } else {
-                                        dashboardContent.cycleNightMode()
-                                    }
-                                }
-                            }
-                        }
-
-                        // Battery & Power Tile
-                        Rectangle {
-                            id: powerTile
-                            property bool active: dashboardContent.activeDetailView === "battery"
-                            readonly property color fg: active ? root.paper : root.ink
-                            width: (parent.width - 10) / 2
-                            height: 56
-                            radius: 28
-                            color: active
-                                ? (powerMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                : (powerMa.containsMouse ? root.fillHover : root.fillIdle)
-                            Behavior on color { ColorAnimation { duration: 160 } }
-                            scale: powerMa.pressed ? 0.92 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-
-                            border.width: active ? 2 : 0
-                            border.color: active ? root.paper : root.seal
-                            Behavior on border.width { NumberAnimation { duration: 150 } }
-                            Behavior on border.color { ColorAnimation { duration: 150 } }
-                            
-                            Row {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 14
-                                spacing: 10
-                                IconText {
-                                    text: "bolt"
-                                    color: powerTile.fg
-                                    font.pixelSize: 22
-                                    Behavior on color { ColorAnimation { duration: 160 } }
-                                }
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 2
-                                    Text {
-                                        text: "Battery"
-                                        color: powerTile.fg
-                                        font.pixelSize: 13
-                                        font.family: root.barFont
-                                        font.weight: Font.DemiBold
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-                                    Text {
-                                        text: "Power & Health"
-                                        color: powerTile.fg
-                                        opacity: powerTile.active ? 0.8 : 0.6
-                                        font.pixelSize: 11
-                                        font.family: root.barFont
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-                                }
-                            }
-                            MouseArea {
-                                id: powerMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (dashboardContent.activeDetailView === "battery") {
-                                        dashboardContent.activeDetailView = ""
-                                        if (root) root.dashboardDetail = ""
-                                    } else {
-                                        dashboardContent.activeDetailView = "battery"
-                                        if (root) root.dashboardDetail = "battery"
-                                    }
-                                }
-                            }
-                        }
-
-                        // Caffeine Tile
-                        Rectangle {
-                            id: coffeeTile
-                            property bool active: false
-                            
-                            Process {
-                                running: true
-                                command: ["bash", "-c", "pgrep -f 'why=caffeine' > /dev/null && echo 'on' || echo 'off'"]
-                                stdout: StdioCollector {
-                                    onStreamFinished: coffeeTile.active = (this.text.trim() === "on")
-                                }
-                            }
-
-                            width: (parent.width - 10) / 2
-                            height: 56
-                            radius: 28
-                            color: active ? root.color03 : root.fillIdle
-                            scale: coffeeMa.pressed ? 0.92 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-                            Behavior on color { ColorAnimation { duration: 200 } }
-                            
-                            Row {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 14
-                                spacing: 10
-                                IconText { text: "local_cafe"; color: coffeeTile.active ? root.paper : root.ink; font.pixelSize: 22; Behavior on color { ColorAnimation { duration: 200 } } }
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 2
-                                    Text { text: "Caffeine"; color: coffeeTile.active ? root.paper : root.ink; font.pixelSize: 13; font.family: root.barFont; font.weight: Font.DemiBold; Behavior on color { ColorAnimation { duration: 200 } } }
-                                    Text { text: coffeeTile.active ? "Awake" : "Sleepy"; color: coffeeTile.active ? root.paper : root.ink; opacity: 0.6; font.pixelSize: 11; font.family: root.barFont; Behavior on color { ColorAnimation { duration: 200 } } }
-                                }
-                            }
-                            MouseArea {
-                                id: coffeeMa
-                                anchors.fill: parent
-                                onClicked: {
-                                    if (coffeeTile.active) {
-                                        Quickshell.execDetached(["pkill", "-f", "why=caffeine"])
-                                        coffeeTile.active = false
-                                    } else {
-                                        Quickshell.execDetached(["systemd-inhibit", "--what=idle", "--who=quickshell", "--why=caffeine", "sleep", "infinity"])
-                                        coffeeTile.active = true
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // --- PAGE 3 (Temperature + Pomodoro & Quick Share + Screen Time) ---
+                    // --- PAGE 2 (Row 1: Notifications & Screen Time; Row 2: 1x4 Compact Toggles: Night Light, Caffeine, Power, Temp) ---
                     Column {
                         width: tilesPager.width
                         height: tilesPager.height
                         spacing: 10
 
-                        // Row 1: Temperature Pill + Pomodoro Pill
+                        // Row 1: Notifications + Screen Time
                         Row {
                             width: parent.width
                             spacing: 10
 
+                            // Notifications Tile
                             Rectangle {
-                                id: tempTile
+                                id: notifTile
+                                property bool active: dashboardContent.activeDetailView === "notifications"
+                                readonly property color fg: active ? root.paper : root.ink
                                 width: (parent.width - 10) / 2
                                 height: 56
                                 radius: 28
-                                clip: true
-                                
-                                property int currentTemp: 45
-
-                                readonly property color tempColor: {
-                                    if (currentTemp < 52) return "#22d3ee" // Cyan
-                                    if (currentTemp < 72) return "#fbbf24" // Amber
-                                    return "#f87171" // Coral red
-                                }
-                                
-                                color: root.fillIdle
-
-                                // Subtle background thermal tint
-                                Rectangle {
-                                    anchors.fill: parent
-                                    radius: parent.radius
-                                    color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.12)
-                                    Behavior on color { ColorAnimation { duration: 400 } }
-                                }
-                                
-                                Process {
-                                    running: true
-                                    command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 45000"]
-                                    stdout: StdioCollector {
-                                        onStreamFinished: {
-                                            let t = parseInt(this.text.trim())
-                                            if (!isNaN(t)) tempTile.currentTemp = Math.round(t / 1000)
-                                        }
-                                    }
-                                }
-                                
-                                Process {
-                                    id: tempUpdater
-                                    command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 45000"]
-                                    stdout: StdioCollector {
-                                        onStreamFinished: {
-                                            let t = parseInt(this.text.trim())
-                                            if (!isNaN(t)) tempTile.currentTemp = Math.round(t / 1000)
-                                        }
-                                    }
-                                }
-                                
-                                Timer {
-                                    interval: 2500; repeat: true; running: panel.expanded
-                                    onTriggered: { tempUpdater.running = false; tempUpdater.running = true }
-                                }
-
-                                Row {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 14
-                                    spacing: 10
-
-                                    IconText {
-                                        text: "thermostat"
-                                        color: tempTile.tempColor
-                                        font.pixelSize: 22
-                                        Behavior on color { ColorAnimation { duration: 300 } }
-                                    }
-
-                                    Column {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 2
-
-                                        Text {
-                                            text: "CPU Temp"
-                                            color: root.ink
-                                            font.family: root.barFont
-                                            font.pixelSize: 13
-                                            font.weight: Font.DemiBold
-                                        }
-
-                                        Text {
-                                            text: tempTile.currentTemp + "°C · " + (tempTile.currentTemp < 52 ? "Cool" : (tempTile.currentTemp < 72 ? "Warm" : "Hot"))
-                                            color: tempTile.tempColor
-                                            font.family: root.barFont
-                                            font.pixelSize: 11
-                                            font.weight: Font.Medium
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Pomodoro Tile
-                            Rectangle {
-                                id: pomodoroTile
-                                width: (parent.width - 10) / 2
-                                height: 56
-                                radius: 28
-                                clip: true
-                                color: root.timerActive ? (root.color03 || root.seal) : (pomodoroMa.containsMouse ? root.fillHover : root.fillIdle)
-                                scale: pomodoroMa.pressed ? 0.92 : 1.0
+                                color: active
+                                    ? (notifMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                    : (notifMa.containsMouse ? root.fillHover : root.fillIdle)
+                                Behavior on color { ColorAnimation { duration: 160 } }
+                                scale: notifMa.pressed ? 0.92 : 1.0
                                 Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-                                Behavior on color { ColorAnimation { duration: 200 } }
+
+                                border.width: active ? 2 : 0
+                                border.color: active ? root.paper : root.seal
+                                Behavior on border.width { NumberAnimation { duration: 150 } }
+                                Behavior on border.color { ColorAnimation { duration: 150 } }
 
                                 Row {
                                     anchors.verticalCenter: parent.verticalCenter
                                     anchors.left: parent.left
                                     anchors.leftMargin: 14
                                     spacing: 10
-
                                     IconText {
-                                        text: root.timerActive ? "timer" : "hourglass_top"
-                                        color: root.timerActive ? root.paper : root.ink
+                                        text: root.notifSilenced ? "\uE7F6" : (root.notifCount > 0 ? "notifications_active" : "\uE7F4")
+                                        color: notifTile.fg
                                         font.pixelSize: 22
-                                        Behavior on color { ColorAnimation { duration: 200 } }
+                                        Behavior on color { ColorAnimation { duration: 160 } }
                                     }
-
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
                                         spacing: 2
                                         Text {
-                                            text: "Pomodoro"
-                                            color: root.timerActive ? root.paper : root.ink
+                                            text: "Notifications"
+                                            color: notifTile.fg
                                             font.pixelSize: 13
                                             font.family: root.barFont
                                             font.weight: Font.DemiBold
-                                            Behavior on color { ColorAnimation { duration: 200 } }
+                                            Behavior on color { ColorAnimation { duration: 160 } }
                                         }
                                         Text {
-                                            text: {
-                                                if (!root.timerActive) return "25m focus"
-                                                if (root.timerPaused) return "Paused"
-                                                var sec = root.timerRemaining
-                                                var m = Math.floor(sec / 60)
-                                                var s = sec % 60
-                                                return (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s)
-                                            }
-                                            color: root.timerActive ? root.paper : root.ink
-                                            opacity: 0.65
+                                            text: root.notifCount > 0
+                                                ? (root.notifCount + (root.notifCount === 1 ? " Unread" : " Unread"))
+                                                : (root.notifSilenced ? "DND On" : "All Caught Up")
+                                            color: notifTile.fg
+                                            opacity: notifTile.active ? 0.8 : 0.6
                                             font.pixelSize: 11
                                             font.family: root.barFont
-                                            Behavior on color { ColorAnimation { duration: 200 } }
+                                            Behavior on color { ColorAnimation { duration: 160 } }
                                         }
                                     }
                                 }
-
                                 MouseArea {
-                                    id: pomodoroMa
+                                    id: notifMa
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
                                     acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                    onClicked: function(mouse) {
+                                    onClicked: (mouse) => {
                                         if (mouse.button === Qt.RightButton) {
-                                            root.resetTimer()
+                                            Quickshell.execDetached(["quickshell", "-p", "/usr/share/omarchy/shell", "ipc", "call", "notifications", "toggleDnd"])
+                                            root.notifSilenced = !root.notifSilenced
                                         } else {
-                                            if (root.timerActive) {
-                                                root.toggleTimer()
+                                            if (dashboardContent.activeDetailView === "notifications") {
+                                                dashboardContent.activeDetailView = ""
+                                                if (root) root.dashboardDetail = ""
                                             } else {
-                                                root.startTimer(25, "Focus")
+                                                dashboardContent.activeDetailView = "notifications"
+                                                if (root) root.dashboardDetail = "notifications"
                                             }
                                         }
                                     }
-                                }
-                            }
-                        }
-
-                        // Row 2: Quick Share Pill (opens LocalSend) + Screen Time Pill
-                        Row {
-                            width: parent.width
-                            spacing: 10
-
-                            // Quick Share Pill
-                            Rectangle {
-                                id: quickShareTile
-                                width: (parent.width - 10) / 2
-                                height: 56
-                                radius: 28
-                                color: quickShareMa.containsMouse ? root.fillHover : root.fillIdle
-                                scale: quickShareMa.pressed ? 0.92 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-                                Behavior on color { ColorAnimation { duration: 160 } }
-
-                                Row {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 14
-                                    spacing: 10
-
-                                    IconText {
-                                        text: "share"
-                                        color: root.ink
-                                        font.pixelSize: 22
-                                    }
-
-                                    Column {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 2
-                                        Text {
-                                            text: "Quick Share"
-                                            color: root.ink
-                                            font.pixelSize: 13
-                                            font.family: root.barFont
-                                            font.weight: Font.DemiBold
-                                        }
-                                        Text {
-                                            text: "LocalSend"
-                                            color: root.ink
-                                            opacity: 0.6
-                                            font.pixelSize: 11
-                                            font.family: root.barFont
-                                        }
-                                    }
-                                }
-
-                                MouseArea {
-                                    id: quickShareMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: Quickshell.execDetached(["localsend"])
                                 }
                             }
 
@@ -1913,6 +1614,618 @@ Item {
                                         } else {
                                             dashboardContent.activeDetailView = "screentime"
                                             if (root) root.dashboardDetail = "screentime"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Row 2: 1x4 Compact Tiles (Night Light, Caffeine, Battery/Power, CPU Temp)
+                        Row {
+                            width: parent.width
+                            spacing: 10
+
+                            // 1. Night Light Tile (Compact 1x4)
+                            Rectangle {
+                                id: nightTile
+                                readonly property int mode: dashboardContent.nightMode
+                                property bool active: mode > 0
+
+                                width: Math.floor((parent.width - 30) / 4)
+                                height: 56
+                                radius: 18
+                                color: mode === 2 ? root.color01 : (mode === 1 ? root.color03 : (nightTileMa.containsMouse ? root.fillHover : root.fillIdle))
+                                scale: nightTileMa.pressed ? 0.90 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                                Behavior on color { ColorAnimation { duration: 200 } }
+
+                                IconText {
+                                    anchors.centerIn: parent
+                                    text: "nightlight_round"
+                                    color: nightTile.active ? root.paper : (nightTileMa.containsMouse ? root.seal : root.ink)
+                                    font.pixelSize: 22
+                                    Behavior on color { ColorAnimation { duration: 200 } }
+                                }
+
+                                TooltipMixin {
+                                    id: nightTip
+                                    root: dashboardContent.root
+                                    owner: nightTile
+                                    text: "Night Light: " + (nightTile.mode === 2 ? "Intense" : (nightTile.mode === 1 ? "Soft" : "Off")) + " (Right-click off)"
+                                }
+
+                                MouseArea {
+                                    id: nightTileMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                    onEntered: nightTip.show()
+                                    onExited: nightTip.hide()
+                                    onClicked: (mouse) => {
+                                        nightTip.hide()
+                                        if (mouse.button === Qt.RightButton) {
+                                            dashboardContent.setNightMode(0)
+                                        } else {
+                                            dashboardContent.cycleNightMode()
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 2. Caffeine Tile (Compact 1x4)
+                            Rectangle {
+                                id: coffeeTile
+                                property bool active: false
+
+                                Process {
+                                    running: true
+                                    command: ["bash", "-c", "pgrep -f 'why=caffeine' > /dev/null && echo 'on' || echo 'off'"]
+                                    stdout: StdioCollector {
+                                        onStreamFinished: coffeeTile.active = (this.text.trim() === "on")
+                                    }
+                                }
+
+                                width: Math.floor((parent.width - 30) / 4)
+                                height: 56
+                                radius: 18
+                                color: active ? root.color03 : (coffeeMa.containsMouse ? root.fillHover : root.fillIdle)
+                                scale: coffeeMa.pressed ? 0.90 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                                Behavior on color { ColorAnimation { duration: 200 } }
+
+                                IconText {
+                                    anchors.centerIn: parent
+                                    text: "local_cafe"
+                                    color: coffeeTile.active ? root.paper : (coffeeMa.containsMouse ? root.seal : root.ink)
+                                    font.pixelSize: 22
+                                    Behavior on color { ColorAnimation { duration: 200 } }
+                                }
+
+                                TooltipMixin {
+                                    id: coffeeTip
+                                    root: dashboardContent.root
+                                    owner: coffeeTile
+                                    text: "Caffeine: " + (coffeeTile.active ? "Active (Keep Awake)" : "Sleepy")
+                                }
+
+                                MouseArea {
+                                    id: coffeeMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: coffeeTip.show()
+                                    onExited: coffeeTip.hide()
+                                    onClicked: {
+                                        coffeeTip.hide()
+                                        if (coffeeTile.active) {
+                                            Quickshell.execDetached(["pkill", "-f", "why=caffeine"])
+                                            coffeeTile.active = false
+                                        } else {
+                                            Quickshell.execDetached(["systemd-inhibit", "--what=idle", "--who=quickshell", "--why=caffeine", "sleep", "infinity"])
+                                            coffeeTile.active = true
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 3. Battery & Power Tile (Compact 1x4)
+                            Rectangle {
+                                id: powerTile
+                                property bool active: dashboardContent.activeDetailView === "battery"
+                                readonly property color fg: active ? root.paper : (powerMa.containsMouse ? root.seal : root.ink)
+                                width: Math.floor((parent.width - 30) / 4)
+                                height: 56
+                                radius: 18
+                                color: active
+                                    ? (powerMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                    : (powerMa.containsMouse ? root.fillHover : root.fillIdle)
+                                Behavior on color { ColorAnimation { duration: 160 } }
+                                scale: powerMa.pressed ? 0.90 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+
+                                border.width: active ? 2 : 0
+                                border.color: active ? root.paper : root.seal
+
+                                IconText {
+                                    anchors.centerIn: parent
+                                    text: "bolt"
+                                    color: powerTile.fg
+                                    font.pixelSize: 22
+                                    Behavior on color { ColorAnimation { duration: 160 } }
+                                }
+
+                                TooltipMixin {
+                                    id: powerTip
+                                    root: dashboardContent.root
+                                    owner: powerTile
+                                    text: "Battery & Power Health"
+                                }
+
+                                MouseArea {
+                                    id: powerMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: powerTip.show()
+                                    onExited: powerTip.hide()
+                                    onClicked: {
+                                        powerTip.hide()
+                                        if (dashboardContent.activeDetailView === "battery") {
+                                            dashboardContent.activeDetailView = ""
+                                            if (root) root.dashboardDetail = ""
+                                        } else {
+                                            dashboardContent.activeDetailView = "battery"
+                                            if (root) root.dashboardDetail = "battery"
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 4. CPU Temperature Tile (Compact 1x4)
+                            Rectangle {
+                                id: tempTile
+                                width: Math.floor((parent.width - 30) / 4)
+                                height: 56
+                                radius: 18
+                                clip: true
+                                color: tempMa.containsMouse ? root.fillHover : root.fillIdle
+
+                                property int currentTemp: 45
+                                readonly property color tempColor: {
+                                    if (currentTemp < 52) return "#22d3ee" // Cyan
+                                    if (currentTemp < 72) return "#fbbf24" // Amber
+                                    return "#f87171" // Coral red
+                                }
+
+                                scale: tempMa.pressed ? 0.90 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                                Behavior on color { ColorAnimation { duration: 180 } }
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: parent.radius
+                                    color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.14)
+                                    Behavior on color { ColorAnimation { duration: 400 } }
+                                }
+
+                                Process {
+                                    running: true
+                                    command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 45000"]
+                                    stdout: StdioCollector {
+                                        onStreamFinished: {
+                                            let t = parseInt(this.text.trim())
+                                            if (!isNaN(t)) tempTile.currentTemp = Math.round(t / 1000)
+                                        }
+                                    }
+                                }
+
+                                Process {
+                                    id: tempUpdater
+                                    command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 45000"]
+                                    stdout: StdioCollector {
+                                        onStreamFinished: {
+                                            let t = parseInt(this.text.trim())
+                                            if (!isNaN(t)) tempTile.currentTemp = Math.round(t / 1000)
+                                        }
+                                    }
+                                }
+
+                                Timer {
+                                    interval: 2500; repeat: true; running: panel.expanded
+                                    onTriggered: { tempUpdater.running = false; tempUpdater.running = true }
+                                }
+
+                                IconText {
+                                    anchors.centerIn: parent
+                                    text: "thermostat"
+                                    color: tempTile.tempColor
+                                    font.pixelSize: 22
+                                    Behavior on color { ColorAnimation { duration: 300 } }
+                                }
+
+                                TooltipMixin {
+                                    id: tempTip
+                                    root: dashboardContent.root
+                                    owner: tempTile
+                                    text: "CPU Temp: " + tempTile.currentTemp + "°C (" + (tempTile.currentTemp < 52 ? "Cool" : (tempTile.currentTemp < 72 ? "Warm" : "Hot")) + ")"
+                                }
+
+                                MouseArea {
+                                    id: tempMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: tempTip.show()
+                                    onExited: tempTip.hide()
+                                    onClicked: {
+                                        tempTip.hide()
+                                        tempUpdater.running = false
+                                        tempUpdater.running = true
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // --- PAGE 3 (Row 1: Omarchy Plugins & Updates; Row 2: 1x4 Compact Toggles: Pomodoro, Quick Share, Themes, Wallpapers) ---
+                    Column {
+                        width: tilesPager.width
+                        height: tilesPager.height
+                        spacing: 10
+
+                        // Row 1: Omarchy Plugins + Updates
+                        Row {
+                            width: parent.width
+                            spacing: 10
+
+                            // Omarchy Plugins Tile
+                            Rectangle {
+                                id: pluginsTile
+                                property bool active: dashboardContent.activeDetailView === "plugins"
+                                readonly property color fg: active ? root.paper : root.ink
+                                width: (parent.width - 10) / 2
+                                height: 56
+                                radius: 28
+                                color: active
+                                    ? (pluginsMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                    : (pluginsMa.containsMouse ? root.fillHover : root.fillIdle)
+                                Behavior on color { ColorAnimation { duration: 160 } }
+                                scale: pluginsMa.pressed ? 0.92 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+
+                                border.width: active ? 2 : 0
+                                border.color: active ? root.paper : root.seal
+                                Behavior on border.width { NumberAnimation { duration: 150 } }
+                                Behavior on border.color { ColorAnimation { duration: 150 } }
+
+                                Row {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 14
+                                    spacing: 10
+
+                                    IconText {
+                                        text: "widgets"
+                                        color: pluginsTile.fg
+                                        font.pixelSize: 22
+                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                    }
+
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 2
+                                        Text {
+                                            text: "Omarchy Plugins"
+                                            color: pluginsTile.fg
+                                            font.pixelSize: 13
+                                            font.family: root.barFont
+                                            font.weight: Font.DemiBold
+                                            Behavior on color { ColorAnimation { duration: 160 } }
+                                        }
+                                        Text {
+                                            text: "Extensions & Tools"
+                                            color: pluginsTile.fg
+                                            opacity: pluginsTile.active ? 0.8 : 0.6
+                                            font.pixelSize: 11
+                                            font.family: root.barFont
+                                            Behavior on color { ColorAnimation { duration: 160 } }
+                                        }
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: pluginsMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        if (dashboardContent.activeDetailView === "plugins") {
+                                            dashboardContent.activeDetailView = ""
+                                            if (root) root.dashboardDetail = ""
+                                        } else {
+                                            dashboardContent.activeDetailView = "plugins"
+                                            if (root) root.dashboardDetail = "plugins"
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Software Updates Tile
+                            Rectangle {
+                                id: updatesTile
+                                property bool active: dashboardContent.activeDetailView === "updates" || dashboardContent.activeDetailView === "packages"
+                                readonly property color fg: active ? root.paper : root.ink
+                                width: (parent.width - 10) / 2
+                                height: 56
+                                radius: 28
+                                color: active
+                                    ? (updatesMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                    : (updatesMa.containsMouse ? root.fillHover : root.fillIdle)
+                                Behavior on color { ColorAnimation { duration: 160 } }
+                                scale: updatesMa.pressed ? 0.92 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+
+                                border.width: active ? 2 : 0
+                                border.color: active ? root.paper : root.seal
+                                Behavior on border.width { NumberAnimation { duration: 150 } }
+                                Behavior on border.color { ColorAnimation { duration: 150 } }
+
+                                Row {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 14
+                                    spacing: 10
+
+                                    IconText {
+                                        text: "system_update"
+                                        color: updatesTile.fg
+                                        font.pixelSize: 22
+                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                    }
+
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 2
+                                        Text {
+                                            text: "Updates"
+                                            color: updatesTile.fg
+                                            font.pixelSize: 13
+                                            font.family: root.barFont
+                                            font.weight: Font.DemiBold
+                                            Behavior on color { ColorAnimation { duration: 160 } }
+                                        }
+                                        Text {
+                                            text: root.systemUpdatesAvailable > 0 ? (root.systemUpdatesAvailable + " available") : "Up to date"
+                                            color: updatesTile.fg
+                                            opacity: updatesTile.active ? 0.8 : 0.6
+                                            font.pixelSize: 11
+                                            font.family: root.barFont
+                                            Behavior on color { ColorAnimation { duration: 160 } }
+                                        }
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: updatesMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        if (dashboardContent.activeDetailView === "updates" || dashboardContent.activeDetailView === "packages") {
+                                            dashboardContent.activeDetailView = ""
+                                            if (root) root.dashboardDetail = ""
+                                        } else {
+                                            dashboardContent.activeDetailView = "updates"
+                                            if (root) root.dashboardDetail = "updates"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Row 2: 1x4 Compact Tiles (Pomodoro, Quick Share, Themes, Wallpapers)
+                        Row {
+                            width: parent.width
+                            spacing: 10
+
+                            // 5. Pomodoro Timer Tile (Compact 1x4)
+                            Rectangle {
+                                id: pomodoroTile
+                                width: Math.floor((parent.width - 30) / 4)
+                                height: 56
+                                radius: 18
+                                clip: true
+                                color: root.timerActive ? (root.color03 || root.seal) : (pomodoroMa.containsMouse ? root.fillHover : root.fillIdle)
+                                scale: pomodoroMa.pressed ? 0.90 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                                Behavior on color { ColorAnimation { duration: 180 } }
+
+                                IconText {
+                                    anchors.centerIn: parent
+                                    text: root.timerActive ? "timer" : "hourglass_top"
+                                    color: root.timerActive ? root.paper : (pomodoroMa.containsMouse ? root.seal : root.ink)
+                                    font.pixelSize: 22
+                                    Behavior on color { ColorAnimation { duration: 200 } }
+                                }
+
+                                TooltipMixin {
+                                    id: pomodoroTip
+                                    root: dashboardContent.root
+                                    owner: pomodoroTile
+                                    text: {
+                                        if (!root.timerActive) return "Pomodoro: 25m Focus (Click to start)"
+                                        if (root.timerPaused) return "Pomodoro: Paused"
+                                        var sec = root.timerRemaining
+                                        var m = Math.floor(sec / 60)
+                                        var s = sec % 60
+                                        return "Pomodoro: " + (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s) + " left (Right-click reset)"
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: pomodoroMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                    onEntered: pomodoroTip.show()
+                                    onExited: pomodoroTip.hide()
+                                    onClicked: (mouse) => {
+                                        pomodoroTip.hide()
+                                        if (mouse.button === Qt.RightButton) {
+                                            root.resetTimer()
+                                        } else {
+                                            if (root.timerActive) {
+                                                root.toggleTimer()
+                                            } else {
+                                                root.startTimer(25, "Focus")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 6. Quick Share Tile (Compact 1x4)
+                            Rectangle {
+                                id: quickShareTile
+                                width: Math.floor((parent.width - 30) / 4)
+                                height: 56
+                                radius: 18
+                                color: quickShareMa.containsMouse ? root.fillHover : root.fillIdle
+                                scale: quickShareMa.pressed ? 0.90 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                                Behavior on color { ColorAnimation { duration: 160 } }
+
+                                IconText {
+                                    anchors.centerIn: parent
+                                    text: "share"
+                                    color: quickShareMa.containsMouse ? root.seal : root.ink
+                                    font.pixelSize: 22
+                                }
+
+                                TooltipMixin {
+                                    id: qsTip
+                                    root: dashboardContent.root
+                                    owner: quickShareTile
+                                    text: "Quick Share (LocalSend)"
+                                }
+
+                                MouseArea {
+                                    id: quickShareMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: qsTip.show()
+                                    onExited: qsTip.hide()
+                                    onClicked: {
+                                        qsTip.hide()
+                                        Quickshell.execDetached(["localsend"])
+                                    }
+                                }
+                            }
+
+                            // 7. Themes Tile (Compact 1x4)
+                            Rectangle {
+                                id: themeTile
+                                property bool active: dashboardContent.activeDetailView === "theme"
+                                readonly property color fg: active ? root.paper : (themeMa.containsMouse ? root.seal : root.ink)
+                                width: Math.floor((parent.width - 30) / 4)
+                                height: 56
+                                radius: 18
+                                color: active
+                                    ? (themeMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                    : (themeMa.containsMouse ? root.fillHover : root.fillIdle)
+                                Behavior on color { ColorAnimation { duration: 160 } }
+                                scale: themeMa.pressed ? 0.90 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+
+                                border.width: active ? 2 : 0
+                                border.color: active ? root.paper : root.seal
+
+                                IconText {
+                                    anchors.centerIn: parent
+                                    text: "palette"
+                                    color: themeTile.fg
+                                    font.pixelSize: 22
+                                    Behavior on color { ColorAnimation { duration: 160 } }
+                                }
+
+                                TooltipMixin {
+                                    id: themeTip
+                                    root: dashboardContent.root
+                                    owner: themeTile
+                                    text: "Themes & Color Scheme"
+                                }
+
+                                MouseArea {
+                                    id: themeMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: themeTip.show()
+                                    onExited: themeTip.hide()
+                                    onClicked: {
+                                        themeTip.hide()
+                                        if (dashboardContent.activeDetailView === "theme") {
+                                            dashboardContent.activeDetailView = ""
+                                            if (root) root.dashboardDetail = ""
+                                        } else {
+                                            dashboardContent.activeDetailView = "theme"
+                                            if (root) root.dashboardDetail = "theme"
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 8. Wallpapers Tile (Compact 1x4)
+                            Rectangle {
+                                id: wallpaperTile
+                                property bool active: dashboardContent.activeDetailView === "wallpaper"
+                                readonly property color fg: active ? root.paper : (wallpaperMa.containsMouse ? root.seal : root.ink)
+                                width: Math.floor((parent.width - 30) / 4)
+                                height: 56
+                                radius: 18
+                                color: active
+                                    ? (wallpaperMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                    : (wallpaperMa.containsMouse ? root.fillHover : root.fillIdle)
+                                Behavior on color { ColorAnimation { duration: 160 } }
+                                scale: wallpaperMa.pressed ? 0.90 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+
+                                border.width: active ? 2 : 0
+                                border.color: active ? root.paper : root.seal
+
+                                IconText {
+                                    anchors.centerIn: parent
+                                    text: "wallpaper"
+                                    color: wallpaperTile.fg
+                                    font.pixelSize: 22
+                                    Behavior on color { ColorAnimation { duration: 160 } }
+                                }
+
+                                TooltipMixin {
+                                    id: wallTip
+                                    root: dashboardContent.root
+                                    owner: wallpaperTile
+                                    text: "Wallpapers (Gallery & Picker)"
+                                }
+
+                                MouseArea {
+                                    id: wallpaperMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onEntered: wallTip.show()
+                                    onExited: wallTip.hide()
+                                    onClicked: {
+                                        wallTip.hide()
+                                        if (dashboardContent.activeDetailView === "wallpaper") {
+                                            dashboardContent.activeDetailView = ""
+                                            if (root) root.dashboardDetail = ""
+                                        } else {
+                                            dashboardContent.activeDetailView = "wallpaper"
+                                            if (root) root.dashboardDetail = "wallpaper"
                                         }
                                     }
                                 }
@@ -2946,6 +3259,7 @@ Item {
                         case "packages": return "Software Updates"
                         case "theme": return "Themes"
                         case "wallpaper": return "Wallpapers"
+                        case "plugins": return "Omarchy Plugins"
                         default: return ""
                     }
                 }
@@ -3019,7 +3333,18 @@ Item {
             DetailLoader { id: batDetailLoader;   viewName: "battery";       sourceComponent: BatteryDetailSection       { root: dashboardContent.root; panel: dashboardContent.panel } }
             DetailLoader { id: stDetailLoader;    viewName: "screentime";    sourceComponent: ScreentimeDetailSection    { root: dashboardContent.root; panel: dashboardContent.panel } }
             DetailLoader { id: volDetailLoader;   viewName: "volume";        sourceComponent: VolumeDetailSection        { root: dashboardContent.root; panel: dashboardContent.panel } }
-            DetailLoader { id: sysDetailLoader;   viewName: "system";        sourceComponent: SystemDetailSection        { root: dashboardContent.root; panel: dashboardContent.panel } }
+            DetailLoader {
+                id: sysDetailLoader
+                viewName: "system"
+                onLoaded: if (item) item.forceActiveFocus()
+                sourceComponent: SystemDetailSection { root: dashboardContent.root; panel: dashboardContent.panel }
+            }
+            DetailLoader {
+                id: pluginsDetailLoader
+                viewName: "plugins"
+                onLoaded: if (item) item.forceActiveFocus()
+                sourceComponent: PluginsDetailSection { root: dashboardContent.root; panel: dashboardContent.panel }
+            }
             DetailLoader { id: calDetailLoader;   viewName: "calendar";      sourceComponent: CalendarDetailSection      { root: dashboardContent.root; panel: dashboardContent.panel } }
             DetailLoader { id: notifDetailLoader; viewName: "notifications"; sourceComponent: NotificationDetailSection  { root: dashboardContent.root; panel: dashboardContent.panel } }
             DetailLoader {

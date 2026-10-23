@@ -168,6 +168,7 @@ Item {
         || batteryVisible || brightnessVisible || mprisVisible || weatherVisible || githubHeatmapVisible
         || workspaceVisible || imagePickerVisible || mediaBrowserVisible || notifVisible
         || powerProfileVisible || storageVisible || archVisible || trayVisible || trayMenuVisible
+        || pluginsDrawerVisible
     readonly property bool keyboardPopupVisible: imagePickerVisible || mediaBrowserVisible
 
     function registerBarLayoutController(screenName, controller) {
@@ -423,6 +424,7 @@ Item {
         if (except !== "archVisible") archVisible = false
         if (except !== "trayVisible") trayVisible = false
         if (except !== "trayMenuVisible") trayMenuVisible = false
+        if (except !== "pluginsDrawerVisible") pluginsDrawerVisible = false
         hideTooltip()
         _closingPopups = false
     }
@@ -431,6 +433,7 @@ Item {
         return prop !== "imagePickerVisible"
             && prop !== "mediaBrowserVisible"
             && prop !== "trayMenuVisible"
+            && prop !== "pluginsDrawerVisible"
     }
 
     function popupOpened(prop) {
@@ -1620,6 +1623,181 @@ Item {
         repeat: true
         triggeredOnStart: true
         onTriggered: if (!storageInventoryProc.running) storageInventoryProc.running = true
+    }
+
+    // ── Top-right Plugins Drawer & Pinning state ──
+    property bool pluginsDrawerVisible: false
+    property real pluginsDrawerReveal: pluginsDrawerVisible ? 1 : 0
+    Behavior on pluginsDrawerReveal {
+        NumberAnimation {
+            duration: theme.pluginsDrawerVisible ? 220 : 160
+            easing.type: theme.pluginsDrawerVisible ? Easing.OutCubic : Easing.InCubic
+        }
+    }
+    onPluginsDrawerVisibleChanged: popupOpened("pluginsDrawerVisible")
+
+    function togglePluginsDrawer() {
+        if (!pluginsDrawerVisible) {
+            activateFocusedPopupScreen()
+            if (!activePopupScreen && Quickshell.screens.length > 0) {
+                activatePopupScreen(Quickshell.screens[0])
+            }
+        }
+        pluginsDrawerVisible = !pluginsDrawerVisible
+    }
+
+    readonly property string pinnedPluginsCachePath: Quickshell.env("HOME") + "/.cache/quickshell_pinned_plugins.json"
+    property var pinnedPlugins: []
+    property var pinnedPluginsData: []
+    readonly property string pluginsOrderCachePath: Quickshell.env("HOME") + "/.cache/quickshell_plugins_order.json"
+    property var pluginsOrder: []
+    signal pluginsSettingsChanged()
+
+    function isPluginPinned(id) {
+        if (!id || !pinnedPlugins) return false
+        return pinnedPlugins.indexOf(id) !== -1
+    }
+
+    function togglePinPlugin(id) {
+        if (!id) return
+        var list = (pinnedPlugins || []).slice()
+        var idx = list.indexOf(id)
+        if (idx >= 0) {
+            list.splice(idx, 1)
+        } else {
+            list.push(id)
+        }
+        pinnedPlugins = list
+        savePinnedPlugins()
+        pluginsSettingsChanged()
+    }
+
+    function setPinnedPluginsList(list) {
+        pinnedPlugins = list || []
+        savePinnedPlugins()
+        pluginsSettingsChanged()
+    }
+
+    function setPluginsOrderList(list) {
+        pluginsOrder = list || []
+        savePluginsOrder()
+        pluginsSettingsChanged()
+    }
+
+    function savePinnedPlugins() {
+        var jsonStr = JSON.stringify(pinnedPlugins || [])
+        pinnedSaveProc.command = ["bash", "-c",
+            "mkdir -p \"$(dirname '" + pinnedPluginsCachePath + "')\" && printf '%s' '" + jsonStr + "' > '" + pinnedPluginsCachePath + "'"]
+        pinnedSaveProc.running = false
+        pinnedSaveProc.running = true
+        pinnedPluginsDataProc.running = false
+        pinnedPluginsDataProc.running = true
+    }
+
+    function savePluginsOrder() {
+        var jsonStr = JSON.stringify(pluginsOrder || [])
+        orderPluginsSaveProc.command = ["bash", "-c",
+            "mkdir -p \"$(dirname '" + pluginsOrderCachePath + "')\" && printf '%s' '" + jsonStr + "' > '" + pluginsOrderCachePath + "'"]
+        orderPluginsSaveProc.running = false
+        orderPluginsSaveProc.running = true
+    }
+
+    Process { id: pinnedSaveProc }
+    Process { id: orderPluginsSaveProc }
+
+    Process {
+        id: pinnedPluginsDataProc
+        running: true
+        command: ["python3", "-c", "import json, os, subprocess
+cache_path = os.path.expanduser('~/.cache/quickshell_pinned_plugins.json')
+pinned = []
+try:
+    with open(cache_path) as f:
+        pinned = json.load(f)
+except Exception:
+    pinned = []
+
+if not pinned:
+    print('[]')
+    exit(0)
+
+icon_map = {
+    'omarchy.clipboard': 'content_paste',
+    'omarchy.emojis': 'sentiment_satisfied',
+    'omarchy.image-picker': 'image',
+    'omarchy.reminders': 'notifications',
+    'stappmus.activity-monitor': 'show_chart',
+    'omarchy.agents': 'smart_toy',
+    'omarchy.disk-speedtest': 'speed',
+    'omarchy.speedtest': 'network_check',
+    'omarchy.wifiqr': 'qr_code_2',
+    'shavanced.notification-center': 'notifications_active',
+    'io.github.twiking.omasettings': 'settings',
+    'bobbynicholas.omaland': 'dashboard',
+    'omarchy.menu': 'menu',
+    'co.klair.wallarchy': 'wallpaper',
+    'crmne.hyprmoncfg': 'monitor',
+    'omarchy.monitor': 'tv',
+    'omarchy.dev-gallery': 'developer_mode',
+    'omarchy.tailscale': 'vpn_lock',
+    'omarchy.system-update': 'system_update'
+}
+try:
+    res = subprocess.check_output(['omarchy', 'plugin', 'list', '--json'])
+    plugins = json.loads(res)
+    p_map = {p['id']: p for p in plugins}
+    result = []
+    for pid in pinned:
+        p = p_map.get(pid, {})
+        name = p.get('name', pid.replace('omarchy.', '').replace('-', ' ').title())
+        icon = icon_map.get(pid, 'extension')
+        result.append({'id': pid, 'name': name, 'icon': icon})
+    print(json.dumps(result))
+except Exception:
+    result = [{'id': pid, 'name': pid.replace('omarchy.', '').replace('-', ' ').title(), 'icon': icon_map.get(pid, 'extension')} for pid in pinned]
+    print(json.dumps(result))
+"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    theme.pinnedPluginsData = JSON.parse(this.text.trim() || '[]')
+                } catch(e) {}
+            }
+        }
+    }
+
+    Process {
+        id: pinnedLoadProc
+        command: ["cat", theme.pinnedPluginsCachePath]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    var parsed = JSON.parse(this.text.trim() || "[]")
+                    if (Array.isArray(parsed)) {
+                        theme.pinnedPlugins = parsed
+                        pinnedPluginsDataProc.running = false
+                        pinnedPluginsDataProc.running = true
+                    }
+                } catch(e) {}
+            }
+        }
+    }
+
+    Process {
+        id: orderPluginsLoadProc
+        command: ["cat", theme.pluginsOrderCachePath]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    var parsed = JSON.parse(this.text.trim() || "[]")
+                    if (Array.isArray(parsed)) {
+                        theme.pluginsOrder = parsed
+                    }
+                } catch(e) {}
+            }
+        }
     }
 
     // ── Memory panel state ──
