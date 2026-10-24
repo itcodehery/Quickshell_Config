@@ -311,6 +311,20 @@ Item {
 
     CursorDotOverlay { root: theme }
 
+    // Mic / camera / screen-share indicator dots, top-right of each screen
+    Variants {
+        model: root.barScreens
+
+        delegate: Component {
+            PrivacyDots {
+                required property var modelData
+
+                root: theme
+                targetScreen: modelData
+            }
+        }
+    }
+
     Variants {
         model: root.barScreens
 

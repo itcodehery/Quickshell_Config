@@ -12,19 +12,6 @@ Item {
     implicitHeight: 220
     focus: true
 
-    EmotionsManager {
-        id: emotionsManagerInstance
-    }
-    readonly property var emotionsManager: emotionsManagerInstance
-
-    property bool showEmotionOverlay: false
-
-    function checkEmotionPrompt() {
-        if (dashboardContent.emotionsManager && dashboardContent.emotionsManager.shouldPromptToday()) {
-            showEmotionOverlay = true
-        }
-    }
-
     onVisibleChanged: {
         if (visible) {
             forceActiveFocus()
@@ -32,7 +19,6 @@ Item {
                 activeDetailView = ""
                 selectCategoryByIndex(0)
             }
-            checkEmotionPrompt()
         }
     }
     Component.onCompleted: {
@@ -41,7 +27,6 @@ Item {
             activeDetailView = ""
             selectCategoryByIndex(0)
         }
-        checkEmotionPrompt()
     }
 
     SpringPress {}
@@ -51,7 +36,7 @@ Item {
         onClicked: {}
     }
 
-    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "emotions", "screentime", "plugins", "updates", "battery", "calendar", "volume", "system", "theme", "wallpaper"]
+    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "notifications", "screentime", "plugins", "updates", "battery", "calendar", "volume", "system", "theme", "wallpaper"]
 
     function selectCategoryByIndex(idx) {
         if (idx < 0) idx = 0
@@ -63,7 +48,7 @@ Item {
         // Keep left-hand tilesPager in sync so active tile is visible
         if (cat === "wifi" || cat === "bluetooth" || cat === "cpu" || cat === "memory" || cat === "") {
             goToPage(0)
-        } else if (cat === "emotions" || cat === "screentime" || cat === "battery") {
+        } else if (cat === "notifications" || cat === "screentime" || cat === "battery") {
             goToPage(1)
         } else if (cat === "plugins" || cat === "updates" || cat === "theme" || cat === "wallpaper") {
             goToPage(2)
@@ -407,7 +392,6 @@ Item {
     readonly property var volDetailSection: volDetailLoader.item
     readonly property var sysDetailSection: sysDetailLoader.item
     readonly property var calDetailSection: calDetailLoader.item
-    readonly property var emotionsDetailSection: emotionsDetailLoader.item
     readonly property var notifDetailSection: notifDetailLoader.item
     readonly property var updatesDetailSection: updatesDetailLoader.item
     readonly property var pluginsDetailSection: pluginsDetailLoader.item
@@ -418,11 +402,6 @@ Item {
         function onDashboardDetailChanged() {
             if (dashboardContent.root && dashboardContent.activeDetailView !== dashboardContent.root.dashboardDetail) {
                 dashboardContent.activeDetailView = dashboardContent.root.dashboardDetail || ""
-            }
-        }
-        function onDashboardExpandedChanged() {
-            if (dashboardContent.root && dashboardContent.root.dashboardExpanded) {
-                dashboardContent.checkEmotionPrompt()
             }
         }
     }
@@ -575,7 +554,7 @@ Item {
 
     Timer {
         id: posTimer
-        interval: 500; repeat: true
+        interval: 250; repeat: true
         running: mprisSel.active
         triggeredOnStart: true
         onTriggered: {
@@ -586,7 +565,7 @@ Item {
                 dashboardContent.curPos = p
                 dashboardContent._lastRead = p
             } else if (mprisSel.playing) {
-                dashboardContent.curPos = Math.min(dashboardContent.curLen, dashboardContent.curPos + 0.5)
+                dashboardContent.curPos = Math.min(dashboardContent.curLen, dashboardContent.curPos + 0.25)
             }
         }
     }
@@ -627,15 +606,15 @@ Item {
             if (localLyricIndex !== -1) localLyricIndex = -1
             return
         }
+        var pos = dashboardContent.curPos
         var idx = -1
         for (var i = 0; i < localLyricsList.length; i++) {
-            if (dashboardContent.curPos >= localLyricsList[i].time) {
+            if (pos >= localLyricsList[i].time) {
                 idx = i
             } else {
                 break
             }
         }
-        if (idx === -1 && localLyricsList.length > 0) idx = 0
         if (idx !== localLyricIndex) localLyricIndex = idx
     }
 
@@ -649,23 +628,44 @@ Item {
     function parseLocalLrc(lrcText) {
         if (!lrcText || typeof lrcText !== "string") return []
         var parsed = []
+        var offsetSec = 0
+        var offsetMatch = /\[offset:\s*([+-]?\d+)\]/i.exec(lrcText)
+        if (offsetMatch) {
+            offsetSec = (parseFloat(offsetMatch[1]) || 0) / 1000.0
+        }
+
         var lines = lrcText.split('\n')
-        var regex = /^\[(\d{1,2}):(\d{2}(?:\.\d+)?)\]\s*(.*)/
+        var tagRegex = /\[(\d{1,2}):(\d{2}(?:\.\d+)?)\]/g
         for (var i = 0; i < lines.length; i++) {
-            var match = regex.exec(lines[i])
-            if (match) {
+            var line = lines[i].trim()
+            if (!line || /^\[[a-zA-Z]+:/.test(line)) continue
+            var timestamps = []
+            var match
+            tagRegex.lastIndex = 0
+            while ((match = tagRegex.exec(line)) !== null) {
                 var m = parseFloat(match[1])
                 var s = parseFloat(match[2])
-                var txt = match[3].trim()
-                if (txt.length > 0) parsed.push({ time: (m * 60) + s, text: txt })
+                timestamps.push((m * 60) + s)
+            }
+            if (timestamps.length > 0) {
+                var txt = line.replace(/\[\d{1,2}:\d{2}(?:\.\d+)?\]/g, "").trim()
+                if (txt.length > 0) {
+                    for (var t = 0; t < timestamps.length; t++) {
+                        var adjustedTime = Math.max(0, timestamps[t] + offsetSec)
+                        parsed.push({ time: adjustedTime, text: txt })
+                    }
+                }
             }
         }
+        parsed.sort(function(a, b) { return a.time - b.time })
         return parsed
     }
 
     function fetchLocalLyrics() {
         var title = curTitle ? curTitle.trim() : ""
         var artist = curArtist ? curArtist.trim() : ""
+        var album = mprisSel.player ? (mprisSel.player.trackAlbum || "").trim() : ""
+        var dur = Math.round(mprisSel.player ? (mprisSel.player.length || dashboardContent.curLen || 0) : (dashboardContent.curLen || 0))
         var trackId = (title || artist) ? (title + "||" + artist) : ""
 
         var seq = ++_localLyricsFetchSeq
@@ -688,8 +688,27 @@ Item {
 
         var cleaned = cleanTrackTitle(title)
         var targetTitle = cleaned !== "" ? cleaned : title
-        var url1 = "https://lrclib.net/api/search?track_name=" + encodeURIComponent(targetTitle) + "&artist_name=" + encodeURIComponent(artist)
-        var url2 = "https://lrclib.net/api/search?q=" + encodeURIComponent(targetTitle + " " + artist)
+
+        function pickBestResult(resp) {
+            if (!resp) return null
+            if (!Array.isArray(resp) && resp.syncedLyrics) {
+                return parseLocalLrc(resp.syncedLyrics)
+            }
+            if (Array.isArray(resp) && resp.length > 0) {
+                var candidates = []
+                for (var i = 0; i < resp.length; i++) {
+                    var item = resp[i]
+                    if (item && item.syncedLyrics && typeof item.syncedLyrics === "string" && item.syncedLyrics.trim().length > 0) {
+                        var diff = dur > 0 && item.duration ? Math.abs(item.duration - dur) : 9999
+                        candidates.push({ item: item, diff: diff })
+                    }
+                }
+                if (candidates.length === 0) return null
+                candidates.sort(function(a, b) { return a.diff - b.diff })
+                return parseLocalLrc(candidates[0].item.syncedLyrics)
+            }
+            return null
+        }
 
         function queryUrl(url, fallback) {
             var xhr = new XMLHttpRequest()
@@ -706,18 +725,12 @@ Item {
                     if (xhr.status === 200) {
                         try {
                             var resp = JSON.parse(xhr.responseText)
-                            if (Array.isArray(resp) && resp.length > 0) {
-                                for (var r = 0; r < resp.length; r++) {
-                                    if (resp[r] && resp[r].syncedLyrics && typeof resp[r].syncedLyrics === "string" && resp[r].syncedLyrics.trim().length > 0) {
-                                        var parsed = parseLocalLrc(resp[r].syncedLyrics)
-                                        if (parsed.length > 0) {
-                                            dashboardContent.localLyricsTrackId = trackId
-                                            dashboardContent.localLyricsList = parsed
-                                            dashboardContent.syncLocalLyricIndex()
-                                            return
-                                        }
-                                    }
-                                }
+                            var parsed = pickBestResult(resp)
+                            if (parsed && parsed.length > 0) {
+                                dashboardContent.localLyricsTrackId = trackId
+                                dashboardContent.localLyricsList = parsed
+                                dashboardContent.syncLocalLyricIndex()
+                                return
                             }
                         } catch(e) {}
                     }
@@ -727,9 +740,23 @@ Item {
             xhr.send()
         }
 
-        queryUrl(url1, function() {
-            queryUrl(url2, null)
-        })
+        var getUrl = dur > 0
+            ? ("https://lrclib.net/api/get?track_name=" + encodeURIComponent(targetTitle) + "&artist_name=" + encodeURIComponent(artist) + (album ? "&album_name=" + encodeURIComponent(album) : "") + "&duration=" + dur)
+            : ""
+        var url1 = "https://lrclib.net/api/search?track_name=" + encodeURIComponent(targetTitle) + "&artist_name=" + encodeURIComponent(artist)
+        var url2 = "https://lrclib.net/api/search?q=" + encodeURIComponent(targetTitle + " " + artist)
+
+        if (getUrl !== "") {
+            queryUrl(getUrl, function() {
+                queryUrl(url1, function() {
+                    queryUrl(url2, null)
+                })
+            })
+        } else {
+            queryUrl(url1, function() {
+                queryUrl(url2, null)
+            })
+        }
     }
 
     onCurTitleChanged: {
@@ -769,8 +796,8 @@ Item {
     Item {
         id: mainControls
         anchors.fill: parent
-        visible: !dashboardContent.showEmotionOverlay && (opacity > 0.001)
-        opacity: dashboardContent.showEmotionOverlay ? 0.0 : (dashboardContent.activeDetailView === "" ? 1.0 : 0.0)
+        visible: (opacity > 0.001)
+        opacity: dashboardContent.activeDetailView === "" ? 1.0 : 0.0
         scale: dashboardContent.activeDetailView === "" ? 1.0 : 0.98
         transform: Translate {
             y: dashboardContent.activeDetailView === "" ? 0 : (root && root.barPosition === "bottom" ? -10 : 10)
@@ -1518,19 +1545,18 @@ Item {
                             width: parent.width
                             spacing: 10
 
-                            // Emotions Tile
+// Notifications Tile
                             Rectangle {
-                                id: emotionsTile
-                                property bool active: dashboardContent.activeDetailView === "emotions"
+                                id: notifTile
+                                property bool active: dashboardContent.activeDetailView === "notifications"
                                 readonly property color fg: active ? root.paper : root.ink
-                                readonly property var todayEntry: dashboardContent.emotionsManager ? dashboardContent.emotionsManager.todayEntry : null
-                                readonly property var todayLvl: (todayEntry && dashboardContent.emotionsManager) ? dashboardContent.emotionsManager.getLevel(todayEntry.level) : null
+                                readonly property int count: (root && root.notifCount) ? root.notifCount : 0
                                 width: (parent.width - 10) / 2
                                 height: 56
                                 radius: 28
                                 color: active
-                                    ? (emotionsMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                    : (emotionsMa.containsMouse ? root.fillHover : root.fillIdle)
+                                    ? (notifMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                    : (notifMa.containsMouse ? root.fillHover : root.fillIdle)
                                 Behavior on color { ColorAnimation { duration: 160 } }
 
                                 border.width: active ? 2 : 0
@@ -1544,47 +1570,28 @@ Item {
                                     anchors.leftMargin: 14
                                     spacing: 10
 
-                                    // Mood indicator / icon
-                                    Item {
-                                        width: 24
-                                        height: 24
-                                        anchors.verticalCenter: parent.verticalCenter
-
-                                        Rectangle {
-                                            anchors.centerIn: parent
-                                            width: 22
-                                            height: 22
-                                            radius: 11
-                                            color: emotionsTile.todayLvl ? emotionsTile.todayLvl.color : "transparent"
-                                            opacity: emotionsTile.todayLvl ? (emotionsTile.active ? 0.35 : 0.2) : 0
-                                        }
-
-                                        IconText {
-                                            anchors.centerIn: parent
-                                            text: emotionsTile.todayLvl ? emotionsTile.todayLvl.icon : "spa"
-                                            color: emotionsTile.active
-                                                ? root.paper
-                                                : (emotionsTile.todayLvl ? emotionsTile.todayLvl.color : root.ink)
-                                            font.pixelSize: 22
-                                            Behavior on color { ColorAnimation { duration: 160 } }
-                                        }
+                                    IconText {
+                                        text: notifTile.count > 0 ? "notifications_active" : "notifications"
+                                        color: notifTile.fg
+                                        font.pixelSize: 22
+                                        Behavior on color { ColorAnimation { duration: 160 } }
                                     }
 
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
                                         spacing: 2
                                         Text {
-                                            text: "Emotions"
-                                            color: emotionsTile.fg
+                                            text: "Notifications"
+                                            color: notifTile.fg
                                             font.pixelSize: 13
                                             font.family: root.barFont
                                             font.weight: Font.DemiBold
                                             Behavior on color { ColorAnimation { duration: 160 } }
                                         }
                                         Text {
-                                            text: emotionsTile.todayLvl ? emotionsTile.todayLvl.name : "Log today's mood"
-                                            color: emotionsTile.fg
-                                            opacity: emotionsTile.active ? 0.8 : 0.6
+                                            text: notifTile.count > 0 ? (notifTile.count + " new") : "All caught up"
+                                            color: notifTile.fg
+                                            opacity: notifTile.active ? 0.8 : 0.6
                                             font.pixelSize: 11
                                             font.family: root.barFont
                                             Behavior on color { ColorAnimation { duration: 160 } }
@@ -1593,22 +1600,17 @@ Item {
                                 }
                                 SpringPress {}
                                 MouseArea {
-                                    id: emotionsMa
+                                    id: notifMa
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                    onClicked: (mouse) => {
-                                        if (mouse.button === Qt.RightButton) {
-                                            dashboardContent.showEmotionOverlay = true
+                                    onClicked: {
+                                        if (dashboardContent.activeDetailView === "notifications") {
+                                            dashboardContent.activeDetailView = ""
+                                            if (root) root.dashboardDetail = ""
                                         } else {
-                                            if (dashboardContent.activeDetailView === "emotions") {
-                                                dashboardContent.activeDetailView = ""
-                                                if (root) root.dashboardDetail = ""
-                                            } else {
-                                                dashboardContent.activeDetailView = "emotions"
-                                                if (root) root.dashboardDetail = "emotions"
-                                            }
+                                            dashboardContent.activeDetailView = "notifications"
+                                            if (root) root.dashboardDetail = "notifications"
                                         }
                                     }
                                 }
@@ -2378,7 +2380,6 @@ Item {
                         onClicked: {
                             if (dashboardContent.mprisPanel) {
                                 dashboardContent.mprisPanel.showingLyrics = !dashboardContent.mprisPanel.showingLyrics
-                                Quickshell.execDetached(["pw-play", Quickshell.env("HOME") + "/.config/quickshell/bar/pop.wav"])
                             }
                         }
                     }
@@ -3253,8 +3254,8 @@ Item {
     Item {
         id: detailOverlay
         anchors.fill: parent
-        visible: !dashboardContent.showEmotionOverlay && (opacity > 0.001)
-        opacity: dashboardContent.showEmotionOverlay ? 0.0 : (dashboardContent.activeDetailView !== "" ? 1.0 : 0.0)
+        visible: (opacity > 0.001)
+        opacity: dashboardContent.activeDetailView !== "" ? 1.0 : 0.0
         scale: dashboardContent.activeDetailView !== "" ? 1.0 : 0.98
         transform: Translate {
             y: dashboardContent.activeDetailView !== "" ? 0 : (root && root.barPosition === "bottom" ? 14 : -14)
@@ -3330,7 +3331,6 @@ Item {
                         case "volume": return "Sound & Volume"
                         case "system": return "System & Power"
                         case "calendar": return "Calendar & Notes"
-                        case "emotions": return "Emotions & State of Mind"
                         case "notifications": return "Notifications"
                         case "updates": return "Software Updates"
                         case "packages": return "Software Updates"
@@ -3423,16 +3423,6 @@ Item {
             }
             DetailLoader { id: calDetailLoader;   viewName: "calendar";      sourceComponent: CalendarDetailSection      { root: dashboardContent.root; panel: dashboardContent.panel } }
             DetailLoader {
-                id: emotionsDetailLoader
-                viewName: "emotions"
-                sourceComponent: EmotionsDetailSection {
-                    root: dashboardContent.root
-                    panel: dashboardContent.panel
-                    emotionsManager: dashboardContent.emotionsManager
-                    onRequestCheckin: dashboardContent.showEmotionOverlay = true
-                }
-            }
-            DetailLoader {
                 id: notifDetailLoader
                 viewName: "notifications"
                 sourceComponent: NotificationDetailSection {
@@ -3468,23 +3458,6 @@ Item {
                     }
                 }
             }
-        }
-    }
-
-    // Full-screen State of Mind Daily Emotion Check-in Modal Overlay
-    EmotionStateOfMindOverlay {
-        id: emotionOverlay
-        root: dashboardContent.root
-        emotionsManager: dashboardContent.emotionsManager
-        visible: dashboardContent.showEmotionOverlay
-        z: 9999
-        onClosed: {
-            dashboardContent.showEmotionOverlay = false
-            dashboardContent.forceActiveFocus()
-        }
-        onSubmitted: {
-            dashboardContent.showEmotionOverlay = false
-            dashboardContent.forceActiveFocus()
         }
     }
 }

@@ -32,11 +32,10 @@ Item {
         }
     }
 
-    // Priority: curious (search bar open) > stressed > vibing > sleeping > daydreaming > bored > happy
+    // Priority: curious (search bar open) > vibing > sleeping > daydreaming > bored > happy
     property bool curious: false
     readonly property string mood: {
         if (curious) return "curious"
-        if (cpu > 70) return "stressed"
         if (musicPlaying) return "vibing"
         if (idleSeconds > 120) return "sleeping"
         if (idleSeconds > 60) return "daydreaming"
@@ -47,7 +46,6 @@ Item {
     readonly property string stateTitle: {
         switch (displayMood) {
             case "curious": return "Curious"
-            case "stressed": return "Stressed"
             case "vibing": return "Vibing"
             case "sleeping": return "Sleeping"
             case "daydreaming": return "Daydreaming"
@@ -60,26 +58,24 @@ Item {
     readonly property string stateDescription: {
         switch (displayMood) {
             case "curious": return "Search bar is open"
-            case "stressed": return "High system CPU load (" + cpu + "%)"
-            case "vibing": return "Jamming to media player"
+            case "vibing": return "Purring along to the music"
             case "sleeping": return "System idle for " + Math.round(idleSeconds / 60) + "m"
             case "daydreaming": return "System idle for over 1 minute"
             case "bored": return "System idle for over 30 seconds"
             case "happy":
-            default: return "System running smoothly (CPU " + cpu + "%)"
+            default: return "Content and purring (CPU " + cpu + "%)"
         }
     }
 
     readonly property string stateIcon: {
         switch (displayMood) {
             case "curious": return "search"
-            case "stressed": return "bolt"
             case "vibing": return "music_note"
             case "sleeping": return "bedtime"
             case "daydreaming": return "cloud"
             case "bored": return "hourglass_empty"
             case "happy":
-            default: return "sentiment_satisfied"
+            default: return "pets"
         }
     }
 
@@ -110,9 +106,6 @@ Item {
             case "daydreaming":
                 pool = ["stargazing", "dreaming", "floating", "drifting", "imagining", "doodling", "wandering", "wishing"]
                 break
-            case "stressed":
-                pool = ["churning", "brewing", "cooking", "orbiting", "spinning", "zooming", "launching"]
-                break
             case "curious":
                 pool = ["exploring", "discovering", "finding", "roaming", "chasing", "mapping"]
                 break
@@ -121,7 +114,7 @@ Item {
                 break
             case "happy":
             default:
-                pool = ["beaming", "booping", "bouncing", "bubbling", "giggling", "frolicking", "hopping", "purring", "sparking", "wiggling"]
+                pool = ["beaming", "booping", "bouncing", "bubbling", "giggling", "frolicking", "hopping", "purring", "sparking", "wiggling", "kneading", "pouncing"]
                 break
         }
         var filtered = pool.filter(function(w) { return w !== currentCuteWord; })
@@ -130,6 +123,7 @@ Item {
     }
 
     function rollCuteWord() {
+        if (celebrating || shrugging) return
         showCuteWord = (Math.random() < 0.5)
         if (showCuteWord) {
             pickCuteWord()
@@ -155,6 +149,72 @@ Item {
         NumberAnimation { target: pet; property: "pokeScale"; to: 1.18; duration: 90; easing.type: Easing.OutQuad }
         NumberAnimation { target: pet; property: "pokeScale"; to: 0.94; duration: 110; easing.type: Easing.InOutQuad }
         NumberAnimation { target: pet; property: "pokeScale"; to: 1.0; duration: 100; easing.type: Easing.OutBack }
+    }
+
+    // ── Search-submit celebration: a hop, a happy word and a floating heart ──
+    property bool celebrating: false
+
+    Timer {
+        id: celebrateTimer
+        interval: 2200
+        onTriggered: pet.celebrating = false
+    }
+
+    function celebrate() {
+        var words = ["purring", "booping", "beaming", "pouncing", "kneading", "giggling", "bouncing"]
+        pokeHopAnim.restart()
+        idleSeconds = 0
+        currentCuteWord = words[Math.floor(Math.random() * words.length)]
+        showCuteWord = true
+        celebrating = true
+        celebrateTimer.restart()
+    }
+
+    // ── Shrug animation ─────────────────────────────────────────────
+    property bool shrugging: false
+    property real shrugPaws: 0.0
+    property real shrugTilt: 0.0
+
+    SequentialAnimation {
+        id: shrugAnim
+        onStarted: pet.shrugging = true
+        onFinished: {
+            pet.shrugging = false
+            pet.shrugPaws = 0.0
+            pet.shrugTilt = 0.0
+        }
+
+        // 1. Lift paws & tilt head quizzically
+        ParallelAnimation {
+            NumberAnimation { target: pet; property: "shrugPaws"; to: 1.0; duration: 180; easing.type: Easing.OutBack }
+            NumberAnimation { target: pet; property: "shrugTilt"; to: 8.5; duration: 180; easing.type: Easing.OutBack }
+            NumberAnimation { target: pet; property: "pokeScale"; to: 1.06; duration: 180; easing.type: Easing.OutQuad }
+        }
+
+        // 2. Playful little wiggle while holding paws up
+        SequentialAnimation {
+            loops: 2
+            NumberAnimation { target: pet; property: "shrugTilt"; to: 5.5; duration: 160; easing.type: Easing.InOutSine }
+            NumberAnimation { target: pet; property: "shrugTilt"; to: 9.5; duration: 160; easing.type: Easing.InOutSine }
+        }
+
+        // 3. Hold the cute pose
+        PauseAnimation { duration: 650 }
+
+        // 4. Settle back down smoothly
+        ParallelAnimation {
+            NumberAnimation { target: pet; property: "shrugPaws"; to: 0.0; duration: 220; easing.type: Easing.InOutQuad }
+            NumberAnimation { target: pet; property: "shrugTilt"; to: 0.0; duration: 220; easing.type: Easing.OutCubic }
+            NumberAnimation { target: pet; property: "pokeScale"; to: 1.0; duration: 200; easing.type: Easing.OutBack }
+        }
+    }
+
+    function shrug() {
+        var words = ["shrug", "dunno", "meh", "who knows?", "hehe", "idk", "puzzled"]
+        currentCuteWord = words[Math.floor(Math.random() * words.length)]
+        showCuteWord = true
+        idleSeconds = 0
+        shrugAnim.restart()
     }
 
     function poke() {
@@ -185,8 +245,9 @@ Item {
     // ── Theme colors ────────────────────────────────────────────────
     readonly property color bodyColor: root.seal
     readonly property color bodyLight: Qt.lighter(root.seal, 1.3)
-    readonly property color eyeColor: root.paper
-    readonly property color pupilColor: root.ink
+    // Eyes, mouth and whiskers contrast against the face colour instead of the theme paper.
+    readonly property real bodyLuma: 0.299 * bodyColor.r + 0.587 * bodyColor.g + 0.114 * bodyColor.b
+    readonly property color faceInk: bodyLuma > 0.55 ? "#2B2026" : "#FFFFFF"
     readonly property color cheekColor: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.5)
     readonly property color accessoryColor: root.ink
 
@@ -207,17 +268,21 @@ Item {
         NumberAnimation { to: 0;  duration: 1500; easing.type: Easing.InOutSine }
     }
 
-    // ── Wobble for stressed state ───────────────────────────────────
-    property real wobbleAngle: 0
+    // ── Blinking ────────────────────────────────────────────────────
+    property real blink: 1.0
     SequentialAnimation {
-        id: wobbleAnim
-        loops: Animation.Infinite
-        running: displayMood === "stressed"
-        NumberAnimation { target: pet; property: "wobbleAngle"; to: 3;  duration: 80;  easing.type: Easing.InOutSine }
-        NumberAnimation { target: pet; property: "wobbleAngle"; to: -3; duration: 80;  easing.type: Easing.InOutSine }
-        NumberAnimation { target: pet; property: "wobbleAngle"; to: 2;  duration: 70;  easing.type: Easing.InOutSine }
-        NumberAnimation { target: pet; property: "wobbleAngle"; to: 0;  duration: 100; easing.type: Easing.InOutSine }
-        PauseAnimation { duration: 200 }
+        id: blinkAnim
+        NumberAnimation { target: pet; property: "blink"; to: 0.1; duration: 90; easing.type: Easing.InQuad }
+        NumberAnimation { target: pet; property: "blink"; to: 1.0; duration: 130; easing.type: Easing.OutQuad }
+    }
+    Timer {
+        interval: 3200
+        running: true
+        repeat: true
+        onTriggered: {
+            blinkAnim.restart()
+            interval = 2500 + Math.random() * 3500
+        }
     }
 
     // ── Breathing for sleeping state ────────────────────────────────
@@ -242,10 +307,10 @@ Item {
         transform: [
             Translate { y: displayMood === "sleeping" ? 0 : (displayMood === "daydreaming" ? pet.floatY : pet.bounceY) },
             Rotation {
-                angle: displayMood === "curious" ? 7 : pet.wobbleAngle
+                angle: pet.shrugging ? pet.shrugTilt : (displayMood === "curious" ? 7 : 0)
                 origin.x: bodyContainer.width / 2
                 origin.y: bodyContainer.height / 2
-                Behavior on angle { NumberAnimation { duration: 240; easing.type: Easing.OutBack } }
+                Behavior on angle { enabled: !pet.shrugging; NumberAnimation { duration: 240; easing.type: Easing.OutBack } }
             },
             Scale {
                 xScale: displayMood === "sleeping" ? pet.breathScale : 1.0
@@ -255,170 +320,256 @@ Item {
             }
         ]
 
-        // Body blob
+        // Cat ears (rounded, with soft pink inner ear)
+        Canvas {
+            id: earsCanvas
+            anchors.fill: parent
+            property color c: pet.bodyColor
+            onCChanged: requestPaint()
+            onPaint: {
+                var ctx = getContext("2d")
+                ctx.clearRect(0, 0, width, height)
+                ctx.lineJoin = "round"
+                ctx.lineCap = "round"
+                function ear(mx) {
+                    function X(x) { return mx ? 44 - x : x }
+                    ctx.fillStyle = c; ctx.strokeStyle = c; ctx.lineWidth = 5
+                    ctx.beginPath(); ctx.moveTo(X(6), 22); ctx.lineTo(X(7), 4); ctx.lineTo(X(21), 11); ctx.closePath()
+                    ctx.fill(); ctx.stroke()
+                    ctx.fillStyle = "rgba(255,179,193,0.85)"; ctx.strokeStyle = "rgba(255,179,193,0.85)"; ctx.lineWidth = 2
+                    ctx.beginPath(); ctx.moveTo(X(9), 17); ctx.lineTo(X(9.5), 8); ctx.lineTo(X(16), 12); ctx.closePath()
+                    ctx.fill(); ctx.stroke()
+                }
+                ear(false); ear(true)
+            }
+        }
+
+        // Left shrug paw (\)
+        Rectangle {
+            id: leftPaw
+            x: -2 - (pet.shrugPaws * 5)
+            y: 28 - (pet.shrugPaws * 10)
+            width: 10
+            height: 7
+            radius: 3.5
+            color: pet.bodyColor
+            rotation: -28
+            opacity: pet.shrugPaws
+            visible: opacity > 0.01
+
+            // Paw pad (pink bean)
+            Rectangle {
+                anchors.centerIn: parent
+                width: 4
+                height: 3
+                radius: 1.5
+                color: "#ffb3c1"
+            }
+        }
+
+        // Right shrug paw (/)
+        Rectangle {
+            id: rightPaw
+            x: 36 + (pet.shrugPaws * 5)
+            y: 28 - (pet.shrugPaws * 10)
+            width: 10
+            height: 7
+            radius: 3.5
+            color: pet.bodyColor
+            rotation: 28
+            opacity: pet.shrugPaws
+            visible: opacity > 0.01
+
+            // Paw pad (pink bean)
+            Rectangle {
+                anchors.centerIn: parent
+                width: 4
+                height: 3
+                radius: 1.5
+                color: "#ffb3c1"
+            }
+        }
+
+        // Face (wide, squishy chibi head)
         Rectangle {
             id: body
-            anchors.fill: parent
-            radius: width / 2
+            x: 0; y: 5
+            width: 44; height: 37
+            radius: 18.5
             color: pet.bodyColor
 
             // Highlight / shine spot
             Rectangle {
-                x: 8; y: 6
-                width: 8; height: 6
-                radius: 4
+                x: 9; y: 4
+                width: 8; height: 5
+                radius: 2.5
                 color: pet.bodyLight
-                opacity: 0.6
+                opacity: 0.55
+            }
+
+            // Tabby forehead stripes
+            Repeater {
+                model: 3
+                delegate: Rectangle {
+                    x: 20 + (index - 1) * 4 + (index === 1 ? 0 : 0)
+                    y: 2
+                    width: 2
+                    height: index === 1 ? 7 : 5
+                    radius: 1
+                    color: Qt.darker(pet.bodyColor, 1.35)
+                    opacity: 0.45
+                }
             }
         }
 
-        // ── Eyes ────────────────────────────────────────────────────
-        // Left eye
+        // ── Eyes (big, glossy, with sparkle highlights) ─────────────
+        Repeater {
+            model: 2
+            delegate: Item {
+                id: eyeSlot
+                readonly property bool isLeft: index === 0
+                readonly property bool big: displayMood === "daydreaming" || displayMood === "curious"
+                readonly property bool closed: displayMood === "sleeping"
+                x: isLeft ? 8 : 26
+                y: (displayMood === "vibing" || displayMood === "bored") ? 20 : 18
+                width: 10; height: 11
+                Behavior on y { NumberAnimation { duration: 300; easing.type: Easing.OutBack } }
+
+                // Open eye
+                Rectangle {
+                    id: eyeball
+                    anchors.centerIn: parent
+                    width: eyeSlot.big ? 11 : 10
+                    height: eyeSlot.big ? 12 : 11
+                    radius: width / 2
+                    color: pet.faceInk
+                    visible: !eyeSlot.closed
+                    transform: Scale { yScale: pet.blink; origin.y: eyeball.height / 2 }
+                    Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
+                    Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
+
+                    // Pupil
+                    Rectangle {
+                        id: pupil
+                        width: 7; height: 8
+                        radius: 3.5
+                        color: "transparent"
+                        x: (parent.width - width) / 2 + (displayMood === "bored" ? -1.5 : (displayMood === "curious" ? 1.5 : 0))
+                        y: (parent.height - height) / 2 + (displayMood === "daydreaming" ? -1.5 : (displayMood === "curious" ? -1 : 0.5))
+                        Behavior on x { NumberAnimation { duration: 200 } }
+                        Behavior on y { NumberAnimation { duration: 200 } }
+
+                        // Sparkles
+                        Rectangle { x: 3.8; y: 1; width: 2.6; height: 2.6; radius: 1.3; color: pet.bodyColor; opacity: 0.95 }
+                        Rectangle { x: 1; y: 4.8; width: 1.5; height: 1.5; radius: 0.75; color: pet.bodyColor; opacity: 0.7 }
+                    }
+
+                    // Sleepy lids
+                    Rectangle {
+                        visible: displayMood === "vibing" || displayMood === "bored"
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: parent.height * 0.42
+                        radius: parent.radius
+                        color: pet.bodyColor
+                    }
+                }
+
+                // Closed eye (happy "u" arc) while sleeping
+                Canvas {
+                    anchors.centerIn: parent
+                    width: 10; height: 6
+                    visible: eyeSlot.closed
+                    property color ink: pet.faceInk
+                    onInkChanged: requestPaint()
+                    onVisibleChanged: requestPaint()
+                    onPaint: {
+                        var ctx = getContext("2d")
+                        ctx.clearRect(0, 0, width, height)
+                        ctx.strokeStyle = Qt.rgba(pet.faceInk.r, pet.faceInk.g, pet.faceInk.b, 0.95)
+                        ctx.lineWidth = 1.8
+                        ctx.lineCap = "round"
+                        ctx.beginPath(); ctx.moveTo(1, 1.5); ctx.quadraticCurveTo(5, 7, 9, 1.5); ctx.stroke()
+                    }
+                }
+            }
+        }
+
+        // ── Blush cheeks ────────────────────────────────────────────
         Rectangle {
-            id: leftEye
-            x: 11; y: (displayMood === "vibing" || displayMood === "bored") ? 17 : (displayMood === "daydreaming" ? 13 : (displayMood === "curious" ? 14 : 15))
-            width: displayMood === "sleeping" ? 8 : (displayMood === "daydreaming" || displayMood === "curious" ? 10 : 8)
-            height: displayMood === "sleeping" ? 2 : (displayMood === "stressed" || displayMood === "daydreaming" || displayMood === "curious" ? 10 : 8)
-            radius: displayMood === "sleeping" ? 1 : width / 2
-            color: pet.eyeColor
-
-            Behavior on height { NumberAnimation { duration: 300; easing.type: Easing.OutBack } }
-            Behavior on y { NumberAnimation { duration: 300; easing.type: Easing.OutBack } }
-
-            // Pupil
-            Rectangle {
-                y: (displayMood === "daydreaming") ? 1 : ((displayMood === "curious") ? 3 : (parent.height - height) / 2)
-                x: (displayMood === "bored") ? 1 : ((displayMood === "curious") ? 4 : (parent.width - width) / 2)
-                width: 4; height: displayMood === "sleeping" ? 0 : 4
-                radius: 2
-                color: pet.pupilColor
-                visible: displayMood !== "sleeping"
-                Behavior on x { NumberAnimation { duration: 200 } }
-                Behavior on y { NumberAnimation { duration: 200 } }
-            }
-
-            // Half-closed lids
-            Rectangle {
-                visible: displayMood === "vibing" || displayMood === "bored"
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: parent.height * 0.4
-                radius: parent.radius
-                color: pet.bodyColor
-            }
+            x: 2.5; y: 27
+            width: 8; height: 5; radius: 2.5
+            color: "#ffb3c1"
+            opacity: displayMood === "daydreaming" ? 0.75 : 0.42
+            Behavior on opacity { NumberAnimation { duration: 400 } }
         }
-
-        // Right eye
         Rectangle {
-            id: rightEye
-            x: 25; y: (displayMood === "vibing" || displayMood === "bored") ? 17 : (displayMood === "daydreaming" ? 13 : (displayMood === "curious" ? 12 : 15))
-            width: displayMood === "sleeping" ? 8 : (displayMood === "daydreaming" || displayMood === "curious" ? 10 : 8)
-            height: displayMood === "sleeping" ? 2 : (displayMood === "stressed" || displayMood === "daydreaming" || displayMood === "curious" ? 10 : 8)
-            radius: displayMood === "sleeping" ? 1 : width / 2
-            color: pet.eyeColor
-
-            Behavior on height { NumberAnimation { duration: 300; easing.type: Easing.OutBack } }
-            Behavior on y { NumberAnimation { duration: 300; easing.type: Easing.OutBack } }
-
-            Rectangle {
-                y: (displayMood === "daydreaming") ? 1 : ((displayMood === "curious") ? 3 : (parent.height - height) / 2)
-                x: (displayMood === "bored") ? 1 : ((displayMood === "curious") ? 4 : (parent.width - width) / 2)
-                width: 4; height: displayMood === "sleeping" ? 0 : 4
-                radius: 2
-                color: pet.pupilColor
-                visible: displayMood !== "sleeping"
-                Behavior on x { NumberAnimation { duration: 200 } }
-                Behavior on y { NumberAnimation { duration: 200 } }
-            }
-
-            Rectangle {
-                visible: displayMood === "vibing" || displayMood === "bored"
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: parent.height * 0.4
-                radius: parent.radius
-                color: pet.bodyColor
-            }
+            x: 33.5; y: 27
+            width: 8; height: 5; radius: 2.5
+            color: "#ffb3c1"
+            opacity: displayMood === "daydreaming" ? 0.75 : 0.42
+            Behavior on opacity { NumberAnimation { duration: 400 } }
         }
 
-        // ── Mouth ───────────────────────────────────────────────────
-        // Happy smile / daydreaming
+        // ── Nose & mouth ────────────────────────────────────────────
+        // Tiny heart-ish nose
+        Rectangle {
+            x: 20; y: 28
+            width: 4; height: 3
+            radius: 1.5
+            color: "#ffb3c1"
+        }
+
+        // "ω" cat mouth
         Canvas {
             id: mouthCanvas
-            x: 14; y: 26
-            width: 16; height: 10
-            visible: displayMood === "happy" || displayMood === "vibing" || displayMood === "daydreaming" || displayMood === "curious"
+            x: 17; y: 30
+            width: 10; height: 7
+            property string m: pet.displayMood
+            onMChanged: requestPaint()
+            property color ink: pet.faceInk
+            onInkChanged: requestPaint()
+            visible: displayMood !== "bored"
             onPaint: {
                 var ctx = getContext("2d")
                 ctx.clearRect(0, 0, width, height)
-                ctx.strokeStyle = Qt.rgba(pet.eyeColor.r, pet.eyeColor.g, pet.eyeColor.b, 0.9)
-                ctx.lineWidth = 2
+                ctx.strokeStyle = Qt.rgba(pet.faceInk.r, pet.faceInk.g, pet.faceInk.b, 0.9)
+                ctx.lineWidth = 1.4
                 ctx.lineCap = "round"
+                var k = pet.displayMood === "curious" ? 3 : (pet.displayMood === "sleeping" ? 2.5 : (pet.displayMood === "daydreaming" || pet.displayMood === "vibing" ? 5.5 : 4.5))
                 ctx.beginPath()
-                ctx.moveTo(2, 2)
-                ctx.quadraticCurveTo(8, (pet.displayMood === "curious" ? 7 : (pet.displayMood === "daydreaming" ? 12 : 9)), 14, 2)
+                ctx.moveTo(5, 0.5); ctx.quadraticCurveTo(3.8, k, 0.8, 2)
+                ctx.moveTo(5, 0.5); ctx.quadraticCurveTo(6.2, k, 9.2, 2)
                 ctx.stroke()
             }
             onVisibleChanged: requestPaint()
         }
-        
-        // Bored mouth (straight line)
-        Rectangle {
-            x: 17; y: 27
-            width: 10; height: 2
-            radius: 1
-            color: pet.eyeColor
-            opacity: 0.8
-            visible: displayMood === "bored"
-        }
 
-        // Stressed mouth (small "o")
-        Rectangle {
-            x: 19; y: 27
-            width: 6; height: 5
-            radius: 3
-            color: pet.eyeColor
-            visible: displayMood === "stressed"
-            opacity: 0.8
-
-            Behavior on height { NumberAnimation { duration: 200 } }
-
-            Rectangle {
-                anchors.centerIn: parent
-                width: parent.width - 2; height: parent.height - 2
-                radius: width / 2
-                color: pet.bodyColor
+        // Whiskers
+        Repeater {
+            model: 4
+            delegate: Rectangle {
+                property bool onLeft: index < 2
+                property int row: index % 2
+                x: onLeft ? 0 : 38
+                y: 31 + row * 3
+                width: 6; height: 1
+                radius: 0.5
+                color: pet.faceInk
+                opacity: 0.5
+                rotation: (onLeft ? 1 : -1) * (row === 0 ? 10 : -10)
             }
         }
 
-        // Sleeping mouth (tiny line)
+        // Bored mouth (flat little line)
         Rectangle {
-            x: 18; y: 27
-            width: 8; height: 2
-            radius: 1
-            color: pet.eyeColor
-            opacity: 0.5
-            visible: displayMood === "sleeping"
-        }
-        
-        // Blush (daydreaming)
-        Rectangle {
-            x: 6; y: 23
-            width: 6; height: 4
-            radius: 2
-            color: root.color01
-            opacity: displayMood === "daydreaming" ? 0.4 : 0
-            Behavior on opacity { NumberAnimation { duration: 400 } }
-        }
-        Rectangle {
-            x: 32; y: 23
-            width: 6; height: 4
-            radius: 2
-            color: root.color01
-            opacity: displayMood === "daydreaming" ? 0.4 : 0
-            Behavior on opacity { NumberAnimation { duration: 400 } }
+            x: 19.5; y: 32.5
+            width: 5; height: 1.6
+            radius: 0.8
+            color: pet.faceInk
+            opacity: 0.8
+            visible: displayMood === "bored"
         }
     }
     
@@ -431,14 +582,14 @@ Item {
         width: isHovered ? parent.width : pet.baseWidth
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onEntered: {
-            pet.rollMood()
-        }
-        onExited: {
-        }
-        onClicked: {
-            pet.poke()
-            pet.clicked()
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton) {
+                pet.shrug()
+            } else {
+                pet.poke()
+                pet.clicked()
+            }
         }
     }
 
@@ -519,45 +670,20 @@ Item {
         MouseArea {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
-            onClicked: {
-                pet.poke()
-                pet.clicked()
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onClicked: (mouse) => {
+                if (mouse.button === Qt.RightButton) {
+                    pet.shrug()
+                } else {
+                    pet.poke()
+                    pet.clicked()
+                }
             }
         }
     }
 
     // ── Floating accessories ────────────────────────────────────────
 
-    // Sweat drops (stressed)
-    Repeater {
-        model: displayMood === "stressed" ? 2 : 0
-        delegate: Rectangle {
-            id: sweatDrop
-            property real baseX: index === 0 ? 38 : 42
-            x: baseX
-            width: 4; height: 6
-            radius: 2
-            color: root.color04
-            opacity: 0.8
-
-            SequentialAnimation on y {
-                loops: Animation.Infinite
-                PropertyAnimation { to: 6 + index * 3; duration: 0 }
-                PropertyAnimation { to: 20 + index * 5; duration: 600 + index * 200; easing.type: Easing.InQuad }
-                PropertyAnimation { to: 6 + index * 3; duration: 0 }
-                PauseAnimation { duration: 300 + index * 200 }
-            }
-
-            SequentialAnimation on opacity {
-                loops: Animation.Infinite
-                PropertyAnimation { to: 0.8; duration: 0 }
-                PropertyAnimation { to: 0.8; duration: 400 + index * 200 }
-                PropertyAnimation { to: 0; duration: 200 }
-                PropertyAnimation { to: 0; duration: 300 + index * 200 }
-            }
-        }
-    }
-    
     // Sparkles / Stars (daydreaming)
     Repeater {
         model: displayMood === "daydreaming" ? 2 : 0
@@ -643,6 +769,38 @@ Item {
                 PauseAnimation { duration: 300 }
             }
         }
+    }
+
+    // ── Shrug mark indicator ─────────────────────────────────────────
+    Text {
+        text: "~?"
+        color: root.seal
+        font.family: root.barFont
+        font.pixelSize: 12
+        font.weight: Font.Bold
+        x: 34
+        y: pet.shrugging ? -4 : 6
+        opacity: pet.shrugging ? 0.95 : 0
+        scale: pet.shrugging ? 1.0 : 0.4
+        visible: opacity > 0.01
+        Behavior on y { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
+        Behavior on opacity { NumberAnimation { duration: 180 } }
+        Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
+    }
+
+    // ── Celebration heart (search submitted) ────────────────────────
+    Text {
+        text: "♥"
+        color: "#ff7a93"
+        font.pixelSize: 11
+        x: 33
+        y: pet.celebrating ? -4 : 6
+        opacity: pet.celebrating ? 0.95 : 0
+        scale: pet.celebrating ? 1.0 : 0.4
+        visible: opacity > 0.01
+        Behavior on y { NumberAnimation { duration: 700; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: 300 } }
+        Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack } }
     }
 
     // ── Curious indicator (search bar open) ─────────────────────────

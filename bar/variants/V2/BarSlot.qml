@@ -197,90 +197,6 @@ PanelWindow {
         property real bottomCornerRadius: targetBottomCornerRadius
         Behavior on bottomCornerRadius { NumberAnimation { duration: barSlot.isDashboardActive ? 220 : 160; easing.type: Easing.OutCubic } }
 
-        RectangularShadow {
-            anchors.fill: parent
-            visible: true
-            radius: continuousBarSurface.bottomCornerRadius
-            blur: (barSlot.isDashboardActive || barSlot.isHoverExpanded) ? 22 : 9
-            Behavior on blur { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
-            spread: 0
-            offset: Qt.vector2d(0, barSlot.root.barPosition === "bottom" ? -2 : 2)
-            color: barSlot.root.v2BarShadow
-            z: -1
-        }
-
-        readonly property var activePrivacyColors: {
-            var list = []
-            if (barSlot.root.privacyMic) list.push("#F59E0B")
-            if (barSlot.root.privacyCam) list.push("#10B981")
-            if (barSlot.root.privacyScreen) list.push(barSlot.root.screenRecording ? "#EF4444" : "#3B82F6")
-            return list
-        }
-
-        readonly property color privacyColorStart: {
-            var cols = activePrivacyColors
-            if (!cols || cols.length === 0) return "transparent"
-            return cols[0]
-        }
-
-        readonly property color privacyColorMid: {
-            var cols = activePrivacyColors
-            if (!cols || cols.length === 0) return "transparent"
-            if (cols.length === 1) return cols[0]
-            if (cols.length === 2) return cols[1]
-            return cols[1] // Emerald in tricolor
-        }
-
-        readonly property color privacyColorEnd: {
-            var cols = activePrivacyColors
-            if (!cols || cols.length === 0) return "transparent"
-            if (cols.length === 1) return cols[0]
-            if (cols.length === 2) return cols[1]
-            return cols[2] // Blue/Red in tricolor
-        }
-
-        // Hardware Privacy Subtle Gradient Glow (Tricolor horizontal gradient under bottom border)
-        Item {
-            id: privacyGlowUnderlay
-            visible: barSlot.root.privacyAnyActive
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: Math.max(40, parent.width - Math.round(continuousBarSurface.bottomCornerRadius * 0.9))
-            y: barSlot.root.barPosition === "bottom" ? -4 : (parent.height - 2.5)
-            height: 6.5
-            z: -1
-
-            property real glowPulse: 1.0
-            opacity: (barSlot.root.privacyAnyActive ? glowPulse : 0.0) * 0.82
-            Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
-
-            SequentialAnimation on glowPulse {
-                running: barSlot.root.privacyAnyActive
-                loops: Animation.Infinite
-                NumberAnimation { to: 0.65; duration: 1100; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 1.00; duration: 1100; easing.type: Easing.InOutSine }
-            }
-
-            Rectangle {
-                anchors.fill: parent
-                radius: height / 2
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0.00; color: "transparent" }
-                    GradientStop { position: 0.08; color: continuousBarSurface.privacyColorStart }
-                    GradientStop { position: 0.50; color: continuousBarSurface.privacyColorMid }
-                    GradientStop { position: 0.92; color: continuousBarSurface.privacyColorEnd }
-                    GradientStop { position: 1.00; color: "transparent" }
-                }
-            }
-
-            layer.enabled: barSlot.root.privacyAnyActive
-            layer.effect: MultiEffect {
-                blurEnabled: true
-                blur: 0.45
-                blurMax: 10
-            }
-        }
-
         Shape {
             id: islandSurfaceBorder
             anchors.fill: parent
@@ -367,33 +283,6 @@ PanelWindow {
                 PathQuad {
                     x: continuousBarSurface.topCornerRadius; y: 0
                     controlX: 0; controlY: 0
-                }
-            }
-        }
-
-        // Hardware Privacy & Screen-Share Laser Border Line
-        Item {
-            id: privacyGlowBar
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.leftMargin: Math.max(12, continuousBarSurface.bottomCornerRadius * 0.85)
-            anchors.rightMargin: Math.max(12, continuousBarSurface.bottomCornerRadius * 0.85)
-            y: barSlot.root.barPosition === "bottom" ? 0 : (parent.height - height)
-            height: 2.0
-            z: 16
-            visible: barSlot.root.privacyAnyActive
-            opacity: privacyGlowUnderlay.opacity * 1.15
-
-            Rectangle {
-                anchors.fill: parent
-                radius: height / 2
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0.00; color: "transparent" }
-                    GradientStop { position: 0.08; color: continuousBarSurface.privacyColorStart }
-                    GradientStop { position: 0.50; color: continuousBarSurface.privacyColorMid }
-                    GradientStop { position: 0.92; color: continuousBarSurface.privacyColorEnd }
-                    GradientStop { position: 1.00; color: "transparent" }
                 }
             }
         }
@@ -1759,7 +1648,7 @@ PanelWindow {
             x: centerRowItem.x + centerRowItem.implicitWidth + 4
             
             readonly property bool mediaActive: barSlot.mprisPanel && barSlot.mprisPanel.active
-            readonly property bool hasLyrics: mediaActive && barSlot.mprisPanel.lyricsTrackId !== "" && barSlot.mprisPanel.lyricsTrackId === barSlot.mprisPanel.currentTrackId && barSlot.mprisPanel.lyricsList && barSlot.mprisPanel.lyricsList.length > 0 && barSlot.mprisPanel.currentLyricIndex >= 0
+            readonly property bool hasLyrics: (!barSlot.mprisPanel || !barSlot.mprisPanel.showingLyrics) && mediaActive && barSlot.mprisPanel.lyricsTrackId !== "" && barSlot.mprisPanel.lyricsTrackId === barSlot.mprisPanel.currentTrackId && barSlot.mprisPanel.lyricsList && barSlot.mprisPanel.lyricsList.length > 0 && barSlot.mprisPanel.currentLyricIndex >= 0
             readonly property string lyricText: hasLyrics ? barSlot.mprisPanel.lyricsList[barSlot.mprisPanel.currentLyricIndex].text : ""
             
             readonly property string windowTitle: Hyprland && Hyprland.activeToplevel ? Hyprland.activeToplevel.title : ""
@@ -2086,132 +1975,114 @@ PanelWindow {
             maxExtraCount: 0
         }
 
+        // Volume / brightness OSD: one wide slider pill with the icon and percentage
+        // drawn inside it (same look as the dashboard sliders).
         Rectangle {
             id: islandOsdItem
             anchors.centerIn: parent
 
-            width: 220
-            height: 24
+            width: 290
+            height: 27
             radius: height / 2
-            color: "transparent"
+            color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.22)
             clip: true
             opacity: island.islandCollapsedOpacity * island.osdProgress * (1.0 - island.notifPeekProgress) * (1.0 - island.dictationProgress) * (1.0 - island.chargingProgress)
             visible: opacity > 0.001
 
-            readonly property color sliderColor: island.osdKind === "audio-muted" 
+            readonly property bool muted: island.osdKind === "audio-muted"
+            readonly property color sliderColor: muted
                 ? Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.45)
                 : barSlot.root.seal
+            readonly property real val: Math.max(0, Math.min(100, muted ? 0 : island.osdValue))
 
             transform: Translate {
                 y: (1.0 - island.osdProgress) * (barSlot.root.barPosition === "bottom" ? 6 : -6)
             }
 
-            Row {
-                anchors.centerIn: parent
-                spacing: 10
+            // Fill: inset from the track edges, every corner fully rounded,
+            // followed by the signature vertical marker
+            Item {
+                id: osdFillItem
+                readonly property real inset: 3
+                readonly property real val: islandOsdItem.val
+                readonly property real maxGap: 14
+                readonly property real gap: val > 85 ? maxGap * (100 - val) / 15.0 : maxGap
+                readonly property real barOpacity: val > 85 ? (100 - val) / 15.0 : 1.0
 
-                Item {
-                    width: 20
-                    height: 20
+                x: inset
+                y: inset
+                height: parent.height - 2 * inset
+                width: val > 0 ? Math.max(height + maxGap, (parent.width - 2 * inset) * (val / 100.0)) : 0
+                visible: val > 0
+
+                Behavior on width {
+                    NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
+                }
+
+                // The actual fill
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: Math.max(parent.height, parent.width - osdFillItem.gap)
+                    radius: height / 2
+                    color: islandOsdItem.sliderColor
+                    Behavior on color { ColorAnimation { duration: 160 } }
+                }
+
+                // The vertical bar with "padding"
+                Rectangle {
+                    anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
+                    width: osdFillItem.maxGap
+                    height: parent.height
+                    color: "transparent"
+                    opacity: osdFillItem.barOpacity
 
-                    IconText {
+                    Rectangle {
                         anchors.centerIn: parent
-                        font.pixelSize: 18
+                        width: 3
+                        height: parent.height - 8
+                        radius: 1.5
                         color: islandOsdItem.sliderColor
-                        text: {
-                            if (island.osdKind === "brightness") {
-                                return IconMap.icon("light_mode")
-                            } else if (island.osdKind === "audio-muted") {
-                                return IconMap.icon("volume_off")
-                            } else {
-                                if (island.osdValue <= 0) return IconMap.icon("volume_mute")
-                                if (island.osdValue <= 50) return IconMap.icon("volume_down")
-                                return IconMap.icon("volume_up")
-                            }
-                        }
                         Behavior on color { ColorAnimation { duration: 160 } }
                     }
                 }
+            }
 
-                Rectangle {
-                    id: osdTrack
-                    width: 130
-                    height: 18
-                    radius: height / 2
+            // Icon + percentage sit inside the slider
+            Row {
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                spacing: 8
+
+                IconText {
                     anchors.verticalCenter: parent.verticalCenter
-                    color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.22)
-                    clip: true
-
-                    Item {
-                        id: osdFillItem
-                        readonly property real val: Math.max(0, Math.min(100, island.osdKind === "audio-muted" ? 0 : island.osdValue))
-                        readonly property real maxGap: 14
-                        readonly property real gap: val > 85 ? maxGap * (100 - val) / 15.0 : maxGap
-                        readonly property real barOpacity: val > 85 ? (100 - val) / 15.0 : 1.0
-
-                        width: val > 0 ? Math.max(parent.height + maxGap, parent.width * (val / 100.0)) : 0
-                        height: parent.height
-                        visible: val > 0
-
-                        Behavior on width {
-                            NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
-                        }
-
-                        // The actual fill
-                        Rectangle {
-                            anchors.left: parent.left
-                            anchors.top: parent.top
-                            anchors.bottom: parent.bottom
-                            width: Math.max(parent.height, parent.width - osdFillItem.gap)
-                            radius: (height / 4) + ((height / 4) * (1.0 - osdFillItem.barOpacity))
-                            color: islandOsdItem.sliderColor
-
-                            // fully rounded on the left
-                            Rectangle {
-                                width: parent.height
-                                height: parent.height
-                                radius: height / 2
-                                color: parent.color
-                                anchors.left: parent.left
-                            }
-
-                            Behavior on color { ColorAnimation { duration: 160 } }
-                        }
-
-                        // The vertical bar with "padding"
-                        Rectangle {
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: osdFillItem.maxGap
-                            height: parent.height
-                            color: "transparent"
-                            opacity: osdFillItem.barOpacity
-
-                            Rectangle {
-                                anchors.centerIn: parent
-                                width: 2.5
-                                height: parent.height - 6
-                                radius: 1.25
-                                color: islandOsdItem.sliderColor
-
-                                Behavior on color { ColorAnimation { duration: 160 } }
-                            }
+                    font.pixelSize: 17
+                    color: osdFillItem.width > 36 ? barSlot.root.paper : barSlot.root.ink
+                    text: {
+                        if (island.osdKind === "brightness") {
+                            return IconMap.icon("light_mode")
+                        } else if (island.osdKind === "audio-muted") {
+                            return IconMap.icon("volume_off")
+                        } else {
+                            if (island.osdValue <= 0) return IconMap.icon("volume_mute")
+                            if (island.osdValue <= 50) return IconMap.icon("volume_down")
+                            return IconMap.icon("volume_up")
                         }
                     }
+                    Behavior on color { ColorAnimation { duration: 160 } }
                 }
 
                 UiText {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 32
-                    horizontalAlignment: Text.AlignLeft
-                    text: (island.osdKind === "audio-muted" ? "0" : String(island.osdValue)) + "%"
-                    color: island.osdKind === "audio-muted"
-                        ? Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.45)
-                        : barSlot.root.ink
+                    text: (islandOsdItem.muted ? "0" : String(island.osdValue)) + "%"
+                    color: osdFillItem.width > 70 ? barSlot.root.paper : barSlot.root.ink
                     font.family: barSlot.root.barFont
-                    font.pixelSize: 12
-                    font.weight: Font.Medium
+                    font.pixelSize: 13
+                    font.weight: Font.DemiBold
+                    Behavior on color { ColorAnimation { duration: 160 } }
                 }
             }
         }
@@ -3020,6 +2891,12 @@ PanelWindow {
                     onClicked: dashboardAdapter.toggleSearch()
                 }
 
+                Timer {
+                    id: searchCollapseTimer
+                    interval: 750
+                    onTriggered: barSlot.root.dashboardExpanded = false
+                }
+
                 PetSearchBar {
                     id: petSearch
                     root: barSlot.root
@@ -3031,7 +2908,9 @@ PanelWindow {
                         if (dashboardLoader.item) dashboardLoader.item.forceActiveFocus()
                     }
                     onSearchSubmitted: {
-                        barSlot.root.dashboardExpanded = false
+                        // Let the cat celebrate for a moment before the dashboard collapses
+                        systemPet.celebrate()
+                        searchCollapseTimer.restart()
                     }
                 }
 

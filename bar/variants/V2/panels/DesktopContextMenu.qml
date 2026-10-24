@@ -132,7 +132,6 @@ PanelWindow {
                 refreshProc.running = false
                 refreshProc.running = true
                 
-                Quickshell.execDetached(["pw-play", Quickshell.env("HOME") + "/.config/quickshell/bar/pop.wav"])
                 
                 menuVisible = true
                 animatedReveal = 12
