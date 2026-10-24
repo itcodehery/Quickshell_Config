@@ -13,13 +13,14 @@ Item {
     focus: true
 
     EmotionsManager {
-        id: emotionsManager
+        id: emotionsManagerInstance
     }
+    readonly property var emotionsManager: emotionsManagerInstance
 
     property bool showEmotionOverlay: false
 
     function checkEmotionPrompt() {
-        if (emotionsManager && emotionsManager.shouldPromptToday()) {
+        if (dashboardContent.emotionsManager && dashboardContent.emotionsManager.shouldPromptToday()) {
             showEmotionOverlay = true
         }
     }
@@ -1522,8 +1523,8 @@ Item {
                                 id: emotionsTile
                                 property bool active: dashboardContent.activeDetailView === "emotions"
                                 readonly property color fg: active ? root.paper : root.ink
-                                readonly property var todayEntry: emotionsManager ? emotionsManager.todayEntry : null
-                                readonly property var todayLvl: (todayEntry && emotionsManager) ? emotionsManager.getLevel(todayEntry.level) : null
+                                readonly property var todayEntry: dashboardContent.emotionsManager ? dashboardContent.emotionsManager.todayEntry : null
+                                readonly property var todayLvl: (todayEntry && dashboardContent.emotionsManager) ? dashboardContent.emotionsManager.getLevel(todayEntry.level) : null
                                 width: (parent.width - 10) / 2
                                 height: 56
                                 radius: 28
@@ -3427,7 +3428,7 @@ Item {
                 sourceComponent: EmotionsDetailSection {
                     root: dashboardContent.root
                     panel: dashboardContent.panel
-                    emotionsManager: emotionsManager
+                    emotionsManager: dashboardContent.emotionsManager
                     onRequestCheckin: dashboardContent.showEmotionOverlay = true
                 }
             }
@@ -3474,7 +3475,7 @@ Item {
     EmotionStateOfMindOverlay {
         id: emotionOverlay
         root: dashboardContent.root
-        emotionsManager: emotionsManager
+        emotionsManager: dashboardContent.emotionsManager
         visible: dashboardContent.showEmotionOverlay
         z: 9999
         onClosed: {

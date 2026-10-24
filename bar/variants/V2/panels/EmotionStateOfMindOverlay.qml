@@ -371,7 +371,7 @@ Item {
                             MouseArea {
                                 id: nextMa
                                 anchors.fill: parent
-                                enabled: overlay.emotionsManager && overlay.activeLevelIndex < overlay.emotionsManager.levels.length - 1
+                                enabled: !!(overlay.emotionsManager && overlay.emotionsManager.levels && overlay.activeLevelIndex < overlay.emotionsManager.levels.length - 1)
                                 hoverEnabled: true
                                 cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                                 onClicked: {

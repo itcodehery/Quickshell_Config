@@ -13,12 +13,21 @@ Item {
         entries: {}
     })
 
-    readonly property string todayKey: {
+    function getTodayKey() {
         var d = new Date()
         var yyyy = d.getFullYear()
         var mm = String(d.getMonth() + 1).padStart(2, '0')
         var dd = String(d.getDate()).padStart(2, '0')
         return yyyy + "-" + mm + "-" + dd
+    }
+
+    property string todayKey: getTodayKey()
+
+    Timer {
+        interval: 60000
+        repeat: true
+        running: true
+        onTriggered: mgr.todayKey = mgr.getTodayKey()
     }
 
     readonly property var levels: [
@@ -197,7 +206,24 @@ Item {
         id: fileView
         path: mgr.filePath
         watchChanges: true
+        printErrors: false
+        onFileChanged: fileView.reload()
         onLoaded: {
+            try {
+                var txt = fileView.text().trim()
+                if (txt.length > 0) {
+                    var parsed = JSON.parse(txt)
+                    if (parsed && typeof parsed === "object") {
+                        if (!parsed.entries) parsed.entries = {}
+                        mgr.dataMap = parsed
+                    }
+                }
+            } catch(e) {}
+        }
+    }
+
+    Component.onCompleted: {
+        if (fileView.loaded) {
             try {
                 var txt = fileView.text().trim()
                 if (txt.length > 0) {

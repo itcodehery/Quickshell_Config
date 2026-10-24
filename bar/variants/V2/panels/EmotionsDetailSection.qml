@@ -22,19 +22,43 @@ Item {
     property var selectedDay: null
 
     function reloadWeek() {
-        if (!emotionsManager) return
-        weekDays = emotionsManager.getWeekDays(selectedWeekOffset) || []
-        // Default select today if in current week, else select latest day with data
-        if (selectedWeekOffset === 0 && weekDays) {
-            for (var i = 0; i < weekDays.length; i++) {
-                if (weekDays[i].isToday) {
-                    selectedDay = weekDays[i]
+        if (!emotionsManager) {
+            weekDays = []
+            selectedDay = null
+            return
+        }
+        var days = emotionsManager.getWeekDays(selectedWeekOffset) || []
+        weekDays = days
+        // Preserve currently selected day if it exists in the reloaded week
+        if (selectedDay && selectedDay.dateKey) {
+            for (var j = 0; j < days.length; j++) {
+                if (days[j].dateKey === selectedDay.dateKey) {
+                    selectedDay = days[j]
                     return
                 }
             }
         }
-        if (weekDays && weekDays.length > 0) {
-            selectedDay = weekDays[0]
+        // Default select today if in current week, else select latest day with data
+        if (selectedWeekOffset === 0 && days) {
+            for (var i = 0; i < days.length; i++) {
+                if (days[i].isToday) {
+                    selectedDay = days[i]
+                    return
+                }
+            }
+        }
+        if (days && days.length > 0) {
+            selectedDay = days[0]
+        }
+    }
+
+    onEmotionsManagerChanged: {
+        reloadWeek()
+    }
+
+    onVisibleChanged: {
+        if (visible) {
+            reloadWeek()
         }
     }
 
