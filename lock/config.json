@@ -1,0 +1,9 @@
+{
+  "clockStyle": "inline",
+  "blurBackground": false,
+  "blurRadius": 32,
+  "darkenOverlay": 1,
+  "showMedia": true,
+  "showBattery": false,
+  "showDate": false
+}

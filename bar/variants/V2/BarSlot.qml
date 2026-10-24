@@ -2450,7 +2450,7 @@ PanelWindow {
         Rectangle {
             id: islandChargingItem
             anchors.centerIn: parent
-            readonly property int targetWidth: 340
+            readonly property int targetWidth: Math.max(200, Math.round(chargingContentRow.implicitWidth + 28))
             width: targetWidth
             height: barSlot.root.v2BarHeight
             radius: height / 2
@@ -2510,6 +2510,7 @@ PanelWindow {
 
             // Horizontal content layout fitting within the bar height
             Row {
+                id: chargingContentRow
                 anchors.centerIn: parent
                 spacing: 10
 
@@ -2542,10 +2543,10 @@ PanelWindow {
                     id: chargeTrack
                     anchors.verticalCenter: parent.verticalCenter
                     width: 130
-                    height: 14
-                    radius: 7
-                    color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.12)
-                    border.color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.18)
+                    height: 18
+                    radius: 9
+                    color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.14)
+                    border.color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.20)
                     border.width: 1
                     clip: true
 
@@ -2557,7 +2558,7 @@ PanelWindow {
                         anchors.bottom: parent.bottom
                         anchors.margins: 1
                         width: Math.max(0, Math.min(parent.width - 2, (parent.width - 2) * (islandChargingItem.animatedPct / 100)))
-                        radius: 6
+                        radius: 8
                         color: islandChargingItem.batteryPercentColor
                         Behavior on color { ColorAnimation { duration: 200 } }
 
@@ -2565,14 +2566,15 @@ PanelWindow {
                         Text {
                             id: pillPctLabel
                             anchors.right: parent.right
-                            anchors.rightMargin: 6
+                            anchors.rightMargin: 7
                             anchors.verticalCenter: parent.verticalCenter
                             text: islandChargingItem.pct + "%"
                             font.family: barSlot.root.barFont
-                            font.pixelSize: 9
+                            font.pixelSize: 10
                             font.weight: Font.Bold
                             color: "#ffffff"
-                            visible: chargeFill.width > 34
+                            visible: islandChargingItem.pct >= 25
+                            opacity: Math.max(0, Math.min(1.0, (chargeFill.width - 24) / 16))
                         }
                     }
 
@@ -2587,14 +2589,16 @@ PanelWindow {
                     }
                 }
 
-                // Right: Percentage (if not inside pill) and Time remaining
+                // Right: Percentage (if battery low) and Time remaining
                 Row {
+                    id: chargingRightRow
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 5
+                    visible: (islandChargingItem.pct < 25) || (islandChargingItem.timeLeftStr !== "")
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: chargeFill.width <= 34
+                        visible: islandChargingItem.pct < 25
                         text: islandChargingItem.pct + "%"
                         font.family: barSlot.root.barFont
                         font.pixelSize: 11
@@ -2605,7 +2609,7 @@ PanelWindow {
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: islandChargingItem.timeLeftStr !== "" ? islandChargingItem.timeLeftStr : ""
+                        text: islandChargingItem.timeLeftStr
                         visible: text !== ""
                         font.family: barSlot.root.barFont
                         font.pixelSize: 11

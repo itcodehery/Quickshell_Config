@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Quickshell Session Lock Launcher
+set -euo pipefail
+
+LOCK_CONFIG="$HOME/.config/quickshell/lock/shell.qml"
+
+# Prevent multiple lock processes
+if pgrep -f "quickshell/lock/shell.qml" >/dev/null; then
+    exit 0
+fi
+
+# Ensure Wayland platform variables
+export QT_QPA_PLATFORM="wayland"
+export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$UID}"
+
+# Reset keyboard layout to default
+hyprctl switchxkblayout all 0 >/dev/null 2>&1 || true
+
+# Lock 1Password if installed and running
+if pgrep -x "1password" >/dev/null && command -v 1password >/dev/null; then
+    (
+        flock -n 9 || exit 0
+        timeout --kill-after=1s 3s 1password --lock >/dev/null 2>&1 || true
+    ) 9>"${XDG_RUNTIME_DIR:-/tmp}/omarchy-1password-lock.lock" &
+fi
+
+# Dismiss screensaver if running
+pkill -x ttfx 2>/dev/null || true
+pkill -f '[o]rg.omarchy.screensaver' 2>/dev/null || true
+
+# Capture current screen for seamless waterdrop transition
+grim /tmp/qs-lock-bg.png 2>/dev/null || true
+
+# Start Quickshell Lockscreen
+exec /usr/bin/qs -n -p "$LOCK_CONFIG"

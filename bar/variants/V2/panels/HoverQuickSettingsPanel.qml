@@ -574,7 +574,7 @@ Item {
                         HoverHandler { id: btn2Hov; cursorShape: Qt.PointingHandCursor }
                         MouseArea {
                             anchors.fill: parent
-                            onClicked: Quickshell.execDetached(["hyprlock"])
+                            onClicked: Quickshell.execDetached([Quickshell.env("HOME") + "/.config/quickshell/bin/qs-lock"])
                         }
                     }
 

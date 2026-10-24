@@ -101,7 +101,7 @@ Item {
                 Quickshell.execDetached(["bash", "-c", "omarchy-launch-screensaver 2>/dev/null || omarchy-screensaver 2>/dev/null"])
                 break
             case 1: // Lock
-                Quickshell.execDetached(["bash", "-c", "$HOME/.config/hypr/scripts/custom-lock.sh 2>/dev/null || loginctl lock-session || hyprlock"])
+                Quickshell.execDetached(["bash", "-c", "$HOME/.config/quickshell/bin/qs-lock 2>/dev/null || $HOME/.config/hypr/scripts/custom-lock.sh 2>/dev/null || loginctl lock-session"])
                 break
             case 2: // Shutdown
                 Quickshell.execDetached(["systemctl", "poweroff"])

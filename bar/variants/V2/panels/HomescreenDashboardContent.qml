@@ -36,7 +36,7 @@ Item {
         onClicked: {}
     }
 
-    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "notifications", "screentime", "plugins", "updates", "battery", "calendar", "volume", "system", "theme", "wallpaper"]
+    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "notifications", "screentime", "plugins", "updates", "battery", "calendar", "volume", "system", "theme", "wallpaper", "lockscreen"]
 
     function selectCategoryByIndex(idx) {
         if (idx < 0) idx = 0
@@ -2013,72 +2013,116 @@ Item {
                                 }
                             }
 
-                            // Software Updates Tile
-                            Rectangle {
-                                id: updatesTile
-                                property bool active: dashboardContent.activeDetailView === "updates" || dashboardContent.activeDetailView === "packages"
-                                readonly property color fg: active ? root.paper : root.ink
+                            // Right Half: Updates Pill + Lock Screen Settings Pill
+                            Row {
                                 width: (parent.width - 10) / 2
                                 height: 56
-                                radius: 28
-                                color: active
-                                    ? (updatesMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                    : (updatesMa.containsMouse ? root.fillHover : root.fillIdle)
-                                Behavior on color { ColorAnimation { duration: 160 } }
+                                spacing: 8
 
-                                border.width: active ? 2 : 0
-                                border.color: active ? root.paper : root.seal
-                                Behavior on border.width { NumberAnimation { duration: 150 } }
-                                Behavior on border.color { ColorAnimation { duration: 150 } }
+                                // 1. Software Updates Tile (Compact Icon Pill)
+                                Rectangle {
+                                    id: updatesTile
+                                    property bool active: dashboardContent.activeDetailView === "updates" || dashboardContent.activeDetailView === "packages"
+                                    readonly property color fg: active ? root.paper : root.ink
+                                    width: Math.floor((parent.width - parent.spacing) / 2)
+                                    height: 56
+                                    radius: 28
+                                    color: active
+                                        ? (updatesMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                        : (updatesMa.containsMouse ? root.fillHover : root.fillIdle)
+                                    Behavior on color { ColorAnimation { duration: 160 } }
 
-                                Row {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 14
-                                    spacing: 10
+                                    border.width: active ? 2 : 0
+                                    border.color: active ? root.paper : root.seal
+                                    Behavior on border.width { NumberAnimation { duration: 150 } }
+                                    Behavior on border.color { ColorAnimation { duration: 150 } }
 
                                     IconText {
+                                        anchors.centerIn: parent
                                         text: "system_update"
                                         color: updatesTile.fg
-                                        font.pixelSize: 22
+                                        font.pixelSize: 24
                                         Behavior on color { ColorAnimation { duration: 160 } }
                                     }
 
-                                    Column {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 2
-                                        Text {
-                                            text: "Updates"
-                                            color: updatesTile.fg
-                                            font.pixelSize: 13
-                                            font.family: root.barFont
-                                            font.weight: Font.DemiBold
-                                            Behavior on color { ColorAnimation { duration: 160 } }
-                                        }
-                                        Text {
-                                            text: root.systemUpdatesAvailable > 0 ? (root.systemUpdatesAvailable + " available") : "Up to date"
-                                            color: updatesTile.fg
-                                            opacity: updatesTile.active ? 0.8 : 0.6
-                                            font.pixelSize: 11
-                                            font.family: root.barFont
-                                            Behavior on color { ColorAnimation { duration: 160 } }
+                                    TooltipMixin {
+                                        id: updatesTip
+                                        root: dashboardContent.root
+                                        owner: updatesTile
+                                        text: "Software Updates: " + (root.systemUpdatesAvailable > 0 ? (root.systemUpdatesAvailable + " available") : "Up to date")
+                                    }
+
+                                    SpringPress {}
+                                    MouseArea {
+                                        id: updatesMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onEntered: updatesTip.show()
+                                        onExited: updatesTip.hide()
+                                        onClicked: {
+                                            updatesTip.hide()
+                                            if (dashboardContent.activeDetailView === "updates" || dashboardContent.activeDetailView === "packages") {
+                                                dashboardContent.activeDetailView = ""
+                                                if (root) root.dashboardDetail = ""
+                                            } else {
+                                                dashboardContent.activeDetailView = "updates"
+                                                if (root) root.dashboardDetail = "updates"
+                                            }
                                         }
                                     }
                                 }
 
-                                SpringPress {}
-                                MouseArea {
-                                    id: updatesMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (dashboardContent.activeDetailView === "updates" || dashboardContent.activeDetailView === "packages") {
-                                            dashboardContent.activeDetailView = ""
-                                            if (root) root.dashboardDetail = ""
-                                        } else {
-                                            dashboardContent.activeDetailView = "updates"
-                                            if (root) root.dashboardDetail = "updates"
+                                // 2. Lockscreen Settings Tile (Compact Icon Pill)
+                                Rectangle {
+                                    id: lockscreenTile
+                                    property bool active: dashboardContent.activeDetailView === "lockscreen"
+                                    readonly property color fg: active ? root.paper : root.ink
+                                    width: Math.ceil((parent.width - parent.spacing) / 2)
+                                    height: 56
+                                    radius: 28
+                                    color: active
+                                        ? (lockscreenMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
+                                        : (lockscreenMa.containsMouse ? root.fillHover : root.fillIdle)
+                                    Behavior on color { ColorAnimation { duration: 160 } }
+
+                                    border.width: active ? 2 : 0
+                                    border.color: active ? root.paper : root.seal
+                                    Behavior on border.width { NumberAnimation { duration: 150 } }
+                                    Behavior on border.color { ColorAnimation { duration: 150 } }
+
+                                    IconText {
+                                        anchors.centerIn: parent
+                                        text: "lock"
+                                        color: lockscreenTile.fg
+                                        font.pixelSize: 24
+                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                    }
+
+                                    TooltipMixin {
+                                        id: lockscreenTip
+                                        root: dashboardContent.root
+                                        owner: lockscreenTile
+                                        text: "Lock Screen Settings"
+                                    }
+
+                                    SpringPress {}
+                                    MouseArea {
+                                        id: lockscreenMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onEntered: lockscreenTip.show()
+                                        onExited: lockscreenTip.hide()
+                                        onClicked: {
+                                            lockscreenTip.hide()
+                                            if (dashboardContent.activeDetailView === "lockscreen") {
+                                                dashboardContent.activeDetailView = ""
+                                                if (root) root.dashboardDetail = ""
+                                            } else {
+                                                dashboardContent.activeDetailView = "lockscreen"
+                                                if (root) root.dashboardDetail = "lockscreen"
+                                            }
                                         }
                                     }
                                 }
@@ -3337,6 +3381,7 @@ Item {
                         case "theme": return "Themes"
                         case "wallpaper": return "Wallpapers"
                         case "plugins": return "Omarchy Plugins"
+                        case "lockscreen": return "Lock Screen Settings"
                         default: return ""
                     }
                 }
@@ -3437,6 +3482,19 @@ Item {
                 sourceComponent: UpdatesDetailSection {
                     root: dashboardContent.root
                     panel: dashboardContent.panel
+                }
+            }
+            DetailLoader {
+                id: lockscreenDetailLoader
+                viewName: "lockscreen"
+                onLoaded: if (item) item.forceActiveFocus()
+                sourceComponent: LockscreenDetailSection {
+                    root: dashboardContent.root
+                    panel: dashboardContent.panel
+                    onCloseRequested: {
+                        dashboardContent.activeDetailView = ""
+                        if (dashboardContent.root) dashboardContent.root.dashboardDetail = ""
+                    }
                 }
             }
             DetailLoader {

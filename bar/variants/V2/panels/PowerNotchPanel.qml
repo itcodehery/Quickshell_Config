@@ -155,6 +155,6 @@ PanelWindow {
     Process {
         id: lockProc
         running: false
-        command: ["bash", "-c", "loginctl lock-session || hyprlock"]
+        command: ["bash", "-c", "~/.config/quickshell/bin/qs-lock"]
     }
 }
