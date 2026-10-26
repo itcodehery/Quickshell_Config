@@ -779,149 +779,181 @@ Item {
                     HoverHandler { id: briCardHov }
                 }
 
-                // Packages Card (matching reference UI with fully rounded floating pill & version display)
-                Rectangle {
-                    id: packagesCard
+                // Updates & Notes Column (Updates section made smaller + Notes button)
+                Column {
+                    id: updatesAndNotesCol
                     width: Math.floor((parent.width - toggleGrid.width - 16) / 2)
                     height: parent.height
-                    radius: 18
-                    color: pkgCardHov.hovered
-                        ? Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.09)
-                        : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.06)
-                    border.width: 1
-                    border.color: Qt.rgba(255, 255, 255, 0.04)
+                    spacing: 6
 
-                    readonly property int updateCount: (hoverPanel.root && hoverPanel.root.archUpdates) ? hoverPanel.root.archUpdates.length : 0
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            hoverPanel.root.activatePopupScreen(hoverPanel.barSlot.screen)
-                            hoverPanel.root.activeUpdateTab = "packages"
-                            hoverPanel.root.dashboardExpanded = true
-                            hoverPanel.root.dashboardDetail = "updates"
-                        }
-                    }
-
-                    Column {
-                        anchors.top: parent.top
-                        anchors.topMargin: 10
-                        anchors.left: parent.left
-                        anchors.leftMargin: 12
-                        anchors.right: parent.right
-                        anchors.rightMargin: 12
-                        spacing: 2
-
-                        Text {
-                            text: "Packages"
-                            font.family: hoverPanel.root.barFont
-                            font.pixelSize: 10
-                            font.weight: Font.Medium
-                            color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.50)
-                        }
-
-                        Row {
-                            spacing: 4
-                            width: parent.width
-
-                            Text {
-                                text: packagesCard.updateCount > 0
-                                    ? (packagesCard.updateCount + (packagesCard.updateCount === 1 ? " update" : " updates"))
-                                    : "Up to date"
-                                font.family: hoverPanel.root.barFont
-                                font.pixelSize: 14
-                                font.weight: Font.Bold
-                                color: hoverPanel.root.ink
-                                elide: Text.ElideRight
-                                width: Math.min(implicitWidth, parent.width - 20)
-                            }
-
-                            IconText {
-                                text: packagesCard.updateCount > 0 ? "upgrade" : "check"
-                                font.pixelSize: 13
-                                color: packagesCard.updateCount > 0 ? hoverPanel.accent : "#4ADE80"
-                            }
-                        }
-                    }
-
-                    // Interactive bottom floating pill (fully rounded on all corners, matching reference image)
+                    // 1. Updates Card (Compact section)
                     Rectangle {
-                        id: pkgCapsule
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        anchors.margins: 6
-                        height: 30
-                        radius: height / 2
-                        color: pkgMa.containsMouse
-                            ? (hoverPanel.omarchyUpdateAvailable
-                                ? Qt.rgba(hoverPanel.accent.r, hoverPanel.accent.g, hoverPanel.accent.b, 0.28)
-                                : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.14))
-                            : (hoverPanel.omarchyUpdateAvailable
-                                ? Qt.rgba(hoverPanel.accent.r, hoverPanel.accent.g, hoverPanel.accent.b, 0.18)
-                                : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.08))
-                        Behavior on color { ColorAnimation { duration: 150 } }
+                        id: packagesCard
+                        width: parent.width
+                        height: Math.floor((parent.height - parent.spacing) / 2)
+                        radius: 14
+                        color: pkgCardHov.hovered
+                            ? Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.09)
+                            : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.06)
+                        border.width: 1
+                        border.color: Qt.rgba(255, 255, 255, 0.04)
+                        scale: pkgCardHov.hovered ? 1.02 : 1.0
+                        Behavior on scale { NumberAnimation { duration: 120 } }
+                        Behavior on color { ColorAnimation { duration: 140 } }
+
+                        readonly property int updateCount: (hoverPanel.root && hoverPanel.root.archUpdates) ? hoverPanel.root.archUpdates.length : 0
 
                         Row {
-                            anchors.centerIn: parent
-                            spacing: 5
-                            width: Math.min(implicitWidth, parent.width - 12)
+                            anchors.left: parent.left
+                            anchors.leftMargin: 10
+                            anchors.right: parent.right
+                            anchors.rightMargin: 8
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 8
 
-                            Text {
-                                text: "\uE900"
-                                font.family: "omarchy"
-                                font.pixelSize: 12
-                                color: hoverPanel.omarchyUpdateAvailable ? hoverPanel.accent : hoverPanel.root.ink
-                                opacity: hoverPanel.omarchyUpdateAvailable ? 1.0 : 0.65
+                            Rectangle {
+                                width: 32
+                                height: 32
+                                radius: 10
+                                color: (packagesCard.updateCount > 0 || hoverPanel.omarchyUpdateAvailable)
+                                    ? Qt.rgba(hoverPanel.accent.r, hoverPanel.accent.g, hoverPanel.accent.b, 0.20)
+                                    : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.08)
                                 anchors.verticalCenter: parent.verticalCenter
+
+                                IconText {
+                                    anchors.centerIn: parent
+                                    text: packagesCard.updateCount > 0 ? "system_update" : (hoverPanel.omarchyUpdateAvailable ? "sync" : "check")
+                                    font.pixelSize: 17
+                                    color: (packagesCard.updateCount > 0 || hoverPanel.omarchyUpdateAvailable) ? hoverPanel.accent : "#4ADE80"
+                                }
                             }
 
-                            Text {
-                                text: hoverPanel.omarchyUpdateAvailable
-                                    ? "Omarchy update!"
-                                    : (hoverPanel.omarchyVersion !== ""
-                                        ? (hoverPanel.omarchyVersion.startsWith("v") ? hoverPanel.omarchyVersion : ("v" + hoverPanel.omarchyVersion))
-                                        : "Up to date")
-                                font.family: hoverPanel.root.barFont
-                                font.pixelSize: 10
-                                font.weight: Font.Bold
-                                color: hoverPanel.omarchyUpdateAvailable ? hoverPanel.accent : hoverPanel.root.ink
+                            Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                elide: Text.ElideRight
-                                width: Math.min(implicitWidth, parent.parent.width - 48)
-                            }
+                                spacing: 1
+                                width: parent.width - 40
 
-                            IconText {
-                                text: hoverPanel.omarchyUpdateAvailable ? "sync" : "check"
-                                font.pixelSize: 12
-                                color: hoverPanel.omarchyUpdateAvailable ? hoverPanel.accent : "#4ADE80"
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-                        }
+                                Text {
+                                    text: "Updates"
+                                    font.family: hoverPanel.root.barFont
+                                    font.pixelSize: 11
+                                    font.weight: Font.Bold
+                                    color: hoverPanel.root.ink
+                                    elide: Text.ElideRight
+                                    width: parent.width
+                                }
 
-                        MouseArea {
-                            id: pkgMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                if (hoverPanel.omarchyUpdateAvailable) {
-                                    Quickshell.execDetached(["bash", "-c", "omarchy-launch-floating-terminal-with-presentation omarchy-update"])
-                                } else {
-                                    omarchyUpdateProc.running = false
-                                    omarchyUpdateProc.running = true
-                                    if (hoverPanel.omarchyVersion === "") {
-                                        omarchyVerProc.running = false
-                                        omarchyVerProc.running = true
-                                    }
-                                    if (hoverPanel.root) hoverPanel.root.archRefreshTick++
+                                Text {
+                                    text: packagesCard.updateCount > 0
+                                        ? (packagesCard.updateCount + " available")
+                                        : (hoverPanel.omarchyUpdateAvailable ? "Omarchy update" : "Up to date")
+                                    font.family: hoverPanel.root.barFont
+                                    font.pixelSize: 9
+                                    font.weight: Font.Medium
+                                    color: (packagesCard.updateCount > 0 || hoverPanel.omarchyUpdateAvailable)
+                                        ? hoverPanel.accent
+                                        : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.60)
+                                    elide: Text.ElideRight
+                                    width: parent.width
                                 }
                             }
                         }
+
+                        HoverHandler { id: pkgCardHov; cursorShape: Qt.PointingHandCursor }
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                hoverPanel.root.activatePopupScreen(hoverPanel.barSlot.screen)
+                                hoverPanel.root.activeUpdateTab = "packages"
+                                hoverPanel.root.dashboardExpanded = true
+                                hoverPanel.root.dashboardDetail = "updates"
+                            }
+                        }
                     }
 
-                    HoverHandler { id: pkgCardHov }
+                    // 2. Notes Card / Button
+                    Rectangle {
+                        id: notesCard
+                        property bool active: hoverPanel.root.dashboardExpanded && hoverPanel.root.dashboardDetail === "notes"
+                        width: parent.width
+                        height: Math.floor((parent.height - parent.spacing) / 2)
+                        radius: 14
+                        color: notesCardHov.hovered
+                            ? Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.09)
+                            : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.06)
+                        border.width: 1
+                        border.color: active ? hoverPanel.accent : Qt.rgba(255, 255, 255, 0.04)
+                        scale: notesCardHov.hovered ? 1.02 : 1.0
+                        Behavior on scale { NumberAnimation { duration: 120 } }
+                        Behavior on color { ColorAnimation { duration: 140 } }
+
+                        Row {
+                            anchors.left: parent.left
+                            anchors.leftMargin: 10
+                            anchors.right: parent.right
+                            anchors.rightMargin: 8
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 8
+
+                            Rectangle {
+                                width: 32
+                                height: 32
+                                radius: 10
+                                color: notesCard.active
+                                    ? hoverPanel.accent
+                                    : (notesCardHov.hovered
+                                        ? Qt.rgba(hoverPanel.accent.r, hoverPanel.accent.g, hoverPanel.accent.b, 0.22)
+                                        : Qt.rgba(hoverPanel.accent.r, hoverPanel.accent.g, hoverPanel.accent.b, 0.14))
+                                anchors.verticalCenter: parent.verticalCenter
+                                Behavior on color { ColorAnimation { duration: 140 } }
+
+                                IconText {
+                                    anchors.centerIn: parent
+                                    text: "\uE150"
+                                    font.pixelSize: 16
+                                    color: notesCard.active ? hoverPanel.root.paper : hoverPanel.accent
+                                }
+                            }
+
+                            Column {
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 1
+                                width: parent.width - 40
+
+                                Text {
+                                    text: "Notes"
+                                    font.family: hoverPanel.root.barFont
+                                    font.pixelSize: 11
+                                    font.weight: Font.Bold
+                                    color: hoverPanel.root.ink
+                                    elide: Text.ElideRight
+                                    width: parent.width
+                                }
+
+                                Text {
+                                    text: "Dashboard notes"
+                                    font.family: hoverPanel.root.barFont
+                                    font.pixelSize: 9
+                                    font.weight: Font.Medium
+                                    color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.60)
+                                    elide: Text.ElideRight
+                                    width: parent.width
+                                }
+                            }
+                        }
+
+                        HoverHandler { id: notesCardHov; cursorShape: Qt.PointingHandCursor }
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                hoverPanel.root.activatePopupScreen(hoverPanel.barSlot.screen)
+                                hoverPanel.root.dashboardExpanded = true
+                                hoverPanel.root.dashboardDetail = "notes"
+                            }
+                        }
+                    }
                 }
             } // end standardQuickView
 

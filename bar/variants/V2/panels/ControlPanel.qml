@@ -505,14 +505,37 @@ PanelWindow {
             }
 
             // ── quick settings tiles ──
-            QuickTile {
+            Grid {
                 width: parent.width
-                icon: "data_object"
-                title: "GitHub Heatmap"
-                subtitle: "View contribution activity"
-                onActivated: {
-                    root.controlVisible = false
-                    root.githubHeatmapVisible = true
+                columns: 2
+                columnSpacing: 6
+                rowSpacing: 6
+                readonly property real tileW: root.evenW((width - columnSpacing) / 2)
+
+                QuickTile {
+                    width: parent.tileW
+                    icon: "data_object"
+                    title: "GitHub Heatmap"
+                    subtitle: "Activity"
+                    onActivated: {
+                        root.controlVisible = false
+                        root.githubHeatmapVisible = true
+                    }
+                }
+
+                QuickTile {
+                    width: parent.tileW
+                    icon: "edit_note"
+                    title: "Notes"
+                    subtitle: "Scratchpad"
+                    onActivated: {
+                        root.controlVisible = false
+                        if (root.activatePopupScreen && ctrlPanel.screen) {
+                            root.activatePopupScreen(ctrlPanel.screen)
+                        }
+                        root.dashboardDetail = "notes"
+                        root.dashboardExpanded = true
+                    }
                 }
             }
 

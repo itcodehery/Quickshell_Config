@@ -321,6 +321,7 @@ Item {
 
                 root: theme
                 targetScreen: modelData
+                mprisPanel: theMprisPanel
             }
         }
     }

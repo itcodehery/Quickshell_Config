@@ -36,7 +36,7 @@ Item {
         onClicked: {}
     }
 
-    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "notifications", "screentime", "plugins", "updates", "battery", "calendar", "volume", "system", "theme", "wallpaper", "lockscreen"]
+    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "notifications", "screentime", "plugins", "updates", "notes", "battery", "calendar", "volume", "system", "theme", "wallpaper", "lockscreen"]
 
     function selectCategoryByIndex(idx) {
         if (idx < 0) idx = 0
@@ -50,7 +50,7 @@ Item {
             goToPage(0)
         } else if (cat === "notifications" || cat === "screentime" || cat === "battery") {
             goToPage(1)
-        } else if (cat === "plugins" || cat === "updates" || cat === "theme" || cat === "wallpaper") {
+        } else if (cat === "plugins" || cat === "updates" || cat === "notes" || cat === "lockscreen" || cat === "theme" || cat === "wallpaper") {
             goToPage(2)
         }
 
@@ -394,6 +394,7 @@ Item {
     readonly property var calDetailSection: calDetailLoader.item
     readonly property var notifDetailSection: notifDetailLoader.item
     readonly property var updatesDetailSection: updatesDetailLoader.item
+    readonly property var notesDetailSection: notesDetailLoader.item
     readonly property var pluginsDetailSection: pluginsDetailLoader.item
 
     Connections {
@@ -3381,6 +3382,7 @@ Item {
                         case "theme": return "Themes"
                         case "wallpaper": return "Wallpapers"
                         case "plugins": return "Omarchy Plugins"
+                        case "notes": return "Notes"
                         case "lockscreen": return "Lock Screen Settings"
                         default: return ""
                     }
@@ -3482,6 +3484,19 @@ Item {
                 sourceComponent: UpdatesDetailSection {
                     root: dashboardContent.root
                     panel: dashboardContent.panel
+                }
+            }
+            DetailLoader {
+                id: notesDetailLoader
+                viewName: "notes"
+                onLoaded: if (item) item.forceActiveFocus()
+                sourceComponent: NotesDetailSection {
+                    root: dashboardContent.root
+                    panel: dashboardContent.panel
+                    onCloseRequested: {
+                        dashboardContent.activeDetailView = ""
+                        if (dashboardContent.root) dashboardContent.root.dashboardDetail = ""
+                    }
                 }
             }
             DetailLoader {

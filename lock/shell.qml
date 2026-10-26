@@ -285,6 +285,265 @@ ShellRoot {
             } else if (root.isMediaPlaying) {
                 root.curPos = Math.min(root.curLen, root.curPos + 0.25)
             }
+            if (root.hasMedia && root.currentTrackId !== "" && root.lyricsTrackId !== root.currentTrackId && !root._isFetchingLyrics) {
+                root.triggerLyricsRefresh()
+            }
+        }
+    }
+
+    // ── MPRIS Live Synced Lyrics System ──
+    property var lyricsList: []
+    property int currentLyricIndex: -1
+    property string lyricsTrackId: ""
+    property int _lyricsFetchSeq: 0
+    property bool _isFetchingLyrics: false
+    property int _lyricsRetryCount: 0
+    property var _lyricsCache: ({})
+
+    readonly property string currentTrackId: {
+        if (!activePlayer) return ""
+        var t = activePlayer.trackTitle || ""
+        var a = activePlayer.trackArtist || ""
+        return (t || a) ? (t.trim() + "||" + a.trim()) : ""
+    }
+
+    readonly property bool hasLyrics: lyricsTrackId !== "" && lyricsTrackId === currentTrackId && lyricsList && lyricsList.length > 0
+    readonly property string currentLyricText: {
+        if (hasLyrics && currentLyricIndex >= 0 && currentLyricIndex < lyricsList.length) {
+            return lyricsList[currentLyricIndex].text
+        }
+        if (hasLyrics && currentLyricIndex < 0) return "..."
+        if (_isFetchingLyrics) return "Searching lyrics…"
+        if (hasMedia && activePlayer && activePlayer.trackTitle) {
+            return activePlayer.trackTitle + (activePlayer.trackArtist ? " · " + activePlayer.trackArtist : "")
+        }
+        return ""
+    }
+
+    Component.onCompleted: {
+        root.triggerLyricsRefresh()
+    }
+
+    Connections {
+        target: root.activePlayer ? root.activePlayer : null
+        ignoreUnknownSignals: true
+        function onTrackTitleChanged() { root.triggerLyricsRefresh() }
+        function onTrackArtistChanged() { root.triggerLyricsRefresh() }
+    }
+
+    onActivePlayerChanged: triggerLyricsRefresh()
+    onCurrentTrackIdChanged: triggerLyricsRefresh()
+    onCurPosChanged: syncLyricIndex()
+
+    function triggerLyricsRefresh() {
+        var trackId = root.currentTrackId
+        if (trackId === "") {
+            lyricsList = []
+            currentLyricIndex = -1
+            lyricsTrackId = ""
+            _lyricsRetryCount = 0
+            _isFetchingLyrics = false
+            return
+        }
+        if (_lyricsCache[trackId]) {
+            lyricsTrackId = trackId
+            lyricsList = _lyricsCache[trackId]
+            syncLyricIndex()
+            _lyricsRetryCount = 0
+            _isFetchingLyrics = false
+            return
+        }
+        if (lyricsTrackId !== trackId) {
+            lyricsList = []
+            currentLyricIndex = -1
+            lyricsTrackId = ""
+            _lyricsRetryCount = 0
+            _isFetchingLyrics = false
+        }
+        fetchLyrics()
+    }
+
+    Timer {
+        id: lyricsPollTimer
+        interval: root._lyricsRetryCount < 4 ? 3000 : (root._lyricsRetryCount < 10 ? 6000 : 12000)
+        repeat: true
+        running: root.hasMedia && root.currentTrackId !== "" && root.lyricsTrackId !== root.currentTrackId
+        onTriggered: {
+            if (!root._isFetchingLyrics) {
+                root.fetchLyrics()
+            }
+        }
+    }
+
+    function syncLyricIndex() {
+        if (!lyricsList || lyricsList.length === 0) {
+            if (currentLyricIndex !== -1) currentLyricIndex = -1
+            return
+        }
+        var pos = root.curPos
+        var idx = -1
+        for (var i = 0; i < lyricsList.length; i++) {
+            if (pos >= lyricsList[i].time) {
+                idx = i
+            } else {
+                break
+            }
+        }
+        if (idx !== currentLyricIndex) {
+            currentLyricIndex = idx
+        }
+    }
+
+    function cleanTrackTitle(str) {
+        if (!str) return ""
+        return str.replace(/\s*[\(\[](feat\.|ft\.|remaster|live|official|deluxe|bonus|version|radio|edit|mono|stereo|anniversary).*?[\)\]]/gi, "")
+                  .replace(/\s*-\s*(remaster|live|radio|deluxe|bonus|anniversary).*$/gi, "")
+                  .trim()
+    }
+
+    function parseLrc(lrcText) {
+        if (!lrcText || typeof lrcText !== "string") return []
+        var parsed = []
+        var offsetSec = 0
+        var offsetMatch = /\[offset:\s*([+-]?\d+)\]/i.exec(lrcText)
+        if (offsetMatch) {
+            offsetSec = (parseFloat(offsetMatch[1]) || 0) / 1000.0
+        }
+
+        var lines = lrcText.split('\n')
+        var tagRegex = /\[(\d{1,2}):(\d{2}(?:\.\d+)?)\]/g
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim()
+            if (!line || /^\[[a-zA-Z]+:/.test(line)) continue
+            var timestamps = []
+            var match
+            tagRegex.lastIndex = 0
+            while ((match = tagRegex.exec(line)) !== null) {
+                var m = parseFloat(match[1])
+                var s = parseFloat(match[2])
+                timestamps.push((m * 60) + s)
+            }
+            if (timestamps.length > 0) {
+                var txt = line.replace(/\[\d{1,2}:\d{2}(?:\.\d+)?\]/g, "").trim()
+                if (txt.length > 0) {
+                    for (var t = 0; t < timestamps.length; t++) {
+                        var adjustedTime = Math.max(0, timestamps[t] + offsetSec)
+                        parsed.push({ time: adjustedTime, text: txt })
+                    }
+                }
+            }
+        }
+        parsed.sort(function(a, b) { return a.time - b.time })
+        return parsed
+    }
+
+    function fetchLyrics() {
+        var p = root.activePlayer
+        var title = p ? (p.trackTitle || "").trim() : ""
+        var artist = p ? (p.trackArtist || "").trim() : ""
+        var album = p ? (p.trackAlbum || "").trim() : ""
+        var dur = Math.round(p ? (p.length || root.curLen || 0) : (root.curLen || 0))
+        var trackId = (title || artist) ? (title + "||" + artist) : ""
+
+        if (!p || title === "" || trackId === "") {
+            _isFetchingLyrics = false
+            return
+        }
+
+        if (_lyricsCache[trackId]) {
+            lyricsTrackId = trackId
+            lyricsList = _lyricsCache[trackId]
+            syncLyricIndex()
+            _isFetchingLyrics = false
+            return
+        }
+
+        if (_isFetchingLyrics) return
+        _isFetchingLyrics = true
+        var seq = ++_lyricsFetchSeq
+        _lyricsRetryCount++
+
+        var cleaned = cleanTrackTitle(title)
+        var targetTitle = cleaned !== "" ? cleaned : title
+
+        function finish(success, parsed) {
+            _isFetchingLyrics = false
+            if (seq !== root._lyricsFetchSeq || root.currentTrackId !== trackId) return
+            if (success && parsed && parsed.length > 0) {
+                root._lyricsCache[trackId] = parsed
+                root.lyricsTrackId = trackId
+                root.lyricsList = parsed
+                root.syncLyricIndex()
+            }
+        }
+
+        function pickBestResult(resp) {
+            if (!resp) return null
+            if (!Array.isArray(resp) && resp.syncedLyrics) {
+                return parseLrc(resp.syncedLyrics)
+            }
+            if (Array.isArray(resp) && resp.length > 0) {
+                var candidates = []
+                for (var i = 0; i < resp.length; i++) {
+                    var item = resp[i]
+                    if (item && item.syncedLyrics && typeof item.syncedLyrics === "string" && item.syncedLyrics.trim().length > 0) {
+                        var diff = dur > 0 && item.duration ? Math.abs(item.duration - dur) : 9999
+                        candidates.push({ item: item, diff: diff })
+                    }
+                }
+                if (candidates.length === 0) return null
+                candidates.sort(function(a, b) { return a.diff - b.diff })
+                return parseLrc(candidates[0].item.syncedLyrics)
+            }
+            return null
+        }
+
+        function query(url, nextFallback) {
+            var xhr = new XMLHttpRequest()
+            xhr.open("GET", url, true)
+            xhr.setRequestHeader("User-Agent", "Quickshell-Lyrics/2.0 (Linux)")
+            xhr.timeout = 5000
+            xhr.ontimeout = function() { if (nextFallback) nextFallback(); else finish(false, null); }
+            xhr.onerror = function() { if (nextFallback) nextFallback(); else finish(false, null); }
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (seq !== root._lyricsFetchSeq || root.currentTrackId !== trackId) {
+                        _isFetchingLyrics = false
+                        return
+                    }
+                    if (xhr.status === 200) {
+                        try {
+                            var resp = JSON.parse(xhr.responseText)
+                            var parsed = pickBestResult(resp)
+                            if (parsed && parsed.length > 0) {
+                                finish(true, parsed)
+                                return
+                            }
+                        } catch(e) {}
+                    }
+                    if (nextFallback) nextFallback()
+                    else finish(false, null)
+                }
+            }
+            xhr.send()
+        }
+
+        var getUrl = dur > 0
+            ? ("https://lrclib.net/api/get?track_name=" + encodeURIComponent(targetTitle) + "&artist_name=" + encodeURIComponent(artist) + (album ? "&album_name=" + encodeURIComponent(album) : "") + "&duration=" + dur)
+            : ""
+        var searchUrl1 = "https://lrclib.net/api/search?track_name=" + encodeURIComponent(targetTitle) + "&artist_name=" + encodeURIComponent(artist)
+        var searchUrl2 = "https://lrclib.net/api/search?q=" + encodeURIComponent(targetTitle + " " + artist)
+
+        if (getUrl !== "") {
+            query(getUrl, function() {
+                query(searchUrl1, function() {
+                    query(searchUrl2, null)
+                })
+            })
+        } else {
+            query(searchUrl1, function() {
+                query(searchUrl2, null)
+            })
         }
     }
 
@@ -511,17 +770,34 @@ ShellRoot {
                     opacity: 0.25
                 }
 
-                // ── 2. WATERDROP INK SWEEP (Desktop Snapshot sweeps into blurred wallpaper from corners) ──
+                // ── 2. IRIS-OUT TRANSITION (Desktop Snapshot sweeps into blurred wallpaper from corners) ──
                 property real maxDropRadius: Math.ceil(Math.sqrt((screenRoot.width * screenRoot.width) + (screenRoot.height * screenRoot.height)) / 2) + 120
                 property real dropRadius: maxDropRadius
+                property bool dropStarted: false
                 property bool dropFinished: false
 
-                NumberAnimation on dropRadius {
+                function tryStartIrisTransition() {
+                    if (!dropStarted && screenRoot.width > 0 && screenRoot.height > 0 && desktopSnapshot.status === Image.Ready) {
+                        dropStarted = true
+                        dropRadius = maxDropRadius
+                        waterdropAnim.restart()
+                    }
+                }
+
+                onWidthChanged: tryStartIrisTransition()
+                onHeightChanged: tryStartIrisTransition()
+
+                SequentialAnimation {
                     id: waterdropAnim
-                    from: screenRoot.maxDropRadius
-                    to: 0
-                    duration: 1200
-                    easing.type: Easing.InOutCubic
+                    PauseAnimation { duration: 40 }
+                    NumberAnimation {
+                        target: screenRoot
+                        property: "dropRadius"
+                        from: screenRoot.maxDropRadius
+                        to: 0
+                        duration: 1150
+                        easing.type: Easing.InOutCubic
+                    }
                     onFinished: screenRoot.dropFinished = true
                 }
 
@@ -532,10 +808,13 @@ ShellRoot {
                     source: "file:///tmp/qs-lock-bg.png"
                     fillMode: Image.PreserveAspectCrop
                     cache: false
+                    asynchronous: false
                     visible: false
                     onStatusChanged: {
                         if (status === Image.Error) {
                             source = "file://" + Quickshell.env("HOME") + "/.local/state/omarchy/current/background"
+                        } else if (status === Image.Ready) {
+                            screenRoot.tryStartIrisTransition()
                         }
                     }
                 }
@@ -545,6 +824,8 @@ ShellRoot {
                     id: maskHoleContainer
                     anchors.fill: parent
                     visible: false
+                    layer.enabled: true
+                    layer.smooth: true
 
                     Rectangle {
                         id: holeCircle
@@ -615,14 +896,14 @@ ShellRoot {
                     onClicked: hiddenInput.forceActiveFocus()
                 }
 
-                // ── 4. TOP CENTER GREETING (Clean single row at top center) ────
+                // ── 4. TOP HEADER: GREETING (TOP-LEFT) & LIVE LYRICS (TOP-RIGHT) ─
                 Item {
                     id: greetingContainer
-                    anchors.top: parent.top
-                    anchors.topMargin: 36
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: greetingTxt.implicitWidth
-                    height: greetingTxt.implicitHeight
+                    anchors.left: bentoContainer.left
+                    anchors.right: bentoContainer.right
+                    anchors.bottom: bentoContainer.top
+                    anchors.bottomMargin: 12
+                    height: 20
 
                     opacity: 0.0
                     transform: Translate { id: greetingTranslate; y: -12 }
@@ -632,7 +913,7 @@ ShellRoot {
                         running: true
                         PauseAnimation { duration: 520 }
                         ParallelAnimation {
-                            NumberAnimation { target: greetingContainer; property: "opacity"; to: 0.70; duration: 450; easing.type: Easing.OutCubic }
+                            NumberAnimation { target: greetingContainer; property: "opacity"; to: 1.0; duration: 450; easing.type: Easing.OutCubic }
                             NumberAnimation { target: greetingTranslate; property: "y"; to: 0; duration: 500; easing.type: Easing.OutCubic }
                         }
                     }
@@ -645,7 +926,179 @@ ShellRoot {
                         font.weight: Font.Medium
                         font.letterSpacing: 0.5
                         color: root.ink
-                        anchors.centerIn: parent
+                        opacity: 0.70
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        horizontalAlignment: Text.AlignLeft
+                    }
+
+                    // Live Lyrics Line (Top-Right corner above Bento Tiles, Right-Aligned)
+                    Item {
+                        id: lyricContainer
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 20
+                        width: Math.min(680, Math.max(0, parent.width - greetingTxt.implicitWidth - 24))
+                        clip: true
+                        visible: root.hasMedia && root.currentLyricText !== ""
+                        opacity: visible ? 1.0 : 0.0
+                        Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+
+                        Row {
+                            id: lyricRow
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 6
+
+                            Text {
+                                text: "music_note"
+                                font.family: "Material Symbols Rounded"
+                                font.pixelSize: 13
+                                color: root.seal
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            Item {
+                                id: lyricSwitcher
+                                height: 20
+                                width: Math.min(640, Math.max(10, lyricSwitcher.useB ? textB.implicitWidth : textA.implicitWidth))
+                                clip: true
+                                anchors.verticalCenter: parent.verticalCenter
+
+                                property bool useB: false
+                                property string currentShownText: ""
+                                property bool initialized: false
+
+                                function transitionTo(newText) {
+                                    if (!newText || newText === currentShownText) return
+                                    currentShownText = newText
+                                    animSwitch.stop()
+
+                                    if (!useB) {
+                                        textB.text = newText
+                                        transB.y = 5
+                                        textB.opacity = 0.0
+
+                                        animExitTrans.target = transA
+                                        animExitTrans.to = -5
+                                        animExitOpacity.target = textA
+
+                                        animEnterTrans.target = transB
+                                        animEnterTrans.to = 0
+                                        animEnterOpacity.target = textB
+
+                                        useB = true
+                                    } else {
+                                        textA.text = newText
+                                        transA.y = 5
+                                        textA.opacity = 0.0
+
+                                        animExitTrans.target = transB
+                                        animExitTrans.to = -5
+                                        animExitOpacity.target = textB
+
+                                        animEnterTrans.target = transA
+                                        animEnterTrans.to = 0
+                                        animEnterOpacity.target = textA
+
+                                        useB = false
+                                    }
+
+                                    animSwitch.restart()
+                                }
+
+                                ParallelAnimation {
+                                    id: animSwitch
+
+                                    NumberAnimation {
+                                        id: animExitTrans
+                                        property: "y"
+                                        duration: 160
+                                        easing.type: Easing.OutQuad
+                                    }
+                                    NumberAnimation {
+                                        id: animExitOpacity
+                                        property: "opacity"
+                                        to: 0.0
+                                        duration: 140
+                                        easing.type: Easing.OutQuad
+                                    }
+
+                                    NumberAnimation {
+                                        id: animEnterTrans
+                                        property: "y"
+                                        duration: 220
+                                        easing.type: Easing.OutCubic
+                                    }
+                                    NumberAnimation {
+                                        id: animEnterOpacity
+                                        property: "opacity"
+                                        to: 1.0
+                                        duration: 200
+                                        easing.type: Easing.OutCubic
+                                    }
+                                }
+
+                                Text {
+                                    id: textA
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    font.family: "DM Sans"
+                                    font.pixelSize: 12
+                                    font.weight: Font.Medium
+                                    font.letterSpacing: 0.5
+                                    color: root.seal
+                                    horizontalAlignment: Text.AlignRight
+                                    elide: Text.ElideRight
+                                    width: Math.min(implicitWidth, 640)
+                                    transform: Translate { id: transA }
+                                }
+
+                                Text {
+                                    id: textB
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    font.family: "DM Sans"
+                                    font.pixelSize: 12
+                                    font.weight: Font.Medium
+                                    font.letterSpacing: 0.5
+                                    color: root.seal
+                                    horizontalAlignment: Text.AlignRight
+                                    elide: Text.ElideRight
+                                    width: Math.min(implicitWidth, 640)
+                                    transform: Translate { id: transB }
+                                }
+
+                                Connections {
+                                    target: root
+                                    function onCurrentLyricTextChanged() {
+                                        if (!lyricSwitcher.initialized) {
+                                            lyricSwitcher.init(root.currentLyricText)
+                                            return
+                                        }
+                                        lyricSwitcher.transitionTo(root.currentLyricText)
+                                    }
+                                }
+
+                                function init(txt) {
+                                    currentShownText = txt
+                                    textA.text = txt
+                                    textA.opacity = 1.0
+                                    transA.y = 0
+                                    textB.text = ""
+                                    textB.opacity = 0.0
+                                    transB.y = 5
+                                    useB = false
+                                    initialized = true
+                                }
+
+                                Component.onCompleted: {
+                                    if (root.currentLyricText !== "") {
+                                        init(root.currentLyricText)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -1946,111 +2399,218 @@ ShellRoot {
                                         anchors.margins: 14
 
                                         Column {
+                                            id: statsCol
                                             anchors.fill: parent
                                             spacing: 10
 
-                                            // Top Half: RAM & CPU Pills
+                                            readonly property real topH: Math.round((height - spacing) * 0.48)
+                                            readonly property real botH: height - topH - spacing
+
+                                            // Top Half: RAM & CPU Cards
                                             Row {
+                                                id: statsTopRow
                                                 width: parent.width
+                                                height: statsCol.topH
                                                 spacing: 8
 
-                                                // CPU Mini Metric
+                                                // CPU Metric Card
                                                 Rectangle {
                                                     width: (parent.width - 8) / 2
-                                                    height: 52
-                                                    radius: 14
+                                                    height: parent.height
+                                                    radius: 16
                                                     color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+                                                    border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                                                    border.width: 1
 
-                                                    Column {
-                                                        anchors.centerIn: parent
-                                                        spacing: 2
-                                                        Text {
-                                                            text: "CPU"
-                                                            font.family: "DM Sans"
-                                                            font.pixelSize: 9
-                                                            font.weight: Font.Bold
-                                                            color: root.seal
-                                                            anchors.horizontalCenter: parent.horizontalCenter
+                                                    Item {
+                                                        anchors.fill: parent
+                                                        anchors.margins: 10
+
+                                                        Row {
+                                                            id: cpuHeader
+                                                            anchors.top: parent.top
+                                                            anchors.left: parent.left
+                                                            spacing: 4
+
+                                                            Text {
+                                                                text: "developer_board"
+                                                                font.family: "Material Symbols Rounded"
+                                                                font.pixelSize: 12
+                                                                color: root.seal
+                                                                anchors.verticalCenter: parent.verticalCenter
+                                                            }
+
+                                                            Text {
+                                                                text: "CPU"
+                                                                font.family: "DM Sans"
+                                                                font.pixelSize: 10
+                                                                font.weight: Font.Bold
+                                                                color: root.seal
+                                                                anchors.verticalCenter: parent.verticalCenter
+                                                            }
                                                         }
+
                                                         Text {
+                                                            anchors.top: cpuHeader.bottom
+                                                            anchors.topMargin: 2
+                                                            anchors.left: parent.left
                                                             text: root.cpuPercent + "%"
                                                             font.family: "DM Sans"
-                                                            font.pixelSize: 14
+                                                            font.pixelSize: 18
                                                             font.weight: Font.Bold
+                                                            font.letterSpacing: -0.5
                                                             color: root.ink
-                                                            anchors.horizontalCenter: parent.horizontalCenter
+                                                        }
+
+                                                        // Utilization bar
+                                                        Rectangle {
+                                                            anchors.bottom: parent.bottom
+                                                            anchors.left: parent.left
+                                                            anchors.right: parent.right
+                                                            height: 4
+                                                            radius: 2
+                                                            color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.10)
+
+                                                            Rectangle {
+                                                                anchors.left: parent.left
+                                                                anchors.top: parent.top
+                                                                anchors.bottom: parent.bottom
+                                                                width: Math.max(height, parent.width * (Math.max(0, Math.min(100, root.cpuPercent)) / 100))
+                                                                radius: 2
+                                                                color: root.cpuPercent > 80 ? root.color01 : root.seal
+
+                                                                Behavior on width {
+                                                                    NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+                                                                }
+                                                            }
                                                         }
                                                     }
                                                 }
 
-                                                // RAM Mini Metric
+                                                // RAM Metric Card
                                                 Rectangle {
                                                     width: (parent.width - 8) / 2
-                                                    height: 52
-                                                    radius: 14
+                                                    height: parent.height
+                                                    radius: 16
                                                     color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+                                                    border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                                                    border.width: 1
 
-                                                    Column {
-                                                        anchors.centerIn: parent
-                                                        spacing: 2
-                                                        Text {
-                                                            text: "RAM"
-                                                            font.family: "DM Sans"
-                                                            font.pixelSize: 9
-                                                            font.weight: Font.Bold
-                                                            color: root.seal
-                                                            anchors.horizontalCenter: parent.horizontalCenter
+                                                    Item {
+                                                        anchors.fill: parent
+                                                        anchors.margins: 10
+
+                                                        Row {
+                                                            id: ramHeader
+                                                            anchors.top: parent.top
+                                                            anchors.left: parent.left
+                                                            spacing: 4
+
+                                                            Text {
+                                                                text: "memory"
+                                                                font.family: "Material Symbols Rounded"
+                                                                font.pixelSize: 12
+                                                                color: root.color06
+                                                                anchors.verticalCenter: parent.verticalCenter
+                                                            }
+
+                                                            Text {
+                                                                text: "RAM"
+                                                                font.family: "DM Sans"
+                                                                font.pixelSize: 10
+                                                                font.weight: Font.Bold
+                                                                color: root.color06
+                                                                anchors.verticalCenter: parent.verticalCenter
+                                                            }
                                                         }
+
                                                         Text {
+                                                            anchors.top: ramHeader.bottom
+                                                            anchors.topMargin: 2
+                                                            anchors.left: parent.left
                                                             text: root.memPercent + "%"
                                                             font.family: "DM Sans"
-                                                            font.pixelSize: 14
+                                                            font.pixelSize: 18
                                                             font.weight: Font.Bold
+                                                            font.letterSpacing: -0.5
                                                             color: root.ink
-                                                            anchors.horizontalCenter: parent.horizontalCenter
+                                                        }
+
+                                                        // Utilization bar
+                                                        Rectangle {
+                                                            anchors.bottom: parent.bottom
+                                                            anchors.left: parent.left
+                                                            anchors.right: parent.right
+                                                            height: 4
+                                                            radius: 2
+                                                            color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.10)
+
+                                                            Rectangle {
+                                                                anchors.left: parent.left
+                                                                anchors.top: parent.top
+                                                                anchors.bottom: parent.bottom
+                                                                width: Math.max(height, parent.width * (Math.max(0, Math.min(100, root.memPercent)) / 100))
+                                                                radius: 2
+                                                                color: root.memPercent > 85 ? root.color01 : root.color06
+
+                                                                Behavior on width {
+                                                                    NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+                                                                }
+                                                            }
                                                         }
                                                     }
                                                 }
                                             }
 
-                                            // Bottom Half: Screen Time Today
+                                            // Bottom Half: Screen Time Today Card
                                             Rectangle {
                                                 width: parent.width
-                                                height: 64
-                                                radius: 16
+                                                height: statsCol.botH
+                                                radius: 18
                                                 color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+                                                border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                                                border.width: 1
 
                                                 Row {
                                                     anchors.centerIn: parent
-                                                    spacing: 10
+                                                    spacing: 12
 
-                                                    Text {
-                                                        text: "hourglass_empty"
-                                                        font.family: "Material Symbols Rounded"
-                                                        font.pixelSize: 22
-                                                        color: root.seal
+                                                    Rectangle {
+                                                        width: 40
+                                                        height: 40
+                                                        radius: 20
+                                                        color: Qt.rgba(root.color03.r, root.color03.g, root.color03.b, 0.12)
                                                         anchors.verticalCenter: parent.verticalCenter
+
+                                                        Text {
+                                                            text: "hourglass_empty"
+                                                            font.family: "Material Symbols Rounded"
+                                                            font.pixelSize: 20
+                                                            color: root.color03
+                                                            anchors.centerIn: parent
+                                                        }
                                                     }
 
                                                     Column {
                                                         anchors.verticalCenter: parent.verticalCenter
-                                                        spacing: 1
+                                                        spacing: 2
 
                                                         Text {
                                                             text: root.screentimeFormatted
                                                             font.family: "DM Sans"
-                                                            font.pixelSize: 16
+                                                            font.pixelSize: 18
                                                             font.weight: Font.Bold
+                                                            font.letterSpacing: -0.4
                                                             color: root.ink
                                                         }
 
                                                         Text {
                                                             text: "Screen Time Today"
                                                             font.family: "DM Sans"
-                                                            font.pixelSize: 9
+                                                            font.pixelSize: 10
                                                             font.weight: Font.Medium
                                                             color: root.ink
-                                                            opacity: 0.60
+                                                            opacity: 0.65
                                                         }
                                                     }
                                                 }
