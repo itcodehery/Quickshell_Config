@@ -645,7 +645,7 @@ ShellRoot {
 
     Timer {
         id: unlockSafetyTimer
-        interval: 650
+        interval: 450
         repeat: false
         onTriggered: {
             root.completeUnlock()
@@ -744,68 +744,78 @@ ShellRoot {
                 id: screenRoot
                 anchors.fill: parent
 
-                // ── 0. DEEP BLACK FOUNDATION LAYER ───────────────────────────
-                Rectangle {
-                    anchors.fill: parent
-                    color: "#000000"
-                }
+                // ── Dynamic Frosted Workspace Depth Properties ──
+                property real bgBlur: 0.0
+                property real bgBrightness: 0.0
+                property real bgScale: 1.00
+                property real bgDim: 0.0
+                property bool transitionStarted: false
 
-                // ── 1. CURRENT WALLPAPER WITH 15% OPACITY & BLUR ON TOP ──────
-                Image {
-                    id: wallpaperRaw
-                    anchors.fill: parent
-                    source: "file://" + Quickshell.env("HOME") + "/.local/state/omarchy/current/background"
-                    fillMode: Image.PreserveAspectCrop
-                    cache: true
-                    visible: false
-                }
-
-                MultiEffect {
-                    id: blurredWallpaperEffect
-                    source: wallpaperRaw
-                    anchors.fill: parent
-                    blurEnabled: true
-                    blur: 0.85
-                    blurMax: 48
-                    opacity: 0.25
-                }
-
-                // ── 2. IRIS-OUT TRANSITION (Desktop Snapshot sweeps into blurred wallpaper from corners) ──
-                property real maxDropRadius: Math.ceil(Math.sqrt((screenRoot.width * screenRoot.width) + (screenRoot.height * screenRoot.height)) / 2) + 120
-                property real dropRadius: maxDropRadius
-                property bool dropStarted: false
-                property bool dropFinished: false
-
-                function tryStartIrisTransition() {
-                    if (!dropStarted && screenRoot.width > 0 && screenRoot.height > 0 && desktopSnapshot.status === Image.Ready) {
-                        dropStarted = true
-                        dropRadius = maxDropRadius
-                        waterdropAnim.restart()
+                function startEntranceTransition() {
+                    if (!transitionStarted && screenRoot.width > 0 && screenRoot.height > 0) {
+                        transitionStarted = true
+                        transitionAnim.restart()
                     }
                 }
 
-                onWidthChanged: tryStartIrisTransition()
-                onHeightChanged: tryStartIrisTransition()
+                onWidthChanged: if (desktopSnapshot.status === Image.Ready) startEntranceTransition()
+                onHeightChanged: if (desktopSnapshot.status === Image.Ready) startEntranceTransition()
 
-                SequentialAnimation {
-                    id: waterdropAnim
-                    PauseAnimation { duration: 40 }
+                Timer {
+                    id: fallbackTransitionTimer
+                    interval: 180
+                    running: !screenRoot.transitionStarted
+                    onTriggered: screenRoot.startEntranceTransition()
+                }
+
+                ParallelAnimation {
+                    id: transitionAnim
+
                     NumberAnimation {
                         target: screenRoot
-                        property: "dropRadius"
-                        from: screenRoot.maxDropRadius
-                        to: 0
-                        duration: 1150
-                        easing.type: Easing.InOutCubic
+                        property: "bgBlur"
+                        from: 0.0
+                        to: 0.88
+                        duration: 520
+                        easing.type: Easing.OutCubic
                     }
-                    onFinished: screenRoot.dropFinished = true
+                    NumberAnimation {
+                        target: screenRoot
+                        property: "bgBrightness"
+                        from: 0.0
+                        to: -0.20
+                        duration: 520
+                        easing.type: Easing.OutCubic
+                    }
+                    NumberAnimation {
+                        target: screenRoot
+                        property: "bgScale"
+                        from: 1.00
+                        to: 0.97
+                        duration: 560
+                        easing.type: Easing.OutCubic
+                    }
+                    NumberAnimation {
+                        target: screenRoot
+                        property: "bgDim"
+                        from: 0.0
+                        to: 0.38
+                        duration: 520
+                        easing.type: Easing.OutCubic
+                    }
                 }
 
-                // Unblurred desktop snapshot being masked
+                // ── 0. DEEP BASE RECTANGLE ──────────────────────────────────
+                Rectangle {
+                    anchors.fill: parent
+                    color: "#0a0c0e"
+                }
+
+                // ── 1. DESKTOP SNAPSHOT (With dynamic wallpaper fallback) ───
                 Image {
                     id: desktopSnapshot
                     anchors.fill: parent
-                    source: "file:///tmp/qs-lock-bg.png"
+                    source: "file://" + (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/qs-lock-bg.png"
                     fillMode: Image.PreserveAspectCrop
                     cache: false
                     asynchronous: false
@@ -814,52 +824,47 @@ ShellRoot {
                         if (status === Image.Error) {
                             source = "file://" + Quickshell.env("HOME") + "/.local/state/omarchy/current/background"
                         } else if (status === Image.Ready) {
-                            screenRoot.tryStartIrisTransition()
+                            screenRoot.startEntranceTransition()
                         }
                     }
                 }
 
-                // Circular Hole Item (keeps desktop snapshot inside the circle)
+                // ── 2. FROSTED WORKSPACE DEPTH LAYER ────────────────────────
                 Item {
-                    id: maskHoleContainer
+                    id: bgContainer
                     anchors.fill: parent
-                    visible: false
-                    layer.enabled: true
-                    layer.smooth: true
+                    scale: screenRoot.bgScale
+                    transformOrigin: Item.Center
 
-                    Rectangle {
-                        id: holeCircle
-                        width: Math.max(0, screenRoot.dropRadius * 2)
-                        height: Math.max(0, screenRoot.dropRadius * 2)
-                        radius: Math.max(0, screenRoot.dropRadius)
-                        anchors.centerIn: parent
-                        color: "#ffffff"
+                    MultiEffect {
+                        id: bgEffect
+                        source: desktopSnapshot
+                        anchors.fill: parent
+                        blurEnabled: true
+                        blurMax: 48
+                        blur: screenRoot.bgBlur
+                        brightness: screenRoot.bgBrightness
+                        saturation: -0.08
                     }
                 }
 
-                // GPU MultiEffect Mask: renders snapshot inside the circle, revealing the 15% blurred wallpaper outside from the corners!
-                MultiEffect {
-                    id: waterdropEffect
-                    source: desktopSnapshot
+                // Darkening overlay & edge vignette
+                Rectangle {
+                    id: dimOverlay
                     anchors.fill: parent
-                    visible: !screenRoot.dropFinished
-                    maskEnabled: true
-                    maskSource: maskHoleContainer
-                    maskInverted: false
-                    maskThresholdMin: 0.0
-                    maskSpreadAtMin: 0.30
+                    color: "#000000"
+                    opacity: screenRoot.bgDim
                 }
 
-                // Liquid ripple contraction ring
                 Rectangle {
-                    visible: !screenRoot.dropFinished && screenRoot.dropRadius > 4
-                    width: Math.max(0, screenRoot.dropRadius * 2)
-                    height: Math.max(0, screenRoot.dropRadius * 2)
-                    radius: Math.max(0, screenRoot.dropRadius)
-                    anchors.centerIn: parent
-                    color: "transparent"
-                    border.width: 3
-                    border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.40 * Math.min(1.0, screenRoot.dropRadius / 250))
+                    anchors.fill: parent
+                    opacity: screenRoot.bgDim * 0.75
+                    gradient: Gradient {
+                        GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.40) }
+                        GradientStop { position: 0.15; color: Qt.rgba(0, 0, 0, 0.0) }
+                        GradientStop { position: 0.85; color: Qt.rgba(0, 0, 0, 0.0) }
+                        GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.55) }
+                    }
                 }
 
                 // ── 3. HIDDEN TEXT INPUT (Focuses globally for instant password typing) ──
@@ -911,17 +916,17 @@ ShellRoot {
                     SequentialAnimation {
                         id: greetingInAnim
                         running: true
-                        PauseAnimation { duration: 520 }
+                        PauseAnimation { duration: 120 }
                         ParallelAnimation {
-                            NumberAnimation { target: greetingContainer; property: "opacity"; to: 1.0; duration: 450; easing.type: Easing.OutCubic }
-                            NumberAnimation { target: greetingTranslate; property: "y"; to: 0; duration: 500; easing.type: Easing.OutCubic }
+                            NumberAnimation { target: greetingContainer; property: "opacity"; to: 1.0; duration: 380; easing.type: Easing.OutCubic }
+                            NumberAnimation { target: greetingTranslate; property: "y"; to: 0; duration: 420; easing.type: Easing.OutCubic }
                         }
                     }
 
                     Text {
                         id: greetingTxt
                         text: root.greeting
-                        font.family: "DM Sans"
+                        font.family: "Genova"
                         font.pixelSize: 12
                         font.weight: Font.Medium
                         font.letterSpacing: 0.5
@@ -1043,7 +1048,7 @@ ShellRoot {
                                     id: textA
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
-                                    font.family: "DM Sans"
+                                    font.family: "Genova"
                                     font.pixelSize: 12
                                     font.weight: Font.Medium
                                     font.letterSpacing: 0.5
@@ -1058,7 +1063,7 @@ ShellRoot {
                                     id: textB
                                     anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
-                                    font.family: "DM Sans"
+                                    font.family: "Genova"
                                     font.pixelSize: 12
                                     font.weight: Font.Medium
                                     font.letterSpacing: 0.5
@@ -1129,18 +1134,17 @@ ShellRoot {
                                 width: 230
                                 height: parent.height
                                 opacity: 0.0
-                                scale: 0.72
-                                transform: Translate { id: t1Trans; x: -80; y: -70 }
+                                scale: 0.94
+                                transform: Translate { id: t1Trans; x: 0; y: 24 }
 
                                 SequentialAnimation {
                                     id: tile1InAnim
                                     running: true
-                                    PauseAnimation { duration: 600 }
+                                    PauseAnimation { duration: 160 }
                                     ParallelAnimation {
-                                        NumberAnimation { target: tile1Wrapper; property: "opacity"; to: 1.0; duration: 420; easing.type: Easing.OutCubic }
-                                        NumberAnimation { target: tile1Wrapper; property: "scale"; to: 1.0; duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.25 }
-                                        NumberAnimation { target: t1Trans; property: "x"; to: 0; duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
-                                        NumberAnimation { target: t1Trans; property: "y"; to: 0; duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+                                        NumberAnimation { target: tile1Wrapper; property: "opacity"; to: 1.0; duration: 380; easing.type: Easing.OutCubic }
+                                        NumberAnimation { target: tile1Wrapper; property: "scale"; to: 1.0; duration: 460; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+                                        NumberAnimation { target: t1Trans; property: "y"; to: 0; duration: 460; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
                                     }
                                 }
 
@@ -1170,7 +1174,7 @@ ShellRoot {
                                             }
                                             Text {
                                                 text: "Clock"
-                                                font.family: "DM Sans"
+                                                font.family: "Genova"
                                                 font.pixelSize: 11
                                                 font.weight: Font.Bold
                                                 color: root.seal
@@ -1220,7 +1224,7 @@ ShellRoot {
 
                                             Text {
                                                 text: Qt.formatTime(root.now, "HH:mm")
-                                                font.family: "DM Sans"
+                                                font.family: "Genova"
                                                 font.pixelSize: 42
                                                 font.weight: Font.Bold
                                                 color: root.ink
@@ -1228,7 +1232,7 @@ ShellRoot {
                                             }
                                             Text {
                                                 text: ":" + Qt.formatTime(root.now, "ss")
-                                                font.family: "DM Sans"
+                                                font.family: "Genova"
                                                 font.pixelSize: 14
                                                 font.weight: Font.Bold
                                                 color: root.seal
@@ -1244,7 +1248,7 @@ ShellRoot {
 
                                             Text {
                                                 text: root.now.getHours() < 12 ? "AM" : "PM"
-                                                font.family: "DM Sans"
+                                                font.family: "Genova"
                                                 font.pixelSize: 10
                                                 font.weight: Font.Bold
                                                 color: root.seal
@@ -1256,7 +1260,7 @@ ShellRoot {
                                             }
                                             Text {
                                                 text: Qt.formatDate(root.now, "ddd, d MMM")
-                                                font.family: "DM Sans"
+                                                font.family: "Genova"
                                                 font.pixelSize: 10
                                                 font.weight: Font.Medium
                                                 color: root.ink
@@ -1274,17 +1278,17 @@ ShellRoot {
                                 width: 230
                                 height: parent.height
                                 opacity: 0.0
-                                scale: 0.72
-                                transform: Translate { id: t2Trans; x: 0; y: -80 }
+                                scale: 0.94
+                                transform: Translate { id: t2Trans; x: 0; y: 24 }
 
                                 SequentialAnimation {
                                     id: tile2InAnim
                                     running: true
-                                    PauseAnimation { duration: 740 }
+                                    PauseAnimation { duration: 200 }
                                     ParallelAnimation {
-                                        NumberAnimation { target: tile2Wrapper; property: "opacity"; to: 1.0; duration: 420; easing.type: Easing.OutCubic }
-                                        NumberAnimation { target: tile2Wrapper; property: "scale"; to: 1.0; duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.25 }
-                                        NumberAnimation { target: t2Trans; property: "y"; to: 0; duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+                                        NumberAnimation { target: tile2Wrapper; property: "opacity"; to: 1.0; duration: 380; easing.type: Easing.OutCubic }
+                                        NumberAnimation { target: tile2Wrapper; property: "scale"; to: 1.0; duration: 460; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+                                        NumberAnimation { target: t2Trans; property: "y"; to: 0; duration: 460; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
                                     }
                                 }
 
@@ -1307,13 +1311,13 @@ ShellRoot {
                                             textFormat: Text.RichText
                                             text: "<span style='color:" + root.toHex(root.color07) + "'>It’s </span>" +
                                                   "<span style='color:" + root.toHex(root.ink) + "; font-weight:700'>" + root.weatherTemp + "°</span>" +
-                                                  "<span style='color:" + root.toHex(root.color07) + "'> now</span><br>" +
+                                                  "<span style='color:" + root.color07 + "'> now</span><br>" +
                                                   "<span style='color:" + root.toHex(root.color07) + "'>in </span>" +
                                                   "<span style='color:" + root.toHex(root.seal) + "; font-weight:700'>" + root.weatherCity + ".</span><br>" +
                                                   "<span style='color:" + root.toHex(root.color07) + "'>Will be </span>" +
                                                   "<span style='color:" + root.toHex(root.ink) + "; font-weight:700'>" + root.weatherPhrase.cond1 + "</span><br>" +
                                                   "<span style='color:" + root.toHex(root.ink) + "; font-weight:700'>" + root.weatherPhrase.cond2 + ".</span>"
-                                            font.family: "DM Sans"
+                                            font.family: "Genova"
                                             font.pixelSize: 20
                                             font.weight: Font.Normal
                                             lineHeight: 1.35
@@ -1330,18 +1334,17 @@ ShellRoot {
                                 width: 468
                                 height: parent.height
                                 opacity: 0.0
-                                scale: 0.72
-                                transform: Translate { id: t3Trans; x: 80; y: -70 }
+                                scale: 0.94
+                                transform: Translate { id: t3Trans; x: 0; y: 24 }
 
                                 SequentialAnimation {
                                     id: tile3InAnim
                                     running: true
-                                    PauseAnimation { duration: 880 }
+                                    PauseAnimation { duration: 240 }
                                     ParallelAnimation {
-                                        NumberAnimation { target: tile3Wrapper; property: "opacity"; to: 1.0; duration: 420; easing.type: Easing.OutCubic }
-                                        NumberAnimation { target: tile3Wrapper; property: "scale"; to: 1.0; duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.25 }
-                                        NumberAnimation { target: t3Trans; property: "x"; to: 0; duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
-                                        NumberAnimation { target: t3Trans; property: "y"; to: 0; duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+                                        NumberAnimation { target: tile3Wrapper; property: "opacity"; to: 1.0; duration: 380; easing.type: Easing.OutCubic }
+                                        NumberAnimation { target: tile3Wrapper; property: "scale"; to: 1.0; duration: 460; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+                                        NumberAnimation { target: t3Trans; property: "y"; to: 0; duration: 460; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
                                     }
                                 }
 
@@ -1442,7 +1445,7 @@ ShellRoot {
                                                         anchors.centerIn: parent
                                                         text: root.isMediaPlaying ? "NOW PLAYING" : "PAUSED"
                                                         color: "#ffffff"
-                                                        font.family: "DM Sans"
+                                                        font.family: "Genova"
                                                         font.pixelSize: 9
                                                         font.weight: Font.DemiBold
                                                         font.letterSpacing: 0.8
@@ -1480,7 +1483,7 @@ ShellRoot {
                                                             var idn = (root.activePlayer && root.activePlayer.identity) ? root.activePlayer.identity : "This device"
                                                             return idn.length > 16 ? idn.substring(0, 14) + "…" : idn
                                                         }
-                                                        font.family: "DM Sans"
+                                                        font.family: "Genova"
                                                         font.pixelSize: 11
                                                         font.weight: Font.Medium
                                                         color: "#ffffff"
@@ -1532,7 +1535,7 @@ ShellRoot {
                                                         id: marqueeTitleText
                                                         text: root.activePlayer ? (root.activePlayer.trackTitle || "No media") : "No media"
                                                         color: "#ffffff"
-                                                        font.family: "DM Sans"
+                                                        font.family: "Genova"
                                                         font.pixelSize: 16
                                                         font.weight: Font.DemiBold
                                                         anchors.verticalCenter: parent.verticalCenter
@@ -1566,7 +1569,7 @@ ShellRoot {
                                                 Text {
                                                     text: root.activePlayer ? (root.activePlayer.trackArtist || "Nothing in queue") : "Nothing in queue"
                                                     color: Qt.rgba(1, 1, 1, 0.80)
-                                                    font.family: "DM Sans"
+                                                    font.family: "Genova"
                                                     font.pixelSize: 12
                                                     elide: Text.ElideRight
                                                     width: parent.width
@@ -1772,7 +1775,7 @@ ShellRoot {
                                                         anchors.centerIn: parent
                                                         text: root.fmtTime(root.curPos) + " / " + root.fmtTime(root.curLen)
                                                         color: "#ffffff"
-                                                        font.family: "DM Sans"
+                                                        font.family: "Genova"
                                                         font.pixelSize: 10
                                                         font.weight: Font.DemiBold
                                                     }
@@ -1827,7 +1830,7 @@ ShellRoot {
                                                 id: positionTxt
                                                 text: root.fmtTime(root.curPos)
                                                 color: Qt.rgba(1, 1, 1, 0.85)
-                                                font.family: "DM Sans"
+                                                font.family: "Genova"
                                                 font.pixelSize: 12
                                                 font.weight: Font.Medium
                                                 anchors.verticalCenter: parent.verticalCenter
@@ -1854,7 +1857,7 @@ ShellRoot {
                                             }
                                             Text {
                                                 text: "No Media Playing"
-                                                font.family: "DM Sans"
+                                                font.family: "Genova"
                                                 font.pixelSize: 13
                                                 font.weight: Font.DemiBold
                                                 color: root.ink
@@ -1862,7 +1865,7 @@ ShellRoot {
                                             }
                                             Text {
                                                 text: "Play music from Spotify or browser"
-                                                font.family: "DM Sans"
+                                                font.family: "Genova"
                                                 font.pixelSize: 10
                                                 color: root.ink
                                                 opacity: 0.45
@@ -1889,18 +1892,17 @@ ShellRoot {
                                 width: 468
                                 height: parent.height
                                 opacity: 0.0
-                                scale: 0.72
-                                transform: Translate { id: t4Trans; x: -80; y: 70 }
+                                scale: 0.94
+                                transform: Translate { id: t4Trans; x: 0; y: 24 }
 
                                 SequentialAnimation {
                                     id: tile4InAnim
                                     running: true
-                                    PauseAnimation { duration: 1020 }
+                                    PauseAnimation { duration: 280 }
                                     ParallelAnimation {
-                                        NumberAnimation { target: tile4Wrapper; property: "opacity"; to: 1.0; duration: 420; easing.type: Easing.OutCubic }
-                                        NumberAnimation { target: tile4Wrapper; property: "scale"; to: 1.0; duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.25 }
-                                        NumberAnimation { target: t4Trans; property: "x"; to: 0; duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
-                                        NumberAnimation { target: t4Trans; property: "y"; to: 0; duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+                                        NumberAnimation { target: tile4Wrapper; property: "opacity"; to: 1.0; duration: 380; easing.type: Easing.OutCubic }
+                                        NumberAnimation { target: tile4Wrapper; property: "scale"; to: 1.0; duration: 460; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+                                        NumberAnimation { target: t4Trans; property: "y"; to: 0; duration: 460; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
                                     }
                                 }
 
@@ -1940,7 +1942,7 @@ ShellRoot {
 
                                                 Text {
                                                     text: root.months[root.selMonth] + " " + root.selDay
-                                                    font.family: "DM Sans"
+                                                    font.family: "Genova"
                                                     font.pixelSize: 12
                                                     font.weight: Font.Bold
                                                     color: root.ink
@@ -1970,7 +1972,7 @@ ShellRoot {
 
                                                     Text {
                                                         text: "Today"
-                                                        font.family: "DM Sans"
+                                                        font.family: "Genova"
                                                         font.pixelSize: 10
                                                         font.weight: Font.Bold
                                                         color: root.seal
@@ -2150,7 +2152,7 @@ ShellRoot {
                                                         anchors.horizontalCenter: parent.horizontalCenter
                                                         y: Math.round(posY - (isCenter ? 30 : 28))
                                                         text: dayDelegate.itemData.dayName
-                                                        font.family: "DM Sans"
+                                                        font.family: "Genova"
                                                         font.pixelSize: 10
                                                         font.weight: isCenter ? Font.Bold : Font.Normal
                                                         color: isCenter ? root.ink : root.sumi
@@ -2162,7 +2164,7 @@ ShellRoot {
                                                         anchors.horizontalCenter: parent.horizontalCenter
                                                         y: Math.round(posY - (height / 2))
                                                         text: dayDelegate.itemData.day
-                                                        font.family: "DM Sans"
+                                                        font.family: "Genova"
                                                         font.pixelSize: isCenter ? 12 : 11
                                                         font.weight: isCenter ? Font.Bold : Font.Medium
                                                         color: root.ink
@@ -2226,7 +2228,7 @@ ShellRoot {
                                                     var label = Qt.formatDate(selDate, "ddd, MMM d")
                                                     return root.isSelectedToday ? ("Today · " + label) : label
                                                 }
-                                                font.family: "DM Sans"
+                                                font.family: "Genova"
                                                 font.pixelSize: 10
                                                 font.weight: Font.DemiBold
                                                 color: root.ink
@@ -2263,17 +2265,17 @@ ShellRoot {
                                 width: 230
                                 height: parent.height
                                 opacity: 0.0
-                                scale: 0.72
-                                transform: Translate { id: t5Trans; x: 0; y: 80 }
+                                scale: 0.94
+                                transform: Translate { id: t5Trans; x: 0; y: 24 }
 
                                 SequentialAnimation {
                                     id: tile5InAnim
                                     running: true
-                                    PauseAnimation { duration: 1160 }
+                                    PauseAnimation { duration: 320 }
                                     ParallelAnimation {
-                                        NumberAnimation { target: tile5Wrapper; property: "opacity"; to: 1.0; duration: 420; easing.type: Easing.OutCubic }
-                                        NumberAnimation { target: tile5Wrapper; property: "scale"; to: 1.0; duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.25 }
-                                        NumberAnimation { target: t5Trans; property: "y"; to: 0; duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+                                        NumberAnimation { target: tile5Wrapper; property: "opacity"; to: 1.0; duration: 380; easing.type: Easing.OutCubic }
+                                        NumberAnimation { target: tile5Wrapper; property: "scale"; to: 1.0; duration: 460; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+                                        NumberAnimation { target: t5Trans; property: "y"; to: 0; duration: 460; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
                                     }
                                 }
 
@@ -2304,7 +2306,7 @@ ShellRoot {
                                             }
                                             Text {
                                                 text: "Battery"
-                                                font.family: "DM Sans"
+                                                font.family: "Genova"
                                                 font.pixelSize: 11
                                                 font.weight: Font.Bold
                                                 color: root.seal
@@ -2320,7 +2322,7 @@ ShellRoot {
 
                                             Text {
                                                 text: root.batteryPercent + "%"
-                                                font.family: "DM Sans"
+                                                font.family: "Genova"
                                                 font.pixelSize: 46
                                                 font.weight: Font.Bold
                                                 font.letterSpacing: -1.0
@@ -2354,7 +2356,7 @@ ShellRoot {
                                             anchors.bottom: parent.bottom
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: root.isCharging ? "Charging" : "On Battery"
-                                            font.family: "DM Sans"
+                                            font.family: "Genova"
                                             font.pixelSize: 10
                                             font.weight: Font.Medium
                                             color: root.ink
@@ -2371,18 +2373,17 @@ ShellRoot {
                                 width: 230
                                 height: parent.height
                                 opacity: 0.0
-                                scale: 0.72
-                                transform: Translate { id: t6Trans; x: 80; y: 70 }
+                                scale: 0.94
+                                transform: Translate { id: t6Trans; x: 0; y: 24 }
 
                                 SequentialAnimation {
                                     id: tile6InAnim
                                     running: true
-                                    PauseAnimation { duration: 1300 }
+                                    PauseAnimation { duration: 360 }
                                     ParallelAnimation {
-                                        NumberAnimation { target: tile6Wrapper; property: "opacity"; to: 1.0; duration: 420; easing.type: Easing.OutCubic }
-                                        NumberAnimation { target: tile6Wrapper; property: "scale"; to: 1.0; duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.25 }
-                                        NumberAnimation { target: t6Trans; property: "x"; to: 0; duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
-                                        NumberAnimation { target: t6Trans; property: "y"; to: 0; duration: 560; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+                                        NumberAnimation { target: tile6Wrapper; property: "opacity"; to: 1.0; duration: 380; easing.type: Easing.OutCubic }
+                                        NumberAnimation { target: tile6Wrapper; property: "scale"; to: 1.0; duration: 460; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+                                        NumberAnimation { target: t6Trans; property: "y"; to: 0; duration: 460; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
                                     }
                                 }
 
@@ -2442,7 +2443,7 @@ ShellRoot {
 
                                                             Text {
                                                                 text: "CPU"
-                                                                font.family: "DM Sans"
+                                                                font.family: "Genova"
                                                                 font.pixelSize: 10
                                                                 font.weight: Font.Bold
                                                                 color: root.seal
@@ -2455,7 +2456,7 @@ ShellRoot {
                                                             anchors.topMargin: 2
                                                             anchors.left: parent.left
                                                             text: root.cpuPercent + "%"
-                                                            font.family: "DM Sans"
+                                                            font.family: "Genova"
                                                             font.pixelSize: 18
                                                             font.weight: Font.Bold
                                                             font.letterSpacing: -0.5
@@ -2516,7 +2517,7 @@ ShellRoot {
 
                                                             Text {
                                                                 text: "RAM"
-                                                                font.family: "DM Sans"
+                                                                font.family: "Genova"
                                                                 font.pixelSize: 10
                                                                 font.weight: Font.Bold
                                                                 color: root.color06
@@ -2529,7 +2530,7 @@ ShellRoot {
                                                             anchors.topMargin: 2
                                                             anchors.left: parent.left
                                                             text: root.memPercent + "%"
-                                                            font.family: "DM Sans"
+                                                            font.family: "Genova"
                                                             font.pixelSize: 18
                                                             font.weight: Font.Bold
                                                             font.letterSpacing: -0.5
@@ -2597,7 +2598,7 @@ ShellRoot {
 
                                                         Text {
                                                             text: root.screentimeFormatted
-                                                            font.family: "DM Sans"
+                                                            font.family: "Genova"
                                                             font.pixelSize: 18
                                                             font.weight: Font.Bold
                                                             font.letterSpacing: -0.4
@@ -2606,7 +2607,7 @@ ShellRoot {
 
                                                         Text {
                                                             text: "Screen Time Today"
-                                                            font.family: "DM Sans"
+                                                            font.family: "Genova"
                                                             font.pixelSize: 10
                                                             font.weight: Font.Medium
                                                             color: root.ink
@@ -2623,20 +2624,32 @@ ShellRoot {
                     }
                 }
 
-                // ── 6. BORDERLESS / BACKGROUNDLESS PASSWORD FIELD (Bottom Row) ─
+                // ── 6. SLEEK FROSTED PASSWORD PILL (Bottom Row) ───────────────
                 Item {
                     id: passwordArea
                     anchors.bottom: parent.bottom
                     anchors.bottomMargin: 48
                     anchors.horizontalCenter: parent.horizontalCenter
-                    width: Math.max(260, dotsRow.implicitWidth + 30)
-                    height: 40
 
-                    opacity: (root.enteredPassword.length > 0 || root.failureMessage.length > 0 || root.authenticating) ? 1.0 : 0.0
-                    visible: opacity > 0.001
-                    Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                    readonly property bool isTyping: root.enteredPassword.length > 0 && !root.failureMessage && !root.authenticating
+                    readonly property bool isIdle: root.enteredPassword.length === 0 && !root.failureMessage && !root.authenticating
 
-                    transform: Translate { id: pwdShake; x: 0 }
+                    width: Math.max(220, isTyping ? (dotsRow.implicitWidth + 36) : (isIdle ? (idleRow.implicitWidth + 36) : (root.authenticating ? 160 : errorText.implicitWidth + 36)))
+                    height: 38
+                    Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+
+                    opacity: 0.0
+                    transform: Translate { id: pwdShake; x: 0; y: 16 }
+
+                    SequentialAnimation {
+                        id: pwdInAnim
+                        running: true
+                        PauseAnimation { duration: 320 }
+                        ParallelAnimation {
+                            NumberAnimation { target: passwordArea; property: "opacity"; to: 1.0; duration: 380; easing.type: Easing.OutCubic }
+                            NumberAnimation { target: pwdShake; property: "y"; to: 0; duration: 420; easing.type: Easing.OutCubic }
+                        }
+                    }
 
                     SequentialAnimation {
                         id: shakeAnim
@@ -2656,28 +2669,79 @@ ShellRoot {
                         }
                     }
 
-                    // Masked Glowing Dots (Zero border, Zero background)
+                    // Glass Capsule Background
+                    Rectangle {
+                        id: pillBg
+                        anchors.fill: parent
+                        radius: height / 2
+                        color: Qt.rgba(root.paper.r * 0.25 + 0.04, root.paper.g * 0.25 + 0.04, root.paper.b * 0.25 + 0.04, 0.72)
+                        border.color: root.failureMessage.length > 0 ? Qt.rgba(root.color01.r, root.color01.g, root.color01.b, 0.50) :
+                                      (passwordArea.isTyping ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.40) :
+                                       Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.12))
+                        border.width: 1
+
+                        Behavior on border.color { ColorAnimation { duration: 200 } }
+                        Behavior on color { ColorAnimation { duration: 200 } }
+                    }
+
+                    // 1. Idle State: Breathing Lock Icon + "Type Password to Unlock"
+                    Row {
+                        id: idleRow
+                        anchors.centerIn: parent
+                        spacing: 8
+                        visible: passwordArea.isIdle
+                        opacity: idleBreathing.pulseOpacity
+
+                        Text {
+                            text: "lock"
+                            font.family: "Material Symbols Rounded"
+                            font.pixelSize: 14
+                            color: root.seal
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        Text {
+                            text: "Type Password to Unlock"
+                            font.family: "Genova"
+                            font.pixelSize: 12
+                            font.weight: Font.Medium
+                            font.letterSpacing: 0.2
+                            color: root.ink
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+
+                    Item {
+                        id: idleBreathing
+                        property real pulseOpacity: 0.85
+                        SequentialAnimation {
+                            running: passwordArea.isIdle
+                            loops: Animation.Infinite
+                            NumberAnimation { target: idleBreathing; property: "pulseOpacity"; to: 0.55; duration: 1500; easing.type: Easing.InOutSine }
+                            NumberAnimation { target: idleBreathing; property: "pulseOpacity"; to: 0.95; duration: 1500; easing.type: Easing.InOutSine }
+                        }
+                    }
+
+                    // 2. Typing State: Glowing Dots
                     Row {
                         id: dotsRow
                         anchors.centerIn: parent
-                        spacing: 12
-                        visible: root.enteredPassword.length > 0 && !root.failureMessage && !root.authenticating
+                        spacing: 10
+                        visible: passwordArea.isTyping
 
                         Repeater {
                             model: root.enteredPassword.length
                             delegate: Rectangle {
-                                width: 10
-                                height: 10
-                                radius: 5
+                                width: 8
+                                height: 8
+                                radius: 4
                                 color: root.seal
-                                scale: 1.0
 
-                                // Subtle glow aura
                                 Rectangle {
                                     anchors.centerIn: parent
-                                    width: 18
-                                    height: 18
-                                    radius: 9
+                                    width: 16
+                                    height: 16
+                                    radius: 8
                                     color: root.seal
                                     opacity: 0.35
                                     z: -1
@@ -2686,7 +2750,7 @@ ShellRoot {
                         }
                     }
 
-                    // Authenticating indicator
+                    // 3. Authenticating State: Spinner + Verifying
                     Row {
                         anchors.centerIn: parent
                         spacing: 8
@@ -2695,7 +2759,7 @@ ShellRoot {
                         Text {
                             text: "sync"
                             font.family: "Material Symbols Rounded"
-                            font.pixelSize: 18
+                            font.pixelSize: 16
                             color: root.seal
                             anchors.verticalCenter: parent.verticalCenter
 
@@ -2709,31 +2773,34 @@ ShellRoot {
 
                         Text {
                             text: "Verifying..."
-                            font.family: "DM Sans"
-                            font.pixelSize: 13
+                            font.family: "Genova"
+                            font.pixelSize: 12
                             font.weight: Font.Medium
                             color: root.seal
                             anchors.verticalCenter: parent.verticalCenter
                         }
                     }
 
-                    // Error Message
+                    // 4. Error Message
                     Text {
+                        id: errorText
                         anchors.centerIn: parent
                         text: root.failureMessage
-                        font.family: "DM Sans"
-                        font.pixelSize: 13
+                        font.family: "Genova"
+                        font.pixelSize: 12
                         font.weight: Font.DemiBold
                         color: root.color01
                         visible: root.failureMessage.length > 0 && !root.authenticating
                     }
                 }
+
                 // ── 7. UNLOCK EXIT ANIMATION (Tiles fly out in their respective directions) ──
                 Connections {
                     target: root
                     function onStartUnlockAnimation() {
                         try {
                             greetingInAnim.stop()
+                            pwdInAnim.stop()
                             tile1InAnim.stop()
                             tile2InAnim.stop()
                             tile3InAnim.stop()
@@ -2754,83 +2821,54 @@ ShellRoot {
                         root.completeUnlock()
                     }
 
+                    // Background snapshot un-frosts and returns to 1:1 desktop state seamlessly
+                    ParallelAnimation {
+                        NumberAnimation { target: screenRoot; property: "bgBlur"; to: 0.0; duration: 250; easing.type: Easing.OutQuad }
+                        NumberAnimation { target: screenRoot; property: "bgScale"; to: 1.00; duration: 260; easing.type: Easing.OutQuad }
+                        NumberAnimation { target: screenRoot; property: "bgBrightness"; to: 0.0; duration: 250; easing.type: Easing.OutQuad }
+                        NumberAnimation { target: screenRoot; property: "bgDim"; to: 0.0; duration: 250; easing.type: Easing.OutQuad }
+                    }
+
                     // Top Greeting fades and glides up
                     ParallelAnimation {
-                        NumberAnimation { target: greetingContainer; property: "opacity"; to: 0.0; duration: 220; easing.type: Easing.InCubic }
-                        NumberAnimation { target: greetingTranslate; property: "y"; to: -24; duration: 250; easing.type: Easing.InCubic }
+                        NumberAnimation { target: greetingContainer; property: "opacity"; to: 0.0; duration: 180; easing.type: Easing.InQuad }
+                        NumberAnimation { target: greetingTranslate; property: "y"; to: -20; duration: 220; easing.type: Easing.InQuad }
                     }
 
-                    // Password Area fades out immediately
-                    NumberAnimation { target: passwordArea; property: "opacity"; to: 0.0; duration: 160; easing.type: Easing.OutQuad }
+                    // Password Area fades out quickly
+                    NumberAnimation { target: passwordArea; property: "opacity"; to: 0.0; duration: 140; easing.type: Easing.OutQuad }
 
-                    // Tile 1: Top-Left flies back out to Top-Left (x: -120, y: -100)
+                    // Top Row Bento Cards (Tile 1, 2, 3) glide up smoothly
+                    ParallelAnimation {
+                        NumberAnimation { target: tile1Wrapper; property: "opacity"; to: 0.0; duration: 200; easing.type: Easing.InQuad }
+                        NumberAnimation { target: tile1Wrapper; property: "scale"; to: 0.95; duration: 240; easing.type: Easing.InQuad }
+                        NumberAnimation { target: t1Trans; property: "y"; to: -32; duration: 240; easing.type: Easing.InQuad }
+
+                        NumberAnimation { target: tile2Wrapper; property: "opacity"; to: 0.0; duration: 200; easing.type: Easing.InQuad }
+                        NumberAnimation { target: tile2Wrapper; property: "scale"; to: 0.95; duration: 240; easing.type: Easing.InQuad }
+                        NumberAnimation { target: t2Trans; property: "y"; to: -32; duration: 240; easing.type: Easing.InQuad }
+
+                        NumberAnimation { target: tile3Wrapper; property: "opacity"; to: 0.0; duration: 200; easing.type: Easing.InQuad }
+                        NumberAnimation { target: tile3Wrapper; property: "scale"; to: 0.95; duration: 240; easing.type: Easing.InQuad }
+                        NumberAnimation { target: t3Trans; property: "y"; to: -32; duration: 240; easing.type: Easing.InQuad }
+                    }
+
+                    // Bottom Row Bento Cards (Tile 4, 5, 6) glide down smoothly
                     SequentialAnimation {
-                        PauseAnimation { duration: 0 }
+                        PauseAnimation { duration: 20 }
                         ParallelAnimation {
-                            NumberAnimation { target: tile1Wrapper; property: "opacity"; to: 0.0; duration: 240; easing.type: Easing.InCubic }
-                            NumberAnimation { target: tile1Wrapper; property: "scale"; to: 0.65; duration: 320; easing.type: Easing.InBack; easing.overshoot: 1.15 }
-                            NumberAnimation { target: t1Trans; property: "x"; to: -120; duration: 320; easing.type: Easing.InBack; easing.overshoot: 1.15 }
-                            NumberAnimation { target: t1Trans; property: "y"; to: -100; duration: 320; easing.type: Easing.InBack; easing.overshoot: 1.15 }
-                        }
-                    }
+                            NumberAnimation { target: tile4Wrapper; property: "opacity"; to: 0.0; duration: 200; easing.type: Easing.InQuad }
+                            NumberAnimation { target: tile4Wrapper; property: "scale"; to: 0.95; duration: 240; easing.type: Easing.InQuad }
+                            NumberAnimation { target: t4Trans; property: "y"; to: 32; duration: 240; easing.type: Easing.InQuad }
 
-                    // Tile 2: Top-Center flies back out to Top (y: -120)
-                    SequentialAnimation {
-                        PauseAnimation { duration: 40 }
-                        ParallelAnimation {
-                            NumberAnimation { target: tile2Wrapper; property: "opacity"; to: 0.0; duration: 240; easing.type: Easing.InCubic }
-                            NumberAnimation { target: tile2Wrapper; property: "scale"; to: 0.65; duration: 320; easing.type: Easing.InBack; easing.overshoot: 1.15 }
-                            NumberAnimation { target: t2Trans; property: "y"; to: -120; duration: 320; easing.type: Easing.InBack; easing.overshoot: 1.15 }
-                        }
-                    }
+                            NumberAnimation { target: tile5Wrapper; property: "opacity"; to: 0.0; duration: 200; easing.type: Easing.InQuad }
+                            NumberAnimation { target: tile5Wrapper; property: "scale"; to: 0.95; duration: 240; easing.type: Easing.InQuad }
+                            NumberAnimation { target: t5Trans; property: "y"; to: 32; duration: 240; easing.type: Easing.InQuad }
 
-                    // Tile 3: Top-Right flies back out to Top-Right (x: 120, y: -100)
-                    SequentialAnimation {
-                        PauseAnimation { duration: 80 }
-                        ParallelAnimation {
-                            NumberAnimation { target: tile3Wrapper; property: "opacity"; to: 0.0; duration: 240; easing.type: Easing.InCubic }
-                            NumberAnimation { target: tile3Wrapper; property: "scale"; to: 0.65; duration: 320; easing.type: Easing.InBack; easing.overshoot: 1.15 }
-                            NumberAnimation { target: t3Trans; property: "x"; to: 120; duration: 320; easing.type: Easing.InBack; easing.overshoot: 1.15 }
-                            NumberAnimation { target: t3Trans; property: "y"; to: -100; duration: 320; easing.type: Easing.InBack; easing.overshoot: 1.15 }
+                            NumberAnimation { target: tile6Wrapper; property: "opacity"; to: 0.0; duration: 200; easing.type: Easing.InQuad }
+                            NumberAnimation { target: tile6Wrapper; property: "scale"; to: 0.95; duration: 240; easing.type: Easing.InQuad }
+                            NumberAnimation { target: t6Trans; property: "y"; to: 32; duration: 240; easing.type: Easing.InQuad }
                         }
-                    }
-
-                    // Tile 4: Bottom-Left flies back out to Bottom-Left (x: -120, y: 100)
-                    SequentialAnimation {
-                        PauseAnimation { duration: 120 }
-                        ParallelAnimation {
-                            NumberAnimation { target: tile4Wrapper; property: "opacity"; to: 0.0; duration: 240; easing.type: Easing.InCubic }
-                            NumberAnimation { target: tile4Wrapper; property: "scale"; to: 0.65; duration: 320; easing.type: Easing.InBack; easing.overshoot: 1.15 }
-                            NumberAnimation { target: t4Trans; property: "x"; to: -120; duration: 320; easing.type: Easing.InBack; easing.overshoot: 1.15 }
-                            NumberAnimation { target: t4Trans; property: "y"; to: 100; duration: 320; easing.type: Easing.InBack; easing.overshoot: 1.15 }
-                        }
-                    }
-
-                    // Tile 5: Bottom-Center flies back out to Bottom (y: 120)
-                    SequentialAnimation {
-                        PauseAnimation { duration: 160 }
-                        ParallelAnimation {
-                            NumberAnimation { target: tile5Wrapper; property: "opacity"; to: 0.0; duration: 240; easing.type: Easing.InCubic }
-                            NumberAnimation { target: tile5Wrapper; property: "scale"; to: 0.65; duration: 320; easing.type: Easing.InBack; easing.overshoot: 1.15 }
-                            NumberAnimation { target: t5Trans; property: "y"; to: 120; duration: 320; easing.type: Easing.InBack; easing.overshoot: 1.15 }
-                        }
-                    }
-
-                    // Tile 6: Bottom-Right flies back out to Bottom-Right (x: 120, y: 100)
-                    SequentialAnimation {
-                        PauseAnimation { duration: 200 }
-                        ParallelAnimation {
-                            NumberAnimation { target: tile6Wrapper; property: "opacity"; to: 0.0; duration: 240; easing.type: Easing.InCubic }
-                            NumberAnimation { target: tile6Wrapper; property: "scale"; to: 0.65; duration: 320; easing.type: Easing.InBack; easing.overshoot: 1.15 }
-                            NumberAnimation { target: t6Trans; property: "x"; to: 120; duration: 320; easing.type: Easing.InBack; easing.overshoot: 1.15 }
-                            NumberAnimation { target: t6Trans; property: "y"; to: 100; duration: 320; easing.type: Easing.InBack; easing.overshoot: 1.15 }
-                        }
-                    }
-
-                    // Screen background smoothly dissolves to reveal live session
-                    SequentialAnimation {
-                        PauseAnimation { duration: 220 }
-                        NumberAnimation { target: screenRoot; property: "opacity"; to: 0.0; duration: 300; easing.type: Easing.InOutQuad }
                     }
                 }
             }

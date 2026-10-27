@@ -120,7 +120,7 @@ Item {
     }
 
     readonly property string mono:  "JetBrainsMono Nerd Font"
-    readonly property string barFont: "DM Sans"
+    readonly property string barFont: "Genova"
 
     // ── transparency knobs (0.0 = fully transparent, 1.0 = opaque) ──
     property real barOpacity:  1.0   // durchgehende V2-Leiste

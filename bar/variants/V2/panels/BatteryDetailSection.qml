@@ -31,6 +31,29 @@ Item {
 
     ListModel { id: topProcModel }
 
+    FontLoader {
+        id: biggerFont
+        source: "file://" + Quickshell.env("HOME") + "/.local/share/fonts/Unknown Vendor/OpenType/Bigger/Bigger_Display.otf"
+    }
+
+    readonly property color accentColor: {
+        var p = batSection.batObj.percent
+        if (p < 20) return "#ea6962"
+        if (p < 50) return "#e78a4e"
+        return "#a9b665"
+    }
+
+    // Live charging sweep animation for the segmented reactor rail
+    property real chargeSweep: 0.0
+    NumberAnimation on chargeSweep {
+        running: batSection.batObj.acOnline
+        loops: Animation.Infinite
+        from: 0.0
+        to: 1.0
+        duration: 1800
+        easing.type: Easing.Linear
+    }
+
     Process {
         id: batStatusProc
         command: ["python3", "/home/hery/.config/quickshell/bar/scripts/battery_info.py", "status"]
@@ -208,7 +231,7 @@ Item {
                 ConnectedTabCard {
                     root: batSection.root
                     anchors.fill: parent
-                    dotColor: batSection.batObj.percent < 20 ? "#ea6962" : (batSection.batObj.percent < 50 ? "#e78a4e" : "#a9b665")
+                    dotColor: batSection.accentColor
                     icon: {
                         if (batSection.batObj.acOnline) return "battery_charging_full"
                         if (batSection.batObj.percent >= 90) return "battery_full"
@@ -221,65 +244,222 @@ Item {
                     Column {
                         anchors.centerIn: parent
                         width: parent.width - 24
-                        spacing: 8
+                        spacing: 7
 
-                        // 1. Gauge Circle with Battery Percentage
+                        // ── 1. HERO POWER HUD: BOLD PERCENT DISPLAY & STATUS ──
                         Item {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            width: 68
-                            height: 68
+                            width: parent.width
+                            height: 38
 
-                            // Outer track circle
-                            Rectangle {
-                                anchors.fill: parent
-                                radius: 34
-                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
-                                border.width: 4
-                                border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                            }
-
-                            // Dynamic Accent Glow Ring
-                            Rectangle {
-                                anchors.fill: parent
-                                radius: 34
-                                color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.12)
-                                border.width: 3
-                                border.color: batSection.batObj.percent < 20 ? "#ea6962" : (batSection.batObj.percent < 50 ? "#e78a4e" : "#a9b665")
-                            }
-
-                            Column {
-                                anchors.centerIn: parent
-                                spacing: 1
+                            // Left: Bold Display Percentage
+                            Row {
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 3
 
                                 Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: batSection.batObj.percent + "%"
-                                    font.family: root.barFont
-                                    font.pixelSize: 18
-                                    font.weight: Font.DemiBold
+                                    text: batSection.batObj.percent
+                                    font.family: biggerFont.name.length > 0 ? biggerFont.name : root.barFont
+                                    font.pixelSize: 38
+                                    font.weight: Font.Bold
                                     color: root.ink
+                                    anchors.bottom: parent.bottom
+                                    anchors.bottomMargin: -3
                                 }
 
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: batSection.batObj.acOnline ? "AC POWER" : "BATTERY"
-                                    font.family: root.barFont
-                                    font.pixelSize: 8
-                                    font.weight: Font.DemiBold
-                                    color: root.ink
-                                    opacity: 0.45
+                                Column {
+                                    anchors.bottom: parent.bottom
+                                    anchors.bottomMargin: 2
+                                    spacing: 0
+
+                                    Text {
+                                        text: "%"
+                                        font.family: root.barFont
+                                        font.pixelSize: 15
+                                        font.weight: Font.Bold
+                                        color: batSection.accentColor
+                                    }
+
+                                    Text {
+                                        text: batSection.batObj.acOnline ? "AC POWER" : "BATTERY"
+                                        font.family: root.barFont
+                                        font.pixelSize: 8
+                                        font.weight: Font.Bold
+                                        font.letterSpacing: 0.6
+                                        color: root.sumi
+                                    }
+                                }
+                            }
+
+                            // Right: High-Tech Status Pill
+                            Rectangle {
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                height: 24
+                                radius: 12
+                                color: batSection.batObj.acOnline 
+                                    ? Qt.rgba(batSection.accentColor.r, batSection.accentColor.g, batSection.accentColor.b, 0.16)
+                                    : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                                border.width: batSection.batObj.acOnline ? 1 : 0
+                                border.color: Qt.rgba(batSection.accentColor.r, batSection.accentColor.g, batSection.accentColor.b, 0.35)
+                                width: statusRow.implicitWidth + 16
+
+                                Row {
+                                    id: statusRow
+                                    anchors.centerIn: parent
+                                    spacing: 5
+
+                                    IconText {
+                                        text: batSection.batObj.acOnline ? "bolt" : "battery_std"
+                                        font.pixelSize: 12
+                                        color: batSection.batObj.acOnline ? batSection.accentColor : root.ink
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+
+                                    Text {
+                                        text: {
+                                            if (batSection.batObj.acOnline) {
+                                                return batSection.batObj.percent >= 100 ? "FULLY CHARGED" : "FAST CHARGING"
+                                            }
+                                            if (batSection.batObj.powerRate_str && batSection.batObj.powerRate_str !== "0.0 W") {
+                                                return batSection.batObj.powerRate_str
+                                            }
+                                            return "DISCHARGING"
+                                        }
+                                        font.family: root.barFont
+                                        font.pixelSize: 9
+                                        font.weight: Font.Bold
+                                        font.letterSpacing: 0.5
+                                        color: batSection.batObj.acOnline ? batSection.accentColor : root.ink
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
                                 }
                             }
                         }
 
-                        // 2. Power Profile Selector
+                        // ── 2. FUTURISTIC SEGMENTED REACTOR ENERGY RAIL ──
+                        Item {
+                            id: railContainer
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: parent.width
+                            height: 14
+
+                            Row {
+                                id: segmentsRow
+                                anchors.left: parent.left
+                                anchors.right: terminalCap.left
+                                anchors.rightMargin: 5
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 3
+
+                                Repeater {
+                                    model: 10
+                                    delegate: Rectangle {
+                                        id: segRect
+                                        required property int index
+                                        readonly property bool isEnergized: batSection.batObj.percent >= (index * 10 + 2)
+                                        readonly property bool isCurrentChargingHead: batSection.batObj.acOnline && (batSection.batObj.percent >= index * 10 && batSection.batObj.percent < (index + 1) * 10)
+                                        readonly property real pulseDist: Math.abs(batSection.chargeSweep - ((index + 0.5) / 10.0))
+                                        readonly property bool isPulseWave: batSection.batObj.acOnline && pulseDist < 0.16
+
+                                        width: Math.floor((segmentsRow.width - (9 * segmentsRow.spacing)) / 10)
+                                        height: 12
+                                        radius: 3.5
+
+                                        // High-tech glow and color transitions
+                                        color: {
+                                            if (isEnergized) {
+                                                if (isPulseWave) {
+                                                    return Qt.lighter(batSection.accentColor, 1.4)
+                                                }
+                                                return batSection.accentColor
+                                            }
+                                            if (isCurrentChargingHead) {
+                                                return Qt.rgba(batSection.accentColor.r, batSection.accentColor.g, batSection.accentColor.b, 0.45)
+                                            }
+                                            return Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                                        }
+
+                                        border.width: isCurrentChargingHead ? 1 : 0
+                                        border.color: batSection.accentColor
+                                        opacity: isEnergized ? (isPulseWave ? 1.0 : 0.88) : 0.45
+
+                                        Behavior on color { ColorAnimation { duration: 180 } }
+                                        Behavior on opacity { NumberAnimation { duration: 180 } }
+
+                                        // Specular glass highlight reflection
+                                        Rectangle {
+                                            anchors.top: parent.top
+                                            anchors.left: parent.left
+                                            anchors.right: parent.right
+                                            anchors.margins: 1
+                                            height: 1.5
+                                            radius: 1
+                                            color: "white"
+                                            opacity: segRect.isEnergized ? 0.35 : 0.06
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Symbolic Battery Anode Terminal Cap
+                            Rectangle {
+                                id: terminalCap
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 3.5
+                                height: 6
+                                radius: 1.5
+                                color: batSection.batObj.percent >= 98 ? batSection.accentColor : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.25)
+                            }
+                        }
+
+                        // Capacity Sub-labels
+                        Item {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: parent.width
+                            height: 10
+
+                            Text {
+                                anchors.left: parent.left
+                                text: "0%"
+                                font.family: root.barFont
+                                font.pixelSize: 8
+                                font.weight: Font.Bold
+                                color: root.sumi
+                                opacity: 0.6
+                            }
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: (batSection.batObj.energyNow_wh ? (batSection.batObj.energyNow_wh + " Wh / " + batSection.batObj.energyFull_wh + " Wh") : "")
+                                font.family: root.barFont
+                                font.pixelSize: 8
+                                font.weight: Font.DemiBold
+                                color: root.sumi
+                                opacity: 0.75
+                            }
+
+                            Text {
+                                anchors.right: parent.right
+                                text: "100%"
+                                font.family: root.barFont
+                                font.pixelSize: 8
+                                font.weight: Font.Bold
+                                color: root.sumi
+                                opacity: 0.6
+                            }
+                        }
+
+                        // ── 3. POWER PROFILE SELECTOR ──
                         PillTabs {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            width: parent.width - 8
+                            width: parent.width - 4
                             fill: true
                             theme: root
                             fontSize: 10
-                            tabHeight: 28
+                            tabHeight: 26
                             model: [
                                 { id: "power-saver", label: "Saver" },
                                 { id: "balanced", label: "Balanced" },
@@ -289,7 +469,7 @@ Item {
                             onActivated: (id) => batSection.doSetProfile(id)
                         }
 
-                        // 3. Telemetry Stats Badges
+                        // ── 4. TELEMETRY BADGES ROW ──
                         Row {
                             anchors.horizontalCenter: parent.horizontalCenter
                             spacing: 6
@@ -322,13 +502,41 @@ Item {
                                 }
                             }
 
-                            // Power Draw Rate or Cycle Count Badge
+                            // Cycles Badge
                             Rectangle {
                                 height: 22
                                 radius: 11
-                                color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15)
+                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+                                width: cycleRow.implicitWidth + 12
+
+                                Row {
+                                    id: cycleRow
+                                    anchors.centerIn: parent
+                                    spacing: 4
+                                    IconText {
+                                        text: "sync"
+                                        font.pixelSize: 10
+                                        color: root.sumiHi
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                    Text {
+                                        text: batSection.batObj.cycles + " Cycles"
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.DemiBold
+                                        color: root.ink
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+                            }
+
+                            // Voltage / Power Draw Rate Badge
+                            Rectangle {
+                                height: 22
+                                radius: 11
+                                color: Qt.rgba(batSection.accentColor.r, batSection.accentColor.g, batSection.accentColor.b, 0.14)
                                 border.width: 1
-                                border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25)
+                                border.color: Qt.rgba(batSection.accentColor.r, batSection.accentColor.g, batSection.accentColor.b, 0.25)
                                 width: rateRow.implicitWidth + 12
 
                                 Row {
@@ -336,17 +544,19 @@ Item {
                                     anchors.centerIn: parent
                                     spacing: 4
                                     IconText {
-                                        text: (batSection.batObj.powerRate_str && batSection.batObj.powerRate_str !== "0.0 W") ? "bolt" : "sync"
+                                        text: "bolt"
                                         font.pixelSize: 10
-                                        color: root.seal
+                                        color: batSection.accentColor
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
                                     Text {
-                                        text: (batSection.batObj.powerRate_str && batSection.batObj.powerRate_str !== "0.0 W") ? batSection.batObj.powerRate_str : (batSection.batObj.cycles + " Cycles")
+                                        text: (batSection.batObj.powerRate_str && batSection.batObj.powerRate_str !== "0.0 W")
+                                            ? batSection.batObj.powerRate_str
+                                            : (batSection.batObj.voltage_str || "12.8 V")
                                         font.family: root.barFont
                                         font.pixelSize: 10
                                         font.weight: Font.DemiBold
-                                        color: root.seal
+                                        color: batSection.accentColor
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
                                 }

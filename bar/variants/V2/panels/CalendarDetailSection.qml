@@ -313,8 +313,79 @@ Item {
                     onActivated: (id) => calSection.viewMode = id
                 }
 
+                // Month Switcher (centered in available space between tab switcher and action buttons)
+                Item {
+                    id: monthSwitcherContainer
+                    anchors.left: tabPill.right
+                    anchors.right: rightActionButtons.left
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    visible: calSection.viewMode === "monthly"
+
+                    Row {
+                        id: monthSwitcherRow
+                        anchors.centerIn: parent
+                        spacing: 6
+
+                        // Prev Month
+                        Rectangle {
+                            width: 22; height: 22; radius: 11
+                            color: prevMonMa.containsMouse ? root.fillHover : "transparent"
+                            anchors.verticalCenter: parent.verticalCenter
+                            IconText {
+                                anchors.centerIn: parent
+                                text: "chevron_left"
+                                font.pixelSize: 15
+                                color: root.ink
+                                opacity: 0.8
+                            }
+                            SpringPress {}
+                            MouseArea {
+                                id: prevMonMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: calSection.stepMonth(-1)
+                            }
+                        }
+
+                        // Month & Year Label: e.g. "October 2026"
+                        UiText {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: calSection.months[calSection.selMonth] + " " + calSection.selYear
+                            font.family: root.barFont
+                            font.pixelSize: 12
+                            font.weight: Font.DemiBold
+                            color: root.ink
+                        }
+
+                        // Next Month
+                        Rectangle {
+                            width: 22; height: 22; radius: 11
+                            color: nextMonMa.containsMouse ? root.fillHover : "transparent"
+                            anchors.verticalCenter: parent.verticalCenter
+                            IconText {
+                                anchors.centerIn: parent
+                                text: "chevron_right"
+                                font.pixelSize: 15
+                                color: root.ink
+                                opacity: 0.8
+                            }
+                            SpringPress {}
+                            MouseArea {
+                                id: nextMonMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: calSection.stepMonth(1)
+                            }
+                        }
+                    }
+                }
+
                 // Top Right Action Buttons: Jump to Today + Close
                 Row {
+                    id: rightActionButtons
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 6
@@ -711,93 +782,20 @@ Item {
             }
 
             // ═════════════════════════════════════════════════════════════════
-            // ── MONTHLY VIEW CONTENT (Clean Month Header & Full Height Grid) ─
+            // ── MONTHLY VIEW CONTENT (Expanded Full Height Grid) ──────────────
             // ═════════════════════════════════════════════════════════════════
 
-            // 2B. MONTH SWITCHER HEADER ROW - ONLY IN MONTHLY VIEW
-            Item {
-                id: monthlyHeaderRow
-                anchors.top: leftTopBar.bottom
-                anchors.topMargin: 4
-                anchors.left: parent.left
-                anchors.leftMargin: 12
-                anchors.right: parent.right
-                anchors.rightMargin: 12
-                height: 28
-                visible: calSection.viewMode === "monthly"
-
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 12
-
-                    // Prev Month
-                    Rectangle {
-                        width: 24; height: 24; radius: 12
-                        color: prevMonMa.containsMouse ? root.fillHover : "transparent"
-                        anchors.verticalCenter: parent.verticalCenter
-                        IconText {
-                            anchors.centerIn: parent
-                            text: "chevron_left"
-                            font.pixelSize: 16
-                            color: root.ink
-                            opacity: 0.8
-                        }
-                        SpringPress {}
-                        MouseArea {
-                            id: prevMonMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: calSection.stepMonth(-1)
-                        }
-                    }
-
-                    // Month & Year Label: e.g. "October 2026"
-                    UiText {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: calSection.months[calSection.selMonth] + " " + calSection.selYear
-                        font.family: root.barFont
-                        font.pixelSize: 13
-                        font.weight: Font.DemiBold
-                        color: root.ink
-                    }
-
-                    // Next Month
-                    Rectangle {
-                        width: 24; height: 24; radius: 12
-                        color: nextMonMa.containsMouse ? root.fillHover : "transparent"
-                        anchors.verticalCenter: parent.verticalCenter
-                        IconText {
-                            anchors.centerIn: parent
-                            text: "chevron_right"
-                            font.pixelSize: 16
-                            color: root.ink
-                            opacity: 0.8
-                        }
-                        SpringPress {}
-                        MouseArea {
-                            id: nextMonMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: calSection.stepMonth(1)
-                        }
-                    }
-                }
-            }
-
-            // 3B. MONTHLY GRID - EXPANDED TO FULL AVAILABLE HEIGHT
+            // 2B. MONTHLY GRID - EXPANDED TO FULL AVAILABLE HEIGHT (Header is in top bar)
             Item {
                 id: monthlyGridView
-                anchors.top: monthlyHeaderRow.bottom
-                anchors.topMargin: 4
+                anchors.top: leftTopBar.bottom
+                anchors.topMargin: 8
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 8
                 anchors.left: parent.left
                 anchors.leftMargin: 12
                 anchors.right: parent.right
                 anchors.rightMargin: 12
-                height: parent.height - monthlyHeaderRow.y - monthlyHeaderRow.height - 16
                 visible: calSection.viewMode === "monthly"
                 clip: true
 
@@ -816,7 +814,7 @@ Item {
 
                 Column {
                     anchors.fill: parent
-                    spacing: 2
+                    spacing: 4
 
                     // Weekday letter headers
                     Row {
@@ -843,9 +841,9 @@ Item {
                     // 42-day complete month grid (6 rows of 7 days)
                     Grid {
                         width: parent.width
-                        height: parent.height - 16
+                        height: parent.height - 18
                         columns: 7
-                        rowSpacing: 1
+                        rowSpacing: 2
                         columnSpacing: 1
 
                         Repeater {
@@ -855,8 +853,8 @@ Item {
                                 readonly property bool isSelectedCell: (modelData.year === calSection.selYear && modelData.month === calSection.selMonth && modelData.day === calSection.selDay)
 
                                 width: Math.floor((monthlyGridView.width - 6) / 7)
-                                height: Math.floor((parent.height - 5) / 6)
-                                radius: 4
+                                height: Math.floor((parent.height - (5 * 2)) / 6)
+                                radius: 5
                                 color: isSelectedCell 
                                     ? root.seal
                                     : (mCellMa.containsMouse ? root.fillHover : "transparent")

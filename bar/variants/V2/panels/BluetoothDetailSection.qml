@@ -299,115 +299,234 @@ Item {
                     icon: btSection.btObj.powered ? "bluetooth" : "bluetooth_disabled"
                     text: !btSection.btObj.powered ? "Bluetooth Off" : (connectedModel.count === 1 ? connectedModel.get(0).name : (connectedModel.count > 1 ? ("Connected (" + connectedModel.count + ")") : "Bluetooth On"))
 
-                    // 1. Single Connected Device Spotlight (Centered, clean & minimal)
-                    Column {
-                        anchors.centerIn: parent
+                    // 1. Single Connected Device Spotlight (Redesigned with custom semi-realistic SVG)
+                    Item {
+                        id: singleDevSpotlight
+                        anchors.fill: parent
                         visible: connectedModel.count === 1
-                        spacing: 12
-                        width: parent.width - 32
 
-                        // Device Icon Avatar
-                        Rectangle {
-                            width: 56; height: 56; radius: 28
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18)
-                            border.width: 1
-                            border.color: root.seal
-
-                            IconText {
-                                anchors.centerIn: parent
-                                text: connectedModel.count > 0 ? btSection.getDeviceIcon(connectedModel.get(0).icon) : "bluetooth"
-                                font.pixelSize: 26
-                                color: root.seal
-                            }
+                        readonly property string devName: connectedModel.count > 0 ? (connectedModel.get(0).name || "") : ""
+                        readonly property string devMac: connectedModel.count > 0 ? (connectedModel.get(0).mac || "") : ""
+                        readonly property int devBattery: connectedModel.count > 0 && connectedModel.get(0).battery !== undefined ? connectedModel.get(0).battery : -1
+                        readonly property string devIcon: connectedModel.count > 0 ? (connectedModel.get(0).icon || "") : ""
+                        readonly property bool isHeadphones: {
+                            var ic = devIcon.toLowerCase()
+                            var nm = devName.toLowerCase()
+                            return ic.indexOf("head") >= 0 || ic.indexOf("audio") >= 0 || nm.indexOf("duke") >= 0 || nm.indexOf("wh-") >= 0 || nm.indexOf("airpod") >= 0 || nm.indexOf("pro") >= 0 || nm.indexOf("headphone") >= 0
                         }
 
-                        // Device Name & MAC Address
                         Column {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: parent.width
-                            spacing: 3
+                            anchors.centerIn: parent
+                            width: parent.width - 24
+                            spacing: 10
 
-                            Text {
+                            // Hero Graphic Container (Clean, no muddy circle)
+                            Item {
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                text: connectedModel.count > 0 ? connectedModel.get(0).name : ""
-                                font.family: root.barFont
-                                font.pixelSize: 14
-                                font.weight: Font.Bold
-                                color: root.ink
-                                elide: Text.ElideRight
-                                maximumLineCount: 1
-                                horizontalAlignment: Text.AlignHCenter
-                                width: parent.width
-                            }
+                                width: 76
+                                height: 76
 
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: connectedModel.count > 0 ? connectedModel.get(0).mac : ""
-                                font.family: root.barFont
-                                font.pixelSize: 10
-                                color: root.ink
-                                opacity: 0.4
-                            }
-                        }
-
-                        // Badges Row: Connected Status + Battery (if reported)
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: 8
-
-                            Rectangle {
-                                height: 22
-                                radius: 11
-                                color: Qt.rgba(0.66, 0.71, 0.40, 0.15)
-                                border.width: 1
-                                border.color: Qt.rgba(0.66, 0.71, 0.40, 0.3)
-                                width: singleConnBadgeRow.implicitWidth + 14
-
-                                Row {
-                                    id: singleConnBadgeRow
+                                // Semi-realistic Custom SVG Headphone Vector Icon
+                                Image {
+                                    id: headphoneAsset
                                     anchors.centerIn: parent
-                                    spacing: 5
-                                    Rectangle {
-                                        width: 6; height: 6; radius: 3
-                                        color: "#a9b665"
-                                        anchors.verticalCenter: parent.verticalCenter
-                                    }
-                                    Text {
-                                        text: "Connected"
-                                        font.family: root.barFont
-                                        font.pixelSize: 10
-                                        font.weight: Font.Bold
-                                        color: "#a9b665"
-                                        anchors.verticalCenter: parent.verticalCenter
+                                    width: 72
+                                    height: 72
+                                    sourceSize: Qt.size(144, 144)
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                    visible: singleDevSpotlight.isHeadphones
+                                    source: "file://" + Quickshell.env("HOME") + "/.config/quickshell/bar/variants/V2/assets/headphones_spotlight.svg"
+                                }
+
+                                // Fallback Avatar for non-audio devices (e.g. mouse, keyboard)
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: 58
+                                    height: 58
+                                    radius: 29
+                                    visible: !singleDevSpotlight.isHeadphones
+                                    color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.16)
+                                    border.width: 1
+                                    border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.3)
+
+                                    IconText {
+                                        anchors.centerIn: parent
+                                        text: btSection.getDeviceIcon(singleDevSpotlight.devIcon)
+                                        font.pixelSize: 26
+                                        color: root.seal
                                     }
                                 }
                             }
 
-                            Rectangle {
-                                visible: connectedModel.count > 0 && connectedModel.get(0).battery >= 0
-                                height: 22
-                                radius: 11
-                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
-                                width: singleBattBadgeRow.implicitWidth + 14
+                            // Device Identity (Title + Audio Role)
+                            Column {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                spacing: 2
 
-                                Row {
-                                    id: singleBattBadgeRow
-                                    anchors.centerIn: parent
-                                    spacing: 4
-                                    IconText {
-                                        text: "battery_charging_full"
-                                        font.pixelSize: 11
-                                        color: "#a9b665"
-                                        anchors.verticalCenter: parent.verticalCenter
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: singleDevSpotlight.devName
+                                    font.family: root.barFont
+                                    font.pixelSize: 16
+                                    font.weight: Font.Bold
+                                    color: root.ink
+                                }
+
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: "Active Audio Output"
+                                    font.family: root.barFont
+                                    font.pixelSize: 10
+                                    font.weight: Font.Medium
+                                    color: root.sumi
+                                    opacity: 0.75
+                                }
+                            }
+
+                            // Unified Status & Action Pills Row
+                            Row {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                spacing: 8
+
+                                // 1. Connected Status Tag
+                                Rectangle {
+                                    height: 22
+                                    radius: 11
+                                    color: Qt.rgba(0.66, 0.71, 0.40, 0.16)
+                                    border.width: 1
+                                    border.color: Qt.rgba(0.66, 0.71, 0.40, 0.35)
+                                    width: connRow.implicitWidth + 14
+
+                                    Row {
+                                        id: connRow
+                                        anchors.centerIn: parent
+                                        spacing: 5
+                                        Rectangle {
+                                            width: 6; height: 6; radius: 3
+                                            color: "#a9b665"
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                        Text {
+                                            text: "Connected"
+                                            font.family: root.barFont
+                                            font.pixelSize: 10
+                                            font.weight: Font.Bold
+                                            color: "#a9b665"
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
                                     }
-                                    Text {
-                                        text: (connectedModel.count > 0 && connectedModel.get(0).battery >= 0) ? (connectedModel.get(0).battery + "%") : ""
-                                        font.family: root.barFont
-                                        font.pixelSize: 10
-                                        font.weight: Font.Bold
-                                        color: root.ink
-                                        anchors.verticalCenter: parent.verticalCenter
+                                }
+
+                                // 2. Battery Level Pill (if battery reported)
+                                Rectangle {
+                                    visible: singleDevSpotlight.devBattery >= 0
+                                    height: 22
+                                    radius: 11
+                                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.07)
+                                    border.width: 1
+                                    border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.10)
+                                    width: battPillRow.implicitWidth + 14
+
+                                    Row {
+                                        id: battPillRow
+                                        anchors.centerIn: parent
+                                        spacing: 5
+
+                                        IconText {
+                                            text: {
+                                                var b = singleDevSpotlight.devBattery
+                                                if (b >= 90) return "battery_full"
+                                                if (b >= 60) return "battery_5_bar"
+                                                if (b >= 30) return "battery_3_bar"
+                                                return "battery_1_bar"
+                                            }
+                                            font.pixelSize: 11
+                                            color: {
+                                                var b = singleDevSpotlight.devBattery
+                                                if (b < 20) return "#ea6962"
+                                                if (b < 50) return "#e78a4e"
+                                                return "#a9b665"
+                                            }
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+
+                                        Text {
+                                            text: singleDevSpotlight.devBattery + "%"
+                                            font.family: root.barFont
+                                            font.pixelSize: 10
+                                            font.weight: Font.Bold
+                                            color: root.ink
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+
+                                        // Mini inline gauge track
+                                        Rectangle {
+                                            width: 22
+                                            height: 4
+                                            radius: 2
+                                            color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.12)
+                                            anchors.verticalCenter: parent.verticalCenter
+
+                                            Rectangle {
+                                                anchors.left: parent.left
+                                                anchors.top: parent.top
+                                                anchors.bottom: parent.bottom
+                                                width: Math.max(height, parent.width * (singleDevSpotlight.devBattery / 100))
+                                                radius: 2
+                                                color: {
+                                                    var b = singleDevSpotlight.devBattery
+                                                    if (b < 20) return "#ea6962"
+                                                    if (b < 50) return "#e78a4e"
+                                                    return "#a9b665"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // 3. Quick Disconnect Button
+                                Rectangle {
+                                    height: 22
+                                    radius: 11
+                                    color: disconnMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.14) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+                                    border.width: 1
+                                    border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.10)
+                                    width: disconnRow.implicitWidth + 14
+
+                                    Row {
+                                        id: disconnRow
+                                        anchors.centerIn: parent
+                                        spacing: 4
+                                        IconText {
+                                            text: "link_off"
+                                            font.pixelSize: 11
+                                            color: root.ink
+                                            opacity: 0.7
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                        Text {
+                                            text: "Disconnect"
+                                            font.family: root.barFont
+                                            font.pixelSize: 10
+                                            font.weight: Font.DemiBold
+                                            color: root.ink
+                                            opacity: 0.85
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                    }
+
+                                    SpringPress {}
+                                    MouseArea {
+                                        id: disconnMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            if (singleDevSpotlight.devMac !== "") {
+                                                btSection.doDisconnect(singleDevSpotlight.devMac)
+                                            }
+                                        }
                                     }
                                 }
                             }

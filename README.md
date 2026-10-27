@@ -139,4 +139,4 @@ The following keybindings are configured in Hyprland (`~/.config/hypr/bindings.c
 - **Compositor**: [Hyprland](https://hyprland.org/)
 - **Audio & Visualizer**: PipeWire, WirePlumber, `cava`
 - **Utilities**: `jq`, `inotify-tools`, `python3`
-- **Fonts**: `DM Sans`, Material Symbols / Material Icons
+- **Fonts**: `Genova`, Material Symbols / Material Icons

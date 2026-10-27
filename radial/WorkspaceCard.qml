@@ -92,7 +92,7 @@ Item {
             anchors.centerIn: parent
             color: Theme.muted
             font.pixelSize: 36
-            font.family: "DM Sans"
+            font.family: "Genova"
             font.bold: true
             opacity: root.isHovered ? 1.0 : 0.5
         }
@@ -122,7 +122,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 color: root.isActive ? Theme.accent : Theme.foreground
                 font.pixelSize: 10
-                font.family: "DM Sans"
+                font.family: "Genova"
                 font.letterSpacing: 0.5
                 font.bold: true
                 elide: Text.ElideRight

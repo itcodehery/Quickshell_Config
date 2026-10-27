@@ -29,8 +29,9 @@ fi
 pkill -x ttfx 2>/dev/null || true
 pkill -f '[o]rg.omarchy.screensaver' 2>/dev/null || true
 
-# Capture current screen for seamless waterdrop transition
-grim /tmp/qs-lock-bg.png 2>/dev/null || true
+# Capture current screen in RAM without slow compression
+SNAPSHOT_PATH="${XDG_RUNTIME_DIR:-/tmp}/qs-lock-bg.png"
+grim -l 0 "$SNAPSHOT_PATH" 2>/dev/null || true
 
 # Start Quickshell Lockscreen
 exec /usr/bin/qs -n -p "$LOCK_CONFIG"

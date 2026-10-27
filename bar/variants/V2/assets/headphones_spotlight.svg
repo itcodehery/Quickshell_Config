@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" fill="none">
+  <defs>
+    <!-- Outer Spring Steel Headband (Bright Brushed Aluminum / Chrome) -->
+    <linearGradient id="bandSteel" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="25%" stop-color="#E5E5EA"/>
+      <stop offset="55%" stop-color="#C7C7CC"/>
+      <stop offset="85%" stop-color="#8E8E93"/>
+      <stop offset="100%" stop-color="#636366"/>
+    </linearGradient>
+
+    <!-- Headband Soft Cushion / Mesh Under-Pad -->
+    <linearGradient id="meshCanopy" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1C1C1E"/>
+      <stop offset="20%" stop-color="#3A3A3C"/>
+      <stop offset="50%" stop-color="#505054"/>
+      <stop offset="80%" stop-color="#3A3A3C"/>
+      <stop offset="100%" stop-color="#1C1C1E"/>
+    </linearGradient>
+
+    <!-- Telescopic Extension Sliders (Polished Stainless Steel) -->
+    <linearGradient id="sliderSteel" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="35%" stop-color="#D1D1D6"/>
+      <stop offset="70%" stop-color="#8E8E93"/>
+      <stop offset="100%" stop-color="#636366"/>
+    </linearGradient>
+
+    <!-- Aluminum Earcup Shell (Left - Satin Silver / Space Titanium) -->
+    <linearGradient id="cupSilverL" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F2F2F7"/>
+      <stop offset="30%" stop-color="#D1D1D6"/>
+      <stop offset="70%" stop-color="#8E8E93"/>
+      <stop offset="100%" stop-color="#48484A"/>
+    </linearGradient>
+
+    <!-- Aluminum Earcup Shell (Right - Satin Silver / Space Titanium) -->
+    <linearGradient id="cupSilverR" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F2F2F7"/>
+      <stop offset="30%" stop-color="#D1D1D6"/>
+      <stop offset="70%" stop-color="#8E8E93"/>
+      <stop offset="100%" stop-color="#48484A"/>
+    </linearGradient>
+
+    <!-- Chamfer Specular Edge Glow -->
+    <linearGradient id="specularGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.85"/>
+      <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.05"/>
+    </linearGradient>
+
+    <!-- Memory Foam Ear Cushion (Soft Textured Dark Fabric) -->
+    <linearGradient id="cushionFoam" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1C1C1E"/>
+      <stop offset="40%" stop-color="#2C2C2E"/>
+      <stop offset="70%" stop-color="#3A3A3C"/>
+      <stop offset="100%" stop-color="#18181A"/>
+    </linearGradient>
+
+    <!-- Soft Depth Shadow -->
+    <filter id="headphoneShadow" x="-20%" y="-15%" width="140%" height="135%">
+      <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#headphoneShadow)">
+    <!-- 1. Outer Spring-Steel Headband -->
+    <path d="M 27 64 C 27 26, 43 12, 60 12 C 77 12, 93 26, 93 64" 
+          stroke="url(#bandSteel)" stroke-width="6.5" stroke-linecap="round"/>
+
+    <!-- 2. Inner Headband Mesh Cushion Canopy -->
+    <path d="M 35 50 C 35 28, 46 18, 60 18 C 74 18, 85 28, 85 50" 
+          stroke="url(#meshCanopy)" stroke-width="4.5" stroke-linecap="round"/>
+
+    <!-- 3. Telescopic Stainless Adjustment Sliders -->
+    <!-- Left Slider -->
+    <rect x="24" y="58" width="5.5" height="17" rx="2.5" fill="url(#sliderSteel)"/>
+    <line x1="25" y1="63" x2="28.5" y2="63" stroke="#3A3A3C" stroke-width="1"/>
+    <line x1="25" y1="67" x2="28.5" y2="67" stroke="#3A3A3C" stroke-width="1"/>
+    <line x1="25" y1="71" x2="28.5" y2="71" stroke="#3A3A3C" stroke-width="1"/>
+
+    <!-- Right Slider -->
+    <rect x="90.5" y="58" width="5.5" height="17" rx="2.5" fill="url(#sliderSteel)"/>
+    <line x1="91.5" y1="63" x2="95" y2="63" stroke="#3A3A3C" stroke-width="1"/>
+    <line x1="91.5" y1="67" x2="95" y2="67" stroke="#3A3A3C" stroke-width="1"/>
+    <line x1="91.5" y1="71" x2="95" y2="71" stroke="#3A3A3C" stroke-width="1"/>
+
+    <!-- 4. Yoke Hinges / Pivot Caps -->
+    <circle cx="26.8" cy="74.5" r="3.2" fill="#E5E5EA" stroke="#636366" stroke-width="0.8"/>
+    <circle cx="93.2" cy="74.5" r="3.2" fill="#E5E5EA" stroke="#636366" stroke-width="0.8"/>
+
+    <!-- 5. LEFT EARCUP (Sleek Angled Aluminum Dome) -->
+    <g transform="rotate(7 27 86)">
+      <!-- Outer Aluminum Cup Shell -->
+      <rect x="14" y="66" width="19" height="40" rx="9.5" fill="url(#cupSilverL)"/>
+      <!-- Polished Chamfer Rim Bevel -->
+      <rect x="15" y="67" width="17" height="38" rx="8.5" stroke="url(#specularGlow)" stroke-width="1" fill="none"/>
+      
+      <!-- Inner Memory Foam Cushion -->
+      <rect x="25.5" y="63" width="14" height="44" rx="7" fill="url(#cushionFoam)"/>
+      <!-- Inner Acoustic Driver Opening -->
+      <rect x="28" y="67" width="9" height="36" rx="4.5" fill="#101012" opacity="0.9"/>
+      
+      <!-- Subtle Microphone / Status Dot -->
+      <circle cx="21" cy="98" r="1.2" fill="#2C2C2E"/>
+    </g>
+
+    <!-- 6. RIGHT EARCUP (Sleek Angled Aluminum Dome) -->
+    <g transform="rotate(-7 93 86)">
+      <!-- Outer Aluminum Cup Shell -->
+      <rect x="87" y="66" width="19" height="40" rx="9.5" fill="url(#cupSilverR)"/>
+      <!-- Polished Chamfer Rim Bevel -->
+      <rect x="88" y="67" width="17" height="38" rx="8.5" stroke="url(#specularGlow)" stroke-width="1" fill="none"/>
+
+      <!-- Inner Memory Foam Cushion -->
+      <rect x="80.5" y="63" width="14" height="44" rx="7" fill="url(#cushionFoam)"/>
+      <!-- Inner Acoustic Driver Opening -->
+      <rect x="83" y="67" width="9" height="36" rx="4.5" fill="#101012" opacity="0.9"/>
+
+      <!-- Subtle Microphone / Status Dot -->
+      <circle cx="99" cy="98" r="1.2" fill="#2C2C2E"/>
+    </g>
+  </g>
+</svg>

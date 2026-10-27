@@ -181,7 +181,7 @@ PanelWindow {
                     id: titleText
                     text: mprisSel.active ? (mprisSel.player.trackTitle || "Unknown Track") : desktopMenu.currentGreeting
                     color: root.ink
-                    font.family: "DM Sans"
+                    font.family: "Genova"
                     font.pixelSize: 13
                     font.weight: Font.DemiBold
                     width: mprisSel.active ? implicitWidth : parent.width
@@ -221,7 +221,7 @@ PanelWindow {
                     id: artistText
                     text: mprisSel.active ? (mprisSel.player.trackArtist || "Unknown Artist") : desktopMenu.currentQuote
                     color: root.sumiHi
-                    font.family: "DM Sans"
+                    font.family: "Genova"
                     font.pixelSize: 11
                     font.weight: Font.Medium
                     width: mprisSel.active ? implicitWidth : parent.width
@@ -439,7 +439,7 @@ PanelWindow {
                 text: parent.centerText
                 visible: text !== ""
                 color: root.ink
-                font.family: "DM Sans"
+                font.family: "Genova"
                 font.pixelSize: 10
                 font.weight: Font.DemiBold
                 width: parent.width - 4
@@ -663,7 +663,7 @@ PanelWindow {
                     UiText {
                         text: mprisSel.active ? (mprisSel.player.trackTitle || "Unknown Track") : desktopMenu.currentGreeting
                         color: root.ink
-                        font.family: "DM Sans"
+                        font.family: "Genova"
                         font.pixelSize: 11
                         font.weight: Font.DemiBold
                         width: parent.width
@@ -674,7 +674,7 @@ PanelWindow {
                     UiText {
                         text: mprisSel.active ? (mprisSel.player.trackArtist || "Unknown Artist") : desktopMenu.currentQuote
                         color: root.sumiHi
-                        font.family: "DM Sans"
+                        font.family: "Genova"
                         font.pixelSize: 10
                         font.weight: Font.Medium
                         width: parent.width
@@ -794,7 +794,7 @@ PanelWindow {
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: aiBtn.appName
                                     color: root.ink
-                                    font.family: "DM Sans"
+                                    font.family: "Genova"
                                     font.pixelSize: 11
                                     font.weight: Font.Medium
                                 }
@@ -1103,7 +1103,7 @@ PanelWindow {
                                     }
                                 }
                                 UiText { 
-                                    anchors.verticalCenter: parent.verticalCenter; color: root.ink; font.family: "DM Sans"; font.pixelSize: 11; font.weight: Font.Medium 
+                                    anchors.verticalCenter: parent.verticalCenter; color: root.ink; font.family: "Genova"; font.pixelSize: 11; font.weight: Font.Medium 
                                     text: idx === 3 ? "Theme" : (idx === 8 ? "Refresh Rate" : "Radial Menu")
                                 }
                             }
@@ -1125,7 +1125,7 @@ PanelWindow {
                                         return str.replace(/[-_]+/g, " ").replace(/\b\w/g, function(l){ return l.toUpperCase(); });
                                     })(root.currentThemeName) : "")
                                     color: root.ink
-                                    font.family: "DM Sans"
+                                    font.family: "Genova"
                                     font.pixelSize: 10
                                     font.weight: Font.Medium
                                 }

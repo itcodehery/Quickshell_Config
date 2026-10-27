@@ -25,8 +25,41 @@ Item {
     property bool editingPinned: false
     property string sortMode: "recent" // "recent", "alpha", "oldest"
     property bool copiedNotice: false
+    property bool isInputFocused: false
 
-    // Keyboard Shortcuts (Ctrl+N, Ctrl+D, Ctrl+P, Ctrl+F)
+    function clearInputFocus() {
+        if (searchInput && searchInput.activeFocus) searchInput.focus = false
+        if (editorTitleInput && editorTitleInput.activeFocus) editorTitleInput.focus = false
+        if (editorBodyArea && editorBodyArea.activeFocus) editorBodyArea.focus = false
+        notesSection.forceActiveFocus()
+        isInputFocused = false
+    }
+
+    function selectNextNote() {
+        if (notesData.length === 0) return
+        var list = filteredNotes
+        if (list.length === 0) return
+        var idx = list.findIndex(n => n.id === selectedId)
+        if (idx === -1 || idx >= list.length - 1) {
+            selectNote(list[0].id)
+        } else {
+            selectNote(list[idx + 1].id)
+        }
+    }
+
+    function selectPrevNote() {
+        if (notesData.length === 0) return
+        var list = filteredNotes
+        if (list.length === 0) return
+        var idx = list.findIndex(n => n.id === selectedId)
+        if (idx <= 0) {
+            selectNote(list[list.length - 1].id)
+        } else {
+            selectNote(list[idx - 1].id)
+        }
+    }
+
+    // Keyboard Shortcuts (Ctrl+N, Ctrl+D, Ctrl+P, Ctrl+F, Escape, Arrow navigation)
     Keys.onPressed: function(event) {
         if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_N) {
             createNote()
@@ -40,6 +73,20 @@ Item {
         } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_F) {
             searchInput.forceActiveFocus()
             searchInput.selectAll()
+            event.accepted = true
+        } else if (event.key === Qt.Key_Escape) {
+            if (isInputFocused) {
+                clearInputFocus()
+                event.accepted = true
+            } else {
+                closeRequested()
+                event.accepted = true
+            }
+        } else if (!isInputFocused && (event.key === Qt.Key_Up || event.key === Qt.Key_K)) {
+            selectPrevNote()
+            event.accepted = true
+        } else if (!isInputFocused && (event.key === Qt.Key_Down || event.key === Qt.Key_J)) {
+            selectNextNote()
             event.accepted = true
         }
     }
@@ -219,33 +266,57 @@ Item {
     function updateTitle(newTitle) {
         if (!selectedId) return
         editingTitle = newTitle
+        // Mutate in-place so filteredNotes is not constantly recomputed and ListView delegates
+        // are not reconstructed mid-typing (which would destroy activeFocus and drop keystrokes).
+        for (var i = 0; i < notesData.length; i++) {
+            if (notesData[i].id === selectedId) {
+                notesData[i].title = newTitle
+                break
+            }
+        }
+        saveTimer.restart()
+    }
+
+    function commitTitle() {
+        if (!selectedId) return
         var arr = Array.from(notesData)
         for (var i = 0; i < arr.length; i++) {
             if (arr[i].id === selectedId) {
-                if (arr[i].title === newTitle) return
-                arr[i].title = newTitle
+                if (arr[i].title === editingTitle) return
+                arr[i].title = editingTitle
                 arr[i].timestamp = Date.now()
                 break
             }
         }
         notesData = arr
-        saveTimer.restart()
+        saveNotesToDisk()
     }
 
     function updateBody(newText) {
         if (!selectedId) return
         editingText = newText
+        for (var i = 0; i < notesData.length; i++) {
+            if (notesData[i].id === selectedId) {
+                notesData[i].text = newText
+                break
+            }
+        }
+        saveTimer.restart()
+    }
+
+    function commitBody() {
+        if (!selectedId) return
         var arr = Array.from(notesData)
         for (var i = 0; i < arr.length; i++) {
             if (arr[i].id === selectedId) {
-                if (arr[i].text === newText) return
-                arr[i].text = newText
+                if (arr[i].text === editingText) return
+                arr[i].text = editingText
                 arr[i].timestamp = Date.now()
                 break
             }
         }
         notesData = arr
-        saveTimer.restart()
+        saveNotesToDisk()
     }
 
     function copyNoteToClipboard() {
@@ -391,7 +462,23 @@ Item {
                                 color: root.ink
                                 font.family: root.barFont
                                 font.pixelSize: 12
+                                selectByMouse: true
+                                onActiveFocusChanged: {
+                                    if (activeFocus) {
+                                        notesSection.isInputFocused = true
+                                    } else {
+                                        notesSection.isInputFocused = (editorBodyArea && editorBodyArea.activeFocus) || false
+                                    }
+                                }
                                 onTextChanged: notesSection.searchQuery = text
+                                Keys.onEscapePressed: {
+                                    if (text.length > 0) {
+                                        text = ""
+                                    } else {
+                                        focus = false
+                                        notesSection.forceActiveFocus()
+                                    }
+                                }
                             }
                         }
                     }
@@ -606,9 +693,35 @@ Item {
                                     background: null
                                     padding: 0
                                     selectByMouse: true
+                                    onActiveFocusChanged: {
+                                        if (activeFocus) {
+                                            notesSection.isInputFocused = true
+                                        } else {
+                                            notesSection.isInputFocused = (searchInput && searchInput.activeFocus) || (editorBodyArea && editorBodyArea.activeFocus) || false
+                                        }
+                                    }
                                     onTextChanged: {
                                         if (activeFocus) notesSection.updateTitle(text)
                                     }
+                                    onEditingFinished: {
+                                        notesSection.commitTitle()
+                                    }
+                                    onAccepted: {
+                                        notesSection.commitTitle()
+                                        focus = false
+                                        notesSection.forceActiveFocus()
+                                    }
+                                    Keys.onEscapePressed: {
+                                        focus = false
+                                        notesSection.forceActiveFocus()
+                                    }
+                                }
+
+                                Binding {
+                                    target: activeTitleField
+                                    property: "text"
+                                    value: notesSection.editingTitle
+                                    when: !activeTitleField.activeFocus
                                 }
 
                                 // Non-editable clean Title text when not selected
@@ -660,7 +773,11 @@ Item {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 enabled: !noteCardItem.isSelected
-                                onClicked: notesSection.selectNote(noteCardItem.modelData.id)
+                                onClicked: {
+                                    notesSection.commitTitle()
+                                    notesSection.commitBody()
+                                    notesSection.selectNote(noteCardItem.modelData.id)
+                                }
                             }
                         }
                     }
@@ -939,11 +1056,65 @@ Item {
                     }
                 }
 
+                // ── Note Title in Editor (Headline) ──
+                Item {
+                    id: editorTitleRow
+                    anchors.top: editorHeader.bottom
+                    anchors.topMargin: 6
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: 24
+
+                    TextField {
+                        id: editorTitleInput
+                        anchors.fill: parent
+                        verticalAlignment: TextInput.AlignVCenter
+                        text: notesSection.editingTitle
+                        placeholderText: "Note Title..."
+                        placeholderTextColor: root.sumi
+                        color: root.ink
+                        font.family: root.barFont
+                        font.pixelSize: 14
+                        font.weight: Font.Bold
+                        background: null
+                        padding: 0
+                        selectByMouse: true
+                        onActiveFocusChanged: {
+                            if (activeFocus) {
+                                notesSection.isInputFocused = true
+                            } else {
+                                notesSection.isInputFocused = (searchInput && searchInput.activeFocus) || (editorBodyArea && editorBodyArea.activeFocus) || false
+                            }
+                        }
+                        onTextChanged: {
+                            if (activeFocus) notesSection.updateTitle(text)
+                        }
+                        onEditingFinished: {
+                            notesSection.commitTitle()
+                        }
+                        onAccepted: {
+                            notesSection.commitTitle()
+                            editorBodyArea.forceActiveFocus()
+                        }
+                        Keys.onEscapePressed: {
+                            focus = false
+                            notesSection.forceActiveFocus()
+                        }
+                    }
+
+                    Binding {
+                        target: editorTitleInput
+                        property: "text"
+                        value: notesSection.editingTitle
+                        when: !editorTitleInput.activeFocus
+                    }
+                }
+
                 // ── Note Description Text Area ──
                 Flickable {
                     id: editorFlick
-                    anchors.top: editorHeader.bottom
-                    anchors.topMargin: 8
+                    anchors.top: editorTitleRow.bottom
+                    anchors.topMargin: 4
                     anchors.bottom: editorFooter.top
                     anchors.bottomMargin: 6
                     anchors.left: parent.left
@@ -968,9 +1139,30 @@ Item {
                         selectByMouse: true
                         padding: 0
                         topPadding: 2
+                        onActiveFocusChanged: {
+                            if (activeFocus) {
+                                notesSection.isInputFocused = true
+                            } else {
+                                notesSection.isInputFocused = (searchInput && searchInput.activeFocus) || (editorTitleInput && editorTitleInput.activeFocus) || false
+                            }
+                        }
                         onTextChanged: {
                             if (activeFocus) notesSection.updateBody(text)
                         }
+                        onEditingFinished: {
+                            notesSection.commitBody()
+                        }
+                        Keys.onEscapePressed: {
+                            focus = false
+                            notesSection.forceActiveFocus()
+                        }
+                    }
+
+                    Binding {
+                        target: editorBodyArea
+                        property: "text"
+                        value: notesSection.editingText
+                        when: !editorBodyArea.activeFocus
                     }
 
                     ScrollBar.vertical: ScrollBar {

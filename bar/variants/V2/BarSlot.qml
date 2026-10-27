@@ -1822,7 +1822,7 @@ PanelWindow {
                 anchors.centerIn: parent
                 text: ""
                 color: barSlot.root.ink
-                font.family: barSlot.root.barFont || "DM Sans"
+                font.family: barSlot.root.barFont || "Genova"
                 font.pixelSize: 12
                 font.weight: Font.Medium
                 elide: islandCollapsedItem.hasLyrics ? Text.ElideNone : Text.ElideRight
@@ -1835,7 +1835,7 @@ PanelWindow {
                 anchors.centerIn: parent
                 text: ""
                 color: barSlot.root.ink
-                font.family: barSlot.root.barFont || "DM Sans"
+                font.family: barSlot.root.barFont || "Genova"
                 font.pixelSize: 12
                 font.weight: Font.Medium
                 elide: islandCollapsedItem.hasLyrics ? Text.ElideNone : Text.ElideRight
@@ -1930,7 +1930,7 @@ PanelWindow {
                         function pad(n) { return n < 10 ? "0" + n : String(n) }
                         return h > 0 ? (h + ":" + pad(m) + ":" + pad(s)) : (pad(m) + ":" + pad(s))
                     }
-                    font.family: "DM Sans"
+                    font.family: "Genova"
                     font.pixelSize: 11
                     font.weight: Font.DemiBold
                     color: barSlot.root.timerPaused ? Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.6) : barSlot.accent
@@ -2179,7 +2179,7 @@ PanelWindow {
                     Text {
                         visible: islandNotifPeekItem.hasBody && island.notifPeekApp !== "" && island.notifPeekApp.toLowerCase() !== island.notifPeekSummary.toLowerCase()
                         text: barSlot.formatTitleCase(island.notifPeekApp.replace(/[-_]/g, " "))
-                        font.family: "DM Sans"
+                        font.family: "Genova"
                         font.pixelSize: 9
                         font.weight: Font.Bold
                         font.letterSpacing: 0.3
@@ -2192,7 +2192,7 @@ PanelWindow {
                     Text {
                         id: summaryText
                         text: barSlot.formatTitleCase(island.notifPeekSummary !== "" ? island.notifPeekSummary : island.notifPeekApp)
-                        font.family: "DM Sans"
+                        font.family: "Genova"
                         font.pixelSize: islandNotifPeekItem.hasBody ? 13 : 12
                         font.weight: Font.Bold
                         color: barSlot.root.ink
@@ -2207,7 +2207,7 @@ PanelWindow {
                         id: bodyText
                         visible: islandNotifPeekItem.hasBody
                         text: barSlot.formatSentenceCase(island.notifPeekBody)
-                        font.family: "DM Sans"
+                        font.family: "Genova"
                         font.pixelSize: 11
                         font.weight: Font.Normal
                         lineHeight: 1.15
@@ -2966,7 +2966,8 @@ PanelWindow {
                 Rectangle {
                     id: dateTimePill
                     height: 28
-                    readonly property bool shouldShow: !dashboardAdapter.searchOpen
+                    readonly property bool displayClockActive: (dashboardLoader.item && !dashboardLoader.item.showMediaPlayer && barSlot.root.dashboardDetail === "")
+                    readonly property bool shouldShow: !dashboardAdapter.searchOpen && !displayClockActive
                     width: shouldShow ? dateTimeRow.implicitWidth + 20 : 0
                     opacity: shouldShow ? 1.0 : 0.0
                     radius: 14

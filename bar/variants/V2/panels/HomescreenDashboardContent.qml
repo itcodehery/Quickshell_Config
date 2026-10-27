@@ -71,6 +71,11 @@ Item {
     }
 
     function nextOption() {
+        if (dashboardContent.activeDetailView === "notes" ||
+            (calDetailSection && calDetailSection.isInputFocused) ||
+            (notesDetailSection && notesDetailSection.isInputFocused)) {
+            return
+        }
         if (dashboardContent.activeDetailView === "theme" || dashboardContent.activeDetailView === "wallpaper") {
             if (themeLoader.item && themeLoader.item.moveSel) themeLoader.item.moveSel(1)
             return
@@ -83,6 +88,11 @@ Item {
     }
 
     function prevOption() {
+        if (dashboardContent.activeDetailView === "notes" ||
+            (calDetailSection && calDetailSection.isInputFocused) ||
+            (notesDetailSection && notesDetailSection.isInputFocused)) {
+            return
+        }
         if (dashboardContent.activeDetailView === "theme" || dashboardContent.activeDetailView === "wallpaper") {
             if (themeLoader.item && themeLoader.item.moveSel) themeLoader.item.moveSel(-1)
             return
@@ -95,6 +105,11 @@ Item {
     }
 
     Keys.onUpPressed: {
+        if (dashboardContent.activeDetailView === "notes" ||
+            (calDetailSection && calDetailSection.isInputFocused) ||
+            (notesDetailSection && notesDetailSection.isInputFocused)) {
+            return
+        }
         if (dashboardContent.activeDetailView === "theme" || dashboardContent.activeDetailView === "wallpaper") {
             if (themeLoader.item && themeLoader.item.setMode) {
                 themeLoader.item.setMode(themeLoader.item.activeMode === "theme" ? "wallpaper" : "theme")
@@ -112,6 +127,11 @@ Item {
         pageUp()
     }
     Keys.onDownPressed: {
+        if (dashboardContent.activeDetailView === "notes" ||
+            (calDetailSection && calDetailSection.isInputFocused) ||
+            (notesDetailSection && notesDetailSection.isInputFocused)) {
+            return
+        }
         if (dashboardContent.activeDetailView === "theme" || dashboardContent.activeDetailView === "wallpaper") {
             if (themeLoader.item && themeLoader.item.setMode) {
                 themeLoader.item.setMode(themeLoader.item.activeMode === "theme" ? "wallpaper" : "theme")
@@ -128,8 +148,22 @@ Item {
         }
         pageDown()
     }
-    Keys.onLeftPressed: prevOption()
-    Keys.onRightPressed: nextOption()
+    Keys.onLeftPressed: {
+        if (dashboardContent.activeDetailView === "notes" ||
+            (calDetailSection && calDetailSection.isInputFocused) ||
+            (notesDetailSection && notesDetailSection.isInputFocused)) {
+            return
+        }
+        prevOption()
+    }
+    Keys.onRightPressed: {
+        if (dashboardContent.activeDetailView === "notes" ||
+            (calDetailSection && calDetailSection.isInputFocused) ||
+            (notesDetailSection && notesDetailSection.isInputFocused)) {
+            return
+        }
+        nextOption()
+    }
     Keys.onPressed: (event) => {
         if (dashboardContent.activeDetailView === "system") {
             if (event.key === Qt.Key_Escape || event.key === Qt.Key_X) {
@@ -239,6 +273,27 @@ Item {
                 }
                 event.accepted = true
             }
+            return
+        }
+        if (dashboardContent.activeDetailView === "notes") {
+            if (notesDetailSection && notesDetailSection.isInputFocused) {
+                if (event.key === Qt.Key_Escape) {
+                    if (notesDetailSection.clearInputFocus) {
+                        notesDetailSection.clearInputFocus()
+                    }
+                    event.accepted = true
+                }
+                return
+            }
+            if (event.key === Qt.Key_Escape) {
+                dashboardContent.activeDetailView = ""
+                if (root) root.dashboardDetail = ""
+                event.accepted = true
+            }
+            return
+        }
+        if ((calDetailSection && calDetailSection.isInputFocused) ||
+            (notesDetailSection && notesDetailSection.isInputFocused)) {
             return
         }
         if (event.key === Qt.Key_K) {
@@ -530,6 +585,82 @@ Item {
     property string curTitle: mprisSel.player ? (mprisSel.player.trackTitle || "") : ""
     property string curArtist: mprisSel.player ? (mprisSel.player.trackArtist || "") : ""
     property string curArtUrl: mprisArt.source
+
+    // ── Live Time & Date State for Aesthetic Clock Widget ──
+    FontLoader {
+        id: biggerFont
+        source: "file://" + Quickshell.env("HOME") + "/.local/share/fonts/Unknown Vendor/OpenType/Bigger/Bigger_Display.otf"
+    }
+
+    property date now: new Date()
+    Timer {
+        interval: 1000
+        running: panel.expanded
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: dashboardContent.now = new Date()
+    }
+
+    readonly property string clockHours: {
+        var h = dashboardContent.now.getHours()
+        if (root && root.clock12h) {
+            h = h % 12
+            if (h === 0) h = 12
+        }
+        return h < 10 ? "0" + h : String(h)
+    }
+
+    readonly property string clockMinutes: {
+        var m = dashboardContent.now.getMinutes()
+        return m < 10 ? "0" + m : String(m)
+    }
+
+    readonly property string clockAmPm: {
+        if (!root || !root.clock12h) return ""
+        return dashboardContent.now.getHours() < 12 ? "AM" : "PM"
+    }
+
+    readonly property string timeGreeting: {
+        var h = dashboardContent.now.getHours()
+        if (h >= 5 && h < 12) return "Good Morning"
+        if (h >= 12 && h < 17) return "Good Afternoon"
+        if (h >= 17 && h < 22) return "Good Evening"
+        return "Night Owl"
+    }
+
+    function getWeekNumber() {
+        var d = new Date(Date.UTC(dashboardContent.now.getFullYear(), dashboardContent.now.getMonth(), dashboardContent.now.getDate()))
+        var dayNum = d.getUTCDay() || 7
+        d.setUTCDate(d.getUTCDate() + 4 - dayNum)
+        var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+        return Math.ceil((((d - yearStart) / 86400000) + 1) / 7)
+    }
+
+    readonly property int dayProgressPercent: {
+        var totalSecs = dashboardContent.now.getHours() * 3600 + dashboardContent.now.getMinutes() * 60 + dashboardContent.now.getSeconds()
+        return Math.min(100, Math.max(0, Math.round((totalSecs / 86400) * 100)))
+    }
+
+    readonly property string remainingHoursToday: {
+        var remMins = 1440 - (dashboardContent.now.getHours() * 60 + dashboardContent.now.getMinutes())
+        var remH = Math.floor(remMins / 60)
+        var remM = remMins % 60
+        return remH + "h " + remM + "m left"
+    }
+
+    // Media Display Mode: Show Media Player only if actively playing or manually requested while paused
+    property bool showMediaManually: false
+    readonly property bool isMediaPlaying: mprisSel.playing && curTitle !== ""
+    readonly property bool showMediaPlayer: isMediaPlaying || (showMediaManually && curTitle !== "")
+
+    Connections {
+        target: mprisSel
+        function onPlayingChanged() {
+            if (mprisSel.playing && dashboardContent.curTitle !== "") {
+                dashboardContent.showMediaManually = true
+            }
+        }
+    }
     
     property real curPos: 0
     property real curLen: 0
@@ -2350,6 +2481,12 @@ Item {
                 anchors.fill: parent
                 readonly property real lyricsVisibleHeight: Math.max(60, height - mediaCard.height)
 
+                visible: opacity > 0.001
+                opacity: dashboardContent.showMediaPlayer ? 1.0 : 0.0
+                scale: dashboardContent.showMediaPlayer ? 1.0 : 0.96
+                Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+                Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+
                 // Extended Lyrics Drawer (Starts from the back of the media player and extends down)
                 Rectangle {
                     id: lyricsExtender
@@ -2447,10 +2584,10 @@ Item {
                             radius: 12
                             readonly property bool isShowing: (dashboardContent.mprisPanel && dashboardContent.mprisPanel.showingLyrics)
                             color: isShowing
-                                ? (mediaCard.hasDominant ? mediaCard.domCol : root.seal)
+                                ? mediaCard.pillBg
                                 : (lyricsMa.containsMouse ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(1, 1, 1, 0.14))
                             border.color: isShowing
-                                ? (mediaCard.hasDominant ? mediaCard.domCol : root.seal)
+                                ? (mediaCard.hasVibrantDom ? Qt.rgba(mediaCard.domCol.r, mediaCard.domCol.g, mediaCard.domCol.b, 0.45) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.15))
                                 : Qt.rgba(1, 1, 1, 0.28)
                             border.width: 1
                             width: tagRow.implicitWidth + 14
@@ -2466,7 +2603,7 @@ Item {
                                 IconText {
                                     text: lyricsPillTag.isShowing ? "visibility" : "subtitles"
                                     font.pixelSize: 12
-                                    color: lyricsPillTag.isShowing ? (mediaCard.hasDominant ? "#000000" : root.paper) : "#FFFFFF"
+                                    color: lyricsPillTag.isShowing ? root.ink : "#FFFFFF"
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
 
@@ -2476,7 +2613,7 @@ Item {
                                     font.pixelSize: 9
                                     font.weight: Font.DemiBold
                                     font.letterSpacing: 0.8
-                                    color: lyricsPillTag.isShowing ? (mediaCard.hasDominant ? "#000000" : root.paper) : "#FFFFFF"
+                                    color: lyricsPillTag.isShowing ? root.ink : "#FFFFFF"
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                             }
@@ -2842,6 +2979,43 @@ Item {
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 8
+
+                            // Switch to Clock Widget Button
+                            Rectangle {
+                                id: switchToClockBtn
+                                width: 22
+                                height: 22
+                                radius: 11
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: switchToClockMa.containsMouse ? root.fillHover : root.fillIdle
+                                border.color: root.sep
+                                border.width: 1
+                                Behavior on color { ColorAnimation { duration: 150 } }
+
+                                IconText {
+                                    anchors.centerIn: parent
+                                    text: "schedule"
+                                    font.pixelSize: 13
+                                    color: switchToClockMa.containsMouse ? root.seal : (root ? root.ink : "#ffffff")
+                                }
+
+                                TooltipMixin {
+                                    root: dashboardContent.root
+                                    owner: switchToClockBtn
+                                    text: "Show Clock"
+                                }
+
+                                SpringPress {}
+                                MouseArea {
+                                    id: switchToClockMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        dashboardContent.showMediaManually = false
+                                    }
+                                }
+                            }
 
                             // Reload Lyrics Button
                             Rectangle {
@@ -3291,6 +3465,357 @@ Item {
                     }
                 }
             } // end mediaWithLyricsGroup
+
+            // --- COOL AESTHETIC TIME & DATE WIDGET (Zero borders, unified canvas) ---
+            Item {
+                id: timeDateWidget
+                anchors.fill: parent
+                visible: opacity > 0.001
+                opacity: !dashboardContent.showMediaPlayer ? 1.0 : 0.0
+                scale: !dashboardContent.showMediaPlayer ? 1.0 : 0.96
+                Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+                Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+
+                // Seamless smoked glass foundation (Zero borders)
+                Rectangle {
+                    id: timeCanvasBg
+                    anchors.fill: parent
+                    radius: 22
+                    color: Qt.rgba(root.paper.r * 0.20 + 0.03, root.paper.g * 0.20 + 0.03, root.paper.b * 0.20 + 0.03, 0.72)
+
+                    // Clipping container for smooth ambient gradient and edge lighting
+                    ClippingRectangle {
+                        anchors.fill: parent
+                        radius: 22
+                        color: "transparent"
+
+                        // Top-right ambient aurora glow
+                        Rectangle {
+                            width: 240
+                            height: 240
+                            radius: 120
+                            anchors.top: parent.top
+                            anchors.topMargin: -60
+                            anchors.right: parent.right
+                            anchors.rightMargin: -40
+                            opacity: 0.16
+                            gradient: Gradient {
+                                GradientStop { position: 0.0; color: root.seal }
+                                GradientStop { position: 0.7; color: Qt.rgba(root.color06.r, root.color06.g, root.color06.b, 0.3) }
+                                GradientStop { position: 1.0; color: "transparent" }
+                            }
+                        }
+
+                        // Bottom-left subtle warm secondary ambient tint
+                        Rectangle {
+                            width: 180
+                            height: 180
+                            radius: 90
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: -60
+                            anchors.left: parent.left
+                            anchors.leftMargin: -40
+                            opacity: 0.09
+                            gradient: Gradient {
+                                GradientStop { position: 0.0; color: root.color03 }
+                                GradientStop { position: 1.0; color: "transparent" }
+                            }
+                        }
+                    }
+                }
+
+                // Breathing pulse item for colon
+                Item {
+                    id: colonPulse
+                    property real pulse: 0.9
+                    SequentialAnimation {
+                        running: timeDateWidget.visible
+                        loops: Animation.Infinite
+                        NumberAnimation { target: colonPulse; property: "pulse"; to: 0.35; duration: 1000; easing.type: Easing.InOutSine }
+                        NumberAnimation { target: colonPulse; property: "pulse"; to: 0.95; duration: 1000; easing.type: Easing.InOutSine }
+                    }
+                }
+
+                // Main Widget Layout Container
+                Item {
+                    anchors.fill: parent
+                    anchors.margins: 18
+
+                    // ── TOP ROW: Date & Editorial Status Pill ──
+                    Item {
+                        id: topTimeRow
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: 24
+
+                        Row {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 8
+
+                            IconText {
+                                text: "calendar_today"
+                                font.pixelSize: 14
+                                color: root.seal
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            Text {
+                                text: Qt.formatDate(dashboardContent.now, "dddd, MMMM d")
+                                font.family: root.barFont
+                                font.pixelSize: 13
+                                font.weight: Font.DemiBold
+                                color: root.ink
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    dashboardContent.activeDetailView = "calendar"
+                                    if (root) root.dashboardDetail = "calendar"
+                                }
+                            }
+                        }
+
+                        // Right Pill: Live Greeting Tag
+                        Rectangle {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: 22
+                            radius: 11
+                            color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                            width: greetingRow.implicitWidth + 16
+
+                            Row {
+                                id: greetingRow
+                                anchors.centerIn: parent
+                                spacing: 4
+
+                                Text {
+                                    text: dashboardContent.timeGreeting
+                                    font.family: root.barFont
+                                    font.pixelSize: 10
+                                    font.weight: Font.Bold
+                                    font.letterSpacing: 0.4
+                                    color: root.seal
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+                        }
+                    }
+
+                    // ── BOTTOM ROW: Day Progress or Resume Track ──
+                    Item {
+                        id: bottomTimeRow
+                        anchors.bottom: parent.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: 26
+
+                        // State A: Resume Track Chip (if a song was paused)
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 13
+                            visible: dashboardContent.curTitle !== ""
+                            color: resumeMa.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.20) : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.09)
+                            Behavior on color { ColorAnimation { duration: 150 } }
+
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: 6
+
+                                IconText {
+                                    text: "play_arrow"
+                                    font.pixelSize: 16
+                                    color: root.seal
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+
+                                Text {
+                                    text: "Resume: " + dashboardContent.curTitle
+                                    font.family: root.barFont
+                                    font.pixelSize: 11
+                                    font.weight: Font.Medium
+                                    color: root.ink
+                                    elide: Text.ElideRight
+                                    width: Math.min(implicitWidth, timeDateWidget.width - 80)
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+
+                            MouseArea {
+                                id: resumeMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    dashboardContent.showMediaManually = true
+                                    if (mprisSel.player) mprisSel.player.play()
+                                }
+                            }
+                        }
+
+                        // State B: Day Completion Bar (when no media is paused/loaded)
+                        Item {
+                            anchors.fill: parent
+                            visible: dashboardContent.curTitle === ""
+
+                            Row {
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                spacing: 4
+
+                                IconText {
+                                    text: "bedtime"
+                                    font.pixelSize: 12
+                                    color: root.sumiHi
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+
+                                Text {
+                                    text: dashboardContent.dayProgressPercent + "% of day completed"
+                                    font.family: root.barFont
+                                    font.pixelSize: 10
+                                    font.weight: Font.Medium
+                                    color: root.sumiHi
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+
+                            Text {
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                text: dashboardContent.remainingHoursToday
+                                font.family: root.barFont
+                                font.pixelSize: 10
+                                font.weight: Font.Medium
+                                color: root.seal
+                                opacity: 0.85
+                            }
+
+                            // Sleek continuous micro-bar (borderless)
+                            Rectangle {
+                                anchors.bottom: parent.bottom
+                                anchors.bottomMargin: -4
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                height: 3
+                                radius: 1.5
+                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+
+                                Rectangle {
+                                    anchors.left: parent.left
+                                    anchors.top: parent.top
+                                    anchors.bottom: parent.bottom
+                                    width: Math.max(height, parent.width * (dashboardContent.dayProgressPercent / 100))
+                                    radius: 1.5
+                                    color: root.seal
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ── CENTER HERO: Massive Display Clock (Dead Center of the Whole Pill) ──
+                Item {
+                    id: heroClockContainer
+                    anchors.centerIn: parent
+                    anchors.verticalCenterOffset: 5
+                    width: heroClockRow.implicitWidth
+                    height: heroClockRow.implicitHeight
+                    scale: clockMa.pressed ? 0.96 : (clockMa.containsMouse ? 1.02 : 1.0)
+                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+
+                    Row {
+                        id: heroClockRow
+                        anchors.centerIn: parent
+                        spacing: 3
+
+                        // Hour Digits
+                        Text {
+                            text: dashboardContent.clockHours
+                            font.family: biggerFont.name.length > 0 ? biggerFont.name : root.barFont
+                            font.pixelSize: 76
+                            font.weight: Font.Bold
+                            font.letterSpacing: 0.0
+                            color: root.ink
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        // Soft Breathing Colon
+                        Text {
+                            text: ":"
+                            font.family: biggerFont.name.length > 0 ? biggerFont.name : root.barFont
+                            font.pixelSize: 64
+                            font.weight: Font.Light
+                            color: root.seal
+                            opacity: colonPulse.pulse
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.verticalCenterOffset: -4
+                        }
+
+                        // Minute Digits
+                        Text {
+                            text: dashboardContent.clockMinutes
+                            font.family: biggerFont.name.length > 0 ? biggerFont.name : root.barFont
+                            font.pixelSize: 76
+                            font.weight: Font.Bold
+                            font.letterSpacing: 0.0
+                            color: root.seal
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        // Right Metadata: AM/PM + Week Number
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.verticalCenterOffset: 2
+                            spacing: 3
+                            leftPadding: 8
+
+                            Text {
+                                text: dashboardContent.clockAmPm
+                                font.family: root.barFont
+                                font.pixelSize: 14
+                                font.weight: Font.Bold
+                                font.letterSpacing: 0.5
+                                color: root.ink
+                                opacity: 0.75
+                                visible: text !== ""
+                            }
+
+                            Text {
+                                text: "W" + dashboardContent.getWeekNumber()
+                                font.family: root.barFont
+                                font.pixelSize: 11
+                                font.weight: Font.Bold
+                                font.letterSpacing: 0.5
+                                color: root.color03
+                                opacity: 0.85
+                            }
+                        }
+                    }
+
+                    MouseArea {
+                        id: clockMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            dashboardContent.activeDetailView = "calendar"
+                            if (root) root.dashboardDetail = "calendar"
+                        }
+                    }
+
+                    TooltipMixin {
+                        root: dashboardContent.root
+                        owner: heroClockContainer
+                        text: "Open Calendar"
+                    }
+                }
+            }
         } // end rightCol
     } // end Row
 } // end mainControls
