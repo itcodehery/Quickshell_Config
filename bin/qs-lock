@@ -4,11 +4,6 @@ set -euo pipefail
 
 LOCK_CONFIG="$HOME/.config/quickshell/lock/shell.qml"
 
-# Prevent multiple lock processes
-if pgrep -f "quickshell/lock/shell.qml" >/dev/null; then
-    exit 0
-fi
-
 # Ensure Wayland platform variables
 export QT_QPA_PLATFORM="wayland"
 export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
@@ -33,5 +28,5 @@ pkill -f '[o]rg.omarchy.screensaver' 2>/dev/null || true
 SNAPSHOT_PATH="${XDG_RUNTIME_DIR:-/tmp}/qs-lock-bg.png"
 grim -l 0 "$SNAPSHOT_PATH" 2>/dev/null || true
 
-# Start Quickshell Lockscreen
+# Start Quickshell Lockscreen (-n ensures duplicate invocations exit cleanly without conflict)
 exec /usr/bin/qs -n -p "$LOCK_CONFIG"

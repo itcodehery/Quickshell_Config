@@ -1,0 +1,224 @@
+#!/usr/bin/env python3
+import sys
+import json
+import os
+import subprocess
+import re
+
+TOGGLE_DIR = os.path.expanduser("~/.local/state/omarchy/toggles/hypr")
+MIRROR_LUA = os.path.join(TOGGLE_DIR, "internal-monitor-mirror.lua")
+MIRROR_CONF = os.path.join(TOGGLE_DIR, "internal-monitor-mirror.conf")
+DISABLE_LUA = os.path.join(TOGGLE_DIR, "internal-monitor-disable.lua")
+DISABLE_CONF = os.path.join(TOGGLE_DIR, "internal-monitor-disable.conf")
+PC_ONLY_CONF = os.path.join(TOGGLE_DIR, "external-monitor-disable.conf")
+
+def get_monitors():
+    try:
+        out = subprocess.check_output(["hyprctl", "monitors", "all", "-j"], stderr=subprocess.DEVNULL)
+        monitors = json.loads(out)
+    except Exception:
+        monitors = []
+    
+    internal = None
+    externals = []
+    
+    for m in monitors:
+        name = m.get("name", "")
+        if re.search(r"^(eDP|LVDS|DSI)-", name, re.IGNORECASE):
+            if internal is None:
+                internal = m
+        else:
+            externals.append(m)
+            
+    return monitors, internal, externals
+
+def detect_mode(monitors, internal, externals):
+    has_ext = len(externals) > 0
+    
+    # 1. Check if any monitor is mirroring
+    for m in monitors:
+        if m.get("mirrorOf", "none") != "none":
+            return "mirror"
+    if os.path.exists(MIRROR_LUA) or os.path.exists(MIRROR_CONF):
+        return "mirror"
+        
+    # 2. Check if internal is disabled and external is enabled -> Second screen
+    if internal and internal.get("disabled", False):
+        return "second"
+    if os.path.exists(DISABLE_LUA) or os.path.exists(DISABLE_CONF):
+        return "second"
+        
+    # 3. Check if external is disabled and internal is enabled -> PC screen
+    if has_ext and all(m.get("disabled", False) for m in externals):
+        return "pc"
+    if os.path.exists(PC_ONLY_CONF):
+        return "pc"
+        
+    # 4. Default is extend
+    return "extend"
+
+def notify(msg):
+    try:
+        subprocess.run(["omarchy-notification-send", "-g", "󰍹", msg], check=False, stderr=subprocess.DEVNULL)
+    except Exception:
+        try:
+            subprocess.run(["notify-send", "-a", "Project", "Project Settings", msg], check=False, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+
+def clean_toggles():
+    for f in [MIRROR_LUA, MIRROR_CONF, DISABLE_LUA, DISABLE_CONF, PC_ONLY_CONF]:
+        try:
+            if os.path.exists(f):
+                os.remove(f)
+        except OSError:
+            pass
+
+def apply_mode(target_mode):
+    os.makedirs(TOGGLE_DIR, exist_ok=True)
+    monitors, internal, externals = get_monitors()
+    int_name = internal.get("name", "eDP-1") if internal else "eDP-1"
+    ext_name = externals[0].get("name", "") if externals else ""
+
+    if target_mode == "extend":
+        clean_toggles()
+        if int_name:
+            subprocess.run(["hyprctl", "keyword", "monitor", f"{int_name},preferred,0x0,1.25"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if ext_name:
+            subprocess.run(["hyprctl", "keyword", "monitor", f"{ext_name},preferred,auto,1"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            subprocess.run(["hyprctl", "keyword", "monitor", ",preferred,auto,1"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["hyprctl", "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        notify("Project mode: Extend")
+
+    elif target_mode == "mirror":
+        clean_toggles()
+        target_ext = ext_name if ext_name else ""
+        if ext_name:
+            subprocess.run(["hyprctl", "keyword", "monitor", f"{int_name},preferred,0x0,1.25"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["hyprctl", "keyword", "monitor", f"{ext_name},preferred,auto,1,mirror,{int_name}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            subprocess.run(["hyprctl", "keyword", "monitor", f",preferred,auto,1,mirror,{int_name}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        with open(MIRROR_LUA, "w") as f:
+            f.write(f'hl.monitor({{ output = "{target_ext}", mode = "preferred", position = "auto", scale = 1, mirror = "{int_name}" }})\n')
+        with open(MIRROR_CONF, "w") as f:
+            f.write(f'monitor = {target_ext}, preferred, auto, 1, mirror, {int_name}\n')
+            
+        subprocess.run(["hyprctl", "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if ext_name:
+            notify(f"Mirroring enabled ({ext_name})")
+        else:
+            notify("Project mode: Mirror (duplicate display)")
+
+    elif target_mode == "second":
+        if not ext_name:
+            notify("Cannot disable internal screen without external display")
+            return False
+        clean_toggles()
+        subprocess.run(["hyprctl", "keyword", "monitor", f"{ext_name},preferred,auto,1"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["hyprctl", "keyword", "monitor", f"{int_name},disable"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        with open(DISABLE_LUA, "w") as f:
+            f.write(f'hl.monitor({{ output = "{int_name}", disabled = true }})\n')
+        with open(DISABLE_CONF, "w") as f:
+            f.write(f'monitor = {int_name}, disable\n')
+            
+        subprocess.run(["hyprctl", "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        notify("Project mode: Second screen only")
+
+    elif target_mode == "pc":
+        clean_toggles()
+        subprocess.run(["hyprctl", "keyword", "monitor", f"{int_name},preferred,0x0,1.25"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if ext_name:
+            subprocess.run(["hyprctl", "keyword", "monitor", f"{ext_name},disable"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            with open(PC_ONLY_CONF, "w") as f:
+                f.write(f'monitor = {ext_name}, disable\n')
+        else:
+            subprocess.run(["hyprctl", "keyword", "monitor", ",disable"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            with open(PC_ONLY_CONF, "w") as f:
+                f.write('monitor = , disable\n')
+        subprocess.run(["hyprctl", "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        notify("Project mode: PC screen only")
+
+    return True
+
+def get_status_dict():
+    monitors, internal, externals = get_monitors()
+    mode = detect_mode(monitors, internal, externals)
+    has_ext = len(externals) > 0
+    
+    labels = {
+        "extend": "Extend",
+        "mirror": "Mirror",
+        "second": "Second screen",
+        "pc": "PC screen"
+    }
+    
+    icons = {
+        "extend": "splitscreen",
+        "mirror": "filter_none",
+        "second": "connected_tv",
+        "pc": "laptop_chromebook"
+    }
+    
+    return {
+        "mode": mode,
+        "label": labels.get(mode, "Extend"),
+        "icon": icons.get(mode, "cast"),
+        "active": mode != "extend",
+        "has_external": has_ext,
+        "internal": internal.get("name", "") if internal else "",
+        "external": externals[0].get("name", "") if externals else ""
+    }
+
+def cycle_mode(reverse=False):
+    monitors, internal, externals = get_monitors()
+    current = detect_mode(monitors, internal, externals)
+    has_ext = len(externals) > 0
+    
+    # If no external monitor, toggle between extend and mirror
+    if not has_ext:
+        modes = ["extend", "mirror"]
+    else:
+        modes = ["extend", "mirror", "second", "pc"]
+        
+    try:
+        idx = modes.index(current)
+    except ValueError:
+        idx = 0
+        
+    if reverse:
+        next_idx = (idx - 1) % len(modes)
+    else:
+        next_idx = (idx + 1) % len(modes)
+        
+    target = modes[next_idx]
+    apply_mode(target)
+    return target
+
+def main():
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "status"
+    
+    if cmd == "status":
+        print(json.dumps(get_status_dict()))
+    elif cmd in ("cycle", "next"):
+        cycle_mode(reverse=False)
+        print(json.dumps(get_status_dict()))
+    elif cmd in ("prev", "reverse"):
+        cycle_mode(reverse=True)
+        print(json.dumps(get_status_dict()))
+    elif cmd == "toggle":
+        current = get_status_dict()["mode"]
+        target = "mirror" if current == "extend" else "extend"
+        apply_mode(target)
+        print(json.dumps(get_status_dict()))
+    elif cmd == "set" and len(sys.argv) > 2:
+        apply_mode(sys.argv[2])
+        print(json.dumps(get_status_dict()))
+    else:
+        print("Usage: qs-project-ctl {status|cycle|next|prev|toggle|set <mode>}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

@@ -36,7 +36,7 @@ PanelWindow {
     readonly property real dashboardBottomRadius: barSlot.root.barPosition === "bottom" ? 10 : 24
 
     readonly property int notifTargetHeight: (island && island.notifPeekActive && typeof islandNotifPeekItem !== "undefined")
-        ? (island.notifPeekBody !== "" ? Math.min(88, Math.max(64, islandNotifPeekItem.desiredCardHeight)) : 44)
+        ? (island.notifPeekBody !== "" ? Math.min(94, Math.max(70, islandNotifPeekItem.desiredCardHeight)) : 46)
         : barSlot.root.v2BarHeight
     readonly property int chargingTargetHeight: barSlot.root.v2BarHeight
     readonly property int barExpandedHeight: 156
@@ -55,7 +55,7 @@ PanelWindow {
     readonly property int shellRadius: isDashboardActive
         ? 24
         : ((island && island.notifPeekActive && island.notifPeekBody !== "")
-            ? 18
+            ? 20
             : (isHoverExpanded ? 24 : Math.round(shellVisibleHeight / 2)))
     readonly property real shellTargetWidth: isDashboardActive
         ? dashboardExpandedWidth
@@ -126,13 +126,31 @@ PanelWindow {
 
     function formatTitleCase(str) {
         if (!str || typeof str !== "string") return ""
-        return str.replace(/\b[a-zA-Z]/g, function(c) { return c.toUpperCase() })
+        return str.replace(/\w\S*/g, function(txt) {
+            return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+        })
     }
 
     function formatSentenceCase(str) {
         if (!str || typeof str !== "string") return ""
         var s = str.trim()
         if (s.length === 0) return ""
+        if (s.length > 1 && s === s.toUpperCase()) {
+            s = s.toLowerCase()
+        }
+        return s.charAt(0).toUpperCase() + s.slice(1)
+    }
+
+    function formatNotificationBody(str) {
+        if (!str || typeof str !== "string") return ""
+        var s = str.replace(/<a\b[^>]*>(.*?)<\/a>/gi, "$1")
+                   .replace(/<br\s*\/?>/gi, " ")
+                   .replace(/<[^>]*>/g, "")
+                   .trim()
+        if (s.length === 0) return ""
+        if (s.length > 1 && s === s.toUpperCase()) {
+            s = s.toLowerCase()
+        }
         return s.charAt(0).toUpperCase() + s.slice(1)
     }
 
@@ -2093,13 +2111,14 @@ PanelWindow {
 
             readonly property bool hasBody: island.notifPeekBody !== ""
             readonly property real maxContentWidth: Math.min(540, barSlot.width - 60)
-            readonly property real desiredTextWidth: Math.max(summaryText.implicitWidth, Math.min(390, bodyText.implicitWidth))
-            readonly property real contentTargetWidth: 16 + (hasBody ? 34 : 22) + 12 + Math.max(160, desiredTextWidth) + 12 + 22 + 16
-            readonly property int desiredCardHeight: 20 + Math.max(hasBody ? 34 : 22, notifTextCol.implicitHeight)
+            readonly property real desiredTextWidth: Math.max(headerRow.implicitWidth, Math.max(summaryText.implicitWidth, Math.min(380, bodyText.implicitWidth)))
+            readonly property real contentTargetWidth: 16 + (hasBody ? 38 : 24) + 12 + Math.max(160, desiredTextWidth) + 12 + 24 + 16
+            readonly property int desiredCardHeight: hasBody ? Math.max(70, notifContentCol.implicitHeight + 22) : 46
 
             width: Math.min(maxContentWidth, Math.max(300, contentTargetWidth))
             height: island.height
             color: "transparent"
+            border.width: 0
             clip: true
             opacity: island.islandCollapsedOpacity * island.notifPeekProgress * (1.0 - island.dictationProgress) * (1.0 - island.chargingProgress)
             visible: opacity > 0.001
@@ -2134,65 +2153,83 @@ PanelWindow {
             Row {
                 id: notifPeekContentRow
                 anchors.centerIn: parent
-                width: parent.width - 28
+                width: parent.width - 24
                 spacing: 12
 
                 // App icon / badge
-                Item {
-                    width: islandNotifPeekItem.hasBody ? 34 : 22
+                Rectangle {
+                    id: notifIconBadge
+                    width: islandNotifPeekItem.hasBody ? 38 : 24
                     height: width
+                    radius: islandNotifPeekItem.hasBody ? 11 : (height / 2)
                     anchors.verticalCenter: parent.verticalCenter
+                    color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.08)
+                    border.width: 0
 
                     Image {
+                        id: notifImg
                         anchors.fill: parent
+                        anchors.margins: islandNotifPeekItem.hasBody ? 4 : 2
                         visible: island.notifPeekIcon !== "" && (island.notifPeekIcon.startsWith("file://") || island.notifPeekIcon.startsWith("/"))
-                        source: (island.notifPeekIcon !== "" && (island.notifPeekIcon.startsWith("file://") || island.notifPeekIcon.startsWith("/"))) ? island.notifPeekIcon : ""
+                        source: visible ? island.notifPeekIcon : ""
                         fillMode: Image.PreserveAspectFit
                         mipmap: true
+                        smooth: true
                     }
 
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: islandNotifPeekItem.hasBody ? 9 : (height / 2)
-                        visible: !island.notifPeekIcon || (!island.notifPeekIcon.startsWith("file://") && !island.notifPeekIcon.startsWith("/"))
-                        color: Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.16)
-                        border.color: Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.32)
-                        border.width: 1
-
-                        IconText {
-                            anchors.centerIn: parent
-                            font.pixelSize: islandNotifPeekItem.hasBody ? 16 : 13
-                            color: barSlot.accent
-                            text: island.getNotifIcon(island.notifPeekApp, island.notifPeekIcon)
-                        }
+                    IconText {
+                        anchors.centerIn: parent
+                        visible: !notifImg.visible
+                        font.pixelSize: islandNotifPeekItem.hasBody ? 18 : 13
+                        color: barSlot.accent
+                        text: island.getNotifIcon(island.notifPeekApp, island.notifPeekIcon)
                     }
                 }
 
                 // Title + multi-line body column
                 Column {
-                    id: notifTextCol
-                    width: parent.width - (islandNotifPeekItem.hasBody ? 34 : 22) - 12 - 22 - 12
+                    id: notifContentCol
+                    width: parent.width - notifIconBadge.width - notifCloseBtn.width - notifPeekContentRow.spacing * 2
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 2
+                    spacing: 2.5
 
-                    // App / Category tiny subtitle if available and body is present (First Letter Capitalized / Title Case)
-                    Text {
+                    // App / Category header row (when body is present)
+                    Row {
+                        id: headerRow
                         visible: islandNotifPeekItem.hasBody && island.notifPeekApp !== "" && island.notifPeekApp.toLowerCase() !== island.notifPeekSummary.toLowerCase()
-                        text: barSlot.formatTitleCase(island.notifPeekApp.replace(/[-_]/g, " "))
-                        font.family: "Genova"
-                        font.pixelSize: 9
-                        font.weight: Font.Bold
-                        font.letterSpacing: 0.3
-                        color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.55)
-                        elide: Text.ElideRight
+                        spacing: 6
                         width: parent.width
+
+                        Text {
+                            text: barSlot.formatTitleCase(island.notifPeekApp.replace(/[-_]/g, " "))
+                            font.family: barSlot.root.barFont || "Genova"
+                            font.pixelSize: 10
+                            font.weight: Font.DemiBold
+                            color: barSlot.accent
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            text: "·"
+                            font.family: barSlot.root.barFont || "Genova"
+                            font.pixelSize: 10
+                            color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.4)
+                        }
+
+                        Text {
+                            text: "Just now"
+                            font.family: barSlot.root.barFont || "Genova"
+                            font.pixelSize: 10
+                            font.weight: Font.Medium
+                            color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.5)
+                        }
                     }
 
-                    // Summary / Title (First Letter Capitalized / Title Case, full text wrap)
+                    // Summary / Title
                     Text {
                         id: summaryText
                         text: barSlot.formatTitleCase(island.notifPeekSummary !== "" ? island.notifPeekSummary : island.notifPeekApp)
-                        font.family: "Genova"
+                        font.family: barSlot.root.barFont || "Genova"
                         font.pixelSize: islandNotifPeekItem.hasBody ? 13 : 12
                         font.weight: Font.Bold
                         color: barSlot.root.ink
@@ -2202,16 +2239,18 @@ PanelWindow {
                         width: parent.width
                     }
 
-                    // Body / Description (Sentence Case, multi-line wrap)
+                    // Body / Description
                     Text {
                         id: bodyText
                         visible: islandNotifPeekItem.hasBody
-                        text: barSlot.formatSentenceCase(island.notifPeekBody)
-                        font.family: "Genova"
+                        text: barSlot.formatNotificationBody(island.notifPeekBody)
+                        font.family: barSlot.root.barFont || "Genova"
                         font.pixelSize: 11
                         font.weight: Font.Normal
-                        lineHeight: 1.15
-                        color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.82)
+                        lineHeight: 1.2
+                        color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.78)
+                        linkColor: barSlot.accent
+                        textFormat: Text.StyledText
                         elide: Text.ElideRight
                         maximumLineCount: 3
                         wrapMode: Text.WordWrap
@@ -2221,12 +2260,13 @@ PanelWindow {
 
                 // Close button
                 Rectangle {
-                    id: closeBtn
-                    width: 22
-                    height: 22
-                    radius: 11
+                    id: notifCloseBtn
+                    width: 24
+                    height: 24
+                    radius: 12
                     anchors.verticalCenter: parent.verticalCenter
-                    color: closeHov.hovered ? Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.15) : "transparent"
+                    color: closeHov.hovered ? Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.12) : "transparent"
+                    border.width: 0
                     Behavior on color { ColorAnimation { duration: 150 } }
 
                     IconText {

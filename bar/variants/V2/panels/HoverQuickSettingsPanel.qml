@@ -81,8 +81,10 @@ Item {
             if (!stProc.running) stProc.running = true
             if (!omarchyUpdateProc.running) omarchyUpdateProc.running = true
             if (!omarchyVerProc.running && hoverPanel.omarchyVersion === "") omarchyVerProc.running = true
+            if (!projectStatusProc.running) projectStatusProc.running = true
         }
     }
+    Component.onCompleted: projectStatusProc.running = true
 
     // Omarchy update & version detection
     property bool omarchyUpdateAvailable: false
@@ -106,6 +108,64 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: {
                 hoverPanel.omarchyUpdateAvailable = (this.text.trim() === "YES")
+            }
+        }
+    }
+
+    // Project / Display projection settings
+    readonly property string projectctlPath: Quickshell.env("HOME") + "/.config/quickshell/bin/qs-project-ctl"
+    property string projectMode: "extend"
+    property string projectLabel: "Extend"
+    property string projectIcon: "splitscreen"
+    property bool projectActive: false
+
+    Process {
+        id: projectStatusProc
+        command: [hoverPanel.projectctlPath, "status"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    var data = JSON.parse(this.text.trim())
+                    hoverPanel.projectMode = data.mode || "extend"
+                    hoverPanel.projectLabel = data.label || "Extend"
+                    hoverPanel.projectIcon = data.icon || "splitscreen"
+                    hoverPanel.projectActive = (data.active === true)
+                } catch(e) {}
+            }
+        }
+    }
+
+    Process {
+        id: projectCycleProc
+        command: [hoverPanel.projectctlPath, "cycle"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    var data = JSON.parse(this.text.trim())
+                    hoverPanel.projectMode = data.mode || "extend"
+                    hoverPanel.projectLabel = data.label || "Extend"
+                    hoverPanel.projectIcon = data.icon || "splitscreen"
+                    hoverPanel.projectActive = (data.active === true)
+                } catch(e) {}
+            }
+        }
+    }
+
+    Process {
+        id: projectPrevProc
+        command: [hoverPanel.projectctlPath, "prev"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    var data = JSON.parse(this.text.trim())
+                    hoverPanel.projectMode = data.mode || "extend"
+                    hoverPanel.projectLabel = data.label || "Extend"
+                    hoverPanel.projectIcon = data.icon || "splitscreen"
+                    hoverPanel.projectActive = (data.active === true)
+                } catch(e) {}
             }
         }
     }
@@ -272,6 +332,8 @@ Item {
         if (visible) {
             if (!omarchyUpdateProc.running) omarchyUpdateProc.running = true
             if (!omarchyVerProc.running && hoverPanel.omarchyVersion === "") omarchyVerProc.running = true
+            projectStatusProc.running = false
+            projectStatusProc.running = true
             if (hoverPanel.root && (!hoverPanel.root.archUpdates || hoverPanel.root.archUpdates.length === 0)) {
                 hoverPanel.root.archRefreshTick++
             }
@@ -1339,19 +1401,19 @@ Item {
                                         }
                                     }
 
-                                    // 5. Panel Border
+                                    // 5. Project (Mirror / Extend / Display settings)
                                     Rectangle {
                                         width: parent.chipW
                                         height: parent.height
                                         radius: 12
-                                        color: hoverPanel.root.panelTooltipBorderEnabled
-                                            ? (pbHov.hovered ? Qt.lighter(hoverPanel.accent, 1.1) : hoverPanel.accent)
-                                            : (pbHov.hovered
+                                        color: hoverPanel.projectActive
+                                            ? (projHov.hovered ? Qt.lighter(hoverPanel.accent, 1.1) : hoverPanel.accent)
+                                            : (projHov.hovered
                                                 ? Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.15)
                                                 : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.08))
                                         border.width: 1
-                                        border.color: hoverPanel.root.panelTooltipBorderEnabled ? "transparent" : Qt.rgba(255, 255, 255, 0.04)
-                                        scale: pbHov.hovered ? 1.03 : 1.0
+                                        border.color: hoverPanel.projectActive ? "transparent" : Qt.rgba(255, 255, 255, 0.04)
+                                        scale: projHov.hovered ? 1.03 : 1.0
                                         Behavior on scale { NumberAnimation { duration: 100 } }
 
                                         Row {
@@ -1359,23 +1421,32 @@ Item {
                                             spacing: 4
                                             IconText {
                                                 anchors.verticalCenter: parent.verticalCenter
-                                                text: "select_window"
+                                                text: hoverPanel.projectIcon !== "" ? hoverPanel.projectIcon : "cast"
                                                 font.pixelSize: 13
-                                                color: hoverPanel.root.panelTooltipBorderEnabled ? hoverPanel.root.paper : hoverPanel.root.ink
+                                                color: hoverPanel.projectActive ? hoverPanel.root.paper : hoverPanel.root.ink
                                             }
                                             Text {
                                                 anchors.verticalCenter: parent.verticalCenter
-                                                text: "Panel Border"
+                                                text: hoverPanel.projectLabel !== "" ? hoverPanel.projectLabel : "Project"
                                                 font.family: hoverPanel.root.barFont
                                                 font.pixelSize: 10
                                                 font.weight: Font.DemiBold
-                                                color: hoverPanel.root.panelTooltipBorderEnabled ? hoverPanel.root.paper : hoverPanel.root.ink
+                                                color: hoverPanel.projectActive ? hoverPanel.root.paper : hoverPanel.root.ink
                                             }
                                         }
-                                        HoverHandler { id: pbHov; cursorShape: Qt.PointingHandCursor }
+                                        HoverHandler { id: projHov; cursorShape: Qt.PointingHandCursor }
                                         MouseArea {
                                             anchors.fill: parent
-                                            onClicked: hoverPanel.root.panelTooltipBorderEnabled = !hoverPanel.root.panelTooltipBorderEnabled
+                                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                            onClicked: (mouse) => {
+                                                if (mouse.button === Qt.RightButton) {
+                                                    projectPrevProc.running = false
+                                                    projectPrevProc.running = true
+                                                } else {
+                                                    projectCycleProc.running = false
+                                                    projectCycleProc.running = true
+                                                }
+                                            }
                                         }
                                     }
                                 }

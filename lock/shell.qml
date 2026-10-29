@@ -637,10 +637,6 @@ ShellRoot {
     function completeUnlock() {
         unlockSafetyTimer.stop()
         sessionLock.locked = false
-        Qt.callLater(function() {
-            Quickshell.execDetached(["bash", "-c", "kill -9 $QS_LOCK_PID 2>/dev/null; qs kill -p ~/.config/quickshell/lock/shell.qml 2>/dev/null; pkill -f 'quickshell/lock/shell.qml' 2>/dev/null"])
-            Qt.quit()
-        })
     }
 
     Timer {
@@ -730,7 +726,6 @@ ShellRoot {
         onLockedChanged: {
             if (!locked) {
                 Qt.callLater(function() {
-                    Quickshell.execDetached(["bash", "-c", "kill -9 $QS_LOCK_PID 2>/dev/null; qs kill -p ~/.config/quickshell/lock/shell.qml 2>/dev/null; pkill -f 'quickshell/lock/shell.qml' 2>/dev/null"])
                     Qt.quit()
                 })
             }

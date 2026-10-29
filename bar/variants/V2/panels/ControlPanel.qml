@@ -24,6 +24,63 @@ PanelWindow {
     property bool powerOpen: false
     property bool wsOpen: false   // Workspaces collapsible inside the WW fly-out
     readonly property string barctlPath: Quickshell.env("HOME") + "/.config/quickshell/bin/qs-barctl"
+    readonly property string projectctlPath: Quickshell.env("HOME") + "/.config/quickshell/bin/qs-project-ctl"
+
+    property string projectMode: "extend"
+    property string projectLabel: "Extend"
+    property string projectIcon: "splitscreen"
+    property bool projectActive: false
+
+    Process {
+        id: projectStatusProc
+        command: [ctrlPanel.projectctlPath, "status"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    var data = JSON.parse(this.text.trim())
+                    ctrlPanel.projectMode = data.mode || "extend"
+                    ctrlPanel.projectLabel = data.label || "Extend"
+                    ctrlPanel.projectIcon = data.icon || "splitscreen"
+                    ctrlPanel.projectActive = (data.active === true)
+                } catch(e) {}
+            }
+        }
+    }
+
+    Process {
+        id: projectCycleProc
+        command: [ctrlPanel.projectctlPath, "cycle"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    var data = JSON.parse(this.text.trim())
+                    ctrlPanel.projectMode = data.mode || "extend"
+                    ctrlPanel.projectLabel = data.label || "Extend"
+                    ctrlPanel.projectIcon = data.icon || "splitscreen"
+                    ctrlPanel.projectActive = (data.active === true)
+                } catch(e) {}
+            }
+        }
+    }
+
+    Process {
+        id: projectPrevProc
+        command: [ctrlPanel.projectctlPath, "prev"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    var data = JSON.parse(this.text.trim())
+                    ctrlPanel.projectMode = data.mode || "extend"
+                    ctrlPanel.projectLabel = data.label || "Extend"
+                    ctrlPanel.projectIcon = data.icon || "splitscreen"
+                    ctrlPanel.projectActive = (data.active === true)
+                } catch(e) {}
+            }
+        }
+    }
 
     // ── System info card ──────────────────────────────────────────────────────
     property string siHostname: ""
@@ -66,7 +123,14 @@ PanelWindow {
         }
     }
     // Fetch once when the panel first opens
-    onVisibleChanged: { if (visible && !ctrlPanel.siFetched) siFetchProc.running = true }
+    onVisibleChanged: {
+        if (visible) {
+            if (!ctrlPanel.siFetched) siFetchProc.running = true
+            projectStatusProc.running = false
+            projectStatusProc.running = true
+        }
+    }
+    Component.onCompleted: projectStatusProc.running = true
 
     // Same toggle path as NotificationSilenceWidget; state comes back via
     // root.notifSilenced once the status indicators are refreshed.
@@ -247,6 +311,7 @@ PanelWindow {
         property bool active: false
         property color accent: root.seal
         signal activated()
+        signal secondaryActivated()
         readonly property color fg: active ? root.paper : root.ink
         height: 56
         radius: height / 2
@@ -296,7 +361,14 @@ PanelWindow {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: _qt.activated()
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onClicked: (mouse) => {
+                if (mouse.button === Qt.RightButton) {
+                    _qt.secondaryActivated()
+                } else {
+                    _qt.activated()
+                }
+            }
         }
     }
 
@@ -571,11 +643,18 @@ PanelWindow {
                 }
                 QuickTile {
                     width: parent.tileW
-                    icon: "select_window"
-                    title: "Panel border"
-                    subtitle: root.panelTooltipBorderEnabled ? "On" : "Off"
-                    active: root.panelTooltipBorderEnabled
-                    onActivated: root.panelTooltipBorderEnabled = !root.panelTooltipBorderEnabled
+                    icon: ctrlPanel.projectIcon !== "" ? ctrlPanel.projectIcon : "cast"
+                    title: "Project"
+                    subtitle: ctrlPanel.projectLabel !== "" ? ctrlPanel.projectLabel : "Extend"
+                    active: ctrlPanel.projectActive
+                    onActivated: {
+                        projectCycleProc.running = false
+                        projectCycleProc.running = true
+                    }
+                    onSecondaryActivated: {
+                        projectPrevProc.running = false
+                        projectPrevProc.running = true
+                    }
                 }
             }
 

@@ -105,7 +105,7 @@ Item {
 
     function formatTitleCase(str) {
         if (!str) return ""
-        return String(str).replace(/\b\w+/g, function(txt) {
+        return String(str).replace(/\w\S*/g, function(txt) {
             return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
         })
     }
@@ -114,6 +114,22 @@ Item {
         if (!str) return ""
         let s = String(str).trim()
         if (s.length === 0) return ""
+        if (s.length > 1 && s === s.toUpperCase()) {
+            s = s.toLowerCase()
+        }
+        return s.charAt(0).toUpperCase() + s.slice(1)
+    }
+
+    function formatNotificationBody(str) {
+        if (!str) return ""
+        let s = String(str).replace(/<a\b[^>]*>(.*?)<\/a>/gi, "$1")
+                           .replace(/<br\s*\/?>/gi, " ")
+                           .replace(/<[^>]*>/g, "")
+                           .trim()
+        if (s.length === 0) return ""
+        if (s.length > 1 && s === s.toUpperCase()) {
+            s = s.toLowerCase()
+        }
         return s.charAt(0).toUpperCase() + s.slice(1)
     }
 
@@ -213,8 +229,7 @@ Item {
                     radius: 29
                     anchors.horizontalCenter: parent.horizontalCenter
                     color: notifSection.unreadCount > 0 ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                    border.color: notifSection.unreadCount > 0 ? root.seal : "transparent"
-                    border.width: notifSection.unreadCount > 0 ? 1.5 : 0
+                    border.width: 0
 
                     IconText {
                         anchors.centerIn: parent
@@ -257,13 +272,15 @@ Item {
 
                     // DND Toggle Button
                     Rectangle {
-                        width: 110
+                        width: Math.max(120, dndBtnRow.implicitWidth + 24)
                         height: 32
                         radius: 16
                         color: dndBtnMa.containsMouse ? root.fillHover : (notifSection.isDnd ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08))
+                        border.width: 0
                         Behavior on color { ColorAnimation { duration: 150 } }
 
                         Row {
+                            id: dndBtnRow
                             anchors.centerIn: parent
                             spacing: 6
 
@@ -276,7 +293,7 @@ Item {
 
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: notifSection.isDnd ? "Disable DND" : "Enable DND"
+                                text: notifSection.isDnd ? "Do Not Disturb On" : "Do Not Disturb"
                                 font.family: root.barFont
                                 font.pixelSize: 10
                                 font.weight: Font.Medium
@@ -299,6 +316,7 @@ Item {
                         width: 100
                         height: 32
                         radius: 16
+                        border.width: 0
                         enabled: notifSection.currentList.length > 0
                         opacity: enabled ? 1.0 : 0.4
                         color: clearBtnMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
@@ -405,6 +423,7 @@ Item {
                     height: notifCardRow.implicitHeight + 16
                     radius: 14
                     color: notifCardMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.05)
+                    border.width: 0
                     Behavior on color { ColorAnimation { duration: 120 } }
 
                     Row {
@@ -423,8 +442,7 @@ Item {
                             radius: 10
                             anchors.verticalCenter: parent.verticalCenter
                             color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.12)
-                            border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25)
-                            border.width: 1
+                            border.width: 0
 
                             Image {
                                 anchors.fill: parent
@@ -497,10 +515,12 @@ Item {
 
                             Text {
                                 width: parent.width
-                                text: notifSection.formatSentenceCase(modelData.body || "")
+                                text: notifSection.formatNotificationBody(modelData.body || "")
                                 font.family: root.barFont
                                 font.pixelSize: 10
                                 color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.75)
+                                linkColor: root.seal
+                                textFormat: Text.StyledText
                                 wrapMode: Text.Wrap
                                 maximumLineCount: 2
                                 elide: Text.ElideRight
@@ -515,6 +535,7 @@ Item {
                             radius: 12
                             anchors.verticalCenter: parent.verticalCenter
                             color: dismissMa.containsMouse ? root.fillHover : "transparent"
+                            border.width: 0
 
                             IconText {
                                 anchors.centerIn: parent
