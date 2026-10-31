@@ -689,7 +689,8 @@ PanelWindow {
                     options: [
                         { label: "Tanzaku",     value: "tanzaku"     },
                         { label: "Hearthstone", value: "hearthstone" },
-                        { label: "Carousel",    value: "carousel"    }
+                        { label: "Carousel",    value: "carousel"    },
+                        { label: "Gravemind",   value: "gravemind"   }
                     ]
                     current: root.pickerStyle
                     onChosen: (v) => root.pickerStyle = v

@@ -15,6 +15,7 @@ Item {
     onVisibleChanged: {
         if (visible) {
             forceActiveFocus()
+            if (tilesModel.count === 0) initTiles()
             if (!root || !root.dashboardDetail) {
                 activeDetailView = ""
                 selectCategoryByIndex(0)
@@ -23,10 +24,12 @@ Item {
     }
     Component.onCompleted: {
         forceActiveFocus()
+        initTiles()
         if (!root || !root.dashboardDetail) {
             activeDetailView = ""
             selectCategoryByIndex(0)
         }
+        recalculateGridLayout()
     }
 
     SpringPress {}
@@ -34,6 +37,351 @@ Item {
         anchors.fill: parent
         // Prevent clicks anywhere on the dashboard background from closing the dashboard
         onClicked: {}
+    }
+
+    // ── Resizable & Movable Tiles State ──
+    property bool editTilesMode: false
+    property string selectedTileId: ""
+    property string draggingTileId: ""
+    property int dragTileSpan: 1
+    property bool caffeineActive: false
+    property int cpuTemp: 45
+    readonly property color cpuTempColor: cpuTemp < 52 ? "#22d3ee" : (cpuTemp < 72 ? "#fbbf24" : "#f87171")
+
+    readonly property var defaultTiles: [
+        { id: "wifi", span: 2 },
+        { id: "bluetooth", span: 2 },
+        { id: "cpu", span: 2 },
+        { id: "memory", span: 2 },
+        { id: "notifications", span: 2 },
+        { id: "screentime", span: 2 },
+        { id: "nightlight", span: 1 },
+        { id: "caffeine", span: 1 },
+        { id: "battery", span: 1 },
+        { id: "temperature", span: 1 },
+        { id: "plugins", span: 2 },
+        { id: "updates", span: 1 },
+        { id: "lockscreen", span: 1 },
+        { id: "pomodoro", span: 1 },
+        { id: "quickshare", span: 1 },
+        { id: "theme", span: 1 },
+        { id: "wallpaper", span: 1 }
+    ]
+
+    readonly property real tileUnitWidth: Math.floor((leftCol.width - 30) / 4)
+    readonly property real tileDoubleWidth: tileUnitWidth * 2 + 10
+    readonly property real pageStride: 122 + 12
+    property int totalPageCount: 1
+    property bool showPomodoroPopup: false
+
+    ListModel {
+        id: tilesModel
+        Component.onCompleted: dashboardContent.initTiles()
+    }
+
+    property string dropTargetTileId: ""
+
+    function recalculateGridLayout() {
+        let curPage = 0
+        let curRow = 0
+        let curCol = 0
+
+        for (let i = 0; i < tilesModel.count; i++) {
+            let item = tilesModel.get(i)
+            let span = (item.span === 2) ? 2 : 1
+            if (curCol + span > 4) {
+                curRow++
+                curCol = 0
+            }
+            if (curRow >= 2) {
+                curPage++
+                curRow = 0
+            }
+
+            tilesModel.setProperty(i, "gridPage", curPage)
+            tilesModel.setProperty(i, "gridRow", curRow)
+            tilesModel.setProperty(i, "gridCol", curCol)
+
+            curCol += span
+        }
+
+        totalPageCount = Math.max(1, curPage + 1)
+        if (tilesPager) {
+            let maxScroll = Math.max(0, (totalPageCount - 1) * pageStride)
+            if (tilesPager.contentY > maxScroll) {
+                smoothScrollAnim.stop()
+                smoothScrollAnim.to = maxScroll
+                smoothScrollAnim.start()
+            }
+        }
+    }
+
+    function setTileSpan(id, newSpan) {
+        for (let i = 0; i < tilesModel.count; i++) {
+            if (tilesModel.get(i).id === id) {
+                tilesModel.setProperty(i, "span", newSpan)
+                break
+            }
+        }
+        recalculateGridLayout()
+        saveTilesLayout()
+    }
+
+    function toggleTileSpan(id) {
+        let cur = getTileSpan(id)
+        setTileSpan(id, cur === 2 ? 1 : 2)
+    }
+
+    function getTileSpan(id) {
+        for (let i = 0; i < tilesModel.count; i++) {
+            if (tilesModel.get(i).id === id) return tilesModel.get(i).span === 2 ? 2 : 1
+        }
+        return 1
+    }
+
+    function toggleEditMode(id) {
+        if (!editTilesMode) {
+            editTilesMode = true
+            selectedTileId = id || (tilesModel.count > 0 ? tilesModel.get(0).id : "")
+        } else {
+            if (id && id !== selectedTileId) {
+                selectedTileId = id
+            } else {
+                editTilesMode = false
+                selectedTileId = ""
+                dropTargetTileId = ""
+                saveTilesLayout()
+            }
+        }
+    }
+
+    function moveSelectedTile(dir) {
+        if (!selectedTileId) return
+        let idx = -1
+        for (let i = 0; i < tilesModel.count; i++) {
+            if (tilesModel.get(i).id === selectedTileId) {
+                idx = i
+                break
+            }
+        }
+        if (idx === -1) return
+        let targetIdx = idx + dir
+        if (targetIdx < 0 || targetIdx >= tilesModel.count) return
+
+        tilesModel.move(idx, targetIdx, 1)
+        recalculateGridLayout()
+        saveTilesLayout()
+
+        goToPage(getTilePageIndex(selectedTileId))
+    }
+
+    function startDraggingTile(id, globalX, globalY) {
+        draggingTileId = id
+        selectedTileId = id
+        dropTargetTileId = ""
+        dragTileSpan = getTileSpan(id)
+        if (dragPreviewItem) {
+            dragPreviewItem.currentMouseX = globalX
+            dragPreviewItem.currentMouseY = globalY
+        }
+    }
+
+    function updateDraggingTile(globalX, globalY) {
+        if (draggingTileId === "") return
+        if (dragPreviewItem) {
+            dragPreviewItem.currentMouseX = globalX
+            dragPreviewItem.currentMouseY = globalY
+        }
+
+        let pt = tilesPager.mapFromItem(dashboardContent, globalX, globalY)
+
+        if (pt.y < 12 && !autoScrollTimer.running) {
+            autoScrollTimer.dir = -1
+            autoScrollTimer.restart()
+            pageUp()
+        } else if (pt.y > tilesPager.height - 12 && !autoScrollTimer.running) {
+            autoScrollTimer.dir = 1
+            autoScrollTimer.restart()
+            pageDown()
+        }
+
+        let curPage = Math.max(0, Math.min(totalPageCount - 1, Math.round(tilesPager.contentY / pageStride)))
+        let localY = pt.y + tilesPager.contentY
+        let localX = pt.x
+
+        let targetId = ""
+        for (let i = 0; i < tilesModel.count; i++) {
+            let t = tilesModel.get(i)
+            if (t.gridPage !== curPage) continue
+            let tX = t.gridCol * (tileUnitWidth + 10)
+            let tY = t.gridPage * pageStride + (t.gridRow === 0 ? 0 : 66)
+            let tW = t.span === 2 ? tileDoubleWidth : tileUnitWidth
+            if (localX >= tX - 4 && localX <= tX + tW + 4 &&
+                localY >= tY - 4 && localY <= tY + 56 + 4) {
+                targetId = t.id
+                break
+            }
+        }
+        dropTargetTileId = targetId
+    }
+
+    function finishDraggingTile() {
+        if (draggingTileId !== "" && dropTargetTileId !== "" && draggingTileId !== dropTargetTileId) {
+            let fromIdx = -1
+            let toIdx = -1
+            for (let i = 0; i < tilesModel.count; i++) {
+                if (tilesModel.get(i).id === draggingTileId) fromIdx = i
+                if (tilesModel.get(i).id === dropTargetTileId) toIdx = i
+            }
+            if (fromIdx !== -1 && toIdx !== -1) {
+                tilesModel.move(fromIdx, toIdx, 1)
+                recalculateGridLayout()
+            }
+        }
+        draggingTileId = ""
+        dropTargetTileId = ""
+        saveTilesLayout()
+    }
+
+    function getTilePageIndex(id) {
+        if (!id) return 0
+        for (let i = 0; i < tilesModel.count; i++) {
+            if (tilesModel.get(i).id === id) {
+                return tilesModel.get(i).gridPage
+            }
+        }
+        return 0
+    }
+
+    function triggerTileAction(tileId) {
+        switch (tileId) {
+            case "wifi":
+            case "bluetooth":
+            case "cpu":
+            case "memory":
+            case "notifications":
+            case "screentime":
+            case "battery":
+            case "plugins":
+            case "updates":
+            case "lockscreen":
+            case "theme":
+            case "wallpaper":
+            case "notes":
+            case "calendar":
+                if (dashboardContent.activeDetailView === tileId) {
+                    dashboardContent.activeDetailView = ""
+                    if (root) root.dashboardDetail = ""
+                } else {
+                    dashboardContent.activeDetailView = tileId
+                    if (root) root.dashboardDetail = tileId
+                }
+                break
+            case "nightlight":
+                dashboardContent.cycleNightMode()
+                break
+            case "caffeine":
+                toggleCaffeine()
+                break
+            case "temperature":
+                refreshCpuTemp()
+                break
+            case "pomodoro":
+                dashboardContent.showPomodoroPopup = !dashboardContent.showPomodoroPopup
+                break
+            case "quickshare":
+                Quickshell.execDetached(["localsend"])
+                break
+        }
+    }
+
+    function toggleCaffeine() {
+        if (dashboardContent.caffeineActive) {
+            Quickshell.execDetached(["pkill", "-f", "why=caffeine"])
+            dashboardContent.caffeineActive = false
+        } else {
+            Quickshell.execDetached(["systemd-inhibit", "--what=idle", "--who=quickshell", "--why=caffeine", "sleep", "infinity"])
+            dashboardContent.caffeineActive = true
+        }
+    }
+
+    function refreshCpuTemp() {
+        tempUpdater.running = false
+        tempUpdater.running = true
+    }
+
+    function initTiles() {
+        if (tilesModel.count > 0) return
+        try {
+            let txt = tilesLayoutFile.text().trim()
+            if (txt.length > 0) {
+                let parsed = JSON.parse(txt)
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    loadCustomTiles(parsed)
+                    return
+                }
+            }
+        } catch(e) {}
+        loadDefaultTiles()
+    }
+
+    function loadDefaultTiles() {
+        tilesModel.clear()
+        for (let i = 0; i < defaultTiles.length; i++) {
+            tilesModel.append({
+                id: defaultTiles[i].id,
+                span: defaultTiles[i].span,
+                gridPage: 0,
+                gridRow: 0,
+                gridCol: 0
+            })
+        }
+        recalculateGridLayout()
+    }
+
+    function loadCustomTiles(savedList) {
+        let knownIds = defaultTiles.map(t => t.id)
+        let result = []
+        let savedMap = {}
+        for (let i = 0; i < savedList.length; i++) {
+            let item = savedList[i]
+            if (knownIds.indexOf(item.id) !== -1 && !savedMap[item.id]) {
+                result.push({ id: item.id, span: item.span === 2 ? 2 : 1 })
+                savedMap[item.id] = true
+            }
+        }
+        for (let j = 0; j < defaultTiles.length; j++) {
+            let dt = defaultTiles[j]
+            if (!savedMap[dt.id]) {
+                result.push({ id: dt.id, span: dt.span })
+            }
+        }
+        tilesModel.clear()
+        for (let k = 0; k < result.length; k++) {
+            tilesModel.append({
+                id: result[k].id,
+                span: result[k].span,
+                gridPage: 0,
+                gridRow: 0,
+                gridCol: 0
+            })
+        }
+        recalculateGridLayout()
+    }
+
+    function saveTilesLayout() {
+        let toSave = []
+        for (let i = 0; i < tilesModel.count; i++) {
+            let item = tilesModel.get(i)
+            toSave.push({ id: item.id, span: item.span })
+        }
+        saveLayoutProc.jsonContent = JSON.stringify(toSave, null, 2)
+        saveLayoutProc.running = true
+    }
+
+    function resetTilesLayout() {
+        loadDefaultTiles()
+        saveTilesLayout()
     }
 
     readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "notifications", "screentime", "plugins", "updates", "notes", "battery", "calendar", "volume", "system", "theme", "wallpaper", "lockscreen"]
@@ -46,13 +394,7 @@ Item {
         if (root) root.dashboardDetail = cat
 
         // Keep left-hand tilesPager in sync so active tile is visible
-        if (cat === "wifi" || cat === "bluetooth" || cat === "cpu" || cat === "memory" || cat === "") {
-            goToPage(0)
-        } else if (cat === "notifications" || cat === "screentime" || cat === "battery") {
-            goToPage(1)
-        } else if (cat === "plugins" || cat === "updates" || cat === "notes" || cat === "lockscreen" || cat === "theme" || cat === "wallpaper") {
-            goToPage(2)
-        }
+        goToPage(getTilePageIndex(cat))
 
         dashboardContent.forceActiveFocus()
     }
@@ -165,6 +507,14 @@ Item {
         nextOption()
     }
     Keys.onPressed: (event) => {
+        if (dashboardContent.editTilesMode) {
+            if (event.key === Qt.Key_Escape) {
+                dashboardContent.editTilesMode = false
+                dashboardContent.saveTilesLayout()
+                event.accepted = true
+                return
+            }
+        }
         if (dashboardContent.activeDetailView === "system") {
             if (event.key === Qt.Key_Escape || event.key === Qt.Key_X) {
                 dashboardContent.activeDetailView = ""
@@ -396,42 +746,126 @@ Item {
         }
     }
     
+    property int targetPageIndex: 0
+
     NumberAnimation {
         id: smoothScrollAnim
         target: tilesPager
         property: "contentY"
-        duration: 250
+        duration: 260
         easing.type: Easing.OutCubic
+        onFinished: {
+            if (tilesPager) {
+                tilesPager.contentY = targetPageIndex * pageStride
+            }
+        }
     }
     
     function pageUp() {
-        let h = tilesPager.height + tilesPager.spacing
-        let idx = Math.round(tilesPager.contentY / h)
-        if (idx > 0) {
-            smoothScrollAnim.stop()
-            smoothScrollAnim.to = (idx - 1) * h
-            smoothScrollAnim.start()
+        let cur = smoothScrollAnim.running ? targetPageIndex : Math.round(tilesPager.contentY / pageStride)
+        if (cur > 0) {
+            goToPage(cur - 1)
+        } else {
+            goToPage(0)
         }
     }
     
     function pageDown() {
-        let h = tilesPager.height + tilesPager.spacing
-        let idx = Math.round(tilesPager.contentY / h)
-        if (idx < tilesPager.count - 1) {
-            smoothScrollAnim.stop()
-            smoothScrollAnim.to = (idx + 1) * h
-            smoothScrollAnim.start()
+        let cur = smoothScrollAnim.running ? targetPageIndex : Math.round(tilesPager.contentY / pageStride)
+        if (cur < totalPageCount - 1) {
+            goToPage(cur + 1)
+        } else {
+            goToPage(totalPageCount - 1)
         }
     }
 
     function goToPage(idx) {
         if (!tilesPager) return
         if (idx < 0) idx = 0
-        if (idx >= tilesPager.count) idx = tilesPager.count - 1
-        let h = tilesPager.height + tilesPager.spacing
+        if (idx >= totalPageCount) idx = totalPageCount - 1
+        targetPageIndex = idx
         smoothScrollAnim.stop()
-        smoothScrollAnim.to = idx * h
+        smoothScrollAnim.to = idx * pageStride
         smoothScrollAnim.start()
+    }
+
+    function snapToNearestPage() {
+        if (!tilesPager || smoothScrollAnim.running || dashboardContent.draggingTileId !== "") return
+        let nearest = Math.max(0, Math.min(totalPageCount - 1, Math.round(tilesPager.contentY / pageStride)))
+        goToPage(nearest)
+    }
+
+    Timer {
+        id: autoScrollTimer
+        interval: 350
+        property int dir: 0
+        onTriggered: {
+            if (dashboardContent.draggingTileId === "") return
+            if (dir < 0) pageUp()
+            else if (dir > 0) pageDown()
+        }
+    }
+
+    FileView {
+        id: tilesLayoutFile
+        path: Quickshell.env("HOME") + "/.local/state/quickshell_tiles_layout.json"
+        watchChanges: false
+        onLoaded: {
+            try {
+                let txt = tilesLayoutFile.text().trim()
+                if (txt.length > 0) {
+                    let parsed = JSON.parse(txt)
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        dashboardContent.loadCustomTiles(parsed)
+                        return
+                    }
+                }
+            } catch(e) {}
+            dashboardContent.loadDefaultTiles()
+        }
+    }
+
+    Process {
+        id: saveLayoutProc
+        property string jsonContent: "[]"
+        command: ["python3", "-c", "import sys, os; os.makedirs(os.path.dirname(sys.argv[1]), exist_ok=True); open(sys.argv[1], 'w', encoding='utf-8').write(sys.argv[2])", Quickshell.env("HOME") + "/.local/state/quickshell_tiles_layout.json", jsonContent]
+    }
+
+    Process {
+        id: caffeineCheckProc
+        running: true
+        command: ["bash", "-c", "pgrep -f 'why=caffeine' > /dev/null && echo 'on' || echo 'off'"]
+        stdout: StdioCollector {
+            onStreamFinished: dashboardContent.caffeineActive = (this.text.trim() === "on")
+        }
+    }
+
+    Process {
+        id: tempReader
+        running: true
+        command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 45000"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let t = parseInt(this.text.trim())
+                if (!isNaN(t)) dashboardContent.cpuTemp = Math.round(t / 1000)
+            }
+        }
+    }
+
+    Process {
+        id: tempUpdater
+        command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 45000"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let t = parseInt(this.text.trim())
+                if (!isNaN(t)) dashboardContent.cpuTemp = Math.round(t / 1000)
+            }
+        }
+    }
+
+    Timer {
+        interval: 2500; repeat: true; running: panel ? panel.expanded : true
+        onTriggered: { tempUpdater.running = false; tempUpdater.running = true }
     }
 
     property var root
@@ -585,6 +1019,7 @@ Item {
     property string curTitle: mprisSel.player ? (mprisSel.player.trackTitle || "") : ""
     property string curArtist: mprisSel.player ? (mprisSel.player.trackArtist || "") : ""
     property string curArtUrl: mprisArt.source
+    readonly property bool hasMultiplePlayers: mprisSel.count > 1
 
     // ── Live Time & Date State for Aesthetic Clock Widget ──
     FontLoader {
@@ -916,6 +1351,7 @@ Item {
 
     onRootChanged: {
         if (root) {
+            recalculateGridLayout()
             if (mprisSel.player && mprisSel.player.trackTitle) {
                 root.lastMediaTitle = mprisSel.player.trackTitle || ""
                 root.lastMediaArtist = mprisSel.player.trackArtist || ""
@@ -950,11 +1386,20 @@ Item {
                 width: Math.round((parent.width - parent.spacing) / 2)
                 spacing: 12
 
-            // --- SLIDERS (Full Material You size) ---
-            Column {
-                id: slidersCol
+            // ── TOP CONTROL AREA (Sliders in Normal Mode, Edit Header in Edit Mode) ──
+            Item {
+                id: topControlArea
                 width: parent.width
-                spacing: 10
+                height: 86
+
+                // --- SLIDERS (Full Material You size) ---
+                Column {
+                    id: slidersCol
+                    anchors.fill: parent
+                    spacing: 10
+                    visible: opacity > 0.001
+                    opacity: dashboardContent.editTilesMode ? 0.0 : 1.0
+                    Behavior on opacity { NumberAnimation { duration: 180 } }
                 
                 // Brightness Container
                 Row {
@@ -1280,1193 +1725,353 @@ Item {
                         }
                     }
                 }
-            }
+            } // end slidersCol
 
-            // --- MATERIAL YOU TILES (Full Material You size) ---
-            ListView {
+            // ── EDIT TILES HEADER (Direct copy of UI from image) ──
+            Item {
+                id: editTilesHeader
+                anchors.fill: parent
+                visible: opacity > 0.001
+                opacity: dashboardContent.editTilesMode ? 1.0 : 0.0
+                Behavior on opacity { NumberAnimation { duration: 180 } }
+
+                // Top Action Bar
+                Row {
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: 32
+
+                    // Back arrow button (<-)
+                    Rectangle {
+                        width: 32
+                        height: 32
+                        radius: 16
+                        color: backMa.containsMouse ? root.fillHover : "transparent"
+                        Behavior on color { ColorAnimation { duration: 150 } }
+
+                        IconText {
+                            anchors.centerIn: parent
+                            text: "arrow_back"
+                            color: root.ink
+                            font.pixelSize: 20
+                        }
+
+                        TooltipMixin {
+                            id: backTip
+                            root: dashboardContent.root
+                            owner: parent
+                            text: "Exit tile editing"
+                        }
+
+                        MouseArea {
+                            id: backMa
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            hoverEnabled: true
+                            onEntered: backTip.show()
+                            onExited: backTip.hide()
+                            onClicked: {
+                                backTip.hide()
+                                dashboardContent.editTilesMode = false
+                                dashboardContent.saveTilesLayout()
+                            }
+                        }
+                    }
+
+                    Item { width: Math.max(10, parent.width - 32 - rightBtns.width - 10); height: 1 }
+
+                    Row {
+                        id: rightBtns
+                        spacing: 8
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        // Move Earlier / Left button
+                        Rectangle {
+                            width: 32
+                            height: 32
+                            radius: 16
+                            visible: dashboardContent.selectedTileId !== ""
+                            color: movePrevMa.containsMouse ? root.fillHover : "transparent"
+                            Behavior on color { ColorAnimation { duration: 150 } }
+
+                            IconText {
+                                anchors.centerIn: parent
+                                text: "chevron_left"
+                                color: root.ink
+                                font.pixelSize: 22
+                            }
+
+                            TooltipMixin {
+                                id: movePrevTip
+                                root: dashboardContent.root
+                                owner: parent
+                                text: "Move selected tile left/earlier"
+                            }
+
+                            MouseArea {
+                                id: movePrevMa
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+                                onEntered: movePrevTip.show()
+                                onExited: movePrevTip.hide()
+                                onClicked: {
+                                    dashboardContent.moveSelectedTile(-1)
+                                }
+                            }
+                        }
+
+                        // Move Later / Right button
+                        Rectangle {
+                            width: 32
+                            height: 32
+                            radius: 16
+                            visible: dashboardContent.selectedTileId !== ""
+                            color: moveNextMa.containsMouse ? root.fillHover : "transparent"
+                            Behavior on color { ColorAnimation { duration: 150 } }
+
+                            IconText {
+                                anchors.centerIn: parent
+                                text: "chevron_right"
+                                color: root.ink
+                                font.pixelSize: 22
+                            }
+
+                            TooltipMixin {
+                                id: moveNextTip
+                                root: dashboardContent.root
+                                owner: parent
+                                text: "Move selected tile right/later"
+                            }
+
+                            MouseArea {
+                                id: moveNextMa
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+                                onEntered: moveNextTip.show()
+                                onExited: moveNextTip.hide()
+                                onClicked: {
+                                    dashboardContent.moveSelectedTile(1)
+                                }
+                            }
+                        }
+
+                        // Undo / Reset button
+                        Rectangle {
+                            width: 32
+                            height: 32
+                            radius: 16
+                            color: undoMa.containsMouse ? root.fillHover : "transparent"
+                            Behavior on color { ColorAnimation { duration: 150 } }
+
+                            IconText {
+                                anchors.centerIn: parent
+                                text: "undo"
+                                color: root.ink
+                                font.pixelSize: 20
+                            }
+
+                            TooltipMixin {
+                                id: undoTip
+                                root: dashboardContent.root
+                                owner: parent
+                                text: "Reset tiles to default"
+                            }
+
+                            MouseArea {
+                                id: undoMa
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+                                onEntered: undoTip.show()
+                                onExited: undoTip.hide()
+                                onClicked: {
+                                    undoTip.hide()
+                                    dashboardContent.resetTilesLayout()
+                                }
+                            }
+                        }
+
+                        // "Done" pill button (styled like the pill in the screenshot)
+                        Rectangle {
+                            height: 32
+                            width: doneText.implicitWidth + 24
+                            radius: 16
+                            color: doneMa.containsMouse ? Qt.lighter(root.seal, 1.1) : root.seal
+                            Behavior on color { ColorAnimation { duration: 150 } }
+
+                            Text {
+                                id: doneText
+                                anchors.centerIn: parent
+                                text: "Done"
+                                color: root.paper
+                                font.pixelSize: 12
+                                font.family: root.barFont
+                                font.weight: Font.DemiBold
+                            }
+
+                            MouseArea {
+                                id: doneMa
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+                                onClicked: {
+                                    dashboardContent.editTilesMode = false
+                                    dashboardContent.saveTilesLayout()
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Title & Subtitle: "Edit tiles" / "Select tiles to rearrange and resize"
+                Column {
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 2
+                    anchors.left: parent.left
+                    anchors.leftMargin: 4
+                    spacing: 2
+
+                    Text {
+                        text: "Edit tiles"
+                        color: root.ink
+                        font.pixelSize: 18
+                        font.family: root.barFont
+                        font.weight: Font.DemiBold
+                    }
+
+                    Text {
+                        text: "Select tiles to rearrange and resize"
+                        color: root.ink
+                        opacity: 0.65
+                        font.pixelSize: 11
+                        font.family: root.barFont
+                    }
+                }
+            }
+        } // end topControlArea
+
+        // --- MATERIAL YOU TILES (Dynamic Pager with Resizable & Movable Tiles) ---
+        Item {
+            id: tilesPagerContainer
+            width: parent.width
+            height: 126
+
+            Flickable {
                 id: tilesPager
-                width: parent.width
-                height: 122
+                anchors.fill: parent
+                anchors.leftMargin: -3
+                anchors.rightMargin: -3
+                anchors.topMargin: -3
+                anchors.bottomMargin: -3
                 clip: true
-                snapMode: ListView.SnapToItem
-                orientation: ListView.Vertical
+                contentWidth: width
+                contentHeight: Math.max(height, dashboardContent.totalPageCount * dashboardContent.pageStride - 12 + 6)
                 boundsBehavior: Flickable.StopAtBounds
-                spacing: 12
-                
-                WheelHandler {
-                    onWheel: (event) => {
-                        if (event.angleDelta.y > 0) {
-                            tilesPager.flick(0, 2000)
-                        } else if (event.angleDelta.y < 0) {
-                            tilesPager.flick(0, -2000)
+                interactive: false
+
+                Timer {
+                    id: snapTimer
+                    interval: 60
+                    onTriggered: {
+                        if (!smoothScrollAnim.running && dashboardContent.draggingTileId === "") {
+                            let nearest = Math.max(0, Math.min(dashboardContent.totalPageCount - 1, Math.round(tilesPager.contentY / dashboardContent.pageStride)))
+                            let targetY = nearest * dashboardContent.pageStride
+                            if (Math.abs(tilesPager.contentY - targetY) > 1) {
+                                dashboardContent.goToPage(nearest)
+                            }
                         }
                     }
                 }
-                
-                model: ObjectModel {
-                    // --- PAGE 1 ---
-                    Grid {
-                        width: tilesPager.width
-                        height: tilesPager.height
-                        columns: 2
-                        spacing: 10
 
-                        // Wi-Fi Tile
-                        Rectangle {
-                            id: wifiTile
-                            property bool connected: dashboardContent.currentWifiName !== "Wi-Fi"
-                            property bool active: dashboardContent.activeDetailView === "wifi"
-                            readonly property bool isLit: connected
-                            readonly property color fg: root.ink
-                            width: (parent.width - 10) / 2
-                            height: 56
-                            radius: 28
-                            color: wifiMa.containsMouse ? root.fillHover : root.fillIdle
-                            Behavior on color { ColorAnimation { duration: 160 } }
-                            
-                            border.width: active ? 2 : 0
-                            border.color: root.seal
-                            Behavior on border.width { NumberAnimation { duration: 150 } }
-                            Behavior on border.color { ColorAnimation { duration: 150 } }
-                            
-                            SpringPress {}
-                            MouseArea {
-                                id: wifiMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (dashboardContent.activeDetailView === "wifi") {
-                                        dashboardContent.activeDetailView = ""
-                                        if (root) root.dashboardDetail = ""
-                                    } else {
-                                        dashboardContent.activeDetailView = "wifi"
-                                        if (root) root.dashboardDetail = "wifi"
-                                    }
-                                }
-                            }
-                            
-                            Row {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 8
-                                spacing: 10
-                                
-                                Rectangle {
-                                    width: 40
-                                    height: 40
-                                    radius: 14
-                                    color: wifiTile.isLit
-                                        ? (wifiInnerMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                        : (wifiInnerMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.18) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.1))
-                                    Behavior on color { ColorAnimation { duration: 160 } }
-                                    
-                                    IconText { 
-                                        anchors.centerIn: parent
-                                        text: "wifi"
-                                        fill: (wifiTile.connected || wifiTile.active) ? 1 : 0
-                                        color: wifiTile.isLit ? root.paper : root.ink
-                                        font.pixelSize: 20
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-                                    
-                                    SpringPress {}
-                                    MouseArea {
-                                        id: wifiInnerMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: {
-                                            if (wifiTile.connected) {
-                                                dashboardContent.currentWifiName = "Wi-Fi"
-                                            } else {
-                                                dashboardContent.currentWifiName = "Searching..."
-                                            }
-                                            Quickshell.execDetached(["bash", "-c", "nmcli radio wifi | grep -q 'enabled' && nmcli radio wifi off || nmcli radio wifi on"])
-                                            statusTimer.interval = 500
-                                            statusTimer.restart()
-                                        }
-                                    }
-                                }
-                                
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 2
-                                    Text {
-                                        text: "Wi-Fi"
-                                        color: wifiTile.fg
-                                        font.pixelSize: 13
-                                        font.family: root.barFont
-                                        font.weight: Font.DemiBold
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-                                    Text {
-                                        text: dashboardContent.currentWifiName
-                                        color: wifiTile.fg
-                                        opacity: wifiTile.connected ? 0.75 : 0.6
-                                        font.pixelSize: 11
-                                        font.family: root.barFont
-                                        elide: Text.ElideRight
-                                        width: wifiTile.width - 40 - 8 - 10 - 12
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-                                }
-                            }
-                        }
+                onContentYChanged: {
+                    if (!smoothScrollAnim.running) {
+                        snapTimer.restart()
+                    }
+                }
 
-                        // Bluetooth Tile
-                        Rectangle {
-                            id: btTile
-                            property bool connected: dashboardContent.btPowered
-                            property bool active: dashboardContent.activeDetailView === "bluetooth"
-                            readonly property bool isLit: connected
-                            readonly property color fg: root.ink
-                            width: (parent.width - 10) / 2
-                            height: 56
-                            radius: 28
-                            color: btMa.containsMouse ? root.fillHover : root.fillIdle
-                            Behavior on color { ColorAnimation { duration: 160 } }
-                            
-                            border.width: active ? 2 : 0
-                            border.color: root.seal
-                            Behavior on border.width { NumberAnimation { duration: 150 } }
-                            Behavior on border.color { ColorAnimation { duration: 150 } }
-                            
-                            SpringPress {}
-                            MouseArea {
-                                id: btMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (dashboardContent.activeDetailView === "bluetooth") {
-                                        dashboardContent.activeDetailView = ""
-                                        if (root) root.dashboardDetail = ""
-                                    } else {
-                                        dashboardContent.activeDetailView = "bluetooth"
-                                        if (root) root.dashboardDetail = "bluetooth"
-                                    }
-                                }
-                            }
-                            
-                            Row {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 8
-                                spacing: 10
-                                
-                                Rectangle {
-                                    width: 40
-                                    height: 40
-                                    radius: 14
-                                    color: btTile.isLit
-                                        ? (btInnerMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                        : (btInnerMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.18) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.1))
-                                    Behavior on color { ColorAnimation { duration: 160 } }
-                                    
-                                    IconText { 
-                                        anchors.centerIn: parent
-                                        text: "bluetooth"
-                                        fill: (btTile.connected || btTile.active) ? 1 : 0
-                                        color: btTile.isLit ? root.paper : root.ink
-                                        font.pixelSize: 20
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-                                    
-                                    SpringPress {}
-                                    MouseArea {
-                                        id: btInnerMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: {
-                                            if (btTile.connected) {
-                                                dashboardContent.btPowered = false
-                                                dashboardContent.currentBtName = "Bluetooth"
-                                            } else {
-                                                dashboardContent.btPowered = true
-                                                dashboardContent.currentBtName = "Searching..."
-                                            }
-                                            Quickshell.execDetached(["bash", "-c", "bluetoothctl show | grep -q 'Powered: yes' && bluetoothctl power off || bluetoothctl power on"])
-                                            statusTimer.interval = 500
-                                            statusTimer.restart()
-                                        }
-                                    }
-                                }
-                                
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 2
-                                    Text {
-                                        text: "Bluetooth"
-                                        color: btTile.fg
-                                        font.pixelSize: 13
-                                        font.family: root.barFont
-                                        font.weight: Font.DemiBold
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-                                    Text {
-                                        text: dashboardContent.currentBtName === "Bluetooth"
-                                            ? (dashboardContent.btPowered ? "On" : "Off")
-                                            : dashboardContent.currentBtName
-                                        color: btTile.fg
-                                        opacity: btTile.connected ? 0.75 : 0.6
-                                        font.pixelSize: 11
-                                        font.family: root.barFont
-                                        elide: Text.ElideRight
-                                        width: btTile.width - 40 - 8 - 10 - 12
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-                                }
-                            }
-                        }
+                Timer {
+                    id: wheelResetTimer
+                    interval: 220
+                    onTriggered: pagerWheel.accumDelta = 0
+                }
 
-                        // CPU Tile
-                        Rectangle {
-                            id: cpuTile
-                            property bool active: dashboardContent.activeDetailView === "cpu"
-                            readonly property color fg: active ? root.paper : root.ink
-                            width: (parent.width - 10) / 2
-                            height: 56
-                            radius: 28
-                            color: active
-                                ? (cpuMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                : (cpuMa.containsMouse ? root.fillHover : root.fillIdle)
-                            Behavior on color { ColorAnimation { duration: 160 } }
-                            
-                            border.width: active ? 2 : 0
-                            border.color: active ? root.paper : root.seal
-                            Behavior on border.width { NumberAnimation { duration: 150 } }
-                            Behavior on border.color { ColorAnimation { duration: 150 } }
-                            
-                            Row {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 14
-                                spacing: 10
-                                
-                                IconText {
-                                    text: "memory"
-                                    color: cpuTile.fg
-                                    font.pixelSize: 22
-                                    Behavior on color { ColorAnimation { duration: 160 } }
-                                }
-                                
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 2
-                                    Text {
-                                        text: "CPU"
-                                        color: cpuTile.fg
-                                        font.pixelSize: 13
-                                        font.family: root.barFont
-                                        font.weight: Font.DemiBold
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-                                    Text {
-                                        text: root.systemCpuPercent + "%"
-                                        color: cpuTile.fg
-                                        opacity: cpuTile.active ? 0.8 : 0.6
-                                        font.pixelSize: 11
-                                        font.family: root.barFont
-                                        elide: Text.ElideRight
-                                        width: 70
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-                                }
-                            }
-                            SpringPress {}
-                            MouseArea {
-                                id: cpuMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (dashboardContent.activeDetailView === "cpu") {
-                                        dashboardContent.activeDetailView = ""
-                                        if (root) root.dashboardDetail = ""
-                                    } else {
-                                        dashboardContent.activeDetailView = "cpu"
-                                        if (root) root.dashboardDetail = "cpu"
-                                    }
-                                }
-                            }
-                        }
+                WheelHandler {
+                    id: pagerWheel
+                    target: null
+                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                    property real accumDelta: 0
 
-                        // Memory Tile
-                        Rectangle {
-                            id: memTile
-                            property bool active: dashboardContent.activeDetailView === "memory"
-                            readonly property color fg: active ? root.paper : root.ink
-                            width: (parent.width - 10) / 2
-                            height: 56
-                            radius: 28
-                            color: active
-                                ? (memMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                : (memMa.containsMouse ? root.fillHover : root.fillIdle)
-                            Behavior on color { ColorAnimation { duration: 160 } }
-                            
-                            border.width: active ? 2 : 0
-                            border.color: active ? root.paper : root.seal
-                            Behavior on border.width { NumberAnimation { duration: 150 } }
-                            Behavior on border.color { ColorAnimation { duration: 150 } }
-
-                            Row {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 14
-                                spacing: 10
-                                
-                                IconText {
-                                    text: "dns"
-                                    color: memTile.fg
-                                    font.pixelSize: 22
-                                    Behavior on color { ColorAnimation { duration: 160 } }
-                                }
-                                
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 2
-                                    Text {
-                                        text: "Memory"
-                                        color: memTile.fg
-                                        font.pixelSize: 13
-                                        font.family: root.barFont
-                                        font.weight: Font.DemiBold
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-                                    Text {
-                                        text: root.systemMemUsedGiB.toFixed(1) + "/" + root.systemMemTotalGiB.toFixed(0) + "G"
-                                        color: memTile.fg
-                                        opacity: memTile.active ? 0.8 : 0.6
-                                        font.pixelSize: 11
-                                        font.family: root.barFont
-                                        elide: Text.ElideRight
-                                        width: 70
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-                                }
-                            }
-                            SpringPress {}
-                            MouseArea {
-                                id: memMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (dashboardContent.activeDetailView === "memory") {
-                                        dashboardContent.activeDetailView = ""
-                                        if (root) root.dashboardDetail = ""
-                                    } else {
-                                        dashboardContent.activeDetailView = "memory"
-                                        if (root) root.dashboardDetail = "memory"
-                                    }
-                                }
-                            }
+                    onWheel: (event) => {
+                        wheelResetTimer.restart()
+                        pagerWheel.accumDelta += event.angleDelta.y
+                        if (pagerWheel.accumDelta >= 40) {
+                            pagerWheel.accumDelta = 0
+                            dashboardContent.pageUp()
+                        } else if (pagerWheel.accumDelta <= -40) {
+                            pagerWheel.accumDelta = 0
+                            dashboardContent.pageDown()
                         }
                     }
+                }
 
-                    // --- PAGE 2 (Row 1: Notifications & Screen Time; Row 2: 1x4 Compact Toggles: Night Light, Caffeine, Power, Temp) ---
-                    Column {
-                        width: tilesPager.width
-                        height: tilesPager.height
-                        spacing: 10
-
-                        // Row 1: Notifications + Screen Time
-                        Row {
-                            width: parent.width
-                            spacing: 10
-
-// Notifications Tile
-                            Rectangle {
-                                id: notifTile
-                                property bool active: dashboardContent.activeDetailView === "notifications"
-                                readonly property color fg: active ? root.paper : root.ink
-                                readonly property int count: (root && root.notifCount) ? root.notifCount : 0
-                                width: (parent.width - 10) / 2
-                                height: 56
-                                radius: 28
-                                color: active
-                                    ? (notifMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                    : (notifMa.containsMouse ? root.fillHover : root.fillIdle)
-                                Behavior on color { ColorAnimation { duration: 160 } }
-
-                                border.width: active ? 2 : 0
-                                border.color: active ? root.paper : root.seal
-                                Behavior on border.width { NumberAnimation { duration: 150 } }
-                                Behavior on border.color { ColorAnimation { duration: 150 } }
-
-                                Row {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 14
-                                    spacing: 10
-
-                                    IconText {
-                                        text: notifTile.count > 0 ? "notifications_active" : "notifications"
-                                        color: notifTile.fg
-                                        font.pixelSize: 22
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-
-                                    Column {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 2
-                                        Text {
-                                            text: "Notifications"
-                                            color: notifTile.fg
-                                            font.pixelSize: 13
-                                            font.family: root.barFont
-                                            font.weight: Font.DemiBold
-                                            Behavior on color { ColorAnimation { duration: 160 } }
-                                        }
-                                        Text {
-                                            text: notifTile.count > 0 ? (notifTile.count + " new") : "All caught up"
-                                            color: notifTile.fg
-                                            opacity: notifTile.active ? 0.8 : 0.6
-                                            font.pixelSize: 11
-                                            font.family: root.barFont
-                                            Behavior on color { ColorAnimation { duration: 160 } }
-                                        }
-                                    }
-                                }
-                                SpringPress {}
-                                MouseArea {
-                                    id: notifMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (dashboardContent.activeDetailView === "notifications") {
-                                            dashboardContent.activeDetailView = ""
-                                            if (root) root.dashboardDetail = ""
-                                        } else {
-                                            dashboardContent.activeDetailView = "notifications"
-                                            if (root) root.dashboardDetail = "notifications"
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Screentime Tile
-                            Rectangle {
-                                id: screentimeTile
-                                property bool active: dashboardContent.activeDetailView === "screentime"
-                                readonly property color fg: active ? root.paper : root.ink
-                                width: (parent.width - 10) / 2
-                                height: 56
-                                radius: 28
-                                color: active
-                                    ? (stMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                    : (stMa.containsMouse ? root.fillHover : root.fillIdle)
-                                Behavior on color { ColorAnimation { duration: 160 } }
-
-                                border.width: active ? 2 : 0
-                                border.color: active ? root.paper : root.seal
-                                Behavior on border.width { NumberAnimation { duration: 150 } }
-                                Behavior on border.color { ColorAnimation { duration: 150 } }
-
-                                Row {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 14
-                                    spacing: 10
-                                    
-                                    IconText {
-                                        text: "hourglass_empty"
-                                        color: screentimeTile.fg
-                                        font.pixelSize: 22
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-                                    
-                                    Column {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 2
-                                        Text {
-                                            text: "Screen Time"
-                                            color: screentimeTile.fg
-                                            font.pixelSize: 13
-                                            font.family: root.barFont
-                                            font.weight: Font.DemiBold
-                                            Behavior on color { ColorAnimation { duration: 160 } }
-                                        }
-                                        Text {
-                                            text: "Usage & Trends"
-                                            color: screentimeTile.fg
-                                            opacity: screentimeTile.active ? 0.8 : 0.6
-                                            font.pixelSize: 11
-                                            font.family: root.barFont
-                                            Behavior on color { ColorAnimation { duration: 160 } }
-                                        }
-                                    }
-                                }
-                                SpringPress {}
-                                MouseArea {
-                                    id: stMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (dashboardContent.activeDetailView === "screentime") {
-                                            dashboardContent.activeDetailView = ""
-                                            if (root) root.dashboardDetail = ""
-                                        } else {
-                                            dashboardContent.activeDetailView = "screentime"
-                                            if (root) root.dashboardDetail = "screentime"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Row 2: 1x4 Compact Tiles (Night Light, Caffeine, Battery/Power, CPU Temp)
-                        Row {
-                            width: parent.width
-                            spacing: 10
-
-                            // 1. Night Light Tile (Compact 1x4)
-                            Rectangle {
-                                id: nightTile
-                                readonly property int mode: dashboardContent.nightMode
-                                property bool active: mode > 0
-
-                                width: Math.floor((parent.width - 30) / 4)
-                                height: 56
-                                radius: 18
-                                color: mode === 2 ? root.color01 : (mode === 1 ? root.color03 : (nightTileMa.containsMouse ? root.fillHover : root.fillIdle))
-                                Behavior on color { ColorAnimation { duration: 200 } }
-
-                                IconText {
-                                    anchors.centerIn: parent
-                                    text: "nightlight_round"
-                                    color: nightTile.active ? root.paper : (nightTileMa.containsMouse ? root.seal : root.ink)
-                                    font.pixelSize: 22
-                                    Behavior on color { ColorAnimation { duration: 200 } }
-                                }
-
-                                TooltipMixin {
-                                    id: nightTip
-                                    root: dashboardContent.root
-                                    owner: nightTile
-                                    text: "Night Light: " + (nightTile.mode === 2 ? "Intense" : (nightTile.mode === 1 ? "Soft" : "Off")) + " (Right-click off)"
-                                }
-
-                                SpringPress {}
-                                MouseArea {
-                                    id: nightTileMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                    onEntered: nightTip.show()
-                                    onExited: nightTip.hide()
-                                    onClicked: (mouse) => {
-                                        nightTip.hide()
-                                        if (mouse.button === Qt.RightButton) {
-                                            dashboardContent.setNightMode(0)
-                                        } else {
-                                            dashboardContent.cycleNightMode()
-                                        }
-                                    }
-                                }
-                            }
-
-                            // 2. Caffeine Tile (Compact 1x4)
-                            Rectangle {
-                                id: coffeeTile
-                                property bool active: false
-
-                                Process {
-                                    running: true
-                                    command: ["bash", "-c", "pgrep -f 'why=caffeine' > /dev/null && echo 'on' || echo 'off'"]
-                                    stdout: StdioCollector {
-                                        onStreamFinished: coffeeTile.active = (this.text.trim() === "on")
-                                    }
-                                }
-
-                                width: Math.floor((parent.width - 30) / 4)
-                                height: 56
-                                radius: 18
-                                color: active ? root.color03 : (coffeeMa.containsMouse ? root.fillHover : root.fillIdle)
-                                Behavior on color { ColorAnimation { duration: 200 } }
-
-                                IconText {
-                                    anchors.centerIn: parent
-                                    text: "local_cafe"
-                                    color: coffeeTile.active ? root.paper : (coffeeMa.containsMouse ? root.seal : root.ink)
-                                    font.pixelSize: 22
-                                    Behavior on color { ColorAnimation { duration: 200 } }
-                                }
-
-                                TooltipMixin {
-                                    id: coffeeTip
-                                    root: dashboardContent.root
-                                    owner: coffeeTile
-                                    text: "Caffeine: " + (coffeeTile.active ? "Active (Keep Awake)" : "Sleepy")
-                                }
-
-                                SpringPress {}
-                                MouseArea {
-                                    id: coffeeMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onEntered: coffeeTip.show()
-                                    onExited: coffeeTip.hide()
-                                    onClicked: {
-                                        coffeeTip.hide()
-                                        if (coffeeTile.active) {
-                                            Quickshell.execDetached(["pkill", "-f", "why=caffeine"])
-                                            coffeeTile.active = false
-                                        } else {
-                                            Quickshell.execDetached(["systemd-inhibit", "--what=idle", "--who=quickshell", "--why=caffeine", "sleep", "infinity"])
-                                            coffeeTile.active = true
-                                        }
-                                    }
-                                }
-                            }
-
-                            // 3. Battery & Power Tile (Compact 1x4)
-                            Rectangle {
-                                id: powerTile
-                                property bool active: dashboardContent.activeDetailView === "battery"
-                                readonly property color fg: active ? root.paper : (powerMa.containsMouse ? root.seal : root.ink)
-                                width: Math.floor((parent.width - 30) / 4)
-                                height: 56
-                                radius: 18
-                                color: active
-                                    ? (powerMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                    : (powerMa.containsMouse ? root.fillHover : root.fillIdle)
-                                Behavior on color { ColorAnimation { duration: 160 } }
-
-                                border.width: active ? 2 : 0
-                                border.color: active ? root.paper : root.seal
-
-                                IconText {
-                                    anchors.centerIn: parent
-                                    text: "bolt"
-                                    color: powerTile.fg
-                                    font.pixelSize: 22
-                                    Behavior on color { ColorAnimation { duration: 160 } }
-                                }
-
-                                TooltipMixin {
-                                    id: powerTip
-                                    root: dashboardContent.root
-                                    owner: powerTile
-                                    text: "Battery & Power Health"
-                                }
-
-                                SpringPress {}
-                                MouseArea {
-                                    id: powerMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onEntered: powerTip.show()
-                                    onExited: powerTip.hide()
-                                    onClicked: {
-                                        powerTip.hide()
-                                        if (dashboardContent.activeDetailView === "battery") {
-                                            dashboardContent.activeDetailView = ""
-                                            if (root) root.dashboardDetail = ""
-                                        } else {
-                                            dashboardContent.activeDetailView = "battery"
-                                            if (root) root.dashboardDetail = "battery"
-                                        }
-                                    }
-                                }
-                            }
-
-                            // 4. CPU Temperature Tile (Compact 1x4)
-                            Rectangle {
-                                id: tempTile
-                                width: Math.floor((parent.width - 30) / 4)
-                                height: 56
-                                radius: 18
-                                clip: true
-                                color: tempMa.containsMouse ? root.fillHover : root.fillIdle
-
-                                property int currentTemp: 45
-                                readonly property color tempColor: {
-                                    if (currentTemp < 52) return "#22d3ee" // Cyan
-                                    if (currentTemp < 72) return "#fbbf24" // Amber
-                                    return "#f87171" // Coral red
-                                }
-
-                                Behavior on color { ColorAnimation { duration: 180 } }
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    radius: parent.radius
-                                    color: Qt.rgba(tempTile.tempColor.r, tempTile.tempColor.g, tempTile.tempColor.b, 0.14)
-                                    Behavior on color { ColorAnimation { duration: 400 } }
-                                }
-
-                                Process {
-                                    running: true
-                                    command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 45000"]
-                                    stdout: StdioCollector {
-                                        onStreamFinished: {
-                                            let t = parseInt(this.text.trim())
-                                            if (!isNaN(t)) tempTile.currentTemp = Math.round(t / 1000)
-                                        }
-                                    }
-                                }
-
-                                Process {
-                                    id: tempUpdater
-                                    command: ["bash", "-c", "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 45000"]
-                                    stdout: StdioCollector {
-                                        onStreamFinished: {
-                                            let t = parseInt(this.text.trim())
-                                            if (!isNaN(t)) tempTile.currentTemp = Math.round(t / 1000)
-                                        }
-                                    }
-                                }
-
-                                Timer {
-                                    interval: 2500; repeat: true; running: panel.expanded
-                                    onTriggered: { tempUpdater.running = false; tempUpdater.running = true }
-                                }
-
-                                IconText {
-                                    anchors.centerIn: parent
-                                    text: "thermostat"
-                                    color: tempTile.tempColor
-                                    font.pixelSize: 22
-                                    Behavior on color { ColorAnimation { duration: 300 } }
-                                }
-
-                                TooltipMixin {
-                                    id: tempTip
-                                    root: dashboardContent.root
-                                    owner: tempTile
-                                    text: "CPU Temp: " + tempTile.currentTemp + "°C (" + (tempTile.currentTemp < 52 ? "Cool" : (tempTile.currentTemp < 72 ? "Warm" : "Hot")) + ")"
-                                }
-
-                                SpringPress {}
-                                MouseArea {
-                                    id: tempMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onEntered: tempTip.show()
-                                    onExited: tempTip.hide()
-                                    onClicked: {
-                                        tempTip.hide()
-                                        tempUpdater.running = false
-                                        tempUpdater.running = true
-                                    }
-                                }
-                            }
+                DragHandler {
+                    id: pagerDrag
+                    target: null
+                    acceptedDevices: PointerDevice.TouchScreen
+                    property real startY: 0
+                    onActiveChanged: {
+                        if (active) {
+                            startY = centroid.position.y
+                        } else {
+                            let diff = centroid.position.y - startY
+                            if (diff < -24) dashboardContent.pageDown()
+                            else if (diff > 24) dashboardContent.pageUp()
                         }
                     }
+                }
 
-                    // --- PAGE 3 (Row 1: Omarchy Plugins & Updates; Row 2: 1x4 Compact Toggles: Pomodoro, Quick Share, Themes, Wallpapers) ---
-                    Column {
-                        width: tilesPager.width
-                        height: tilesPager.height
-                        spacing: 10
+                Item {
+                    id: tilesContent
+                    x: 3
+                    y: 3
+                    width: tilesPagerContainer.width
+                    height: tilesPager.contentHeight
 
-                        // Row 1: Omarchy Plugins + Updates
-                        Row {
-                            width: parent.width
-                            spacing: 10
+                    Repeater {
+                        model: tilesModel
 
-                            // Omarchy Plugins Tile
-                            Rectangle {
-                                id: pluginsTile
-                                property bool active: dashboardContent.activeDetailView === "plugins"
-                                readonly property color fg: active ? root.paper : root.ink
-                                width: (parent.width - 10) / 2
-                                height: 56
-                                radius: 28
-                                color: active
-                                    ? (pluginsMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                    : (pluginsMa.containsMouse ? root.fillHover : root.fillIdle)
-                                Behavior on color { ColorAnimation { duration: 160 } }
+                        DashboardTile {
+                            dashContent: dashboardContent
+                            tileId: model.id
+                            span: model.span
+                            tileIndex: index
+                            gridPage: model.gridPage
+                            gridRow: model.gridRow
+                            gridCol: model.gridCol
 
-                                border.width: active ? 2 : 0
-                                border.color: active ? root.paper : root.seal
-                                Behavior on border.width { NumberAnimation { duration: 150 } }
-                                Behavior on border.color { ColorAnimation { duration: 150 } }
+                            x: gridCol * (dashboardContent.tileUnitWidth + 10)
+                            y: gridPage * dashboardContent.pageStride + (gridRow === 0 ? 0 : 66)
+                            width: span === 2 ? dashboardContent.tileDoubleWidth : dashboardContent.tileUnitWidth
 
-                                Row {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 14
-                                    spacing: 10
-
-                                    IconText {
-                                        text: "widgets"
-                                        color: pluginsTile.fg
-                                        font.pixelSize: 22
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-
-                                    Column {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        spacing: 2
-                                        Text {
-                                            text: "Omarchy Plugins"
-                                            color: pluginsTile.fg
-                                            font.pixelSize: 13
-                                            font.family: root.barFont
-                                            font.weight: Font.DemiBold
-                                            Behavior on color { ColorAnimation { duration: 160 } }
-                                        }
-                                        Text {
-                                            text: "Extensions & Tools"
-                                            color: pluginsTile.fg
-                                            opacity: pluginsTile.active ? 0.8 : 0.6
-                                            font.pixelSize: 11
-                                            font.family: root.barFont
-                                            Behavior on color { ColorAnimation { duration: 160 } }
-                                        }
-                                    }
-                                }
-
-                                SpringPress {}
-                                MouseArea {
-                                    id: pluginsMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (dashboardContent.activeDetailView === "plugins") {
-                                            dashboardContent.activeDetailView = ""
-                                            if (root) root.dashboardDetail = ""
-                                        } else {
-                                            dashboardContent.activeDetailView = "plugins"
-                                            if (root) root.dashboardDetail = "plugins"
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Right Half: Updates Pill + Lock Screen Settings Pill
-                            Row {
-                                width: (parent.width - 10) / 2
-                                height: 56
-                                spacing: 8
-
-                                // 1. Software Updates Tile (Compact Icon Pill)
-                                Rectangle {
-                                    id: updatesTile
-                                    property bool active: dashboardContent.activeDetailView === "updates" || dashboardContent.activeDetailView === "packages"
-                                    readonly property color fg: active ? root.paper : root.ink
-                                    width: Math.floor((parent.width - parent.spacing) / 2)
-                                    height: 56
-                                    radius: 28
-                                    color: active
-                                        ? (updatesMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                        : (updatesMa.containsMouse ? root.fillHover : root.fillIdle)
-                                    Behavior on color { ColorAnimation { duration: 160 } }
-
-                                    border.width: active ? 2 : 0
-                                    border.color: active ? root.paper : root.seal
-                                    Behavior on border.width { NumberAnimation { duration: 150 } }
-                                    Behavior on border.color { ColorAnimation { duration: 150 } }
-
-                                    IconText {
-                                        anchors.centerIn: parent
-                                        text: "system_update"
-                                        color: updatesTile.fg
-                                        font.pixelSize: 24
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-
-                                    TooltipMixin {
-                                        id: updatesTip
-                                        root: dashboardContent.root
-                                        owner: updatesTile
-                                        text: "Software Updates: " + (root.systemUpdatesAvailable > 0 ? (root.systemUpdatesAvailable + " available") : "Up to date")
-                                    }
-
-                                    SpringPress {}
-                                    MouseArea {
-                                        id: updatesMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onEntered: updatesTip.show()
-                                        onExited: updatesTip.hide()
-                                        onClicked: {
-                                            updatesTip.hide()
-                                            if (dashboardContent.activeDetailView === "updates" || dashboardContent.activeDetailView === "packages") {
-                                                dashboardContent.activeDetailView = ""
-                                                if (root) root.dashboardDetail = ""
-                                            } else {
-                                                dashboardContent.activeDetailView = "updates"
-                                                if (root) root.dashboardDetail = "updates"
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // 2. Lockscreen Settings Tile (Compact Icon Pill)
-                                Rectangle {
-                                    id: lockscreenTile
-                                    property bool active: dashboardContent.activeDetailView === "lockscreen"
-                                    readonly property color fg: active ? root.paper : root.ink
-                                    width: Math.ceil((parent.width - parent.spacing) / 2)
-                                    height: 56
-                                    radius: 28
-                                    color: active
-                                        ? (lockscreenMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                        : (lockscreenMa.containsMouse ? root.fillHover : root.fillIdle)
-                                    Behavior on color { ColorAnimation { duration: 160 } }
-
-                                    border.width: active ? 2 : 0
-                                    border.color: active ? root.paper : root.seal
-                                    Behavior on border.width { NumberAnimation { duration: 150 } }
-                                    Behavior on border.color { ColorAnimation { duration: 150 } }
-
-                                    IconText {
-                                        anchors.centerIn: parent
-                                        text: "lock"
-                                        color: lockscreenTile.fg
-                                        font.pixelSize: 24
-                                        Behavior on color { ColorAnimation { duration: 160 } }
-                                    }
-
-                                    TooltipMixin {
-                                        id: lockscreenTip
-                                        root: dashboardContent.root
-                                        owner: lockscreenTile
-                                        text: "Lock Screen Settings"
-                                    }
-
-                                    SpringPress {}
-                                    MouseArea {
-                                        id: lockscreenMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onEntered: lockscreenTip.show()
-                                        onExited: lockscreenTip.hide()
-                                        onClicked: {
-                                            lockscreenTip.hide()
-                                            if (dashboardContent.activeDetailView === "lockscreen") {
-                                                dashboardContent.activeDetailView = ""
-                                                if (root) root.dashboardDetail = ""
-                                            } else {
-                                                dashboardContent.activeDetailView = "lockscreen"
-                                                if (root) root.dashboardDetail = "lockscreen"
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Row 2: 1x4 Compact Tiles (Pomodoro, Quick Share, Themes, Wallpapers)
-                        Row {
-                            width: parent.width
-                            spacing: 10
-
-                            // 5. Pomodoro Timer Tile (Compact 1x4)
-                            Rectangle {
-                                id: pomodoroTile
-                                width: Math.floor((parent.width - 30) / 4)
-                                height: 56
-                                radius: 18
-                                clip: true
-                                color: root.timerActive ? (root.color03 || root.seal) : (pomodoroMa.containsMouse ? root.fillHover : root.fillIdle)
-                                Behavior on color { ColorAnimation { duration: 180 } }
-
-                                IconText {
-                                    anchors.centerIn: parent
-                                    text: root.timerActive ? "timer" : "hourglass_top"
-                                    color: root.timerActive ? root.paper : (pomodoroMa.containsMouse ? root.seal : root.ink)
-                                    font.pixelSize: 22
-                                    Behavior on color { ColorAnimation { duration: 200 } }
-                                }
-
-                                TooltipMixin {
-                                    id: pomodoroTip
-                                    root: dashboardContent.root
-                                    owner: pomodoroTile
-                                    text: {
-                                        if (!root.timerActive) return "Pomodoro: 25m Focus (Click to start)"
-                                        if (root.timerPaused) return "Pomodoro: Paused"
-                                        var sec = root.timerRemaining
-                                        var m = Math.floor(sec / 60)
-                                        var s = sec % 60
-                                        return "Pomodoro: " + (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s) + " left (Right-click reset)"
-                                    }
-                                }
-
-                                SpringPress {}
-                                MouseArea {
-                                    id: pomodoroMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                    onEntered: pomodoroTip.show()
-                                    onExited: pomodoroTip.hide()
-                                    onClicked: (mouse) => {
-                                        pomodoroTip.hide()
-                                        if (mouse.button === Qt.RightButton) {
-                                            root.resetTimer()
-                                        } else {
-                                            if (root.timerActive) {
-                                                root.toggleTimer()
-                                            } else {
-                                                root.startTimer(25, "Focus")
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // 6. Quick Share Tile (Compact 1x4)
-                            Rectangle {
-                                id: quickShareTile
-                                width: Math.floor((parent.width - 30) / 4)
-                                height: 56
-                                radius: 18
-                                color: quickShareMa.containsMouse ? root.fillHover : root.fillIdle
-                                Behavior on color { ColorAnimation { duration: 160 } }
-
-                                IconText {
-                                    anchors.centerIn: parent
-                                    text: "share"
-                                    color: quickShareMa.containsMouse ? root.seal : root.ink
-                                    font.pixelSize: 22
-                                }
-
-                                TooltipMixin {
-                                    id: qsTip
-                                    root: dashboardContent.root
-                                    owner: quickShareTile
-                                    text: "Quick Share (LocalSend)"
-                                }
-
-                                SpringPress {}
-                                MouseArea {
-                                    id: quickShareMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onEntered: qsTip.show()
-                                    onExited: qsTip.hide()
-                                    onClicked: {
-                                        qsTip.hide()
-                                        Quickshell.execDetached(["localsend"])
-                                    }
-                                }
-                            }
-
-                            // 7. Themes Tile (Compact 1x4)
-                            Rectangle {
-                                id: themeTile
-                                property bool active: dashboardContent.activeDetailView === "theme"
-                                readonly property color fg: active ? root.paper : (themeMa.containsMouse ? root.seal : root.ink)
-                                width: Math.floor((parent.width - 30) / 4)
-                                height: 56
-                                radius: 18
-                                color: active
-                                    ? (themeMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                    : (themeMa.containsMouse ? root.fillHover : root.fillIdle)
-                                Behavior on color { ColorAnimation { duration: 160 } }
-
-                                border.width: active ? 2 : 0
-                                border.color: active ? root.paper : root.seal
-
-                                IconText {
-                                    anchors.centerIn: parent
-                                    text: "palette"
-                                    color: themeTile.fg
-                                    font.pixelSize: 22
-                                    Behavior on color { ColorAnimation { duration: 160 } }
-                                }
-
-                                TooltipMixin {
-                                    id: themeTip
-                                    root: dashboardContent.root
-                                    owner: themeTile
-                                    text: "Themes & Color Scheme"
-                                }
-
-                                SpringPress {}
-                                MouseArea {
-                                    id: themeMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onEntered: themeTip.show()
-                                    onExited: themeTip.hide()
-                                    onClicked: {
-                                        themeTip.hide()
-                                        if (dashboardContent.activeDetailView === "theme") {
-                                            dashboardContent.activeDetailView = ""
-                                            if (root) root.dashboardDetail = ""
-                                        } else {
-                                            dashboardContent.activeDetailView = "theme"
-                                            if (root) root.dashboardDetail = "theme"
-                                        }
-                                    }
-                                }
-                            }
-
-                            // 8. Wallpapers Tile (Compact 1x4)
-                            Rectangle {
-                                id: wallpaperTile
-                                property bool active: dashboardContent.activeDetailView === "wallpaper"
-                                readonly property color fg: active ? root.paper : (wallpaperMa.containsMouse ? root.seal : root.ink)
-                                width: Math.floor((parent.width - 30) / 4)
-                                height: 56
-                                radius: 18
-                                color: active
-                                    ? (wallpaperMa.containsMouse ? Qt.lighter(root.seal, 1.12) : root.seal)
-                                    : (wallpaperMa.containsMouse ? root.fillHover : root.fillIdle)
-                                Behavior on color { ColorAnimation { duration: 160 } }
-
-                                border.width: active ? 2 : 0
-                                border.color: active ? root.paper : root.seal
-
-                                IconText {
-                                    anchors.centerIn: parent
-                                    text: "wallpaper"
-                                    color: wallpaperTile.fg
-                                    font.pixelSize: 22
-                                    Behavior on color { ColorAnimation { duration: 160 } }
-                                }
-
-                                TooltipMixin {
-                                    id: wallTip
-                                    root: dashboardContent.root
-                                    owner: wallpaperTile
-                                    text: "Wallpapers (Gallery & Picker)"
-                                }
-
-                                SpringPress {}
-                                MouseArea {
-                                    id: wallpaperMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onEntered: wallTip.show()
-                                    onExited: wallTip.hide()
-                                    onClicked: {
-                                        wallTip.hide()
-                                        if (dashboardContent.activeDetailView === "wallpaper") {
-                                            dashboardContent.activeDetailView = ""
-                                            if (root) root.dashboardDetail = ""
-                                        } else {
-                                            dashboardContent.activeDetailView = "wallpaper"
-                                            if (root) root.dashboardDetail = "wallpaper"
-                                        }
-                                    }
+                            Behavior on x { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
+                            Behavior on y { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
+                            Behavior on width {
+                                NumberAnimation {
+                                    duration: 380
+                                    easing.type: Easing.OutBack
+                                    easing.overshoot: 1.35
                                 }
                             }
                         }
                     }
                 }
             } // end tilesPager
+
+
+        } // end tilesPagerContainer
         } // end leftCol
 
         // ── RIGHT COLUMN: Media Player & Lyrics Drawer ──
@@ -2574,47 +2179,111 @@ Item {
                         anchors.bottom: parent.bottom
                         height: mediaWithLyricsGroup.lyricsVisibleHeight
 
-                        // Floating Pill Toggle Tag (Right aligned)
-                        Rectangle {
-                            id: lyricsPillTag
+                        // Floating Pill Actions (Right aligned)
+                        Row {
+                            id: lyricsActionsRow
                             anchors.right: parent.right
                             anchors.rightMargin: 12
                             anchors.verticalCenter: parent.verticalCenter
-                            height: 24
-                            radius: 12
-                            readonly property bool isShowing: (dashboardContent.mprisPanel && dashboardContent.mprisPanel.showingLyrics)
-                            color: isShowing
-                                ? mediaCard.pillBg
-                                : (lyricsMa.containsMouse ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(1, 1, 1, 0.14))
-                            border.color: isShowing
-                                ? (mediaCard.hasVibrantDom ? Qt.rgba(mediaCard.domCol.r, mediaCard.domCol.g, mediaCard.domCol.b, 0.45) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.15))
-                                : Qt.rgba(1, 1, 1, 0.28)
-                            border.width: 1
-                            width: tagRow.implicitWidth + 14
+                            spacing: 6
 
-                            Behavior on color { ColorAnimation { duration: 150 } }
-                            Behavior on border.color { ColorAnimation { duration: 150 } }
-
-                            Row {
-                                id: tagRow
-                                anchors.centerIn: parent
-                                spacing: 5
+                            // Reload Lyrics Icon Button
+                            Rectangle {
+                                id: reloadLyricsBtn
+                                width: 24
+                                height: 24
+                                radius: 12
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: reloadLyricsMa.containsMouse ? (lyricsPillTag.isShowing ? Qt.rgba(1, 1, 1, 0.30) : root.fillHover) : Qt.rgba(1, 1, 1, 0.14)
+                                border.color: Qt.rgba(1, 1, 1, 0.28)
+                                border.width: 1
+                                Behavior on color { ColorAnimation { duration: 150 } }
 
                                 IconText {
-                                    text: lyricsPillTag.isShowing ? "visibility" : "subtitles"
-                                    font.pixelSize: 12
-                                    color: lyricsPillTag.isShowing ? root.ink : "#FFFFFF"
-                                    anchors.verticalCenter: parent.verticalCenter
+                                    id: reloadIcon
+                                    anchors.centerIn: parent
+                                    text: "refresh"
+                                    font.pixelSize: 13
+                                    color: (mprisPanel && mprisPanel._isFetchingLyrics) ? root.seal : (root ? root.ink : "#ffffff")
+
+                                    RotationAnimation on rotation {
+                                        running: mprisPanel ? mprisPanel._isFetchingLyrics : false
+                                        loops: Animation.Infinite
+                                        from: 0
+                                        to: 360
+                                        duration: 800
+                                    }
                                 }
 
-                                Text {
-                                    text: lyricsPillTag.isShowing ? "FLOAT ON" : "LYRICS"
-                                    font.family: root.barFont
-                                    font.pixelSize: 9
-                                    font.weight: Font.DemiBold
-                                    font.letterSpacing: 0.8
-                                    color: lyricsPillTag.isShowing ? root.ink : "#FFFFFF"
-                                    anchors.verticalCenter: parent.verticalCenter
+                                TooltipMixin {
+                                    id: reloadLyricsTip
+                                    root: dashboardContent.root
+                                    owner: reloadLyricsBtn
+                                    text: "Reload lyrics"
+                                }
+
+                                SpringPress {}
+                                MouseArea {
+                                    id: reloadLyricsMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        var trackId = dashboardContent.currentTrackId
+                                        if (mprisPanel) {
+                                            if (trackId && mprisPanel._lyricsCache) {
+                                                delete mprisPanel._lyricsCache[trackId]
+                                            }
+                                            mprisPanel.lyricsTrackId = ""
+                                            mprisPanel._lyricsRetryCount = 0
+                                            mprisPanel._isFetchingLyrics = false
+                                            mprisPanel.fetchLyrics()
+                                        }
+                                        dashboardContent.localLyricsTrackId = ""
+                                        dashboardContent.fetchLocalLyrics()
+                                    }
+                                }
+                            }
+
+                            // Floating Pill Toggle Tag
+                            Rectangle {
+                                id: lyricsPillTag
+                                height: 24
+                                radius: 12
+                                readonly property bool isShowing: (dashboardContent.mprisPanel && dashboardContent.mprisPanel.showingLyrics)
+                                color: isShowing
+                                    ? mediaCard.pillBg
+                                    : (lyricsMa.containsMouse ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(1, 1, 1, 0.14))
+                                border.color: isShowing
+                                    ? (mediaCard.hasVibrantDom ? Qt.rgba(mediaCard.domCol.r, mediaCard.domCol.g, mediaCard.domCol.b, 0.45) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.15))
+                                    : Qt.rgba(1, 1, 1, 0.28)
+                                border.width: 1
+                                width: tagRow.implicitWidth + 14
+
+                                Behavior on color { ColorAnimation { duration: 150 } }
+                                Behavior on border.color { ColorAnimation { duration: 150 } }
+
+                                Row {
+                                    id: tagRow
+                                    anchors.centerIn: parent
+                                    spacing: 5
+
+                                    IconText {
+                                        text: lyricsPillTag.isShowing ? "visibility" : "subtitles"
+                                        font.pixelSize: 12
+                                        color: lyricsPillTag.isShowing ? root.ink : "#FFFFFF"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+
+                                    Text {
+                                        text: lyricsPillTag.isShowing ? "FLOAT ON" : "LYRICS"
+                                        font.family: root.barFont
+                                        font.pixelSize: 9
+                                        font.weight: Font.DemiBold
+                                        font.letterSpacing: 0.8
+                                        color: lyricsPillTag.isShowing ? root.ink : "#FFFFFF"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
                                 }
                             }
                         }
@@ -2624,7 +2293,7 @@ Item {
                             id: lyricTextContainer
                             anchors.left: parent.left
                             anchors.leftMargin: 16
-                            anchors.right: lyricsPillTag.left
+                            anchors.right: lyricsActionsRow.left
                             anchors.rightMargin: 12
                             anchors.verticalCenter: parent.verticalCenter
                             height: parent.height - 12
@@ -2843,7 +2512,7 @@ Item {
                     }
                 }
 
-                // --- MATERIAL YOU MEDIA PLAYER (Front Card) ---
+                // --- MATERIAL YOU MEDIA PLAYER ---
                 Rectangle {
                     id: mediaCard
                     z: 2
@@ -2852,6 +2521,22 @@ Item {
                     anchors.right: parent.right
                     height: 144
                     radius: 22
+
+                    readonly property bool isSpotify: mprisSel.player && /spotify/i.test((mprisSel.player.identity || "") + " " + (mprisSel.player.dbusName || ""))
+                    readonly property bool isYouTube: mprisSel.player && (/youtube/i.test(mprisSel.player.trackTitle || "") || /youtube/i.test(mprisSel.player.identity || "") || /firefox|zen|chromium|chrome|brave/i.test(mprisSel.player.identity || "") || /firefox|zen|chromium|chrome|brave/i.test(mprisSel.player.dbusName || ""))
+
+                    WheelHandler {
+                        target: null
+                        onWheel: (event) => {
+                            if (!dashboardContent.hasMultiplePlayers) return
+                            if (event.angleDelta.x > 30 || event.angleDelta.y < -40) {
+                                mprisSel.nextPlayer()
+                            } else if (event.angleDelta.x < -30 || event.angleDelta.y > 40) {
+                                mprisSel.prevPlayer()
+                            }
+                        }
+                    }
+
                     readonly property bool hasDominant: mprisArt.dominantColor && String(mprisArt.dominantColor) !== "#00000000" && String(mprisArt.dominantColor) !== "transparent"
                     readonly property color domCol: hasDominant ? mprisArt.dominantColor : root.seal
                     readonly property bool hasVibrantDom: hasDominant && (domCol.r * 0.299 + domCol.g * 0.587 + domCol.b * 0.114 > 0.18)
@@ -2885,7 +2570,7 @@ Item {
                         Image {
                             id: cardBgArt
                             anchors.fill: parent
-                            source: root.lastMediaArtUrl
+                            source: mprisArt.source || root.lastMediaArtUrl
                             sourceSize: Qt.size(512, 512)
                             fillMode: Image.PreserveAspectCrop
                             asynchronous: true
@@ -2908,7 +2593,7 @@ Item {
                         }
                     }
 
-                    // TOP ROW: App Icon + Status Tag (Left) + Output Pill (Right)
+                    // TOP ROW: App Icon / Switcher (Left) + Output / Clock Controls (Right)
                     Item {
                         id: topRow
                         anchors.top: parent.top
@@ -2918,38 +2603,173 @@ Item {
                         height: 22
 
                         Row {
+                            id: topRowLeft
                             anchors.left: parent.left
+                            anchors.right: topRowRight.left
+                            anchors.rightMargin: 8
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 8
+                            clip: true
 
-                            // App icon (Spotify logo if available, or music icon)
+                            // ── Multi-Player Source Switcher (modeled after DesktopContextMenu wallpaper picker) ──
+                            Row {
+                                id: playerSwitcherRow
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 6
+                                visible: dashboardContent.hasMultiplePlayers
+
+                                Repeater {
+                                    model: dashboardContent.hasMultiplePlayers ? mprisSel.playersList : []
+                                    delegate: ClippingRectangle {
+                                        id: playerPillItem
+                                        required property var modelData
+                                        required property int index
+                                        readonly property bool isCurrent: index === mprisSel.selectedIndex
+                                        width: isCurrent ? 84 : 22
+                                        height: 22
+                                        radius: 11
+                                        color: isCurrent ? Qt.rgba(1, 1, 1, 0.28) : (playerPillMa.containsMouse ? Qt.rgba(1, 1, 1, 0.20) : Qt.rgba(0, 0, 0, 0.36))
+                                        border.color: isCurrent ? Qt.rgba(1, 1, 1, 0.45) : Qt.rgba(1, 1, 1, 0.18)
+                                        border.width: 1
+
+                                        Behavior on width { NumberAnimation { duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                                        Behavior on color { ColorAnimation { duration: 150 } }
+
+                                        // Artwork / Thumbnail background preview if available
+                                        Image {
+                                            anchors.fill: parent
+                                            source: modelData.trackArtUrl || ""
+                                            sourceSize: Qt.size(96, 96)
+                                            fillMode: Image.PreserveAspectCrop
+                                            asynchronous: true
+                                            opacity: playerPillItem.isCurrent ? 0.35 : 0.55
+                                            visible: status === Image.Ready
+                                        }
+
+                                        Row {
+                                            anchors.centerIn: parent
+                                            spacing: 4
+
+                                            // App Icon
+                                            Item {
+                                                width: 14; height: 14
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                readonly property bool isSpot: /spotify/i.test((modelData.identity || "") + " " + (modelData.dbusName || ""))
+                                                readonly property bool isYt: /youtube/i.test(modelData.trackTitle || "") || /firefox|zen|chromium|chrome|brave/i.test(modelData.identity || "")
+
+                                                Image {
+                                                    anchors.fill: parent
+                                                    source: "file:///home/hery/.config/quickshell/bar/spotify.svg"
+                                                    visible: parent.isSpot
+                                                }
+
+                                                Rectangle {
+                                                    anchors.fill: parent
+                                                    radius: 3
+                                                    color: "#e50914"
+                                                    visible: !parent.isSpot && parent.isYt
+
+                                                    IconText {
+                                                        anchors.centerIn: parent
+                                                        text: "play_arrow"
+                                                        color: "#ffffff"
+                                                        font.pixelSize: 9
+                                                    }
+                                                }
+
+                                                IconText {
+                                                    anchors.centerIn: parent
+                                                    text: "music_note"
+                                                    color: "#ffffff"
+                                                    font.pixelSize: 13
+                                                    visible: !parent.isSpot && !parent.isYt
+                                                }
+                                            }
+
+                                            // Identity Name when expanded
+                                            Text {
+                                                visible: playerPillItem.isCurrent
+                                                text: {
+                                                    var idStr = modelData.identity || "Media"
+                                                    return idStr.length > 7 ? idStr.substring(0, 6) + "…" : idStr
+                                                }
+                                                color: "#ffffff"
+                                                font.family: root.barFont
+                                                font.pixelSize: 9
+                                                font.weight: Font.DemiBold
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+
+                                            // Checkmark badge when active
+                                            IconText {
+                                                visible: playerPillItem.isCurrent
+                                                text: "check"
+                                                color: "#ffffff"
+                                                font.pixelSize: 11
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+                                        }
+
+                                        MouseArea {
+                                            id: playerPillMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: mprisSel.selectPlayer(index)
+                                        }
+
+                                        TooltipMixin {
+                                            root: dashboardContent.root
+                                            owner: parent
+                                            text: modelData.trackTitle ? (modelData.trackTitle + " (" + (modelData.identity || "Media") + ")") : (modelData.identity || "Media Player")
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Single-player App icon badge (visible when only 1 player active)
                             Item {
                                 width: 20; height: 20
                                 anchors.verticalCenter: parent.verticalCenter
+                                visible: !dashboardContent.hasMultiplePlayers
 
                                 Image {
                                     id: spotLogo
                                     anchors.fill: parent
-                                    source: (mprisSel.player && /spotify/i.test(mprisSel.player.identity || ""))
-                                        ? "file:///home/hery/.config/quickshell/bar/spotify.svg"
-                                        : ""
-                                    visible: source !== "" && status === Image.Ready
+                                    source: "file:///home/hery/.config/quickshell/bar/spotify.svg"
+                                    visible: mediaCard.isSpotify && status === Image.Ready
+                                }
+
+                                Rectangle {
+                                    id: ytBadge
+                                    anchors.fill: parent
+                                    radius: 5
+                                    color: "#e50914"
+                                    visible: !spotLogo.visible && mediaCard.isYouTube
+
+                                    IconText {
+                                        anchors.centerIn: parent
+                                        text: "play_arrow"
+                                        color: "#ffffff"
+                                        font.pixelSize: 13
+                                    }
                                 }
 
                                 IconText {
                                     anchors.centerIn: parent
                                     text: "music_note"
                                     color: "#ffffff"
-                                    font.pixelSize: 20
-                                    visible: !spotLogo.visible
+                                    font.pixelSize: 18
+                                    visible: !spotLogo.visible && !ytBadge.visible
                                 }
                             }
 
-                            // Last Played / Now Playing Tag
+                            // Last Played / Now Playing Tag (Visible when not multiple players)
                             Rectangle {
                                 id: statusTag
                                 height: 20
                                 radius: 6
+                                visible: !dashboardContent.hasMultiplePlayers
                                 color: (dashboardContent.curTitle === "" && root.lastMediaTitle !== "")
                                     ? Qt.rgba(1, 1, 1, 0.30)
                                     : (mprisSel.playing ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(0, 0, 0, 0.30))
@@ -2975,10 +2795,12 @@ Item {
                             }
                         }
 
+                        // Right side controls
                         Row {
+                            id: topRowRight
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: 8
+                            spacing: 6
 
                             // Switch to Clock Widget Button
                             Rectangle {
@@ -3017,66 +2839,6 @@ Item {
                                 }
                             }
 
-                            // Reload Lyrics Button
-                            Rectangle {
-                                id: reloadLyricsBtn
-                                width: 22
-                                height: 22
-                                radius: 11
-                                anchors.verticalCenter: parent.verticalCenter
-                                color: reloadLyricsMa.containsMouse ? root.fillHover : root.fillIdle
-                                border.color: root.sep
-                                border.width: 1
-                                Behavior on color { ColorAnimation { duration: 150 } }
-
-                                IconText {
-                                    id: reloadIcon
-                                    anchors.centerIn: parent
-                                    text: "refresh"
-                                    font.pixelSize: 13
-                                    color: (mprisPanel && mprisPanel._isFetchingLyrics) ? root.seal : (root ? root.ink : "#ffffff")
-
-                                    RotationAnimation on rotation {
-                                        running: mprisPanel ? mprisPanel._isFetchingLyrics : false
-                                        loops: Animation.Infinite
-                                        from: 0
-                                        to: 360
-                                        duration: 800
-                                    }
-                                }
-
-                                TooltipMixin {
-                                    id: reloadLyricsTip
-                                    root: dashboardContent.root
-                                    owner: reloadLyricsBtn
-                                    text: "Reload lyrics"
-                                }
-
-                                SpringPress {}
-                                MouseArea {
-                                    id: reloadLyricsMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onEntered: reloadLyricsTip.show()
-                                    onExited: reloadLyricsTip.hide()
-                                    onClicked: {
-                                        var trackId = dashboardContent.currentTrackId
-                                        if (mprisPanel) {
-                                            if (trackId && mprisPanel._lyricsCache) {
-                                                delete mprisPanel._lyricsCache[trackId]
-                                            }
-                                            mprisPanel.lyricsTrackId = ""
-                                            mprisPanel._lyricsRetryCount = 0
-                                            mprisPanel._isFetchingLyrics = false
-                                            mprisPanel.fetchLyrics()
-                                        }
-                                        dashboardContent.localLyricsTrackId = ""
-                                        dashboardContent.fetchLocalLyrics()
-                                    }
-                                }
-                            }
-
                             // Output Pill (e.g. "This device" / Audio Sink)
                             Rectangle {
                                 id: outputPill
@@ -3105,12 +2867,18 @@ Item {
                                             var desc = (audioData.sink && audioData.sink.description) ? audioData.sink.description : "This device"
                                             return desc.length > 18 ? desc.substring(0, 16) + "…" : desc
                                         }
-                                        font.family: root.barFont
-                                        font.pixelSize: 11
-                                        font.weight: Font.Medium
                                         color: "#ffffff"
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.Medium
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
+                                }
+
+                                TooltipMixin {
+                                    root: dashboardContent.root
+                                    owner: outputPill
+                                    text: audioData.sink ? (audioData.sink.description || "Audio Output") : "Audio Output"
                                 }
                             }
                         }
@@ -3199,36 +2967,41 @@ Item {
                             }
                         }
 
-                        // Large Squircle / Pill Play/Pause Button (Material You style)
+                        // Pill Play/Pause Button (Material You rectangle pill style)
                         Rectangle {
                             id: playPill
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 44
-                            height: 44
-                            radius: 14
-                            color: playMa.pressed ? Qt.rgba(1, 1, 1, 0.12) : (playMa.containsMouse ? Qt.rgba(1, 1, 1, 0.28) : Qt.rgba(1, 1, 1, 0.18))
-                            border.color: Qt.rgba(1, 1, 1, 0.20)
+                            width: 54
+                            height: 34
+                            radius: 17
+                            readonly property color iconCol: {
+                                var c = mediaCard.pillBg
+                                var luma = c.r * 0.299 + c.g * 0.587 + c.b * 0.114
+                                return luma > 0.55 ? "#1e1b18" : "#ffffff"
+                            }
+                            color: playMa.pressed ? Qt.darker(mediaCard.pillBg, 1.15) : (playMa.containsMouse ? Qt.lighter(mediaCard.pillBg, 1.08) : mediaCard.pillBg)
+                            border.color: Qt.rgba(0, 0, 0, 0.08)
                             border.width: 1
                             Behavior on color { ColorAnimation { duration: 150 } }
 
                             // Geometric pause bars (100% mathematically centered)
                             Row {
                                 anchors.centerIn: parent
-                                spacing: 4.5
+                                spacing: 4
                                 visible: mprisSel.playing
 
                                 Rectangle {
-                                    width: 4.5
-                                    height: 16
-                                    radius: 2.25
-                                    color: "#ffffff"
+                                    width: 3.5
+                                    height: 14
+                                    radius: 1.75
+                                    color: playPill.iconCol
                                 }
                                 Rectangle {
-                                    width: 4.5
-                                    height: 16
-                                    radius: 2.25
-                                    color: "#ffffff"
+                                    width: 3.5
+                                    height: 14
+                                    radius: 1.75
+                                    color: playPill.iconCol
                                 }
                             }
 
@@ -3237,8 +3010,8 @@ Item {
                                 anchors.centerIn: parent
                                 anchors.horizontalCenterOffset: 1.5
                                 text: "play_arrow"
-                                font.pixelSize: 28
-                                color: "#ffffff"
+                                font.pixelSize: 22
+                                color: playPill.iconCol
                                 visible: !mprisSel.playing
                             }
 
@@ -3463,7 +3236,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                         }
                     }
-                }
+                } // end mediaCard
             } // end mediaWithLyricsGroup
 
             // --- COOL AESTHETIC TIME & DATE WIDGET (Zero borders, unified canvas) ---
@@ -3549,25 +3322,32 @@ Item {
                         anchors.right: parent.right
                         height: 24
 
-                        Row {
+                        Item {
                             anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: 8
+                            height: parent.height
+                            width: calRow.implicitWidth
 
-                            IconText {
-                                text: "calendar_today"
-                                font.pixelSize: 14
-                                color: root.seal
+                            Row {
+                                id: calRow
                                 anchors.verticalCenter: parent.verticalCenter
-                            }
+                                spacing: 8
 
-                            Text {
-                                text: Qt.formatDate(dashboardContent.now, "dddd, MMMM d")
-                                font.family: root.barFont
-                                font.pixelSize: 13
-                                font.weight: Font.DemiBold
-                                color: root.ink
-                                anchors.verticalCenter: parent.verticalCenter
+                                IconText {
+                                    text: "calendar_today"
+                                    font.pixelSize: 14
+                                    color: root.seal
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+
+                                Text {
+                                    text: Qt.formatDate(dashboardContent.now, "dddd, MMMM d")
+                                    font.family: root.barFont
+                                    font.pixelSize: 13
+                                    font.weight: Font.DemiBold
+                                    color: root.ink
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
                             }
 
                             MouseArea {
@@ -3818,6 +3598,31 @@ Item {
             }
         } // end rightCol
     } // end Row
+
+    // ── Dragged Tile Floating Preview (Follows mouse across any page) ──
+    Item {
+        id: dragPreviewItem
+        visible: dashboardContent.draggingTileId !== ""
+        enabled: false
+        z: 9999
+        width: dashboardContent.dragTileSpan === 2 ? dashboardContent.tileDoubleWidth : dashboardContent.tileUnitWidth
+        height: 56
+        scale: 1.05
+        opacity: 0.92
+
+        property real currentMouseX: 0
+        property real currentMouseY: 0
+        x: currentMouseX - width / 2
+        y: currentMouseY - height / 2
+
+        DashboardTile {
+            anchors.fill: parent
+            dashContent: dashboardContent
+            tileId: dashboardContent.draggingTileId || "wifi"
+            span: dashboardContent.dragTileSpan
+            tileIndex: -1
+        }
+    }
 } // end mainControls
 
     // ── DETAIL OVERLAY (Phone-style sub-page sheet) ──
@@ -3952,11 +3757,7 @@ Item {
         // Subpage Content Area
         Item {
             id: detailContentArea
-            anchors.top: detailHeaderBar.bottom
-            anchors.topMargin: 0
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
+            anchors.fill: parent
             clip: true
 
             component DetailLoader: Loader {
@@ -4052,6 +3853,278 @@ Item {
                         if (dashboardContent.root) {
                             dashboardContent.root.dashboardDetail = ""
                             dashboardContent.root.dashboardExpanded = false
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ── POMODORO TIMER POPUP (Sleek Material You modal to view, pause, or disable the timer) ──
+    Item {
+        id: pomodoroPopupBackdrop
+        anchors.fill: parent
+        z: 1000
+        visible: opacity > 0.001
+        opacity: dashboardContent.showPomodoroPopup ? 1.0 : 0.0
+        Behavior on opacity { NumberAnimation { duration: 180 } }
+
+        // Dimmer background (Clicking closes the popup)
+        Rectangle {
+            anchors.fill: parent
+            color: Qt.rgba(0, 0, 0, 0.45)
+            MouseArea {
+                anchors.fill: parent
+                onClicked: dashboardContent.showPomodoroPopup = false
+            }
+        }
+
+        // Pomodoro Card
+        Rectangle {
+            id: pomodoroCard
+            anchors.centerIn: parent
+            width: 310
+            height: 220
+            radius: 20
+            color: Qt.rgba(root.paper.r * 0.92 + 0.04, root.paper.g * 0.92 + 0.04, root.paper.b * 0.92 + 0.04, 0.97)
+            border.color: root.islandBorder
+            border.width: 1
+
+            scale: dashboardContent.showPomodoroPopup ? 1.0 : 0.92
+            Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack } }
+
+            // Prevent clicks inside card from closing
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {}
+            }
+
+            Column {
+                anchors.fill: parent
+                anchors.margins: 16
+                spacing: 12
+
+                // Header
+                Item {
+                    width: parent.width
+                    height: 28
+
+                    Row {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 8
+
+                        IconText {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "timer"
+                            color: (root && root.timerActive) ? root.color03 : root.seal
+                            font.pixelSize: 20
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Pomodoro Timer"
+                            color: root.ink
+                            font.family: root.barFont
+                            font.pixelSize: 14
+                            font.weight: Font.DemiBold
+                        }
+                    }
+
+                    // Close button
+                    Item {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 26
+                        height: 26
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 13
+                            color: closePomoMa.containsMouse ? root.fillHover : "transparent"
+                        }
+
+                        IconText {
+                            anchors.centerIn: parent
+                            text: "close"
+                            color: root.ink
+                            opacity: 0.7
+                            font.pixelSize: 18
+                        }
+
+                        MouseArea {
+                            id: closePomoMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: dashboardContent.showPomodoroPopup = false
+                        }
+                    }
+                }
+
+                // Countdown Display
+                Column {
+                    width: parent.width
+                    spacing: 2
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: {
+                            if (!root || !root.timerActive) return "25:00"
+                            let sec = root.timerRemaining || 0
+                            let m = Math.floor(sec / 60)
+                            let s = sec % 60
+                            return (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s)
+                        }
+                        font.family: root.barFont
+                        font.pixelSize: 36
+                        font.weight: Font.Bold
+                        color: (root && root.timerActive && !root.timerPaused) ? root.color03 : root.ink
+                    }
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: {
+                            if (!root || !root.timerActive) return "Ready to focus"
+                            if (root.timerPaused) return "Paused"
+                            return (root.timerLabel || "Focus") + " • In Progress"
+                        }
+                        font.family: root.barFont
+                        font.pixelSize: 12
+                        color: root.ink
+                        opacity: 0.65
+                    }
+                }
+
+                // Action Controls Row
+                Row {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: 10
+
+                    // Start / Resume / Pause button
+                    Rectangle {
+                        height: 38
+                        width: (root && root.timerActive) ? 124 : 160
+                        radius: 19
+                        color: (root && root.timerActive && !root.timerPaused) ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22) : root.seal
+                        border.color: root.seal
+                        border.width: 1
+
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 6
+
+                            IconText {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: (!root || !root.timerActive || root.timerPaused) ? "play_arrow" : "pause"
+                                color: (!root || !root.timerActive || root.timerPaused) ? root.paper : root.seal
+                                font.pixelSize: 18
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: (!root || !root.timerActive) ? "Start 25m" : (root.timerPaused ? "Resume" : "Pause")
+                                font.family: root.barFont
+                                font.pixelSize: 12
+                                font.weight: Font.DemiBold
+                                color: (!root || !root.timerActive || root.timerPaused) ? root.paper : root.seal
+                            }
+                        }
+
+                        MouseArea {
+                            id: pStartMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (root) {
+                                    if (!root.timerActive) root.startTimer(25, "Focus")
+                                    else root.toggleTimer()
+                                }
+                            }
+                        }
+                    }
+
+                    // Disable / Reset button
+                    Rectangle {
+                        visible: root && root.timerActive
+                        height: 38
+                        width: 124
+                        radius: 19
+                        color: Qt.rgba(root.color01.r, root.color01.g, root.color01.b, 0.18)
+                        border.color: root.color01
+                        border.width: 1
+
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 6
+
+                            IconText {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "stop"
+                                color: root.color01
+                                font.pixelSize: 18
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "Disable / Reset"
+                                font.family: root.barFont
+                                font.pixelSize: 12
+                                font.weight: Font.DemiBold
+                                color: root.color01
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (root) root.resetTimer()
+                            }
+                        }
+                    }
+                }
+
+                // Quick Presets (when timer is idle)
+                Row {
+                    visible: !root || !root.timerActive
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: 8
+
+                    Repeater {
+                        model: [
+                            { label: "25m Focus", mins: 25, type: "Focus" },
+                            { label: "5m Break", mins: 5, type: "Short Break" },
+                            { label: "15m Break", mins: 15, type: "Long Break" }
+                        ]
+
+                        Rectangle {
+                            height: 26
+                            width: chipTxt.implicitWidth + 16
+                            radius: 13
+                            color: chipMa.containsMouse ? root.fillHover : root.fillIdle
+
+                            Text {
+                                id: chipTxt
+                                anchors.centerIn: parent
+                                text: modelData.label
+                                font.family: root.barFont
+                                font.pixelSize: 11
+                                color: root.ink
+                                opacity: 0.85
+                            }
+
+                            MouseArea {
+                                id: chipMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    if (root) root.startTimer(modelData.mins, modelData.type)
+                                }
+                            }
                         }
                     }
                 }

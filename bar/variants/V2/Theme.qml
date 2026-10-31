@@ -2539,7 +2539,7 @@ except Exception:
     }
 
     // ── picker visual style (theme/wallpaper/screenshot/video pickers) ──
-    property string pickerStyle: "tanzaku"   // "tanzaku", "hearthstone", "carousel"
+    property string pickerStyle: "tanzaku"   // "tanzaku", "hearthstone", "carousel", "gravemind"
     function setPickerStyle(style) { if (style) pickerStyle = style }
     property string launcherLogoMode: "text"     // "text" or "icon"
     property string launcherLogoText: "omarchy"  // "omarchy", "hyprland", "arch", or "omacom"
@@ -3003,7 +3003,7 @@ except Exception:
                     // pickerStyle is the field right after the workspace mode
                     if (parts.length > wsField + 1) {
                         var ps = parts[wsField + 1]
-                        if (ps === "hearthstone" || ps === "carousel" || ps === "tanzaku")
+                        if (ps === "hearthstone" || ps === "carousel" || ps === "tanzaku" || ps === "gravemind")
                             theme.pickerStyle = ps
                     }
                     // weatherImperial / clock12h follow pickerStyle

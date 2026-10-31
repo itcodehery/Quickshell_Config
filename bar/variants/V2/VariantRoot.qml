@@ -304,10 +304,10 @@ Item {
     // Picker variants: only the selected pickerStyle is instantiated on demand.
     LazyLoader { active: theme.imagePickerVisible && (theme.pickerStyle === "tanzaku" || theme.pickerStyle === "");  ImageCarouselPanel       { root: theme } }
     LazyLoader { active: theme.imagePickerVisible && theme.pickerStyle === "hearthstone";                           ImageCarouselHearthstone { root: theme } }
-    LazyLoader { active: theme.imagePickerVisible && theme.pickerStyle === "carousel";                              ImageCarouselCarousel    { root: theme } }
+    LazyLoader { active: theme.imagePickerVisible && (theme.pickerStyle === "carousel" || theme.pickerStyle === "gravemind"); ImageCarouselCarousel    { root: theme } }
     LazyLoader { active: theme.mediaBrowserVisible && (theme.pickerStyle === "tanzaku" || theme.pickerStyle === "");  MediaBrowserPanel        { root: theme } }
     LazyLoader { active: theme.mediaBrowserVisible && theme.pickerStyle === "hearthstone";                             MediaBrowserHearthstone  { root: theme } }
-    LazyLoader { active: theme.mediaBrowserVisible && theme.pickerStyle === "carousel";                                MediaBrowserCarousel     { root: theme } }
+    LazyLoader { active: theme.mediaBrowserVisible && (theme.pickerStyle === "carousel" || theme.pickerStyle === "gravemind"); MediaBrowserCarousel     { root: theme } }
 
     CursorDotOverlay { root: theme }
 

@@ -403,7 +403,8 @@ Item {
                 model: [
                     { id: "tanzaku", label: "3D Fan", icon: "view_carousel" },
                     { id: "hearthstone", label: "Hearthstone", icon: "style" },
-                    { id: "carousel", label: "Coverflow", icon: "view_array" }
+                    { id: "carousel", label: "Coverflow", icon: "view_array" },
+                    { id: "gravemind", label: "Gravemind", icon: "layers" }
                 ]
                 current: switcher.currentPickerStyle === "" ? "tanzaku" : switcher.currentPickerStyle
                 onActivated: (id) => switcher.setStyle(id)
@@ -997,6 +998,196 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
                             if (cfSlice.selected) switcher.applySelected()
+                            else switcher.selFilt = index
+                        }
+                    }
+                }
+            }
+        }
+
+        // ═════════════════════════════════════════════════════
+        // STYLE 4: GRAVEMIND (Spatial 3D Capsule Coverflow)
+        // ═════════════════════════════════════════════════════
+        Item {
+            id: gravemindStage
+            visible: switcher.currentPickerStyle === "gravemind"
+            anchors.fill: parent
+
+            readonly property int cardW: 200
+            readonly property int cardH: 200
+            readonly property int cardRadius: 22
+            readonly property real itemStep: 46
+            readonly property real centerGap: 92
+            readonly property real centerX: (width - cardW) / 2
+            readonly property real centerY: (height - cardH) / 2
+
+            // Capsule black dock backdrop (matches reference image)
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 4
+                radius: 24
+                color: "#08080b"
+                border.color: Qt.rgba(1, 1, 1, 0.10)
+                border.width: 1
+            }
+
+            Repeater {
+                model: switcher.filtered.length
+
+                delegate: Item {
+                    id: gmCard
+                    required property int index
+                    readonly property var entry: switcher.filtered[index] || null
+                    readonly property int relIdx: index - switcher.selFilt
+                    readonly property bool focused: relIdx === 0
+                    readonly property bool nearby: Math.abs(relIdx) <= 7
+
+                    visible: nearby
+                    width: gravemindStage.cardW
+                    height: gravemindStage.cardH
+
+                    // Vertical centering
+                    y: gravemindStage.centerY
+
+                    // Horizontal 3D placement:
+                    x: focused
+                        ? gravemindStage.centerX
+                        : (relIdx < 0
+                            ? (gravemindStage.centerX - gravemindStage.centerGap - (Math.abs(relIdx) - 1) * gravemindStage.itemStep)
+                            : (gravemindStage.centerX + gravemindStage.centerGap + (relIdx - 1) * gravemindStage.itemStep))
+
+                    // Center card on top, outer cards stacked behind
+                    z: focused ? 100 : 50 - Math.min(Math.abs(relIdx), 30)
+
+                    // 3D Perspective Rotation around Y axis
+                    // Left cards angle inward facing right (-44 deg)
+                    // Right cards angle inward facing left (44 deg)
+                    property real targetRotY: focused ? 0 : (relIdx < 0 ? -44 : 44)
+                    property real targetScale: focused ? 1.0 : Math.max(0.82, 0.96 - Math.abs(relIdx) * 0.035)
+
+                    Behavior on x           { NumberAnimation { duration: 280; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                    Behavior on targetRotY  { NumberAnimation { duration: 280; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+                    Behavior on targetScale { NumberAnimation { duration: 280; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
+
+                    transform: [
+                        Rotation {
+                            origin.x: gmCard.width / 2
+                            origin.y: gmCard.height / 2
+                            axis { x: 0; y: 1; z: 0 }
+                            angle: gmCard.targetRotY
+                        },
+                        Scale {
+                            origin.x: gmCard.width / 2
+                            origin.y: gmCard.height / 2
+                            xScale: gmCard.targetScale
+                            yScale: gmCard.targetScale
+                        }
+                    ]
+
+                    // Smooth card frame with rounded corners
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: gravemindStage.cardRadius
+                        color: "#121216"
+                        border.width: gmCard.focused ? 2 : 1
+                        border.color: gmCard.focused ? Qt.rgba(1, 1, 1, 0.40) : Qt.rgba(1, 1, 1, 0.12)
+                        Behavior on border.color { ColorAnimation { duration: 180 } }
+
+                        ClippingRectangle {
+                            anchors.fill: parent
+                            anchors.margins: gmCard.focused ? 2 : 1
+                            radius: gravemindStage.cardRadius - 1
+                            color: "#121216"
+
+                            Image {
+                                anchors.fill: parent
+                                source: (gmCard.nearby && gmCard.entry && gmCard.entry.thumb) ? gmCard.entry.thumb : ""
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                cache: true
+                                smooth: true
+                            }
+
+                            // Progressive depth shading on receding side cards
+                            Rectangle {
+                                anchors.fill: parent
+                                color: "black"
+                                opacity: gmCard.focused ? 0.0 : Math.min(0.82, 0.28 + Math.abs(gmCard.relIdx) * 0.16)
+                                Behavior on opacity { NumberAnimation { duration: 180 } }
+                            }
+
+                            // Bottom gradient shadow for typography on center card
+                            Rectangle {
+                                visible: gmCard.focused
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                height: 74
+                                gradient: Gradient {
+                                    GradientStop { position: 0.0; color: "transparent" }
+                                    GradientStop { position: 0.5; color: Qt.rgba(0, 0, 0, 0.45) }
+                                    GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.88) }
+                                }
+                            }
+
+                            // Typography: Title and Subtitle matching the reference image layout
+                            Column {
+                                visible: gmCard.focused
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                anchors.margins: 14
+                                spacing: 2
+
+                                Text {
+                                    width: parent.width
+                                    text: gmCard.entry ? gmCard.entry.label : ""
+                                    color: "#FFFFFF"
+                                    font.family: root.barFont
+                                    font.pixelSize: 15
+                                    font.weight: Font.DemiBold
+                                    horizontalAlignment: Text.AlignHCenter
+                                    elide: Text.ElideRight
+                                }
+
+                                Text {
+                                    width: parent.width
+                                    text: {
+                                        if (!gmCard.entry) return ""
+                                        if (switcher.isThemeMode) {
+                                            let meta = (gmCard.entry.dir && switcher.metaCache[gmCard.entry.dir]) ? switcher.metaCache[gmCard.entry.dir] : null
+                                            return meta && meta.author ? ("@" + meta.author) : "Theme"
+                                        }
+                                        return "Wallpaper"
+                                    }
+                                    color: Qt.rgba(1, 1, 1, 0.75)
+                                    font.family: root.barFont
+                                    font.pixelSize: 11
+                                    font.weight: Font.Medium
+                                    horizontalAlignment: Text.AlignHCenter
+                                    elide: Text.ElideRight
+                                }
+                            }
+                        }
+                    }
+
+                    // Theme accent line indicator under focused card
+                    Rectangle {
+                        visible: gmCard.focused
+                        anchors.top: parent.bottom
+                        anchors.topMargin: 4
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: 48
+                        height: 3
+                        radius: 1.5
+                        color: root.seal
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (gmCard.focused) switcher.applySelected()
                             else switcher.selFilt = index
                         }
                     }

@@ -1559,7 +1559,8 @@ Item {
                                                     model: [
                                                         { label: "Tanzaku", val: "tanzaku" },
                                                         { label: "Hearthstone", val: "hearthstone" },
-                                                        { label: "Carousel", val: "carousel" }
+                                                        { label: "Carousel", val: "carousel" },
+                                                        { label: "Gravemind", val: "gravemind" }
                                                     ]
                                                     delegate: Rectangle {
                                                         id: pickerBtn

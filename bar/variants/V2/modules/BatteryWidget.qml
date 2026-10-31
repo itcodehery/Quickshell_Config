@@ -1,10 +1,17 @@
 import QtQuick
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Services.UPower
 
 Item {
     id: rootMod
     required property var root
+
+    MprisSelect {
+        id: mprisSel
+    }
+
+    readonly property bool timerShown: root && root.timerActive && mprisSel.active
 
     // event-driven UPower data — updates instantly on plug / unplug
     readonly property var dev: UPower.displayDevice
@@ -36,8 +43,14 @@ Item {
         : charging ? "Charging"
         : devState === UPowerDeviceState.Discharging ? "Discharging"
         : "On battery"
-    readonly property string tooltipText: statusText + " · " + percent + "%"
-                                          + (timeText ? " · " + timeText : "")
+    readonly property string tooltipText: {
+        var txt = statusText + " · " + percent + "%" + (timeText ? " · " + timeText : "")
+        if (timerShown) {
+            txt += "\nTimer: " + root.timerLabel + " · " + (root.timerPaused ? "Paused" : "Running")
+                + "\nLeft-click timer: Pause/Resume · Right-click: Reset"
+        }
+        return txt
+    }
     property color contentColor: root.widgetContentColor("G12", root.ink)
 
     // colour shared by the drawn battery body, fill and nub
@@ -46,7 +59,7 @@ Item {
         : ((charging || full) ? root.indigo : root.seal)
 
     readonly property bool shown: hasBattery && root.modBattery
-    implicitWidth:  shown ? (row.implicitWidth + 18) : 0
+    implicitWidth:  shown ? (row.implicitWidth + (timerShown ? 20 : 18)) : 0
     implicitHeight: 28
     visible: shown
     opacity: shown ? 1 : 0
@@ -182,6 +195,107 @@ Item {
             font.pixelSize: 11
             font.weight: Font.Medium
             Behavior on color { ColorAnimation { duration: 200 } }
+        }
+
+        // Divider between battery and timer
+        Rectangle {
+            visible: rootMod.timerShown
+            anchors.verticalCenter: parent.verticalCenter
+            width: 1
+            height: 10
+            radius: 0.5
+            color: Qt.rgba(rootMod.battColor.r, rootMod.battColor.g, rootMod.battColor.b, 0.3)
+        }
+
+        // Pomodoro Timer in battery pill
+        Item {
+            id: timerPillItem
+            visible: rootMod.timerShown
+            width: timerPillRow.implicitWidth
+            height: timerPillRow.implicitHeight
+            anchors.verticalCenter: parent.verticalCenter
+
+            Row {
+                id: timerPillRow
+                anchors.centerIn: parent
+                spacing: 4
+
+                Item {
+                    width: 12
+                    height: 12
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: width / 2
+                        color: "transparent"
+                        border.color: Qt.rgba(rootMod.battColor.r, rootMod.battColor.g, rootMod.battColor.b, 0.22)
+                        border.width: 1.2
+                    }
+
+                    Shape {
+                        anchors.fill: parent
+                        preferredRendererType: Shape.CurveRenderer
+
+                        ShapePath {
+                            strokeColor: root && root.timerPaused ? Qt.rgba(rootMod.battColor.r, rootMod.battColor.g, rootMod.battColor.b, 0.45) : rootMod.battColor
+                            strokeWidth: 1.2
+                            fillColor: "transparent"
+                            capStyle: ShapePath.RoundCap
+
+                            PathAngleArc {
+                                centerX: 6
+                                centerY: 6
+                                radiusX: 4.8
+                                radiusY: 4.8
+                                startAngle: -90
+                                sweepAngle: {
+                                    if (!root) return 0
+                                    if (root.timerMode === "stopwatch") {
+                                        return ((root.timerRemaining % 60) / 60.0) * 360
+                                    }
+                                    var init = Math.max(1, root.timerInitial)
+                                    var rem = Math.max(0, root.timerRemaining)
+                                    return (1.0 - (rem / init)) * 360
+                                }
+                            }
+                        }
+                    }
+                }
+
+                UiText {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: {
+                        if (!root) return "00:00"
+                        var sec = root.timerRemaining
+                        var h = Math.floor(sec / 3600)
+                        var m = Math.floor((sec % 3600) / 60)
+                        var s = sec % 60
+                        function pad(n) { return n < 10 ? "0" + n : String(n) }
+                        return h > 0 ? (h + ":" + pad(m) + ":" + pad(s)) : (pad(m) + ":" + pad(s))
+                    }
+                    color: root && root.timerPaused ? Qt.rgba(rootMod.battColor.r, rootMod.battColor.g, rootMod.battColor.b, 0.6) : rootMod.battColor
+                    font.family: root.barFont
+                    font.pixelSize: 11
+                    font.weight: Font.DemiBold
+                    Behavior on color { ColorAnimation { duration: 200 } }
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onClicked: function(mouse) {
+                    if (!root) return
+                    if (mouse.button === Qt.RightButton) {
+                        root.resetTimer()
+                    } else {
+                        root.toggleTimer()
+                    }
+                }
+            }
         }
     }
 

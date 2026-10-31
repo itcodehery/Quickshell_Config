@@ -14,6 +14,7 @@ import Quickshell.Services.Mpris
 import Quickshell.Services.UPower
 import "modules"
 import "panels"
+import "motion"
 import "IconMap.js" as IconMap
 
 PanelWindow {
@@ -29,11 +30,12 @@ PanelWindow {
     property bool dashboardEverActivated: false
 
     readonly property bool isPickerDetail: barSlot.root.dashboardDetail === "theme" || barSlot.root.dashboardDetail === "wallpaper"
-    readonly property real dashboardExpandedWidth: Math.min(isPickerDetail ? 960 : 840, barSlot.width - 32)
+    readonly property bool isSubPageOpen: barSlot.root.dashboardDetail !== ""
+    readonly property real dashboardExpandedWidth: Math.min((isPickerDetail ? 960 : 840) + (isSubPageOpen ? 52 : 0), barSlot.width - 32)
     readonly property real dashboardExpandedHeight: Math.min(barSlot.height - 40, isPickerDetail ? 430 : 292)
 
-    readonly property real dashboardTopRadius: barSlot.root.barPosition === "bottom" ? 24 : 10
-    readonly property real dashboardBottomRadius: barSlot.root.barPosition === "bottom" ? 10 : 24
+    readonly property real dashboardTopRadius: 24
+    readonly property real dashboardBottomRadius: 24
 
     readonly property int notifTargetHeight: (island && island.notifPeekActive && typeof islandNotifPeekItem !== "undefined")
         ? (island.notifPeekBody !== "" ? Math.min(94, Math.max(70, islandNotifPeekItem.desiredCardHeight)) : 46)
@@ -218,7 +220,7 @@ PanelWindow {
         Shape {
             id: islandSurfaceBorder
             anchors.fill: parent
-            visible: barSlot.isDashboardActive || barSlot.root.barBorderEnabled
+            visible: (!barSlot.isDashboardActive) && barSlot.root.barBorderEnabled
             antialiasing: true
             preferredRendererType: Shape.CurveRenderer
             z: 15
@@ -275,7 +277,7 @@ PanelWindow {
 
             ShapePath {
                 strokeColor: "transparent"
-                fillColor: barSlot.root.barBg
+                fillColor: barSlot.isSubPageOpen ? Qt.darker(barSlot.root.barBg, 1.35) : barSlot.root.barBg
                 startX: continuousBarSurface.topCornerRadius
                 startY: 0
                 PathLine { x: surfaceFill.width - continuousBarSurface.topCornerRadius; y: 0 }
@@ -957,6 +959,7 @@ PanelWindow {
                     if (!isButton) return buttonContentWidth
                     if (isFullOption) {
                         if (slot.gid === "G21") return Math.max(squareSize * 2, 64)
+                        if (slot.gid === "G12") return Math.max(squareSize * 2, buttonContentWidth)
                         return squareSize * 2 // twice the width of the square = 60px
                     }
                     if (isComposite) return Math.max(squareSize, buttonContentWidth + 12)
@@ -1421,8 +1424,8 @@ PanelWindow {
         property real rightVisibleWidth: 0
         readonly property real collapsedItemsWidth: centerRowItem.implicitWidth + 4
             + islandCollapsedItem.visibleWidth
-            + (islandTimerItem.active ? (islandTimerItem.targetWidth + 4) : 0)
             + (islandCollapsedRightSlot.implicitWidth > 0 ? (islandCollapsedRightSlot.implicitWidth + 4) : 0)
+            + (islandTimerItem.active ? (islandTimerItem.targetWidth + 4) : 0)
         readonly property real defaultCollapsedCenterWidth: Math.max(60, collapsedItemsWidth)
         readonly property real overlayProgress: Math.max(island.osdProgress, island.notifPeekProgress, island.dictationProgress, island.chargingProgress)
         readonly property real overlayTargetWidth: {
@@ -1872,12 +1875,23 @@ PanelWindow {
             ListElement { gid: "G12"; type: "widget"; extra: false }
         }
 
+        SlotRow {
+            id: islandCollapsedRightSlot
+            anchors.verticalCenter: parent.verticalCenter
+            x: islandCollapsedItem.x + islandCollapsedItem.width + (islandCollapsedRightSlot.width > 0 ? 4 : 0)
+            visible: opacity > 0.001
+            opacity: island.islandCollapsedOpacity * (1.0 - island.overlayProgress)
+            rmodel: islandCollapsedItem.mediaActive ? islandMediaModel : islandBatteryModel
+            baseCount: 1
+            maxExtraCount: 0
+        }
+
         Rectangle {
             id: islandTimerItem
             anchors.verticalCenter: parent.verticalCenter
-            x: islandCollapsedItem.x + islandCollapsedItem.width + (islandTimerItem.width > 0 ? 4 : 0)
+            x: islandCollapsedRightSlot.x + islandCollapsedRightSlot.width + (islandTimerItem.width > 0 ? 4 : 0)
 
-            readonly property bool active: barSlot.root.timerActive
+            readonly property bool active: barSlot.root.timerActive && !islandCollapsedItem.mediaActive
             readonly property real targetWidth: active ? (timerRow.implicitWidth + 14) : 0
             width: targetWidth
             Behavior on width { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
@@ -1979,20 +1993,6 @@ PanelWindow {
             }
         }
 
-        SlotRow {
-            id: islandCollapsedRightSlot
-            anchors.verticalCenter: parent.verticalCenter
-            
-            x: islandTimerItem.x + islandTimerItem.width + (islandCollapsedRightSlot.width > 0 ? 4 : 0)
-                
-            visible: opacity > 0.001
-            opacity: island.islandCollapsedOpacity * (1.0 - island.overlayProgress)
-            
-            rmodel: islandCollapsedItem.mediaActive ? islandMediaModel : islandBatteryModel
-            baseCount: 1
-            maxExtraCount: 0
-        }
-
         // Volume / brightness OSD: one wide slider pill with the icon and percentage
         // drawn inside it (same look as the dashboard sliders).
         Rectangle {
@@ -2002,7 +2002,7 @@ PanelWindow {
             width: 290
             height: 27
             radius: height / 2
-            color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.22)
+            color: "transparent"
             clip: true
             opacity: island.islandCollapsedOpacity * island.osdProgress * (1.0 - island.notifPeekProgress) * (1.0 - island.dictationProgress) * (1.0 - island.chargingProgress)
             visible: opacity > 0.001
@@ -2012,6 +2012,11 @@ PanelWindow {
                 ? Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.45)
                 : barSlot.root.seal
             readonly property real val: Math.max(0, Math.min(100, muted ? 0 : island.osdValue))
+            readonly property color textColorOnFill: {
+                var c = islandOsdItem.sliderColor
+                var luma = c.r * 0.299 + c.g * 0.587 + c.b * 0.114
+                return luma > 0.5 ? "#1e1b18" : "#ffffff"
+            }
 
             transform: Translate {
                 y: (1.0 - island.osdProgress) * (barSlot.root.barPosition === "bottom" ? 6 : -6)
@@ -2021,16 +2026,17 @@ PanelWindow {
             // followed by the signature vertical marker
             Item {
                 id: osdFillItem
-                readonly property real inset: 3
+                readonly property real inset: 2
                 readonly property real val: islandOsdItem.val
-                readonly property real maxGap: 14
+                readonly property real maxGap: 10
                 readonly property real gap: val > 85 ? maxGap * (100 - val) / 15.0 : maxGap
                 readonly property real barOpacity: val > 85 ? (100 - val) / 15.0 : 1.0
+                readonly property real minPillW: Math.max(parent.height - 2 * inset, osdTextRow.implicitWidth + 24)
 
                 x: inset
                 y: inset
                 height: parent.height - 2 * inset
-                width: val > 0 ? Math.max(height + maxGap, (parent.width - 2 * inset) * (val / 100.0)) : 0
+                width: val > 0 ? Math.max(minPillW + maxGap, (parent.width - 2 * inset) * (val / 100.0)) : 0
                 visible: val > 0
 
                 Behavior on width {
@@ -2048,7 +2054,7 @@ PanelWindow {
                     Behavior on color { ColorAnimation { duration: 160 } }
                 }
 
-                // The vertical bar with "padding"
+                // The vertical line marker
                 Rectangle {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
@@ -2059,9 +2065,9 @@ PanelWindow {
 
                     Rectangle {
                         anchors.centerIn: parent
-                        width: 3
-                        height: parent.height - 8
-                        radius: 1.5
+                        width: 3.5
+                        height: parent.height - 6
+                        radius: 1.75
                         color: islandOsdItem.sliderColor
                         Behavior on color { ColorAnimation { duration: 160 } }
                     }
@@ -2070,15 +2076,17 @@ PanelWindow {
 
             // Icon + percentage sit inside the slider
             Row {
+                id: osdTextRow
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.left: parent.left
                 anchors.leftMargin: 12
                 spacing: 8
+                z: 5
 
                 IconText {
                     anchors.verticalCenter: parent.verticalCenter
-                    font.pixelSize: 17
-                    color: osdFillItem.width > 36 ? barSlot.root.paper : barSlot.root.ink
+                    font.pixelSize: 15
+                    color: islandOsdItem.textColorOnFill
                     text: {
                         if (island.osdKind === "brightness") {
                             return IconMap.icon("light_mode")
@@ -2096,7 +2104,7 @@ PanelWindow {
                 UiText {
                     anchors.verticalCenter: parent.verticalCenter
                     text: (islandOsdItem.muted ? "0" : String(island.osdValue)) + "%"
-                    color: osdFillItem.width > 70 ? barSlot.root.paper : barSlot.root.ink
+                    color: islandOsdItem.textColorOnFill
                     font.family: barSlot.root.barFont
                     font.pixelSize: 13
                     font.weight: Font.DemiBold
@@ -2910,15 +2918,219 @@ PanelWindow {
             }
         }
 
-        // Unified Top Header Bar
-        Item {
-            id: topHeaderBar
+        // ── WHOLE DASHBOARD SUB-PAGE NAVIGATION SIDEBAR ──
+        Rectangle {
+            id: subPageSidebar
+            anchors.left: parent.left
             anchors.top: parent.top
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: barSlot.dashboardExpandedWidth - 28
-            anchors.topMargin: 14
-            height: 32
-            z: 10
+            anchors.bottom: parent.bottom
+            width: barSlot.isSubPageOpen ? 46 : 0
+            clip: true
+            visible: width > 0.5 || opacity > 0.01
+            opacity: barSlot.isSubPageOpen ? 1.0 : 0.0
+            z: 30
+
+            topLeftRadius: barSlot.dashboardTopRadius
+            bottomLeftRadius: barSlot.dashboardBottomRadius
+            topRightRadius: 0
+            bottomRightRadius: 0
+
+            color: Qt.darker(barSlot.root.barBg, 1.35)
+
+            Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+            Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+
+            readonly property var subPagesList: [
+                { id: "wifi",          name: "Wi-Fi & Network",    icon: "wifi" },
+                { id: "bluetooth",     name: "Bluetooth",         icon: "bluetooth" },
+                { id: "volume",        name: "Sound & Volume",    icon: "volume_up" },
+                { id: "battery",       name: "Battery & Power",   icon: "battery_charging_full" },
+                { id: "cpu",           name: "CPU Performance",   icon: "memory" },
+                { id: "memory",        name: "Memory Usage",      icon: "storage" },
+                { id: "screentime",    name: "Screen Time",       icon: "schedule" },
+                { id: "notifications", name: "Notifications",     icon: "notifications" },
+                { id: "calendar",      name: "Calendar & Notes",  icon: "calendar_month" },
+                { id: "notes",         name: "Notes",             icon: "edit_note" },
+                { id: "theme",         name: "Themes",            icon: "palette" },
+                { id: "wallpaper",     name: "Wallpapers",        icon: "wallpaper" },
+                { id: "lockscreen",    name: "Lock Screen",       icon: "lock" },
+                { id: "system",        name: "System & Power",    icon: "power_settings_new" },
+                { id: "plugins",       name: "Omarchy Plugins",   icon: "extension" },
+                { id: "updates",       name: "Software Updates",  icon: "system_update" }
+            ]
+
+            function isSubPageActive(pageId) {
+                if (barSlot.root.dashboardDetail === pageId) return true
+                if (pageId === "updates" && barSlot.root.dashboardDetail === "packages") return true
+                return false
+            }
+
+            // Top: Omarchy Logo Home Button
+            Rectangle {
+                id: sidebarHomeBtn
+                width: 34
+                height: 34
+                radius: 12
+                anchors.top: parent.top
+                anchors.topMargin: 12
+                anchors.horizontalCenter: parent.horizontalCenter
+                color: sidebarHomeMa.containsMouse ? barSlot.root.fillHover : barSlot.root.fillIdle
+                Behavior on color { ColorAnimation { duration: 150 } }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: barSlot.root.launcherLogoIconGlyph(barSlot.root.launcherLogoIcon)
+                    font.family: barSlot.root.launcherLogoIconFont(barSlot.root.launcherLogoIcon)
+                    font.pixelSize: 18
+                    color: sidebarHomeMa.containsMouse ? barSlot.root.seal : barSlot.root.ink
+                    renderType: Text.QtRendering
+                }
+
+                SpringPress {}
+
+                TooltipMixin {
+                    root: barSlot.root
+                    owner: parent
+                    text: "Omarchy (Home)"
+                }
+
+                MouseArea {
+                    id: sidebarHomeMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        barSlot.root.dashboardDetail = ""
+                        if (dashboardLoader.item) {
+                            dashboardLoader.item.activeDetailView = ""
+                            dashboardLoader.item.selectCategoryByIndex(0)
+                        }
+                    }
+                }
+            }
+
+            // Separator under back button
+            Rectangle {
+                id: sidebarSep
+                anchors.top: sidebarHomeBtn.bottom
+                anchors.topMargin: 8
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: 24
+                height: 1
+                color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.14)
+            }
+
+            // Scrollable list of sub-pages
+            Flickable {
+                id: sidebarFlick
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: sidebarSep.bottom
+                anchors.topMargin: 6
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 10
+                clip: true
+                contentHeight: sidebarCol.implicitHeight
+                boundsBehavior: Flickable.StopAtBounds
+
+                WheelHandler {
+                    target: sidebarFlick
+                    onWheel: function(event) {
+                        sidebarFlick.contentY = Math.max(0, Math.min(Math.max(0, sidebarFlick.contentHeight - sidebarFlick.height), sidebarFlick.contentY - event.angleDelta.y))
+                    }
+                }
+
+                Column {
+                    id: sidebarCol
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: 4
+                    width: parent.width
+
+                    Repeater {
+                        model: subPageSidebar.subPagesList
+                        delegate: Rectangle {
+                            id: subPageBtn
+                            required property var modelData
+                            required property int index
+                            width: 34
+                            height: 34
+                            radius: 10
+                            anchors.horizontalCenter: parent.horizontalCenter
+
+                            readonly property bool isSelected: subPageSidebar.isSubPageActive(modelData.id)
+
+                            color: isSelected
+                                ? barSlot.root.seal
+                                : (subPageMa.containsMouse ? barSlot.root.fillHover : "transparent")
+                            Behavior on color { ColorAnimation { duration: 150 } }
+
+                            IconText {
+                                anchors.centerIn: parent
+                                text: modelData.icon
+                                color: {
+                                    if (subPageBtn.isSelected) {
+                                        var luma = barSlot.root.seal.r * 0.299 + barSlot.root.seal.g * 0.587 + barSlot.root.seal.b * 0.114
+                                        return luma > 0.5 ? "#121212" : "#ffffff"
+                                    }
+                                    return subPageMa.containsMouse ? barSlot.root.ink : Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.72)
+                                }
+                                font.pixelSize: 18
+                                Behavior on color { ColorAnimation { duration: 150 } }
+                            }
+
+                            SpringPress {}
+
+                            TooltipMixin {
+                                root: barSlot.root
+                                owner: parent
+                                text: modelData.name
+                            }
+
+                            MouseArea {
+                                id: subPageMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    barSlot.root.dashboardDetail = modelData.id
+                                    if (dashboardLoader.item) {
+                                        dashboardLoader.item.activeDetailView = modelData.id
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Main Dashboard Area (Shifts right when sidebar is open)
+        Rectangle {
+            id: dashboardMainContent
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.right: parent.right
+            anchors.left: barSlot.isSubPageOpen ? subPageSidebar.right : parent.left
+            anchors.leftMargin: 0
+
+            topLeftRadius: barSlot.isSubPageOpen ? 24 : barSlot.dashboardTopRadius
+            bottomLeftRadius: barSlot.isSubPageOpen ? 24 : barSlot.dashboardBottomRadius
+            topRightRadius: barSlot.dashboardTopRadius
+            bottomRightRadius: barSlot.dashboardBottomRadius
+
+            color: barSlot.isSubPageOpen ? barSlot.root.barBg : "transparent"
+            border.width: 0
+            clip: true
+
+            // Unified Top Header Bar
+            Item {
+                id: topHeaderBar
+                anchors.top: parent.top
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: parent.width - 28
+                anchors.topMargin: 14
+                height: 32
+                z: 10
 
             // Left Side: System Pet + Cute Search Bar + Clock Pill + Battery Pill
             Row {
@@ -3336,7 +3548,7 @@ PanelWindow {
             anchors.top: topHeaderBar.bottom
             anchors.topMargin: 12
             anchors.horizontalCenter: parent.horizontalCenter
-            width: barSlot.dashboardExpandedWidth - 28
+            width: parent.width - 28
             height: Math.round(barSlot.dashboardExpandedHeight - 32 - 12 - 14 - 14)
             Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
             Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
@@ -3357,5 +3569,6 @@ PanelWindow {
                 if (barSlot.isDashboardActive) item.forceActiveFocus()
             }
         }
+    } // end dashboardMainContent
     }
 }

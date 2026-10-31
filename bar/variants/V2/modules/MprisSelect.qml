@@ -28,16 +28,72 @@ QtObject {
         return hasMeta || p.playbackState === MprisPlaybackState.Playing
     }
 
-    readonly property var player: {
+    // Multi-player tracking
+    property int selectedIndex: 0
+    property string manualSelectedId: ""
+
+    readonly property var playersList: {
         var vals = Mpris.players.values
-        var paused = null
+        var list = []
         for (var i = 0; i < vals.length; i++) {
             var p = vals[i]
-            if (!isReal(p)) continue
-            if (p.playbackState === MprisPlaybackState.Playing) return p
-            if (p.playbackState === MprisPlaybackState.Paused && paused === null) paused = p
+            if (isReal(p)) list.push(p)
         }
-        return paused
+        return list
+    }
+
+    readonly property int count: playersList.length
+
+    function selectPlayer(idx) {
+        if (idx >= 0 && idx < playersList.length) {
+            selectedIndex = idx
+            manualSelectedId = playersList[idx].dbusName || playersList[idx].identity || ""
+        }
+    }
+
+    function nextPlayer() {
+        if (playersList.length <= 1) return
+        selectPlayer((selectedIndex + 1) % playersList.length)
+    }
+
+    function prevPlayer() {
+        if (playersList.length <= 1) return
+        selectPlayer((selectedIndex - 1 + playersList.length) % playersList.length)
+    }
+
+    readonly property var player: {
+        if (playersList.length === 0) return null
+        if (manualSelectedId !== "") {
+            for (var k = 0; k < playersList.length; k++) {
+                var cand = playersList[k]
+                var candId = cand.dbusName || cand.identity || ""
+                if (candId === manualSelectedId) {
+                    return cand
+                }
+            }
+        }
+        for (var i = 0; i < playersList.length; i++) {
+            if (playersList[i].playbackState === MprisPlaybackState.Playing) {
+                return playersList[i]
+            }
+        }
+        var targetIdx = Math.max(0, Math.min(playersList.length - 1, selectedIndex))
+        return playersList[targetIdx]
+    }
+
+    onPlayerChanged: {
+        if (!player || playersList.length === 0) {
+            selectedIndex = 0
+            return
+        }
+        var pId = player.dbusName || player.identity || ""
+        for (var m = 0; m < playersList.length; m++) {
+            var candId = playersList[m].dbusName || playersList[m].identity || ""
+            if (candId === pId) {
+                if (selectedIndex !== m) selectedIndex = m
+                break
+            }
+        }
     }
 
     readonly property bool active:  player !== null
