@@ -11,8 +11,8 @@ ShellRoot {
         property real cursorX: 0
         property real cursorY: 0
         property int notifCount: 0
-        readonly property string scriptPath: Quickshell.env("HOME") + "/.config/quickshell/cursor-dot/tracker.py"
-        readonly property string cursorIconPath: Quickshell.env("HOME") + "/.config/quickshell/cursor-dot/cursor.svg"
+        readonly property string scriptPath: Quickshell.env("HOME") + "/.config/quickshell/cursor-dot/scripts/tracker.py"
+        readonly property string cursorIconPath: Quickshell.env("HOME") + "/.config/quickshell/cursor-dot/assets/cursor.svg"
 
         // Shake to find state
         property bool isShaking: false

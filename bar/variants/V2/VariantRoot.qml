@@ -8,7 +8,25 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
+import "bar"
+import "theme"
+import "modules"
+import "modules/common"
+import "modules/connectivity"
+import "modules/media"
+import "modules/productivity"
+import "modules/shell"
+import "modules/system"
 import "panels"
+import "panels/appearance"
+import "panels/details"
+import "panels/homescreen"
+import "panels/media"
+import "panels/overlays"
+import "panels/plugins"
+import "panels/productivity"
+import "panels/quicksettings"
+import "panels/updates"
 
 Item {
     id: root

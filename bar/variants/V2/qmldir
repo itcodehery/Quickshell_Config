@@ -1,0 +1,14 @@
+VariantRoot 1.0 VariantRoot.qml
+BarSlot 1.0 bar/BarSlot.qml
+BarSlotCollapsedContent 1.0 bar/BarSlotCollapsedContent.qml
+BarSlotDashboard 1.0 bar/BarSlotDashboard.qml
+BarSlotIsland 1.0 bar/BarSlotIsland.qml
+BarSlotIslandOverlays 1.0 bar/BarSlotIslandOverlays.qml
+BarSlotRegistry 1.0 bar/BarSlotRegistry.qml
+BarSlotRow 1.0 bar/BarSlotRow.qml
+Theme 1.0 theme/Theme.qml
+ThemeBase 1.0 theme/ThemeBase.qml
+ThemeLiveActivities 1.0 theme/ThemeLiveActivities.qml
+ThemeStatusWorkers 1.0 theme/ThemeStatusWorkers.qml
+ThemeTelemetryWorkers 1.0 theme/ThemeTelemetryWorkers.qml
+ThemeUpdatesWorkers 1.0 theme/ThemeUpdatesWorkers.qml
