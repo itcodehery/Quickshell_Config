@@ -280,9 +280,10 @@ Item {
     }
 
     function gotoWorkspace(id) {
-        if (root.theme.hyprUsesLua)
-            Hyprland.dispatch("hl.dsp.focus({ workspace = " + id + " })")
-        else
-            Hyprland.dispatch("workspace " + id)
+        if (root.theme.hyprUsesLua) {
+            Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = \"" + id + "\" })"])
+        } else {
+            Quickshell.execDetached(["hyprctl", "dispatch", "workspace", String(id)])
+        }
     }
 }

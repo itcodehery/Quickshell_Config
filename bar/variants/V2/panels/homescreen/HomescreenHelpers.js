@@ -239,6 +239,7 @@ function saveTilesLayout(tilesModel, saveLayoutProc) {
 function triggerTileAction(dc, tileId) {
     var root = dc.root
     switch (tileId) {
+        case "workspaces":
         case "wifi":
         case "bluetooth":
         case "cpu":

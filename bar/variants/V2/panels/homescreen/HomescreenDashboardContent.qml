@@ -51,6 +51,7 @@ Item {
     readonly property color cpuTempColor: cpuTemp < 52 ? "#22d3ee" : (cpuTemp < 72 ? "#fbbf24" : "#f87171")
 
     readonly property var defaultTiles: [
+        { id: "workspaces", span: 2 },
         { id: "wifi", span: 2 },
         { id: "bluetooth", span: 2 },
         { id: "cpu", span: 2 },
@@ -170,7 +171,7 @@ Item {
         saveTilesLayout()
     }
 
-    readonly property var detailOrder: ["", "wifi", "bluetooth", "cpu", "memory", "notifications", "screentime", "plugins", "updates", "notes", "battery", "calendar", "volume", "system", "theme", "wallpaper", "lockscreen"]
+    readonly property var detailOrder: ["", "workspaces", "wifi", "bluetooth", "cpu", "memory", "notifications", "screentime", "plugins", "updates", "notes", "battery", "calendar", "volume", "system", "theme", "wallpaper", "lockscreen"]
 
     function selectCategoryByIndex(idx) {
         if (idx < 0) idx = 0
@@ -199,6 +200,10 @@ Item {
     }
 
     function nextOption() {
+        if (dashboardContent.activeDetailView === "workspaces") {
+            if (workspacesDetailSection && workspacesDetailSection.nextWorkspace) workspacesDetailSection.nextWorkspace()
+            return
+        }
         if (dashboardContent.activeDetailView === "notes" ||
             (calDetailSection && calDetailSection.isInputFocused) ||
             (notesDetailSection && notesDetailSection.isInputFocused)) {
@@ -216,6 +221,10 @@ Item {
     }
 
     function prevOption() {
+        if (dashboardContent.activeDetailView === "workspaces") {
+            if (workspacesDetailSection && workspacesDetailSection.prevWorkspace) workspacesDetailSection.prevWorkspace()
+            return
+        }
         if (dashboardContent.activeDetailView === "notes" ||
             (calDetailSection && calDetailSection.isInputFocused) ||
             (notesDetailSection && notesDetailSection.isInputFocused)) {
@@ -436,6 +445,7 @@ Item {
     readonly property var notesDetailSection: detailOverlay.notesDetailSection
     readonly property var pluginsDetailSection: detailOverlay.pluginsDetailSection
     readonly property var themeDetailSection: detailOverlay.themeDetailSection
+    readonly property var workspacesDetailSection: detailOverlay.workspacesDetailSection
 
     Connections {
         target: dashboardContent.root

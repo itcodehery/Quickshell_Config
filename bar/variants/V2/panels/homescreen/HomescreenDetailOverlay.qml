@@ -26,6 +26,7 @@ Item {
     readonly property var notesDetailSection: notesDetailLoader.item
     readonly property var pluginsDetailSection: pluginsDetailLoader.item
     readonly property var themeDetailSection: themeLoader.item
+    readonly property var workspacesDetailSection: workspacesDetailLoader.item
 
     visible: (opacity > 0.001)
     opacity: dashboardContent.activeDetailView !== "" ? 1.0 : 0.0
@@ -95,6 +96,7 @@ Item {
             anchors.centerIn: parent
             text: {
                 switch (dashboardContent.activeDetailView) {
+                    case "workspaces": return "Workspaces"
                     case "wifi": return "Wi-Fi & Network"
                     case "bluetooth": return "Bluetooth"
                     case "cpu": return "CPU Performance"
@@ -173,6 +175,20 @@ Item {
             }
         }
 
+        DetailLoader {
+            id: workspacesDetailLoader
+            viewName: "workspaces"
+            onLoaded: if (item) item.forceActiveFocus()
+            sourceComponent: HomescreenWorkspacePreview {
+                root: detailOverlay.root
+                panel: detailOverlay.panel
+                dashboardContent: detailOverlay.dashboardContent
+                onCloseRequested: {
+                    if (detailOverlay.dashboardContent) detailOverlay.dashboardContent.activeDetailView = ""
+                    if (detailOverlay.root) detailOverlay.root.dashboardDetail = ""
+                }
+            }
+        }
         DetailLoader { id: wifiDetailLoader;  viewName: "wifi";          sourceComponent: WifiDetailSection          { root: dashboardContent.root; panel: dashboardContent.panel } }
         DetailLoader { id: btDetailLoader;    viewName: "bluetooth";     sourceComponent: BluetoothDetailSection     { root: dashboardContent.root; panel: dashboardContent.panel } }
         DetailLoader { id: cpuDetailLoader;   viewName: "cpu";           sourceComponent: CpuDetailSection           { root: dashboardContent.root; panel: dashboardContent.panel } }

@@ -141,6 +141,7 @@ Item {
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
         readonly property var subPagesList: [
+            { id: "workspaces",    name: "Workspaces",        icon: "view_carousel" },
             { id: "wifi",          name: "Wi-Fi & Network",    icon: "wifi" },
             { id: "bluetooth",     name: "Bluetooth",         icon: "bluetooth" },
             { id: "volume",        name: "Sound & Volume",    icon: "volume_up" },

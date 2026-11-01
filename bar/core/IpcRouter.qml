@@ -99,6 +99,8 @@ Item {
         function togglebar() { router.invoke("toggleBar") }
         function toggledashboard() { router.invoke("toggleDashboard") }
         function opendetail(name: string) { router.invoke("openDashboardDetail", name) }
+        function switchworkspace(dir: string) { router.invoke("switchWorkspace", dir) }
+        function finishworkspaceswitch() { router.invoke("finishWorkspaceSwitch") }
         // Lock-screen slide: retract before hyprlock, reveal after unlock.
         function lockretract() { router.invoke("lockRetract") }
         function lockreveal() { router.invoke("lockReveal") }

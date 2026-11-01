@@ -4,6 +4,7 @@ import QtQuick.Shapes
 import Quickshell
 import Quickshell.Io
 import Quickshell.Widgets
+import Quickshell.Hyprland
 import "../../modules"
 
 Rectangle {
@@ -65,6 +66,7 @@ Rectangle {
         if (!dashContent) return false
         switch (tileId) {
             case "wifi": return dashContent.activeDetailView === "wifi"
+            case "workspaces": return dashContent.activeDetailView === "workspaces"
             case "bluetooth": return dashContent.activeDetailView === "bluetooth"
             case "cpu": return dashContent.activeDetailView === "cpu"
             case "memory": return dashContent.activeDetailView === "memory"
@@ -151,6 +153,7 @@ Rectangle {
     // ── Tile Title and Subtitle ──
     readonly property string tileTitle: {
         switch (tileId) {
+            case "workspaces": return "Workspaces"
             case "wifi": return "Wi-Fi"
             case "bluetooth": return "Bluetooth"
             case "cpu": return "CPU"
@@ -176,6 +179,8 @@ Rectangle {
 
     readonly property string tileSubtitle: {
         switch (tileId) {
+            case "workspaces":
+                return "Desktop " + (Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : 1)
             case "wifi": return (dashContent && dashContent.currentWifiName) ? dashContent.currentWifiName : "Wi-Fi"
             case "bluetooth":
                 if (!dashContent) return "Off"
@@ -224,6 +229,7 @@ Rectangle {
 
     readonly property string tileIcon: {
         switch (tileId) {
+            case "workspaces": return "view_carousel"
             case "wifi": return "wifi"
             case "bluetooth": return "bluetooth"
             case "cpu": return "memory"

@@ -69,6 +69,8 @@ Item {
         }
     }
     function togglePluginsDrawer() { theme.togglePluginsDrawer() }
+    function switchWorkspace(dir) { theme.switchWorkspace(dir) }
+    function finishWorkspaceSwitch() { theme.finishWorkspaceSwitch() }
     function lockRetract() {}
     function lockReveal() {}
     function currentShellStyle() { return theme.barShellStyle }

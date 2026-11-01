@@ -412,6 +412,124 @@ ThemeBase {
     property bool hyprUsesLua: false
     function gotoWorkspace(id) { liveActivities.gotoWorkspace(id) }
 
+    // ── Workspace Switcher (Super + Tab) ──
+    property bool workspaceSwitchingActive: false
+    property int workspaceTargetId: -1
+    property var clientsList: []
+
+    Process {
+        id: wsClientsQuery
+        command: ["hyprctl", "clients", "-j"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    let parsed = JSON.parse(this.text)
+                    if (Array.isArray(parsed)) theme.clientsList = parsed
+                } catch(e) {}
+            }
+        }
+    }
+
+    function refreshClientsList() {
+        if (!wsClientsQuery.running) wsClientsQuery.running = true
+    }
+
+    Timer {
+        id: workspaceSwitchTimer
+        interval: 15000
+        repeat: false
+        onTriggered: {
+            theme.finishWorkspaceSwitch()
+        }
+    }
+
+    function getSortedWorkspacesList() {
+        var occupiedIds = {}
+        for (var c = 0; c < clientsList.length; c++) {
+            var cl = clientsList[c]
+            if (cl.workspace && cl.workspace.id > 0) {
+                occupiedIds[cl.workspace.id] = true
+            }
+        }
+
+        var allIds = {}
+        if (typeof Hyprland !== "undefined" && Hyprland.workspaces && Hyprland.workspaces.values) {
+            var ws = Hyprland.workspaces.values
+            for (var i = 0; i < ws.length; i++) {
+                if (ws[i].id > 0) allIds[ws[i].id] = true
+            }
+        }
+        if (typeof Hyprland !== "undefined" && Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id > 0) {
+            allIds[Hyprland.focusedWorkspace.id] = true
+        }
+
+        var list = Object.keys(allIds).map(Number).sort(function(a, b) { return a - b })
+        if (list.length === 0) list = [1]
+
+        // Check if ANY workspace currently in `list` is already empty
+        var hasEmptyAlready = false
+        for (var j = 0; j < list.length; j++) {
+            if (!occupiedIds[list[j]]) {
+                hasEmptyAlready = true
+                break
+            }
+        }
+
+        // Only add a new empty workspace if there is NO empty workspace in the list!
+        if (!hasEmptyAlready) {
+            var nextEmpty = 1
+            while (allIds[nextEmpty]) nextEmpty++
+            list.push(nextEmpty)
+            list.sort(function(a, b) { return a - b })
+        }
+
+        return list
+    }
+
+    function switchWorkspace(dir) {
+        workspaceSwitchTimer.stop()
+        workspaceSwitchingActive = true
+        refreshClientsList()
+
+        if (!dashboardExpanded || dashboardDetail !== "workspaces") {
+            dashboardDetail = "workspaces"
+            dashboardExpanded = true
+        }
+
+        var wsList = getSortedWorkspacesList()
+        if (wsList.length === 0) return
+
+        var curId = (workspaceTargetId > 0)
+            ? workspaceTargetId
+            : ((typeof Hyprland !== "undefined" && Hyprland.focusedWorkspace) ? Hyprland.focusedWorkspace.id : wsList[0])
+        var curIdx = wsList.indexOf(curId)
+        if (curIdx < 0) curIdx = 0
+
+        var nextIdx = 0
+        if (dir === "prev") {
+            nextIdx = (curIdx - 1 + wsList.length) % wsList.length
+        } else {
+            nextIdx = (curIdx + 1) % wsList.length
+        }
+
+        var nextWsId = wsList[nextIdx]
+        workspaceTargetId = nextWsId
+
+        gotoWorkspace(nextWsId)
+
+        workspaceSwitchTimer.restart()
+    }
+
+    function finishWorkspaceSwitch() {
+        workspaceSwitchTimer.stop()
+        if (workspaceSwitchingActive) {
+            workspaceSwitchingActive = false
+            workspaceTargetId = -1
+            dashboardExpanded = false
+            dashboardDetail = ""
+        }
+    }
+
     // ── Arch Updater state ──
     property bool archVisible: false
     onArchVisibleChanged: popupOpened("archVisible")
