@@ -13,7 +13,8 @@ import "components"
 import "utils/LockLyrics.js" as LockLyrics
 
 ShellRoot {
-    id: root
+    id: lockRoot
+    readonly property var root: lockRoot
 
     // ── Live Time ──
     property date now: new Date()
@@ -21,12 +22,12 @@ ShellRoot {
         interval: 1000
         running: true
         repeat: true
-        onTriggered: root.now = new Date()
+        onTriggered: lockRoot.now = new Date()
     }
 
     // ── FontLoader for "Bigger" Display Font ──
     FontLoader {
-        id: biggerFont
+        id: lockBiggerFont
         source: "file://" + Quickshell.env("HOME") + "/.local/share/fonts/Unknown Vendor/OpenType/Bigger/Bigger_Display.otf"
     }
 
@@ -653,7 +654,7 @@ ShellRoot {
                 // ── 4. TOP HEADER: GREETING (TOP-LEFT) & LIVE LYRICS (TOP-RIGHT) ─
                 LockHeader {
                     id: greetingContainer
-                    root: root
+                    root: lockRoot
                     anchors.left: bentoContainer.left
                     anchors.right: bentoContainer.right
                     anchors.bottom: bentoContainer.top
@@ -682,13 +683,13 @@ ShellRoot {
 
                             LockClockWeather {
                                 id: clockWeatherRow
-                                root: root
-                                biggerFont: biggerFont
+                                root: lockRoot
+                                biggerFont: lockBiggerFont
                             }
 
                             LockMediaTile {
                                 id: tile3Wrapper
-                                root: root
+                                root: lockRoot
                             }
                         }
 
@@ -702,12 +703,12 @@ ShellRoot {
 
                             LockCalendarTile {
                                 id: tile4Wrapper
-                                root: root
+                                root: lockRoot
                             }
 
                             LockSystemTiles {
                                 id: systemTilesRow
-                                root: root
+                                root: lockRoot
                             }
                         }
                     }
@@ -716,7 +717,7 @@ ShellRoot {
                 // ── 6. SLEEK FROSTED PASSWORD PILL (Bottom Row) ───────────────
                 LockPasswordPill {
                     id: passwordArea
-                    root: root
+                    root: lockRoot
                     anchors.bottom: parent.bottom
                     anchors.bottomMargin: 48
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -724,7 +725,7 @@ ShellRoot {
 
                 // ── 7. UNLOCK EXIT ANIMATION (Tiles fly out in their respective directions) ──
                 Connections {
-                    target: root
+                    target: lockRoot
                     function onStartUnlockAnimation() {
                         try {
                             greetingContainer.greetingInAnim.stop()
@@ -738,7 +739,7 @@ ShellRoot {
                             unlockExitAnim.restart()
                         } catch (e) {
                             console.log("Exit anim error:", e)
-                            root.completeUnlock()
+                            lockRoot.completeUnlock()
                         }
                     }
                 }
@@ -746,7 +747,7 @@ ShellRoot {
                 ParallelAnimation {
                     id: unlockExitAnim
                     onFinished: {
-                        root.completeUnlock()
+                        lockRoot.completeUnlock()
                     }
 
                     // Background snapshot un-frosts and returns to 1:1 desktop state seamlessly
