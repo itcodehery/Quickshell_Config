@@ -17,8 +17,9 @@ Item {
     property alias islandDictationItem: islandDictationItem
     property alias islandChargingItem: islandChargingItem
 
-    // Volume / brightness OSD: one wide slider pill with the icon and percentage
-    // drawn inside it (same look as the dashboard sliders).
+    // Volume / brightness OSD: horizontal capsule slider inspired by the vertical
+    // quick-slider design (accent left chip, light right chip with dots, recessed
+    // center groove, and sliding accent capsule with icon and percentage).
     Rectangle {
         id: islandOsdItem
         anchors.centerIn: parent
@@ -41,75 +42,36 @@ Item {
             var luma = c.r * 0.299 + c.g * 0.587 + c.b * 0.114
             return luma > 0.5 ? "#1e1b18" : "#ffffff"
         }
+        readonly property color lightChipColor: {
+            var c = islandOsdItem.sliderColor
+            return Qt.rgba(
+                c.r * 0.45 + 0.55,
+                c.g * 0.45 + 0.55,
+                c.b * 0.45 + 0.55,
+                0.95
+            )
+        }
+        readonly property color lightChipTextColor: "#1e1b18"
 
         transform: Translate {
             y: (1.0 - overlaysRoot.island.osdProgress) * (overlaysRoot.barSlot.root.barPosition === "bottom" ? 6 : -6)
         }
 
-        // Fill: inset from the track edges, every corner fully rounded,
-        // followed by the signature vertical marker
-        Item {
-            id: osdFillItem
-            readonly property real inset: 2
-            readonly property real val: islandOsdItem.val
-            readonly property real maxGap: 10
-            readonly property real gap: val > 85 ? maxGap * (100 - val) / 15.0 : maxGap
-            readonly property real barOpacity: val > 85 ? (100 - val) / 15.0 : 1.0
-            readonly property real minPillW: Math.max(parent.height - 2 * inset, osdTextRow.implicitWidth + 24)
-
-            x: inset
-            y: inset
-            height: parent.height - 2 * inset
-            width: val > 0 ? Math.max(minPillW + maxGap, (parent.width - 2 * inset) * (val / 100.0)) : 0
-            visible: val > 0
-
-            Behavior on width {
-                NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
-            }
-
-            // The actual fill
-            Rectangle {
-                anchors.left: parent.left
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: Math.max(parent.height, parent.width - osdFillItem.gap)
-                radius: height / 2
-                color: islandOsdItem.sliderColor
-                Behavior on color { ColorAnimation { duration: 160 } }
-            }
-
-            // The vertical line marker
-            Rectangle {
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                width: osdFillItem.maxGap
-                height: parent.height
-                color: "transparent"
-                opacity: osdFillItem.barOpacity
-
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: 3.5
-                    height: parent.height - 6
-                    radius: 1.75
-                    color: islandOsdItem.sliderColor
-                    Behavior on color { ColorAnimation { duration: 160 } }
-                }
-            }
-        }
-
-        // Icon + percentage sit inside the slider
-        Row {
-            id: osdTextRow
-            anchors.verticalCenter: parent.verticalCenter
+        // Left circular chip (icon reflecting state: volume / mute / brightness)
+        Rectangle {
+            id: osdLeftChip
             anchors.left: parent.left
-            anchors.leftMargin: 12
-            spacing: 8
-            z: 5
+            anchors.leftMargin: 2
+            anchors.verticalCenter: parent.verticalCenter
+            width: parent.height - 4
+            height: width
+            radius: width / 2
+            color: islandOsdItem.sliderColor
+            Behavior on color { ColorAnimation { duration: 160 } }
 
             IconText {
-                anchors.verticalCenter: parent.verticalCenter
-                font.pixelSize: 15
+                anchors.centerIn: parent
+                font.pixelSize: 13
                 color: islandOsdItem.textColorOnFill
                 text: {
                     if (overlaysRoot.island.osdKind === "brightness") {
@@ -117,22 +79,112 @@ Item {
                     } else if (overlaysRoot.island.osdKind === "audio-muted") {
                         return IconMap.icon("volume_off")
                     } else {
-                        if (overlaysRoot.island.osdValue <= 0) return IconMap.icon("volume_mute")
-                        if (overlaysRoot.island.osdValue <= 50) return IconMap.icon("volume_down")
+                        if (islandOsdItem.val <= 0) return IconMap.icon("volume_mute")
+                        if (islandOsdItem.val <= 50) return IconMap.icon("volume_down")
                         return IconMap.icon("volume_up")
                     }
                 }
                 Behavior on color { ColorAnimation { duration: 160 } }
             }
+        }
 
-            UiText {
-                anchors.verticalCenter: parent.verticalCenter
-                text: (islandOsdItem.muted ? "0" : String(overlaysRoot.island.osdValue)) + "%"
-                color: islandOsdItem.textColorOnFill
-                font.family: overlaysRoot.barSlot.root.barFont
+        // Right circular chip (three dots 'more_horiz' on pastel chip)
+        Rectangle {
+            id: osdRightChip
+            anchors.right: parent.right
+            anchors.rightMargin: 2
+            anchors.verticalCenter: parent.verticalCenter
+            width: parent.height - 4
+            height: width
+            radius: width / 2
+            color: islandOsdItem.lightChipColor
+            Behavior on color { ColorAnimation { duration: 160 } }
+
+            IconText {
+                anchors.centerIn: parent
                 font.pixelSize: 13
-                font.weight: Font.DemiBold
+                color: islandOsdItem.lightChipTextColor
+                text: IconMap.icon("more_horiz")
+            }
+        }
+
+        // Center track area: recessed groove with sliding fill capsule
+        Item {
+            id: osdTrackArea
+            anchors.left: osdLeftChip.right
+            anchors.leftMargin: 6
+            anchors.right: osdRightChip.left
+            anchors.rightMargin: 6
+            anchors.verticalCenter: parent.verticalCenter
+            height: parent.height - 4
+
+            // Recessed groove line
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                height: 4
+                radius: 2
+                color: Qt.rgba(0, 0, 0, 0.45)
+            }
+
+            // Fallback text when muted or 0%
+            UiText {
+                anchors.centerIn: parent
+                text: islandOsdItem.muted ? "Muted" : "0%"
+                color: overlaysRoot.barSlot.root.ink
+                font.family: overlaysRoot.barSlot.root.barFont
+                font.pixelSize: 11
+                font.weight: Font.Medium
+                opacity: 0.65
+                visible: islandOsdItem.val === 0
+            }
+
+            // Sliding active fill capsule
+            Rectangle {
+                id: osdFillPill
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                height: parent.height
+                radius: height / 2
+                color: islandOsdItem.sliderColor
+                clip: true
+
+                readonly property real maxW: parent.width
+                readonly property real valW: (islandOsdItem.val / 100.0) * maxW
+                width: islandOsdItem.val > 0 ? Math.max(height, Math.min(maxW, valW)) : 0
+                visible: width > 0
+
+                Behavior on width {
+                    NumberAnimation { duration: 130; easing.type: Easing.OutQuad }
+                }
                 Behavior on color { ColorAnimation { duration: 160 } }
+
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 4
+
+                    IconText {
+                        anchors.verticalCenter: parent.verticalCenter
+                        font.pixelSize: 12
+                        color: islandOsdItem.textColorOnFill
+                        text: overlaysRoot.island.osdKind === "brightness"
+                            ? IconMap.icon("light_mode")
+                            : IconMap.icon("music_note")
+                        Behavior on color { ColorAnimation { duration: 160 } }
+                    }
+
+                    UiText {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: String(overlaysRoot.island.osdValue) + "%"
+                        color: islandOsdItem.textColorOnFill
+                        font.family: overlaysRoot.barSlot.root.barFont
+                        font.pixelSize: 11
+                        font.weight: Font.DemiBold
+                        visible: osdFillPill.width >= 52
+                        Behavior on color { ColorAnimation { duration: 160 } }
+                    }
+                }
             }
         }
     }

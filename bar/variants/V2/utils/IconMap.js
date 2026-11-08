@@ -27,6 +27,8 @@ var icons = {
     "package_2": "\uF569",
     "light_mode": "\uE518",
     "brightness": "\uE518",
+    "music_note": "\uE405",
+    "more_horiz": "\uE5D3",
 }
 
 function icon(name) {
