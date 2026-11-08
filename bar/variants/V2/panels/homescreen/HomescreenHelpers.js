@@ -493,8 +493,12 @@ function handleKeyPressed(dc, event) {
         if (dc.activeDetailView !== "") {
             dc.activeDetailView = ""
             if (root) root.dashboardDetail = ""
-        } else if (panel) {
-            panel.expanded = false
+        } else {
+            if (panel) panel.expanded = false
+            if (root) {
+                root.dashboardExpanded = false
+                root.dashboardDetail = ""
+            }
         }
         event.accepted = true
     } else if (event.key === Qt.Key_S) {

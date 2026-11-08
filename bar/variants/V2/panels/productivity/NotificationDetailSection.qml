@@ -26,7 +26,7 @@ Item {
     // Polling process for notifications
     Process {
         id: notifStatusProc
-        command: ["python3", "/home/hery/.config/quickshell/bar/scripts/get_notifications.py", "status"]
+        command: ["python3", "/home/darshan/.config/quickshell/bar/scripts/get_notifications.py", "status"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -59,16 +59,16 @@ Item {
     }
 
     function doToggleDnd() {
-        notifActionProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/get_notifications.py", "toggle_dnd"]
+        notifActionProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/get_notifications.py", "toggle_dnd"]
         notifActionProc.running = false
         notifActionProc.running = true
     }
 
     function doClearAll() {
         if (viewMode === "active") {
-            notifActionProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/get_notifications.py", "clear_all"]
+            notifActionProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/get_notifications.py", "clear_all"]
         } else {
-            notifActionProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/get_notifications.py", "clear_history"]
+            notifActionProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/get_notifications.py", "clear_history"]
         }
         notifActionProc.running = false
         notifActionProc.running = true
@@ -76,7 +76,7 @@ Item {
 
     function doDismissOne(filePath) {
         if (!filePath) return
-        notifActionProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/get_notifications.py", "dismiss", filePath]
+        notifActionProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/get_notifications.py", "dismiss", filePath]
         notifActionProc.running = false
         notifActionProc.running = true
     }

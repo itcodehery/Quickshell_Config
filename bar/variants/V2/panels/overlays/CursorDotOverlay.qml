@@ -94,8 +94,8 @@ PanelWindow {
 
             Image {
                 id: cursorImg
-                x: -overlay.baseCursorSize * 0.21
-                y: -overlay.baseCursorSize * 0.07
+                x: -overlay.baseCursorSize * 0.254
+                y: -overlay.baseCursorSize * 0.088
                 width: overlay.baseCursorSize
                 height: overlay.baseCursorSize
                 source: overlay.cursorIconPath

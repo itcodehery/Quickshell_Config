@@ -37,7 +37,7 @@ Item {
     // Live polling for memory info
     Process {
         id: memStatusProc
-        command: ["python3", "/home/hery/.config/quickshell/bar/scripts/memory_info.py", "status"]
+        command: ["python3", "/home/darshan/.config/quickshell/bar/scripts/memory_info.py", "status"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -85,7 +85,7 @@ Item {
     }
 
     function doKillProcess(pid) {
-        killProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/memory_info.py", "kill", String(pid)]
+        killProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/memory_info.py", "kill", String(pid)]
         killProc.running = false
         killProc.running = true
     }

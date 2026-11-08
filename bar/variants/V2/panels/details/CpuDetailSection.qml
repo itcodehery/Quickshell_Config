@@ -35,7 +35,7 @@ Item {
     // Polling process for live CPU telemetry
     Process {
         id: cpuStatusProc
-        command: ["python3", "/home/hery/.config/quickshell/bar/scripts/cpu_info.py", "status"]
+        command: ["python3", "/home/darshan/.config/quickshell/bar/scripts/cpu_info.py", "status"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -74,7 +74,7 @@ Item {
     }
 
     function doKillProcess(pid) {
-        killProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/cpu_info.py", "kill", String(pid)]
+        killProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/cpu_info.py", "kill", String(pid)]
         killProc.running = false
         killProc.running = true
     }

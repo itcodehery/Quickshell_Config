@@ -133,7 +133,7 @@ Item {
     // Quick status updater (every 3 seconds)
     Process {
         id: statusProc
-        command: ["python3", "/home/hery/.config/quickshell/bar/scripts/wifi_info.py", "status"]
+        command: ["python3", "/home/darshan/.config/quickshell/bar/scripts/wifi_info.py", "status"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -157,7 +157,7 @@ Item {
     // Full scan updater
     Process {
         id: scanProc
-        command: ["python3", "/home/hery/.config/quickshell/bar/scripts/wifi_info.py", "scan"]
+        command: ["python3", "/home/darshan/.config/quickshell/bar/scripts/wifi_info.py", "scan"]
         stdout: StdioCollector {
             onStreamFinished: {
                 wifiSection.scanning = false
@@ -215,9 +215,9 @@ Item {
         wifiSection.connecting = true
         wifiSection.actionError = ""
         if (pwd && pwd.length > 0) {
-            actionProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/wifi_info.py", "connect", ssid, pwd]
+            actionProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/wifi_info.py", "connect", ssid, pwd]
         } else {
-            actionProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/wifi_info.py", "connect", ssid]
+            actionProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/wifi_info.py", "connect", ssid]
         }
         actionProc.running = false
         actionProc.running = true
@@ -225,20 +225,20 @@ Item {
 
     function doDisconnect(ssid) {
         wifiSection.actionError = ""
-        actionProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/wifi_info.py", "disconnect", ssid || ""]
+        actionProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/wifi_info.py", "disconnect", ssid || ""]
         actionProc.running = false
         actionProc.running = true
     }
 
     function doForget(ssid) {
         wifiSection.actionError = ""
-        actionProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/wifi_info.py", "forget", ssid]
+        actionProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/wifi_info.py", "forget", ssid]
         actionProc.running = false
         actionProc.running = true
     }
 
     function doToggleRadio() {
-        actionProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/wifi_info.py", "toggle-radio"]
+        actionProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/wifi_info.py", "toggle-radio"]
         actionProc.running = false
         actionProc.running = true
     }

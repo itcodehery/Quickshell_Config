@@ -21,16 +21,16 @@ Row {
     Grid {
         id: toggleGrid
         columns: 2
-        spacing: 6
-        width: 104
+        spacing: 8
+        width: 116
         height: parent.height
 
         // Button 1: GitHub Heatmap Toggle (replaces Night Light)
         Rectangle {
             id: btn1Heatmap
-            width: 49
+            width: 54
             height: Math.floor((toggleGrid.height - toggleGrid.spacing) / 2)
-            radius: 14
+            radius: 16
             readonly property bool isActive: hoverPanel.omarchyMenuOpen && hoverPanel.omarchyTab === 1
             color: isActive
                 ? (btn1Hov.hovered ? Qt.lighter(hoverPanel.accent, 1.1) : hoverPanel.accent)
@@ -68,9 +68,9 @@ Row {
 
         // Button 2: Lock / Screen lock
         Rectangle {
-            width: 49
+            width: 54
             height: Math.floor((toggleGrid.height - toggleGrid.spacing) / 2)
-            radius: 14
+            radius: 16
             color: btn2Hov.hovered
                 ? Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.16)
                 : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.08)
@@ -82,7 +82,7 @@ Row {
             IconText {
                 anchors.centerIn: parent
                 text: "lock"
-                font.pixelSize: 20
+                font.pixelSize: 22
                 color: hoverPanel.root.ink
             }
 
@@ -95,9 +95,9 @@ Row {
 
         // Button 3: Wi-Fi Toggle
         Rectangle {
-            width: 49
+            width: 54
             height: Math.floor((toggleGrid.height - toggleGrid.spacing) / 2)
-            radius: 14
+            radius: 16
             color: hoverPanel.wifiConnected
                 ? (btn3Hov.hovered ? Qt.lighter(hoverPanel.wifiColor, 1.12) : hoverPanel.wifiColor)
                 : (btn3Hov.hovered
@@ -116,7 +116,7 @@ Row {
                 IconText {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: hoverPanel.wifiConnected ? "signal_wifi_4_bar" : "signal_wifi_off"
-                    font.pixelSize: 19
+                    font.pixelSize: 20
                     color: hoverPanel.root.ink
                 }
 
@@ -124,7 +124,7 @@ Row {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "Wi-Fi"
                     font.family: hoverPanel.root.barFont
-                    font.pixelSize: 9
+                    font.pixelSize: 10
                     font.weight: Font.Bold
                     color: hoverPanel.wifiConnected ? hoverPanel.root.ink : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.6)
                 }
@@ -139,9 +139,9 @@ Row {
 
         // Button 4: Notification Bell / DND
         Rectangle {
-            width: 49
+            width: 54
             height: Math.floor((toggleGrid.height - toggleGrid.spacing) / 2)
-            radius: 14
+            radius: 16
             color: hoverPanel.root.notifSilenced
                 ? (btn4Hov.hovered ? Qt.rgba(hoverPanel.accent.r, hoverPanel.accent.g, hoverPanel.accent.b, 0.35) : Qt.rgba(hoverPanel.accent.r, hoverPanel.accent.g, hoverPanel.accent.b, 0.22))
                 : (btn4Hov.hovered
@@ -157,7 +157,7 @@ Row {
                 IconText {
                     anchors.centerIn: parent
                     text: hoverPanel.root.notifSilenced ? "notifications_off" : "notifications"
-                    font.pixelSize: 20
+                    font.pixelSize: 22
                     color: hoverPanel.root.notifSilenced ? hoverPanel.accent : hoverPanel.root.ink
                 }
 

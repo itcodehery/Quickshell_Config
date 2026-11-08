@@ -19,7 +19,7 @@ Item {
     Process {
         id: stProc
         running: root.modScreentime
-        command: ["cat", "/home/hery/.cache/screentime_session.txt"]
+        command: ["cat", "/home/darshan/.cache/screentime_session.txt"]
         stdout: StdioCollector {
             onStreamFinished: {
                 let s = parseInt(this.text.trim())
