@@ -465,7 +465,7 @@ Item {
         active: root.theme.variantHost === null
         IpcHandler {
             target: "charging"
-            function test(pct: int) { root.theme.triggerChargingPopup(pct) }
+            function test(pct: int, state: string) { root.theme.triggerChargingPopup(pct, state) }
         }
     }
 

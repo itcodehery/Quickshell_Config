@@ -14,8 +14,6 @@ Item {
 
     readonly property var wifiDetailSection: wifiDetailLoader.item
     readonly property var btDetailSection: btDetailLoader.item
-    readonly property var cpuDetailSection: cpuDetailLoader.item
-    readonly property var memDetailSection: memDetailLoader.item
     readonly property var batDetailSection: batDetailLoader.item
     readonly property var stDetailSection: stDetailLoader.item
     readonly property var volDetailSection: volDetailLoader.item
@@ -26,7 +24,6 @@ Item {
     readonly property var notesDetailSection: notesDetailLoader.item
     readonly property var pluginsDetailSection: pluginsDetailLoader.item
     readonly property var themeDetailSection: themeLoader.item
-    readonly property var workspacesDetailSection: workspacesDetailLoader.item
 
     visible: (opacity > 0.001)
     opacity: dashboardContent.activeDetailView !== "" ? 1.0 : 0.0
@@ -96,11 +93,8 @@ Item {
             anchors.centerIn: parent
             text: {
                 switch (dashboardContent.activeDetailView) {
-                    case "workspaces": return "Workspaces"
                     case "wifi": return "Wi-Fi & Network"
                     case "bluetooth": return "Bluetooth"
-                    case "cpu": return "CPU Performance"
-                    case "memory": return "Memory Usage"
                     case "battery": return "Battery & Power"
                     case "screentime": return "Screen Time"
                     case "volume": return "Sound & Volume"
@@ -113,7 +107,6 @@ Item {
                     case "wallpaper": return "Wallpapers"
                     case "plugins": return "Omarchy Plugins"
                     case "notes": return "Notes"
-                    case "lockscreen": return "Lock Screen Settings"
                     default: return ""
                 }
             }
@@ -175,24 +168,8 @@ Item {
             }
         }
 
-        DetailLoader {
-            id: workspacesDetailLoader
-            viewName: "workspaces"
-            onLoaded: if (item) item.forceActiveFocus()
-            sourceComponent: HomescreenWorkspacePreview {
-                root: detailOverlay.root
-                panel: detailOverlay.panel
-                dashboardContent: detailOverlay.dashboardContent
-                onCloseRequested: {
-                    if (detailOverlay.dashboardContent) detailOverlay.dashboardContent.activeDetailView = ""
-                    if (detailOverlay.root) detailOverlay.root.dashboardDetail = ""
-                }
-            }
-        }
         DetailLoader { id: wifiDetailLoader;  viewName: "wifi";          sourceComponent: WifiDetailSection          { root: dashboardContent.root; panel: dashboardContent.panel } }
         DetailLoader { id: btDetailLoader;    viewName: "bluetooth";     sourceComponent: BluetoothDetailSection     { root: dashboardContent.root; panel: dashboardContent.panel } }
-        DetailLoader { id: cpuDetailLoader;   viewName: "cpu";           sourceComponent: CpuDetailSection           { root: dashboardContent.root; panel: dashboardContent.panel } }
-        DetailLoader { id: memDetailLoader;   viewName: "memory";        sourceComponent: MemoryDetailSection        { root: dashboardContent.root; panel: dashboardContent.panel } }
         DetailLoader { id: batDetailLoader;   viewName: "battery";       sourceComponent: BatteryDetailSection       { root: dashboardContent.root; panel: dashboardContent.panel } }
         DetailLoader { id: stDetailLoader;    viewName: "screentime";    sourceComponent: ScreentimeDetailSection    { root: dashboardContent.root; panel: dashboardContent.panel } }
         DetailLoader { id: volDetailLoader;   viewName: "volume";        sourceComponent: VolumeDetailSection        { root: dashboardContent.root; panel: dashboardContent.panel } }
@@ -231,19 +208,6 @@ Item {
             viewName: "notes"
             onLoaded: if (item) item.forceActiveFocus()
             sourceComponent: NotesDetailSection {
-                root: dashboardContent.root
-                panel: dashboardContent.panel
-                onCloseRequested: {
-                    dashboardContent.activeDetailView = ""
-                    if (dashboardContent.root) dashboardContent.root.dashboardDetail = ""
-                }
-            }
-        }
-        DetailLoader {
-            id: lockscreenDetailLoader
-            viewName: "lockscreen"
-            onLoaded: if (item) item.forceActiveFocus()
-            sourceComponent: LockscreenDetailSection {
                 root: dashboardContent.root
                 panel: dashboardContent.panel
                 onCloseRequested: {

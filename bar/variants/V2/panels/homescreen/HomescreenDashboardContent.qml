@@ -22,6 +22,9 @@ Item {
                 activeDetailView = ""
                 selectCategoryByIndex(0)
             }
+            if (selectedTileId === "" && tilesModel.count > 0) {
+                selectedTileId = tilesModel.get(0).id
+            }
         }
     }
     Component.onCompleted: {
@@ -30,6 +33,9 @@ Item {
         if (!root || !root.dashboardDetail) {
             activeDetailView = ""
             selectCategoryByIndex(0)
+        }
+        if (selectedTileId === "" && tilesModel.count > 0) {
+            selectedTileId = tilesModel.get(0).id
         }
         recalculateGridLayout()
     }
@@ -51,11 +57,8 @@ Item {
     readonly property color cpuTempColor: cpuTemp < 52 ? "#22d3ee" : (cpuTemp < 72 ? "#fbbf24" : "#f87171")
 
     readonly property var defaultTiles: [
-        { id: "workspaces", span: 2 },
         { id: "wifi", span: 2 },
         { id: "bluetooth", span: 2 },
-        { id: "cpu", span: 2 },
-        { id: "memory", span: 2 },
         { id: "notifications", span: 2 },
         { id: "screentime", span: 2 },
         { id: "nightlight", span: 1 },
@@ -64,19 +67,21 @@ Item {
         { id: "temperature", span: 1 },
         { id: "plugins", span: 2 },
         { id: "updates", span: 1 },
-        { id: "lockscreen", span: 1 },
         { id: "pomodoro", span: 1 },
         { id: "quickshare", span: 1 },
         { id: "theme", span: 1 },
         { id: "wallpaper", span: 1 }
     ]
 
-    readonly property real tileUnitWidth: Math.floor((leftCol.width - 30) / 4)
+    readonly property real gridCardPadding: 10
+    readonly property real gridInnerWidth: leftCol.width - gridCardPadding * 2
+    readonly property real tileUnitWidth: Math.floor((gridInnerWidth - 30) / 4)
     readonly property real tileDoubleWidth: tileUnitWidth * 2 + 10
     readonly property real pageStride: 122 + 12
     property int totalPageCount: 1
     property bool showPomodoroPopup: false
 
+    readonly property alias tilesModel: tilesModel
     ListModel {
         id: tilesModel
         Component.onCompleted: dashboardContent.initTiles()
@@ -95,8 +100,11 @@ Item {
     }
 
     function toggleTileSpan(id) {
-        let cur = getTileSpan(id)
-        setTileSpan(id, cur === 2 ? 1 : 2)
+        Helpers.cycleTileSpan(dashboardContent, tilesModel, id)
+    }
+
+    function cycleTileSpan(id) {
+        Helpers.cycleTileSpan(dashboardContent, tilesModel, id)
     }
 
     function getTileSpan(id) {
@@ -125,6 +133,10 @@ Item {
 
     function getTilePageIndex(id) {
         return Helpers.getTilePageIndex(tilesModel, id)
+    }
+
+    function navigateTile(dir) {
+        Helpers.navigateTile(dashboardContent, tilesModel, dir)
     }
 
     function triggerTileAction(tileId) {
@@ -171,7 +183,7 @@ Item {
         saveTilesLayout()
     }
 
-    readonly property var detailOrder: ["", "workspaces", "wifi", "bluetooth", "cpu", "memory", "notifications", "screentime", "plugins", "updates", "notes", "battery", "calendar", "volume", "system", "theme", "wallpaper", "lockscreen"]
+    readonly property var detailOrder: ["", "wifi", "bluetooth", "notifications", "screentime", "plugins", "updates", "notes", "battery", "calendar", "volume", "system", "theme", "wallpaper"]
 
     function selectCategoryByIndex(idx) {
         if (idx < 0) idx = 0
@@ -200,10 +212,6 @@ Item {
     }
 
     function nextOption() {
-        if (dashboardContent.activeDetailView === "workspaces") {
-            if (workspacesDetailSection && workspacesDetailSection.nextWorkspace) workspacesDetailSection.nextWorkspace()
-            return
-        }
         if (dashboardContent.activeDetailView === "notes" ||
             (calDetailSection && calDetailSection.isInputFocused) ||
             (notesDetailSection && notesDetailSection.isInputFocused)) {
@@ -221,10 +229,6 @@ Item {
     }
 
     function prevOption() {
-        if (dashboardContent.activeDetailView === "workspaces") {
-            if (workspacesDetailSection && workspacesDetailSection.prevWorkspace) workspacesDetailSection.prevWorkspace()
-            return
-        }
         if (dashboardContent.activeDetailView === "notes" ||
             (calDetailSection && calDetailSection.isInputFocused) ||
             (notesDetailSection && notesDetailSection.isInputFocused)) {
@@ -261,6 +265,10 @@ Item {
             if (pluginsDetailSection) pluginsDetailSection.focusedIndex = Math.max(0, pluginsDetailSection.focusedIndex - 1)
             return
         }
+        if (dashboardContent.activeDetailView === "") {
+            navigateTile("up")
+            return
+        }
         pageUp()
     }
     Keys.onDownPressed: {
@@ -283,12 +291,20 @@ Item {
             if (pluginsDetailSection) pluginsDetailSection.focusedIndex = pluginsDetailSection.focusedIndex + 1
             return
         }
+        if (dashboardContent.activeDetailView === "") {
+            navigateTile("down")
+            return
+        }
         pageDown()
     }
     Keys.onLeftPressed: {
         if (dashboardContent.activeDetailView === "notes" ||
             (calDetailSection && calDetailSection.isInputFocused) ||
             (notesDetailSection && notesDetailSection.isInputFocused)) {
+            return
+        }
+        if (dashboardContent.activeDetailView === "") {
+            navigateTile("left")
             return
         }
         prevOption()
@@ -299,7 +315,21 @@ Item {
             (notesDetailSection && notesDetailSection.isInputFocused)) {
             return
         }
+        if (dashboardContent.activeDetailView === "") {
+            navigateTile("right")
+            return
+        }
         nextOption()
+    }
+    Keys.onReturnPressed: {
+        if (dashboardContent.activeDetailView === "" && selectedTileId) {
+            triggerTileAction(selectedTileId)
+        }
+    }
+    Keys.onEnterPressed: {
+        if (dashboardContent.activeDetailView === "" && selectedTileId) {
+            triggerTileAction(selectedTileId)
+        }
     }
     Keys.onPressed: (event) => {
         Helpers.handleKeyPressed(dashboardContent, event)
@@ -433,8 +463,6 @@ Item {
 
     readonly property var wifiDetailSection: detailOverlay.wifiDetailSection
     readonly property var btDetailSection: detailOverlay.btDetailSection
-    readonly property var cpuDetailSection: detailOverlay.cpuDetailSection
-    readonly property var memDetailSection: detailOverlay.memDetailSection
     readonly property var batDetailSection: detailOverlay.batDetailSection
     readonly property var stDetailSection: detailOverlay.stDetailSection
     readonly property var volDetailSection: detailOverlay.volDetailSection
@@ -445,7 +473,6 @@ Item {
     readonly property var notesDetailSection: detailOverlay.notesDetailSection
     readonly property var pluginsDetailSection: detailOverlay.pluginsDetailSection
     readonly property var themeDetailSection: detailOverlay.themeDetailSection
-    readonly property var workspacesDetailSection: detailOverlay.workspacesDetailSection
 
     Connections {
         target: dashboardContent.root
@@ -791,7 +818,7 @@ Item {
             Column {
                 id: leftCol
                 width: Math.round((parent.width - parent.spacing) / 2)
-                spacing: 12
+                spacing: 10
 
                 // ── TOP CONTROL AREA (Sliders in Normal Mode, Edit Header in Edit Mode) ──
                 HomescreenTopControls {
@@ -807,7 +834,7 @@ Item {
                 HomescreenTilesPager {
                     id: tilesPagerContainer
                     width: parent.width
-                    height: 126
+                    height: 142
                     dashboardContent: dashboardContent
                     tilesModel: tilesModel
                     smoothScrollAnim: smoothScrollAnim
@@ -850,8 +877,8 @@ Item {
             visible: dashboardContent.draggingTileId !== ""
             enabled: false
             z: 9999
-            width: dashboardContent.dragTileSpan === 2 ? dashboardContent.tileDoubleWidth : dashboardContent.tileUnitWidth
-            height: 56
+            width: (dashboardContent.dragTileSpan === 2 || dashboardContent.dragTileSpan === 4) ? dashboardContent.tileDoubleWidth : dashboardContent.tileUnitWidth
+            height: (dashboardContent.dragTileSpan === 4) ? 122 : 56
             scale: 1.05
             opacity: 0.92
 

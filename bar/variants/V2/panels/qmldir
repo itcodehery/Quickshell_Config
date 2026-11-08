@@ -10,7 +10,6 @@ CalendarDetailMonthlyGrid 1.0 productivity/CalendarDetailMonthlyGrid.qml
 CalendarDetailNotesColumn 1.0 productivity/CalendarDetailNotesColumn.qml
 CalendarDetailSection 1.0 productivity/CalendarDetailSection.qml
 ControlPanel 1.0 quicksettings/ControlPanel.qml
-CpuDetailSection 1.0 details/CpuDetailSection.qml
 CursorDotOverlay 1.0 overlays/CursorDotOverlay.qml
 DashboardTile 1.0 homescreen/DashboardTile.qml
 DesktopContextMenu 1.0 overlays/DesktopContextMenu.qml
@@ -32,12 +31,10 @@ HoverQuickSettingsSystemInfoTab 1.0 quicksettings/HoverQuickSettingsSystemInfoTa
 ImageCarouselCarousel 1.0 appearance/ImageCarouselCarousel.qml
 ImageCarouselHearthstone 1.0 appearance/ImageCarouselHearthstone.qml
 ImageCarouselPanel 1.0 appearance/ImageCarouselPanel.qml
-LockscreenDetailSection 1.0 details/LockscreenDetailSection.qml
 LyricsPanel 1.0 media/LyricsPanel.qml
 MediaBrowserCarousel 1.0 media/MediaBrowserCarousel.qml
 MediaBrowserHearthstone 1.0 media/MediaBrowserHearthstone.qml
 MediaBrowserPanel 1.0 media/MediaBrowserPanel.qml
-MemoryDetailSection 1.0 details/MemoryDetailSection.qml
 MicrophonePeakMonitor 1.0 details/MicrophonePeakMonitor.qml
 MprisPanel 1.0 media/MprisPanel.qml
 NotesDetailEditor 1.0 productivity/NotesDetailEditor.qml

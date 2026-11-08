@@ -77,7 +77,7 @@ Item {
     function showIslandOsd(kind, value) { theme.showIslandOsd(kind, value) }
     function triggerNotifPeek(app, summary, body, icon) { theme.triggerNotifPeek(app, summary, body, icon) }
     function dismissNotifPeek(notifId) { theme.dismissNotifPeek(notifId) }
-    function triggerChargingPopup(pct) { theme.triggerChargingPopup(pct) }
+    function triggerChargingPopup(pct, state) { theme.triggerChargingPopup(pct, state) }
     function testDictationState(st) { theme.testDictationState(st) }
     function startTimer(minutes, label) { theme.startTimer(minutes, label) }
     function toggleTimer() { theme.toggleTimer() }

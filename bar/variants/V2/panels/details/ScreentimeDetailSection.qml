@@ -41,6 +41,11 @@ Item {
         return null
     }
 
+    FontLoader {
+        id: biggerFont
+        source: "file://" + Quickshell.env("HOME") + "/.local/share/fonts/Unknown Vendor/OpenType/Bigger/Bigger_Display.otf"
+    }
+
     readonly property int totalWeeks: (stObj && stObj.weeks) ? stObj.weeks.length : 1
 
     property var selectedDay: null
@@ -404,24 +409,88 @@ Item {
                 // 1. Overview Stat Row (Daily Avg + Total)
                 Item {
                     width: parent.width
-                    height: 38
+                    height: 44
 
                     Column {
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: 1
+                        spacing: 2
 
                         Row {
-                            spacing: 6
-                            Text {
-                                text: stSection.todayDay ? (stSection.todayDay.formatted || "0m")
-                                    : (currentWeekData ? currentWeekData.avgPerDayFormatted : (stSection.stObj.today_formatted || "0m"))
-                                color: root.ink
-                                font.family: root.barFont
-                                font.pixelSize: 20
-                                font.weight: Font.Bold
-                                anchors.verticalCenter: parent.verticalCenter
+                            id: todayTimeRow
+                            height: 38
+                            spacing: 3
+
+                            readonly property string rawFormatted: (stSection.todayDay ? (stSection.todayDay.formatted || "0m")
+                                : (currentWeekData ? currentWeekData.avgPerDayFormatted : (stSection.stObj.today_formatted || "0m"))).trim()
+
+                            // Parse e.g. "2h 54m", "45m", "3h"
+                            readonly property var parsed: {
+                                var s = rawFormatted
+                                var hMatch = s.match(/(\d+)\s*h/i)
+                                var mMatch = s.match(/(\d+)\s*m/i)
+                                return {
+                                    hasH: !!hMatch,
+                                    hVal: hMatch ? hMatch[1] : "",
+                                    hasM: !!mMatch,
+                                    mVal: mMatch ? mMatch[1] : (hMatch ? "" : s)
+                                }
                             }
+
+                            // Hours
+                            Text {
+                                visible: todayTimeRow.parsed.hasH
+                                text: todayTimeRow.parsed.hVal
+                                color: root.ink
+                                font.family: biggerFont.name.length > 0 ? biggerFont.name : root.barFont
+                                font.pixelSize: 32
+                                font.weight: Font.Bold
+                                anchors.bottom: parent.bottom
+                                anchors.bottomMargin: -2
+                            }
+                            Text {
+                                visible: todayTimeRow.parsed.hasH
+                                text: "h"
+                                color: root.ink
+                                opacity: 0.85
+                                font.family: root.barFont
+                                font.pixelSize: 15
+                                font.weight: Font.Bold
+                                anchors.bottom: parent.bottom
+                                anchors.bottomMargin: 3
+                            }
+
+                            // Spacer if both
+                            Item {
+                                width: 5
+                                height: 1
+                                visible: todayTimeRow.parsed.hasH && todayTimeRow.parsed.hasM
+                            }
+
+                            // Minutes
+                            Text {
+                                visible: todayTimeRow.parsed.hasM
+                                text: todayTimeRow.parsed.mVal
+                                color: root.ink
+                                font.family: biggerFont.name.length > 0 ? biggerFont.name : root.barFont
+                                font.pixelSize: 32
+                                font.weight: Font.Bold
+                                anchors.bottom: parent.bottom
+                                anchors.bottomMargin: -2
+                            }
+                            Text {
+                                visible: todayTimeRow.parsed.hasM
+                                text: "m"
+                                color: root.ink
+                                opacity: 0.85
+                                font.family: root.barFont
+                                font.pixelSize: 15
+                                font.weight: Font.Bold
+                                anchors.bottom: parent.bottom
+                                anchors.bottomMargin: 3
+                            }
+
+                            // "today" label pill
                             Text {
                                 text: stSection.todayDay
                                     ? (stSection.todayDay.isToday ? "today" : (stSection.todayDay.dateFormatted || ""))
@@ -429,8 +498,11 @@ Item {
                                 color: root.ink
                                 opacity: 0.55
                                 font.family: root.barFont
-                                font.pixelSize: 10
-                                anchors.verticalCenter: parent.verticalCenter
+                                font.pixelSize: 11
+                                font.weight: Font.Medium
+                                anchors.bottom: parent.bottom
+                                anchors.bottomMargin: 4
+                                leftPadding: 6
                             }
                         }
 
@@ -439,7 +511,8 @@ Item {
                                 : (stSection.todayDay
                                     ? (currentWeekData.avgPerDayFormatted + " per day avg  \u2022  " + currentWeekData.totalFormatted + " this week")
                                     : (currentWeekData.totalFormatted + " total this week"))
-                            color: root.seal
+                            color: root.ink
+                            opacity: 0.55
                             font.family: root.barFont
                             font.pixelSize: 10
                             font.weight: Font.Medium

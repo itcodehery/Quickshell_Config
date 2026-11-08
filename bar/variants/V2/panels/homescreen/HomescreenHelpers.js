@@ -1,30 +1,77 @@
 .pragma library
 
+function normalizeSpan(span) {
+    if (span === 4 || span === "2x2") return 4
+    if (span === 2 || span === "1x2") return 2
+    return 1
+}
+
+function cycleSpan(curSpan) {
+    let s = normalizeSpan(curSpan)
+    if (s === 1) return 2
+    if (s === 2) return 4
+    return 1
+}
+
 function recalculateGridLayout(dc, tilesModel, tilesPager, smoothScrollAnim) {
-    let curPage = 0
-    let curRow = 0
-    let curCol = 0
+    if (!tilesModel || tilesModel.count === 0) return
+
+    let pages = []
+    function getPageGrid(p) {
+        while (pages.length <= p) {
+            pages.push([
+                [null, null, null, null],
+                [null, null, null, null]
+            ])
+        }
+        return pages[p]
+    }
+
+    let maxPage = 0
 
     for (let i = 0; i < tilesModel.count; i++) {
         let item = tilesModel.get(i)
-        let span = (item.span === 2) ? 2 : 1
-        if (curCol + span > 4) {
-            curRow++
-            curCol = 0
-        }
-        if (curRow >= 2) {
-            curPage++
-            curRow = 0
-        }
+        let s = normalizeSpan(item.span)
+        let w = (s === 2 || s === 4) ? 2 : 1
+        let h = (s === 4) ? 2 : 1
 
-        tilesModel.setProperty(i, "gridPage", curPage)
-        tilesModel.setProperty(i, "gridRow", curRow)
-        tilesModel.setProperty(i, "gridCol", curCol)
-
-        curCol += span
+        let placed = false
+        let p = 0
+        while (!placed) {
+            let grid = getPageGrid(p)
+            for (let r = 0; r <= 2 - h; r++) {
+                for (let c = 0; c <= 4 - w; c++) {
+                    let canFit = true
+                    for (let dr = 0; dr < h; dr++) {
+                        for (let dcIdx = 0; dcIdx < w; dcIdx++) {
+                            if (grid[r + dr][c + dcIdx] !== null) {
+                                canFit = false
+                                break
+                            }
+                        }
+                        if (!canFit) break
+                    }
+                    if (canFit) {
+                        for (let dr = 0; dr < h; dr++) {
+                            for (let dcIdx = 0; dcIdx < w; dcIdx++) {
+                                grid[r + dr][c + dcIdx] = item.id
+                            }
+                        }
+                        tilesModel.setProperty(i, "gridPage", p)
+                        tilesModel.setProperty(i, "gridRow", r)
+                        tilesModel.setProperty(i, "gridCol", c)
+                        if (p > maxPage) maxPage = p
+                        placed = true
+                        break
+                    }
+                }
+                if (placed) break
+            }
+            if (!placed) p++
+        }
     }
 
-    dc.totalPageCount = Math.max(1, curPage + 1)
+    dc.totalPageCount = Math.max(1, maxPage + 1)
     if (tilesPager) {
         let maxScroll = Math.max(0, (dc.totalPageCount - 1) * dc.pageStride)
         if (tilesPager.contentY > maxScroll) {
@@ -36,19 +83,26 @@ function recalculateGridLayout(dc, tilesModel, tilesPager, smoothScrollAnim) {
 }
 
 function setTileSpan(dc, tilesModel, id, newSpan) {
+    let s = normalizeSpan(newSpan)
     for (let i = 0; i < tilesModel.count; i++) {
         if (tilesModel.get(i).id === id) {
-            tilesModel.setProperty(i, "span", newSpan)
+            tilesModel.setProperty(i, "span", s)
             break
         }
     }
-    dc.recalculateGridLayout()
-    dc.saveTilesLayout()
+    recalculateGridLayout(dc, tilesModel, dc.tilesPager, dc.smoothScrollAnim)
+    saveTilesLayout(tilesModel, dc.saveLayoutProc)
+}
+
+function cycleTileSpan(dc, tilesModel, id) {
+    let cur = getTileSpan(tilesModel, id)
+    let next = cycleSpan(cur)
+    setTileSpan(dc, tilesModel, id, next)
 }
 
 function getTileSpan(tilesModel, id) {
     for (let i = 0; i < tilesModel.count; i++) {
-        if (tilesModel.get(i).id === id) return tilesModel.get(i).span === 2 ? 2 : 1
+        if (tilesModel.get(i).id === id) return normalizeSpan(tilesModel.get(i).span)
     }
     return 1
 }
@@ -120,8 +174,8 @@ function updateDraggingTile(dc, tilesModel, tilesPager, autoScrollTimer, dragPre
     }
 
     let curPage = Math.max(0, Math.min(dc.totalPageCount - 1, Math.round(tilesPager.contentY / dc.pageStride)))
-    let localY = pt.y + tilesPager.contentY
-    let localX = pt.x
+    let localY = pt.y + tilesPager.contentY - 2
+    let localX = pt.x - 2
 
     let targetId = ""
     for (let i = 0; i < tilesModel.count; i++) {
@@ -129,9 +183,10 @@ function updateDraggingTile(dc, tilesModel, tilesPager, autoScrollTimer, dragPre
         if (t.gridPage !== curPage) continue
         let tX = t.gridCol * (dc.tileUnitWidth + 10)
         let tY = t.gridPage * dc.pageStride + (t.gridRow === 0 ? 0 : 66)
-        let tW = t.span === 2 ? dc.tileDoubleWidth : dc.tileUnitWidth
+        let tW = (t.span === 2 || t.span === 4) ? dc.tileDoubleWidth : dc.tileUnitWidth
+        let tH = (t.span === 4) ? 122 : 56
         if (localX >= tX - 4 && localX <= tX + tW + 4 &&
-            localY >= tY - 4 && localY <= tY + 56 + 4) {
+            localY >= tY - 4 && localY <= tY + tH + 4) {
             targetId = t.id
             break
         }
@@ -194,6 +249,9 @@ function loadDefaultTiles(dc, tilesModel) {
         })
     }
     dc.recalculateGridLayout()
+    if (tilesModel.count > 0 && (dc.selectedTileId === "" || !getTileSpan(tilesModel, dc.selectedTileId))) {
+        dc.selectedTileId = tilesModel.get(0).id
+    }
 }
 
 function loadCustomTiles(dc, tilesModel, savedList) {
@@ -203,14 +261,14 @@ function loadCustomTiles(dc, tilesModel, savedList) {
     for (let i = 0; i < savedList.length; i++) {
         let item = savedList[i]
         if (knownIds.indexOf(item.id) !== -1 && !savedMap[item.id]) {
-            result.push({ id: item.id, span: item.span === 2 ? 2 : 1 })
+            result.push({ id: item.id, span: normalizeSpan(item.span) })
             savedMap[item.id] = true
         }
     }
     for (let j = 0; j < dc.defaultTiles.length; j++) {
         let dt = dc.defaultTiles[j]
         if (!savedMap[dt.id]) {
-            result.push({ id: dt.id, span: dt.span })
+            result.push({ id: dt.id, span: normalizeSpan(dt.span) })
         }
     }
     tilesModel.clear()
@@ -223,33 +281,209 @@ function loadCustomTiles(dc, tilesModel, savedList) {
             gridCol: 0
         })
     }
-    dc.recalculateGridLayout()
+    recalculateGridLayout(dc, tilesModel, dc.tilesPager, dc.smoothScrollAnim)
+    if (tilesModel.count > 0 && (dc.selectedTileId === "" || !getTileSpan(tilesModel, dc.selectedTileId))) {
+        dc.selectedTileId = tilesModel.get(0).id
+    }
 }
 
 function saveTilesLayout(tilesModel, saveLayoutProc) {
+    if (!saveLayoutProc) return
     let toSave = []
     for (let i = 0; i < tilesModel.count; i++) {
         let item = tilesModel.get(i)
-        toSave.push({ id: item.id, span: item.span })
+        toSave.push({ id: item.id, span: normalizeSpan(item.span) })
     }
     saveLayoutProc.jsonContent = JSON.stringify(toSave, null, 2)
     saveLayoutProc.running = true
 }
 
+function navigateTile(dc, tilesModel, dir) {
+    if (!tilesModel || tilesModel.count === 0) return
+
+    let curIdx = -1
+    for (let i = 0; i < tilesModel.count; i++) {
+        if (tilesModel.get(i).id === dc.selectedTileId) {
+            curIdx = i
+            break
+        }
+    }
+
+    if (curIdx === -1) {
+        dc.selectedTileId = tilesModel.get(0).id
+        dc.goToPage(tilesModel.get(0).gridPage)
+        return
+    }
+
+    let cur = tilesModel.get(curIdx)
+    let curPage = cur.gridPage
+    let curRow = cur.gridRow
+    let curCol = cur.gridCol
+    let curSpan = (cur.span === 2 || cur.span === 4) ? 2 : 1
+    let curHeight = (cur.span === 4) ? 2 : 1
+    let curCenter = curCol + (curSpan - 1) / 2.0
+
+    let targetIdx = -1
+
+    if (dir === "left") {
+        let bestCol = -1
+        for (let i = 0; i < tilesModel.count; i++) {
+            let t = tilesModel.get(i)
+            if (t.gridPage === curPage && (t.gridRow === curRow || curHeight === 2 || t.span === 4) && t.gridCol < curCol) {
+                if (t.gridCol > bestCol) {
+                    bestCol = t.gridCol
+                    targetIdx = i
+                }
+            }
+        }
+        if (targetIdx === -1) {
+            if (curRow > 0 && curHeight === 1) {
+                bestCol = -1
+                for (let i = 0; i < tilesModel.count; i++) {
+                    let t = tilesModel.get(i)
+                    if (t.gridPage === curPage && t.gridRow === curRow - 1) {
+                        if (t.gridCol > bestCol) {
+                            bestCol = t.gridCol
+                            targetIdx = i
+                        }
+                    }
+                }
+            } else if (curPage > 0) {
+                bestCol = -1
+                for (let i = 0; i < tilesModel.count; i++) {
+                    let t = tilesModel.get(i)
+                    if (t.gridPage === curPage - 1) {
+                        if (t.gridCol > bestCol) {
+                            bestCol = t.gridCol
+                            targetIdx = i
+                        }
+                    }
+                }
+            }
+        }
+        if (targetIdx === -1 && curIdx > 0) {
+            targetIdx = curIdx - 1
+        }
+    } else if (dir === "right") {
+        let bestCol = 999
+        for (let i = 0; i < tilesModel.count; i++) {
+            let t = tilesModel.get(i)
+            if (t.gridPage === curPage && (t.gridRow === curRow || curHeight === 2 || t.span === 4) && t.gridCol > curCol) {
+                if (t.gridCol < bestCol) {
+                    bestCol = t.gridCol
+                    targetIdx = i
+                }
+            }
+        }
+        if (targetIdx === -1) {
+            if (curRow === 0 && curHeight === 1) {
+                bestCol = 999
+                for (let i = 0; i < tilesModel.count; i++) {
+                    let t = tilesModel.get(i)
+                    if (t.gridPage === curPage && t.gridRow === 1) {
+                        if (t.gridCol < bestCol) {
+                            bestCol = t.gridCol
+                            targetIdx = i
+                        }
+                    }
+                }
+            } else if (curPage < dc.totalPageCount - 1) {
+                bestCol = 999
+                for (let i = 0; i < tilesModel.count; i++) {
+                    let t = tilesModel.get(i)
+                    if (t.gridPage === curPage + 1 && t.gridRow === 0) {
+                        if (t.gridCol < bestCol) {
+                            bestCol = t.gridCol
+                            targetIdx = i
+                        }
+                    }
+                }
+            }
+        }
+        if (targetIdx === -1 && curIdx < tilesModel.count - 1) {
+            targetIdx = curIdx + 1
+        }
+    } else if (dir === "up") {
+        let targetPage = curPage
+        let targetRow = curRow - 1
+        if (targetRow < 0) {
+            targetPage = curPage - 1
+            targetRow = 1
+        }
+        if (targetPage >= 0) {
+            let minDiff = 999
+            for (let i = 0; i < tilesModel.count; i++) {
+                let t = tilesModel.get(i)
+                if (t.gridPage === targetPage && (t.gridRow === targetRow || t.span === 4)) {
+                    let tSpan = (t.span === 2 || t.span === 4) ? 2 : 1
+                    let tCenter = t.gridCol + (tSpan - 1) / 2.0
+                    let diff = Math.abs(tCenter - curCenter)
+                    if (diff < minDiff) {
+                        minDiff = diff
+                        targetIdx = i
+                    }
+                }
+            }
+            if (targetIdx === -1) {
+                for (let i = 0; i < tilesModel.count; i++) {
+                    let t = tilesModel.get(i)
+                    if (t.gridPage === targetPage) {
+                        targetIdx = i
+                        break
+                    }
+                }
+            }
+        }
+    } else if (dir === "down") {
+        let targetPage = curPage
+        let targetRow = curHeight === 2 ? 2 : (curRow + 1)
+        if (targetRow > 1) {
+            targetPage = curPage + 1
+            targetRow = 0
+        }
+        if (targetPage < dc.totalPageCount) {
+            let minDiff = 999
+            for (let i = 0; i < tilesModel.count; i++) {
+                let t = tilesModel.get(i)
+                if (t.gridPage === targetPage && (t.gridRow === targetRow || t.span === 4)) {
+                    let tSpan = (t.span === 2 || t.span === 4) ? 2 : 1
+                    let tCenter = t.gridCol + (tSpan - 1) / 2.0
+                    let diff = Math.abs(tCenter - curCenter)
+                    if (diff < minDiff) {
+                        minDiff = diff
+                        targetIdx = i
+                    }
+                }
+            }
+            if (targetIdx === -1) {
+                for (let i = 0; i < tilesModel.count; i++) {
+                    let t = tilesModel.get(i)
+                    if (t.gridPage === targetPage) {
+                        targetIdx = i
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    if (targetIdx >= 0 && targetIdx < tilesModel.count) {
+        let t = tilesModel.get(targetIdx)
+        dc.selectedTileId = t.id
+        dc.goToPage(t.gridPage)
+    }
+}
+
 function triggerTileAction(dc, tileId) {
     var root = dc.root
     switch (tileId) {
-        case "workspaces":
         case "wifi":
         case "bluetooth":
-        case "cpu":
-        case "memory":
         case "notifications":
         case "screentime":
         case "battery":
         case "plugins":
         case "updates":
-        case "lockscreen":
         case "theme":
         case "wallpaper":
         case "notes":
@@ -319,9 +553,36 @@ function handleKeyPressed(dc, event) {
     var btDetailSection = dc.btDetailSection
 
     if (dc.editTilesMode) {
-        if (event.key === Qt.Key_Escape) {
+        if (event.key === Qt.Key_Escape || event.key === Qt.Key_E) {
             dc.editTilesMode = false
             dc.saveTilesLayout()
+            event.accepted = true
+            return
+        }
+        if (event.key === Qt.Key_S || event.key === Qt.Key_R || event.key === Qt.Key_Space) {
+            if (dc.selectedTileId) {
+                cycleTileSpan(dc, dc.tilesModel, dc.selectedTileId)
+                event.accepted = true
+                return
+            }
+        }
+        if (event.key === Qt.Key_H || event.key === Qt.Key_Left) {
+            navigateTile(dc, dc.tilesModel, "left")
+            event.accepted = true
+            return
+        }
+        if (event.key === Qt.Key_L || event.key === Qt.Key_Right) {
+            navigateTile(dc, dc.tilesModel, "right")
+            event.accepted = true
+            return
+        }
+        if (event.key === Qt.Key_K || event.key === Qt.Key_Up) {
+            navigateTile(dc, dc.tilesModel, "up")
+            event.accepted = true
+            return
+        }
+        if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
+            navigateTile(dc, dc.tilesModel, "down")
             event.accepted = true
             return
         }
@@ -457,27 +718,57 @@ function handleKeyPressed(dc, event) {
         (notesDetailSection && notesDetailSection.isInputFocused)) {
         return
     }
-    if (event.key === Qt.Key_K) {
-        dc.pageUp()
-        event.accepted = true
-    } else if (event.key === Qt.Key_J) {
-        dc.pageDown()
-        event.accepted = true
-    } else if (event.key === Qt.Key_H) {
-        if (event.modifiers & Qt.ShiftModifier) {
-            dc.jumpPrevCategory()
-        } else {
-            dc.prevOption()
+    if (dc.activeDetailView === "") {
+        if (event.key === Qt.Key_E) {
+            dc.toggleEditMode(dc.selectedTileId)
+            event.accepted = true
+            return
         }
-        event.accepted = true
-    } else if (event.key === Qt.Key_L) {
-        if (event.modifiers & Qt.ShiftModifier) {
-            dc.jumpNextCategory()
-        } else {
-            dc.nextOption()
+        if (event.key === Qt.Key_H || event.key === Qt.Key_Left) {
+            navigateTile(dc, dc.tilesModel, "left")
+            event.accepted = true
+            return
+        } else if (event.key === Qt.Key_L || event.key === Qt.Key_Right) {
+            navigateTile(dc, dc.tilesModel, "right")
+            event.accepted = true
+            return
+        } else if (event.key === Qt.Key_K || event.key === Qt.Key_Up) {
+            if (event.modifiers & Qt.ShiftModifier) {
+                dc.pageUp()
+            } else {
+                navigateTile(dc, dc.tilesModel, "up")
+            }
+            event.accepted = true
+            return
+        } else if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
+            if (event.modifiers & Qt.ShiftModifier) {
+                dc.pageDown()
+            } else {
+                navigateTile(dc, dc.tilesModel, "down")
+            }
+            event.accepted = true
+            return
+        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            if (dc.selectedTileId) {
+                triggerTileAction(dc, dc.selectedTileId)
+                event.accepted = true
+                return
+            }
         }
-        event.accepted = true
-    } else if (event.key === Qt.Key_Tab) {
+    } else {
+        if ((event.key === Qt.Key_H || event.key === Qt.Key_Left) &&
+            dc.activeDetailView !== "system" &&
+            dc.activeDetailView !== "plugins" &&
+            dc.activeDetailView !== "theme" &&
+            dc.activeDetailView !== "wallpaper" &&
+            dc.activeDetailView !== "notes") {
+            dc.activeDetailView = ""
+            if (root) root.dashboardDetail = ""
+            event.accepted = true
+            return
+        }
+    }
+    if (event.key === Qt.Key_Tab) {
         if (panel && panel.searchOpen) {
             panel.toggleSearchEngine()
         } else if (event.modifiers & Qt.ShiftModifier) {
@@ -509,7 +800,7 @@ function handleKeyPressed(dc, event) {
         if (mprisSel.player) mprisSel.player.previous()
         event.accepted = true
     } else if (event.key === Qt.Key_Space) {
-        if (mprisSel.player) {
+        if (mprisSel.player && mprisSel.player.playbackStatus) {
             mprisSel.player.togglePlaying()
             event.accepted = true
         } else if (dc.activeDetailView === "wifi" && wifiDetailSection) {
@@ -517,6 +808,9 @@ function handleKeyPressed(dc, event) {
             event.accepted = true
         } else if (dc.activeDetailView === "bluetooth" && btDetailSection) {
             btDetailSection.doTogglePower()
+            event.accepted = true
+        } else if (dc.activeDetailView === "" && dc.selectedTileId) {
+            triggerTileAction(dc, dc.selectedTileId)
             event.accepted = true
         }
     } else if (event.key === Qt.Key_C) {

@@ -22,7 +22,7 @@ PanelWindow {
     mask: Region {}
 
     readonly property int cornerRadius: 16
-    readonly property color cornerColor: root.paper
+    readonly property color cornerColor: "#000000"
 
     // Top-Left Corner
     Canvas {

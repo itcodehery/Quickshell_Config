@@ -14,18 +14,30 @@ Item {
 
     property alias tilesPager: tilesPager
 
+    // ── Subtle Glass Card Background around Quick Settings Grid (matching Calendar ref) ──
+    Rectangle {
+        id: gridCardBg
+        anchors.fill: parent
+        radius: 24
+        color: dashboardContent.root ? Qt.rgba(dashboardContent.root.ink.r, dashboardContent.root.ink.g, dashboardContent.root.ink.b, 0.045) : Qt.rgba(1, 1, 1, 0.05)
+        border.color: dashboardContent.root ? Qt.rgba(dashboardContent.root.ink.r, dashboardContent.root.ink.g, dashboardContent.root.ink.b, 0.07) : Qt.rgba(1, 1, 1, 0.07)
+        border.width: 1
+        z: 0
+    }
+
     Flickable {
         id: tilesPager
         anchors.fill: parent
-        anchors.leftMargin: -3
-        anchors.rightMargin: -3
-        anchors.topMargin: -3
-        anchors.bottomMargin: -3
+        anchors.leftMargin: 8
+        anchors.rightMargin: 8
+        anchors.topMargin: 8
+        anchors.bottomMargin: 8
         clip: true
         contentWidth: width
-        contentHeight: Math.max(height, dashboardContent.totalPageCount * dashboardContent.pageStride - 12 + 6)
+        contentHeight: Math.max(height, dashboardContent.totalPageCount * dashboardContent.pageStride - 12 + 16)
         boundsBehavior: Flickable.StopAtBounds
         interactive: false
+        z: 1
 
         Timer {
             id: snapTimer
@@ -90,9 +102,9 @@ Item {
 
         Item {
             id: tilesContent
-            x: 3
-            y: 3
-            width: tilesPagerContainer.width
+            x: 2
+            y: 2
+            width: dashboardContent.gridInnerWidth
             height: tilesPager.contentHeight
 
             Repeater {
@@ -109,11 +121,19 @@ Item {
 
                     x: gridCol * (dashboardContent.tileUnitWidth + 10)
                     y: gridPage * dashboardContent.pageStride + (gridRow === 0 ? 0 : 66)
-                    width: span === 2 ? dashboardContent.tileDoubleWidth : dashboardContent.tileUnitWidth
+                    width: (span === 1 || span === "1x1") ? dashboardContent.tileUnitWidth : dashboardContent.tileDoubleWidth
+                    height: (span === 4 || span === "2x2") ? 122 : 56
 
                     Behavior on x { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
                     Behavior on y { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
                     Behavior on width {
+                        NumberAnimation {
+                            duration: 380
+                            easing.type: Easing.OutBack
+                            easing.overshoot: 1.35
+                        }
+                    }
+                    Behavior on height {
                         NumberAnimation {
                             duration: 380
                             easing.type: Easing.OutBack

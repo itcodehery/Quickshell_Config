@@ -585,19 +585,20 @@ Item {
         visible: opacity > 0.001
 
         readonly property int pct: Math.max(1, Math.min(100, overlaysRoot.barSlot.root.chargingPopupPercent))
+        readonly property bool isDischarging: overlaysRoot.barSlot.root.chargingPopupState === "discharging"
 
         // Percentage-driven dynamic foreground accent color
         readonly property color batteryPercentColor: {
             if (pct < 20) return "#ef4444"      // Red (< 20%)
             if (pct < 50) return "#f97316"      // Orange (20-49%)
-            if (pct < 80) return "#3b82f6"      // Royal Blue (50-79%)
-            return "#10b981"                    // Emerald Green (80-100%)
+            if (pct < 80) return isDischarging ? (overlaysRoot.barSlot.root.seal || "#22d3ee") : "#3b82f6"      // Royal Blue (50-79%)
+            return isDischarging ? (overlaysRoot.barSlot.root.seal || "#10b981") : "#10b981"                    // Emerald Green (80-100%)
         }
 
         readonly property string timeLeftStr: {
             var dev = UPower.displayDevice
             if (!dev) return ""
-            var s = dev.timeToFull
+            var s = isDischarging ? dev.timeToEmpty : dev.timeToFull
             if (!s || s <= 0) return ""
             var h = Math.floor(s / 3600)
             var m = Math.floor((s % 3600) / 60)
@@ -638,14 +639,14 @@ Item {
             anchors.centerIn: parent
             spacing: 10
 
-            // Left: Bolt icon + "Charging"
+            // Left: Icon + Status text
             Row {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 4
 
                 IconText {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "bolt"
+                    text: islandChargingItem.isDischarging ? "power_off" : "bolt"
                     font.pixelSize: 14
                     color: islandChargingItem.batteryPercentColor
                     Behavior on color { ColorAnimation { duration: 200 } }
@@ -653,7 +654,7 @@ Item {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Charging"
+                    text: islandChargingItem.isDischarging ? "Disconnected" : "Charging"
                     font.family: overlaysRoot.barSlot.root.barFont
                     font.pixelSize: 11
                     font.weight: Font.DemiBold

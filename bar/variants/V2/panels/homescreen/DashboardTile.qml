@@ -9,15 +9,20 @@ import "../../modules"
 
 Rectangle {
     id: tileRoot
+    z: isSelected ? 2 : 0
 
     property var dashContent: null
     readonly property var root: (dashContent && dashContent.root) ? dashContent.root : null
     property string tileId: ""
-    property int span: 1          // 1 (1x1) or 2 (1x2)
+    property var span: 1          // 1 (1x1), 2 (1x2), 4 (2x2)
     property int tileIndex: -1
     property int gridPage: 0
     property int gridRow: 0
     property int gridCol: 0
+
+    readonly property bool is1x1: span === 1 || span === "1x1"
+    readonly property bool is1x2: span === 2 || span === "1x2"
+    readonly property bool is2x2: span === 4 || span === "2x2"
 
     readonly property color inkCol: (root && root.ink) ? root.ink : "#ffffff"
     readonly property color paperCol: (root && root.paper) ? root.paper : "#000000"
@@ -28,12 +33,13 @@ Rectangle {
     readonly property color color03Col: (root && root.color03) ? root.color03 : "#10b981"
     readonly property string barFontFam: (root && root.barFont) ? root.barFont : "sans-serif"
 
-    readonly property bool isSelected: (dashContent && dashContent.editTilesMode) ? (dashContent.selectedTileId === tileId) : false
+    readonly property bool isSelected: dashContent ? (dashContent.selectedTileId === tileId) : false
     readonly property bool isBeingDragged: (dashContent && dashContent.draggingTileId) ? (dashContent.draggingTileId === tileId) : false
     readonly property bool isDropTarget: (dashContent && dashContent.dropTargetTileId === tileId && !isBeingDragged)
 
-    height: 56
-    radius: span === 2 ? 28 : 18
+    height: is2x2 ? 122 : 56
+    radius: is1x1 ? (isTileActive ? 18 : 28) : 28
+    Behavior on height { NumberAnimation { duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
     color: "transparent"
     border.width: 0
     clip: false
@@ -66,10 +72,7 @@ Rectangle {
         if (!dashContent) return false
         switch (tileId) {
             case "wifi": return dashContent.activeDetailView === "wifi"
-            case "workspaces": return dashContent.activeDetailView === "workspaces"
             case "bluetooth": return dashContent.activeDetailView === "bluetooth"
-            case "cpu": return dashContent.activeDetailView === "cpu"
-            case "memory": return dashContent.activeDetailView === "memory"
             case "notifications": return dashContent.activeDetailView === "notifications"
             case "screentime": return dashContent.activeDetailView === "screentime"
             case "nightlight": return (dashContent.nightMode || 0) > 0
@@ -77,7 +80,6 @@ Rectangle {
             case "battery": return dashContent.activeDetailView === "battery"
             case "plugins": return dashContent.activeDetailView === "plugins"
             case "updates": return dashContent.activeDetailView === "updates" || dashContent.activeDetailView === "packages"
-            case "lockscreen": return dashContent.activeDetailView === "lockscreen"
             case "pomodoro": return (root && root.timerActive) || false
             case "theme": return dashContent.activeDetailView === "theme"
             case "wallpaper": return dashContent.activeDetailView === "wallpaper"
@@ -93,9 +95,11 @@ Rectangle {
         if (tileId === "bluetooth") return dashContent.btPowered || false
         if (tileId === "nightlight") return (dashContent.nightMode || 0) > 0
         if (tileId === "caffeine") return dashContent.caffeineActive || false
-        if (tileId === "pomodoro") return (root && root.timerActive) || false
+        if (tileId === "pomodoro") return ((root && root.timerActive) || (dashContent.showPomodoroPopup || false))
         return isActive
     }
+
+    readonly property bool isTileActive: isLit || isActive
 
     // ── Tile Background Color ──
     readonly property color effectiveTileColor: {
@@ -110,7 +114,7 @@ Rectangle {
             return color03Col
         }
         // In 1x1 compact mode, when Wi-Fi/Bluetooth is connected/lit, highlight tile in seal theme color
-        if (span === 1 && isLit) {
+        if (is1x1 && isLit) {
             return tileMa.containsMouse ? Qt.lighter(sealCol, 1.12) : sealCol
         }
         if (isActive) {
@@ -129,14 +133,21 @@ Rectangle {
         return sealCol
     }
 
-    // ── Tile Background & Border (Standard Rounded Rectangle matching Image 2) ──
+    readonly property color beanColor: {
+        if (isActive || (tileId === "caffeine" && dashContent && dashContent.caffeineActive) || (tileId === "pomodoro" && root && root.timerActive) || (tileId === "nightlight" && dashContent && dashContent.nightMode > 0) || (is1x1 && isLit)) {
+            return paperCol
+        }
+        return tileAccentCol
+    }
+
+    // ── Tile Background & Border ──
     Rectangle {
         id: tileBg
         anchors.fill: parent
         radius: parent.radius
         color: tileRoot.effectiveTileColor
-        border.color: tileRoot.isSelected ? tileRoot.tileAccentCol : (tileRoot.isDropTarget ? tileRoot.sealCol : (tileRoot.isActive ? tileRoot.paperCol : ((dashContent && dashContent.editTilesMode) ? Qt.rgba(tileRoot.tileAccentCol.r, tileRoot.tileAccentCol.g, tileRoot.tileAccentCol.b, 0.45) : "transparent")))
-        border.width: tileRoot.isSelected ? 2 : (tileRoot.isDropTarget ? 2 : (tileRoot.isActive ? 2 : ((dashContent && dashContent.editTilesMode) ? 1.5 : 0)))
+        border.color: tileRoot.isDropTarget ? tileRoot.sealCol : ((dashContent && dashContent.editTilesMode) ? Qt.rgba(tileRoot.tileAccentCol.r, tileRoot.tileAccentCol.g, tileRoot.tileAccentCol.b, 0.45) : "transparent")
+        border.width: tileRoot.isDropTarget ? 2 : ((dashContent && dashContent.editTilesMode) ? 1.5 : 0)
         Behavior on color { ColorAnimation { duration: 180 } }
         Behavior on border.color { ColorAnimation { duration: 180 } }
         z: 0
@@ -153,11 +164,8 @@ Rectangle {
     // ── Tile Title and Subtitle ──
     readonly property string tileTitle: {
         switch (tileId) {
-            case "workspaces": return "Workspaces"
             case "wifi": return "Wi-Fi"
             case "bluetooth": return "Bluetooth"
-            case "cpu": return "CPU"
-            case "memory": return "Memory"
             case "notifications": return "Notifications"
             case "screentime": return "Screen Time"
             case "nightlight": return "Night Light"
@@ -166,7 +174,6 @@ Rectangle {
             case "temperature": return "CPU Temp"
             case "plugins": return "Omarchy Plugins"
             case "updates": return "Updates"
-            case "lockscreen": return "Lock Screen"
             case "pomodoro": return "Pomodoro"
             case "quickshare": return "Quick Share"
             case "theme": return "Themes"
@@ -179,20 +186,12 @@ Rectangle {
 
     readonly property string tileSubtitle: {
         switch (tileId) {
-            case "workspaces":
-                return "Desktop " + (Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : 1)
             case "wifi": return (dashContent && dashContent.currentWifiName) ? dashContent.currentWifiName : "Wi-Fi"
             case "bluetooth":
                 if (!dashContent) return "Off"
                 return dashContent.currentBtName === "Bluetooth"
                     ? (dashContent.btPowered ? "On" : "Off")
                     : dashContent.currentBtName
-            case "cpu": return ((root && root.systemCpuPercent !== undefined) ? root.systemCpuPercent : 0) + "%"
-            case "memory":
-                if (root && root.systemMemUsedGiB !== undefined && root.systemMemTotalGiB !== undefined) {
-                    return root.systemMemUsedGiB.toFixed(1) + "/" + root.systemMemTotalGiB.toFixed(0) + "G"
-                }
-                return "0/0G"
             case "notifications":
                 let cnt = (root && root.notifCount) ? root.notifCount : 0
                 return cnt > 0 ? (cnt + " new") : "All caught up"
@@ -210,7 +209,6 @@ Rectangle {
             case "updates":
                 let up = (root && root.systemUpdatesAvailable) ? root.systemUpdatesAvailable : 0
                 return up > 0 ? (up + " available") : "Up to date"
-            case "lockscreen": return "Settings & Security"
             case "pomodoro":
                 if (!root || !root.timerActive) return "25m Focus"
                 if (root.timerPaused) return "Paused"
@@ -229,11 +227,8 @@ Rectangle {
 
     readonly property string tileIcon: {
         switch (tileId) {
-            case "workspaces": return "view_carousel"
             case "wifi": return "wifi"
             case "bluetooth": return "bluetooth"
-            case "cpu": return "memory"
-            case "memory": return "dns"
             case "notifications":
                 let c = (root && root.notifCount) ? root.notifCount : 0
                 return c > 0 ? "notifications_active" : "notifications"
@@ -244,7 +239,6 @@ Rectangle {
             case "temperature": return "thermostat"
             case "plugins": return "widgets"
             case "updates": return "system_update"
-            case "lockscreen": return "lock"
             case "pomodoro": return (root && root.timerActive) ? "timer" : "hourglass_top"
             case "quickshare": return "share"
             case "theme": return "palette"
@@ -261,7 +255,8 @@ Rectangle {
     Item {
         id: layout1x2
         anchors.fill: parent
-        visible: tileRoot.span === 2
+        visible: tileRoot.is1x2
+        z: 2
 
         // Inner circle toggle button for Wi-Fi / Bluetooth
         Rectangle {
@@ -273,16 +268,19 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             anchors.left: parent.left
             anchors.leftMargin: 8
+            z: 10
 
-            color: tileRoot.isLit
-                ? (innerMa.containsMouse ? Qt.lighter(tileRoot.sealCol, 1.12) : tileRoot.sealCol)
-                : (innerMa.containsMouse ? Qt.rgba(tileRoot.inkCol.r, tileRoot.inkCol.g, tileRoot.inkCol.b, 0.18) : Qt.rgba(tileRoot.inkCol.r, tileRoot.inkCol.g, tileRoot.inkCol.b, 0.10))
+            color: tileRoot.isActive
+                ? (innerMa.containsMouse ? Qt.rgba(tileRoot.paperCol.r, tileRoot.paperCol.g, tileRoot.paperCol.b, 0.28) : Qt.rgba(tileRoot.paperCol.r, tileRoot.paperCol.g, tileRoot.paperCol.b, 0.16))
+                : (tileRoot.isLit
+                    ? (innerMa.containsMouse ? Qt.lighter(tileRoot.sealCol, 1.12) : tileRoot.sealCol)
+                    : (innerMa.containsMouse ? Qt.rgba(tileRoot.inkCol.r, tileRoot.inkCol.g, tileRoot.inkCol.b, 0.18) : Qt.rgba(tileRoot.inkCol.r, tileRoot.inkCol.g, tileRoot.inkCol.b, 0.10)))
             Behavior on color { ColorAnimation { duration: 160 } }
 
             IconText {
                 anchors.centerIn: parent
                 text: tileRoot.tileIcon
-                color: tileRoot.isLit ? tileRoot.paperCol : tileRoot.inkCol
+                color: tileRoot.isActive ? tileRoot.paperCol : (tileRoot.isLit ? tileRoot.paperCol : tileRoot.inkCol)
                 font.pixelSize: 20
                 Behavior on color { ColorAnimation { duration: 160 } }
             }
@@ -420,7 +418,8 @@ Rectangle {
     Item {
         id: layout1x1
         anchors.fill: parent
-        visible: tileRoot.span === 1
+        visible: tileRoot.is1x1
+        z: 2
 
         IconText {
             anchors.centerIn: parent
@@ -480,8 +479,220 @@ Rectangle {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // ── RESIZE INDICATOR HANDLE (Image 3 Jellybean Notch Grabber) ────────
+    // ── 2x2 TILE LAYOUT (Rich Expanded Card) ────────────────────────────
     // ══════════════════════════════════════════════════════════════════════
+    Item {
+        id: layout2x2
+        anchors.fill: parent
+        visible: tileRoot.is2x2
+        z: 2
+
+        // Top Row: Icon Badge (left) + Title / Subtitle Column (right)
+        Item {
+            id: header2x2
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.topMargin: 12
+            anchors.leftMargin: 12
+            anchors.rightMargin: 12
+            height: 38
+
+            Rectangle {
+                id: iconWrap2x2
+                width: 38
+                height: 38
+                radius: 14
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                color: tileRoot.isActive
+                    ? (iconWrap2x2Ma.containsMouse ? Qt.rgba(tileRoot.paperCol.r, tileRoot.paperCol.g, tileRoot.paperCol.b, 0.28) : Qt.rgba(tileRoot.paperCol.r, tileRoot.paperCol.g, tileRoot.paperCol.b, 0.16))
+                    : (tileRoot.isLit
+                        ? (iconWrap2x2Ma.containsMouse ? Qt.lighter(tileRoot.sealCol, 1.12) : tileRoot.sealCol)
+                        : (iconWrap2x2Ma.containsMouse ? Qt.rgba(tileRoot.inkCol.r, tileRoot.inkCol.g, tileRoot.inkCol.b, 0.18) : Qt.rgba(tileRoot.inkCol.r, tileRoot.inkCol.g, tileRoot.inkCol.b, 0.10)))
+                Behavior on color { ColorAnimation { duration: 160 } }
+
+                IconText {
+                    anchors.centerIn: parent
+                    text: tileRoot.tileIcon
+                    color: tileRoot.isActive ? tileRoot.paperCol : (tileRoot.isLit ? tileRoot.paperCol : tileRoot.inkCol)
+                    font.pixelSize: 20
+                }
+
+                MouseArea {
+                    id: iconWrap2x2Ma
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: (mouse) => {
+                        mouse.accepted = true
+                        if (tileId === "wifi" || tileId === "bluetooth") {
+                            innerMa.clicked(mouse)
+                        } else if (dashContent) {
+                            dashContent.triggerTileAction(tileId)
+                        }
+                    }
+                }
+            }
+
+            Column {
+                anchors.left: iconWrap2x2.right
+                anchors.leftMargin: 10
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 1
+
+                Text {
+                    text: tileRoot.tileTitle
+                    color: tileRoot.fgColor
+                    font.pixelSize: 13
+                    font.family: tileRoot.barFontFam
+                    font.weight: Font.DemiBold
+                    elide: Text.ElideRight
+                    width: parent.width
+                }
+
+                Text {
+                    text: tileRoot.tileSubtitle
+                    color: tileRoot.fgColor
+                    opacity: 0.70
+                    font.pixelSize: 11
+                    font.family: tileRoot.barFontFam
+                    elide: Text.ElideRight
+                    width: parent.width
+                }
+            }
+        }
+
+        // Center / Main Info Area
+        Item {
+            anchors.top: header2x2.bottom
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: 12
+
+            // 1) Battery: big percent display
+            Row {
+                visible: tileId === "battery"
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.left: parent.left
+                spacing: 6
+                Text {
+                    text: (root && root.systemBatteryPercent !== undefined) ? root.systemBatteryPercent + "%" : "100%"
+                    color: tileRoot.fgColor
+                    font.pixelSize: 22
+                    font.family: tileRoot.barFontFam
+                    font.weight: Font.Bold
+                }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: (root && root.systemBatteryCharging) ? "Charging" : "Battery"
+                    color: tileRoot.fgColor
+                    opacity: 0.7
+                    font.pixelSize: 11
+                    font.family: tileRoot.barFontFam
+                }
+            }
+
+            // 2) Pomodoro: Big timer + play/pause
+            Row {
+                visible: tileId === "pomodoro"
+                anchors.centerIn: parent
+                spacing: 8
+                Text {
+                    text: tileRoot.tileSubtitle
+                    color: tileRoot.fgColor
+                    font.pixelSize: 20
+                    font.family: tileRoot.barFontFam
+                    font.weight: Font.Bold
+                }
+            }
+
+            // 3) CPU Temp
+            Row {
+                visible: tileId === "temperature"
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.left: parent.left
+                spacing: 6
+                Text {
+                    text: ((dashContent && dashContent.cpuTemp) ? dashContent.cpuTemp : 45) + "°C"
+                    color: (dashContent && dashContent.cpuTempColor) ? dashContent.cpuTempColor : tileRoot.fgColor
+                    font.pixelSize: 22
+                    font.family: tileRoot.barFontFam
+                    font.weight: Font.Bold
+                }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Temperature"
+                    color: tileRoot.fgColor
+                    opacity: 0.7
+                    font.pixelSize: 11
+                    font.family: tileRoot.barFontFam
+                }
+            }
+
+            // 4) General Status Chip (for other tiles)
+            Rectangle {
+                visible: tileId !== "battery" && tileId !== "pomodoro" && tileId !== "temperature"
+                anchors.left: parent.left
+                anchors.bottom: parent.bottom
+                height: 24
+                width: chipText.implicitWidth + 18
+                radius: 12
+                color: tileRoot.isActive
+                    ? Qt.rgba(tileRoot.paperCol.r, tileRoot.paperCol.g, tileRoot.paperCol.b, 0.18)
+                    : (tileRoot.isLit
+                        ? Qt.rgba(tileRoot.sealCol.r, tileRoot.sealCol.g, tileRoot.sealCol.b, 0.22)
+                        : Qt.rgba(tileRoot.inkCol.r, tileRoot.inkCol.g, tileRoot.inkCol.b, 0.08))
+
+                Text {
+                    id: chipText
+                    anchors.centerIn: parent
+                    text: tileRoot.isLit ? "Active" : "Tap to open"
+                    color: tileRoot.isActive ? tileRoot.paperCol : (tileRoot.isLit ? tileRoot.sealCol : tileRoot.inkCol)
+                    font.pixelSize: 11
+                    font.family: tileRoot.barFontFam
+                    font.weight: Font.DemiBold
+                }
+            }
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // ── CORNER BEAN INDICATOR (Bottom-right highlight indicator) ─────────
+    // ══════════════════════════════════════════════════════════════════════
+    Shape {
+        id: cornerBean
+        anchors.fill: parent
+        visible: opacity > 0
+        opacity: tileRoot.isSelected ? 1.0 : 0.0
+        Behavior on opacity { NumberAnimation { duration: 120 } }
+        z: 25
+        preferredRendererType: Shape.CurveRenderer
+
+        readonly property real strokeW: tileRoot.is1x1 ? 4.5 : 5.5
+        readonly property real r: Math.max(4, tileRoot.radius - 1.0)
+        readonly property real cx: tileRoot.width - tileRoot.radius
+        readonly property real cy: tileRoot.height - tileRoot.radius
+
+        ShapePath {
+            strokeColor: tileRoot.beanColor
+            strokeWidth: cornerBean.strokeW
+            capStyle: ShapePath.RoundCap
+            fillColor: "transparent"
+
+            PathAngleArc {
+                centerX: cornerBean.cx
+                centerY: cornerBean.cy
+                radiusX: cornerBean.r
+                radiusY: cornerBean.r
+                startAngle: 28
+                sweepAngle: 34
+            }
+        }
+    }
+
     // ══════════════════════════════════════════════════════════════════════
     // ── RESIZE INDICATOR HANDLE (Image 2 Border Rectangle Grabber) ───────
     // ══════════════════════════════════════════════════════════════════════
@@ -513,14 +724,16 @@ Rectangle {
             id: resizeMa
             anchors.fill: parent
             hoverEnabled: true
-            cursorShape: Qt.SizeHorCursor
+            cursorShape: Qt.PointingHandCursor
             acceptedButtons: Qt.LeftButton
 
             property real startX: 0
+            property real startY: 0
             property bool isResizingDrag: false
 
             onPressed: (mouse) => {
                 startX = mouse.x
+                startY = mouse.y
                 isResizingDrag = false
                 if (dashContent) dashContent.selectedTileId = tileRoot.tileId
             }
@@ -528,19 +741,28 @@ Rectangle {
             onPositionChanged: (mouse) => {
                 if (!pressed) return
                 let dx = mouse.x - startX
-                if (Math.abs(dx) > 16 && dashContent) {
+                let dy = mouse.y - startY
+                if ((Math.abs(dx) > 18 || Math.abs(dy) > 18) && dashContent) {
                     isResizingDrag = true
-                    if (dx > 16 && tileRoot.span === 1) {
+                    if (tileRoot.is1x1 && dx > 18) {
                         dashContent.setTileSpan(tileId, 2)
-                    } else if (dx < -16 && tileRoot.span === 2) {
-                        dashContent.setTileSpan(tileId, 1)
+                    } else if (tileRoot.is1x2) {
+                        if (dy > 18) {
+                            dashContent.setTileSpan(tileId, 4)
+                        } else if (dx < -18) {
+                            dashContent.setTileSpan(tileId, 1)
+                        }
+                    } else if (tileRoot.is2x2) {
+                        if (dy < -18 || dx < -18) {
+                            dashContent.setTileSpan(tileId, 2)
+                        }
                     }
                 }
             }
 
             onClicked: (mouse) => {
                 if (!isResizingDrag && dashContent) {
-                    dashContent.toggleTileSpan(tileId)
+                    dashContent.cycleTileSpan(tileId)
                 }
             }
         }
@@ -560,6 +782,7 @@ Rectangle {
     MouseArea {
         id: tileMa
         anchors.fill: parent
+        z: 1
         hoverEnabled: true
         cursorShape: (dashContent && dashContent.editTilesMode) ? Qt.OpenHandCursor : Qt.PointingHandCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -569,8 +792,11 @@ Rectangle {
         property bool dragInitiated: false
 
         onEntered: {
-            if (dashContent && !dashContent.editTilesMode && tileRoot.span === 1) {
+            if (dashContent && !dashContent.editTilesMode && tileRoot.is1x1) {
                 tileTip.show()
+            }
+            if (dashContent && !dashContent.editTilesMode) {
+                dashContent.selectedTileId = tileId
             }
         }
         onExited: {
@@ -589,7 +815,7 @@ Rectangle {
                 return
             }
 
-            if (dashContent && dashContent.editTilesMode) {
+            if (dashContent) {
                 dashContent.selectedTileId = tileId
             }
         }
@@ -618,8 +844,9 @@ Rectangle {
             if (dragInitiated) return
             if (!dashContent) return
 
+            dashContent.selectedTileId = tileId
+
             if (dashContent.editTilesMode) {
-                dashContent.selectedTileId = tileId
                 return
             }
 

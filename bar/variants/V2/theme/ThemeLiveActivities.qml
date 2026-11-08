@@ -3,6 +3,7 @@ import ".."
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
+import Quickshell.Services.UPower
 
 Item {
     id: root
@@ -209,8 +210,9 @@ Item {
     }
 
     // ── 5. Laptop Charging Dynamic Island Popup ───────────────────────
-    function triggerChargingPopup(pct) {
+    function triggerChargingPopup(pct, state) {
         root.theme.chargingPopupPercent = pct || root.theme.currentBatteryPercent;
+        root.theme.chargingPopupState = state || "charging";
         root.theme.chargingPopupActive = true;
         chargingPopupTimer.restart();
     }
@@ -221,6 +223,31 @@ Item {
         onTriggered: root.theme.chargingPopupActive = false
     }
 
+    // Instant event-driven reaction via UPower
+    readonly property var uPowerDev: UPower.displayDevice
+    readonly property int uPowerDevState: uPowerDev ? uPowerDev.state : UPowerDeviceState.Unknown
+    readonly property bool uPowerCharging: uPowerDevState === UPowerDeviceState.Charging
+    property int lastUPowerCharging: -1
+
+    onUPowerChargingChanged: {
+        if (uPowerDev) {
+            var p = uPowerDev.percentage
+            var pct = Math.round(p <= 1.0 ? p * 100 : p)
+            if (!isNaN(pct) && pct > 0) root.theme.currentBatteryPercent = pct
+        }
+        if (lastUPowerCharging === -1) {
+            lastUPowerCharging = uPowerCharging ? 1 : 0
+            return
+        }
+        if (uPowerCharging && lastUPowerCharging !== 1) {
+            lastUPowerCharging = 1
+            root.theme.triggerChargingPopup(root.theme.currentBatteryPercent, "charging")
+        } else if (!uPowerCharging && lastUPowerCharging === 1) {
+            lastUPowerCharging = 0
+            root.theme.triggerChargingPopup(root.theme.currentBatteryPercent, "discharging")
+        }
+    }
+
     FileView {
         id: acOnlineFile
         path: "/sys/class/power_supply/ACAD/online"
@@ -229,7 +256,9 @@ Item {
             var ac = parseInt(String(acOnlineFile.text() || "").trim())
             if (!isNaN(ac)) {
                 if (root.theme.prevAcOnline === 0 && ac === 1) {
-                    root.theme.triggerChargingPopup(root.theme.currentBatteryPercent)
+                    root.theme.triggerChargingPopup(root.theme.currentBatteryPercent, "charging")
+                } else if (root.theme.prevAcOnline === 1 && ac === 0) {
+                    root.theme.triggerChargingPopup(root.theme.currentBatteryPercent, "discharging")
                 }
                 root.theme.prevAcOnline = ac
             }

@@ -11,7 +11,7 @@ Item {
     required property var root
     required property var audioData
 
-    // --- SLIDERS (Full Material You size) ---
+    // --- SLIDERS (Thinner bar with taller drag line matching reference design) ---
     Column {
         id: slidersCol
         anchors.fill: parent
@@ -20,110 +20,127 @@ Item {
         opacity: dashboardContent.editTilesMode ? 0.0 : 1.0
         Behavior on opacity { NumberAnimation { duration: 180 } }
     
-        // Brightness Container
+        // ── Brightness Row ──
         Row {
             width: parent.width
+            height: 38
             spacing: 10
             
-            // Brightness Slider
-            Rectangle {
+            // Brightness Slider Container
+            Item {
                 id: briSlider
-                width: parent.width - 38 - 8
+                width: parent.width - 38 - 10
                 height: 38
-                radius: 19
-                color: root.fillIdle
                 
                 property bool sliding: false
                 property int localValue: dashboardContent.currentBrightness
+                readonly property real effectiveVal: sliding ? localValue : dashboardContent.currentBrightness
                 
-                Item {
-                    id: briFillItem
-                    property real val: briSlider.sliding ? briSlider.localValue : dashboardContent.currentBrightness
-                    property real gap: val > 85 ? 19 * (100 - val) / 15 : 19
-                    property real barOpacity: val > 85 ? (100 - val) / 15 : 1
-                    
-                    width: Math.max(parent.height, parent.width * (val / 100))
-                    height: parent.height
-                    Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
-                    
-                    // The actual fill
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        width: Math.max(parent.height, parent.width - briFillItem.gap)
-                        radius: 9.5 + (9.5 * (1 - briFillItem.barOpacity))
-                        color: root.seal
-                        
-                        // fully rounded on the left
-                        Rectangle {
-                            width: parent.height
-                            height: parent.height
-                            radius: height / 2
-                            color: root.seal
-                            anchors.left: parent.left
-                        }
-                    }
-                    
-                    // The vertical bar with "padding"
-                    Rectangle {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 20
-                        height: parent.height
-                        color: "transparent"
-                        opacity: briFillItem.barOpacity
-                        
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: 3
-                            height: parent.height - 14
-                            radius: 1.5
-                            color: root.seal
-                        }
-                    }
+                // Brightness Icon on Left
+                IconText {
+                    id: briIcon
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "light_mode"
+                    color: root.ink
+                    font.pixelSize: 20
                 }
                 
-                Row {
+                // Value indicator (visible when sliding)
+                Text {
+                    anchors.left: briIcon.right
+                    anchors.leftMargin: 6
                     anchors.verticalCenter: parent.verticalCenter
-                    anchors.left: parent.left
-                    anchors.leftMargin: 16
-                    spacing: 10
-                    IconText { 
+                    text: Math.round(briSlider.effectiveVal) + "%"
+                    color: root.ink
+                    font.pixelSize: 11
+                    font.family: root.barFont
+                    font.weight: Font.DemiBold
+                    opacity: briSlider.sliding ? 0.9 : 0.0
+                    visible: opacity > 0
+                    Behavior on opacity { NumberAnimation { duration: 150 } }
+                }
+
+                // Slider Track Item
+                Item {
+                    id: briTrack
+                    anchors.left: briIcon.right
+                    anchors.leftMargin: briSlider.sliding ? 36 : 14
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 28
+                    Behavior on anchors.leftMargin { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+
+                    readonly property real trackW: width
+                    readonly property real handleX: Math.round((Math.max(0, Math.min(100, briSlider.effectiveVal)) / 100) * Math.max(1, trackW - 4))
+                    readonly property real gap: 4
+                    readonly property real barHeight: 14
+
+                    // Filled Track (Left of drag line)
+                    Rectangle {
+                        anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "light_mode"
-                        color: root.paper
-                        font.pixelSize: 18 
+                        width: Math.max(0, briTrack.handleX - briTrack.gap)
+                        height: briTrack.barHeight
+                        radius: briTrack.barHeight / 2
+                        color: root.seal
+                        Behavior on width { enabled: !briSlider.sliding; NumberAnimation { duration: 120 } }
                     }
-                    Text {
+
+                    // Unfilled Track (Right of drag line)
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.leftMargin: Math.min(briTrack.trackW, briTrack.handleX + 4 + briTrack.gap)
+                        anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        text: Math.round(briFillItem.val) + "%"
-                        color: briFillItem.width > 64 ? root.paper : root.ink
-                        font.pixelSize: 12
-                        font.family: root.barFont
-                        font.weight: Font.DemiBold
-                        opacity: briSlider.sliding ? 1 : 0
-                        visible: opacity > 0
-                        Behavior on opacity { NumberAnimation { duration: 200 } }
+                        height: briTrack.barHeight
+                        radius: briTrack.barHeight / 2
+                        color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25)
+                        Behavior on anchors.leftMargin { enabled: !briSlider.sliding; NumberAnimation { duration: 120 } }
+                    }
+
+                    // Vertical Drag Line (Taller than the bar)
+                    Rectangle {
+                        id: briHandle
+                        x: briTrack.handleX
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 4
+                        height: 26
+                        radius: 2
+                        color: root.seal
+                        Behavior on x { enabled: !briSlider.sliding; NumberAnimation { duration: 120 } }
                     }
                 }
                 
                 MouseArea {
                     anchors.fill: parent
-                    onPressed: { briSlider.sliding = true }
+                    cursorShape: Qt.PointingHandCursor
+                    hoverEnabled: true
+
+                    function updateFromPos(mouseX) {
+                        let relX = mouseX - briTrack.x
+                        let pct = Math.max(0, Math.min(100, Math.round((relX / Math.max(1, briTrack.width)) * 100)))
+                        briSlider.localValue = pct
+                        return pct
+                    }
+
+                    onPressed: (mouse) => {
+                        briSlider.sliding = true
+                        updateFromPos(mouse.x)
+                    }
                     onPositionChanged: (mouse) => {
-                        if (pressed) briSlider.localValue = Math.max(0, Math.min(100, Math.round((mouse.x / width) * 100)))
+                        if (pressed) updateFromPos(mouse.x)
                     }
                     onReleased: (mouse) => {
+                        let pct = updateFromPos(mouse.x)
                         briSlider.sliding = false
-                        let pct = Math.max(0, Math.min(100, Math.round((mouse.x / width) * 100)))
                         dashboardContent.currentBrightness = pct
                         Quickshell.execDetached(["bash", "-c", "brightnessctl set " + pct + "%"])
                     }
                 }
             }
             
-            // Night Light Toggle (44x44, dual-mode: Soft / Intense)
+            // Night Light Toggle (38x38, dual-mode: Soft / Intense)
             Rectangle {
                 id: localNightToggle
                 width: 38
@@ -203,103 +220,136 @@ Item {
             }
         }
 
-        // Audio Container
+        // ── Audio / Volume Row ──
         Row {
             width: parent.width
+            height: 38
             spacing: 10
             
-            // Audio Slider
-            Rectangle {
+            // Audio Slider Container
+            Item {
                 id: audSlider
-                width: parent.width - 38 - 8
+                width: parent.width - 38 - 10
                 height: 38
-                radius: 19
-                color: root.fillIdle
                 
                 property bool sliding: false
                 property int localValue: audioData.volume
+                readonly property real effectiveVal: sliding ? localValue : audioData.volume
                 
-                Item {
-                    id: audFillItem
-                    property real val: audSlider.sliding ? audSlider.localValue : audioData.volume
-                    property real gap: val > 85 ? 19 * (100 - val) / 15 : 19
-                    property real barOpacity: val > 85 ? (100 - val) / 15 : 1
-                    
-                    width: Math.max(parent.height, parent.width * (val / 100))
-                    height: parent.height
-                    Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
-                    
-                    // The actual fill
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        width: Math.max(parent.height, parent.width - audFillItem.gap)
-                        radius: 9.5 + (9.5 * (1 - audFillItem.barOpacity))
-                        color: audioData.muted ? root.fillHover : root.seal
-                        
-                        // fully rounded on the left
-                        Rectangle {
-                            width: parent.height
-                            height: parent.height
-                            radius: height / 2
-                            color: audioData.muted ? root.fillHover : root.seal
-                            anchors.left: parent.left
-                        }
+                // Speaker Icon on Left (clickable to toggle mute)
+                Rectangle {
+                    id: audIconWrap
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 24
+                    height: 24
+                    radius: 12
+                    color: "transparent"
+
+                    IconText { 
+                        anchors.centerIn: parent
+                        text: audioData.muted ? "volume_off" : (audSlider.effectiveVal > 50 ? "volume_up" : (audSlider.effectiveVal > 0 ? "volume_down" : "volume_mute"))
+                        color: audioData.muted ? root.color01 : root.ink
+                        font.pixelSize: 20 
                     }
-                    
-                    // The vertical bar with "padding"
-                    Rectangle {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 20
-                        height: parent.height
-                        color: "transparent"
-                        opacity: audFillItem.barOpacity
-                        
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: 3
-                            height: parent.height - 14
-                            radius: 1.5
-                            color: audioData.muted ? root.fillHover : root.seal
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"])
                         }
                     }
                 }
-                
-                Row {
+
+                // Value indicator (visible when sliding)
+                Text {
+                    anchors.left: audIconWrap.right
+                    anchors.leftMargin: 6
                     anchors.verticalCenter: parent.verticalCenter
-                    anchors.left: parent.left
-                    anchors.leftMargin: 16
-                    spacing: 10
-                    IconText { 
+                    text: Math.round(audSlider.effectiveVal) + "%"
+                    color: root.ink
+                    font.pixelSize: 11
+                    font.family: root.barFont
+                    font.weight: Font.DemiBold
+                    opacity: audSlider.sliding ? 0.9 : 0.0
+                    visible: opacity > 0
+                    Behavior on opacity { NumberAnimation { duration: 150 } }
+                }
+
+                // Slider Track Item
+                Item {
+                    id: audTrack
+                    anchors.left: audIconWrap.right
+                    anchors.leftMargin: audSlider.sliding ? 36 : 14
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 28
+                    Behavior on anchors.leftMargin { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+
+                    readonly property real trackW: width
+                    readonly property real handleX: Math.round((Math.max(0, Math.min(100, audSlider.effectiveVal)) / 100) * Math.max(1, trackW - 4))
+                    readonly property real gap: 4
+                    readonly property real barHeight: 14
+
+                    // Filled Track (Left of drag line)
+                    Rectangle {
+                        anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
-                        text: audioData.muted ? "volume_off" : "volume_up"
-                        color: audioData.muted ? root.ink : root.paper
-                        font.pixelSize: 18 
+                        width: Math.max(0, audTrack.handleX - audTrack.gap)
+                        height: audTrack.barHeight
+                        radius: audTrack.barHeight / 2
+                        color: audioData.muted ? root.fillHover : root.seal
+                        Behavior on width { enabled: !audSlider.sliding; NumberAnimation { duration: 120 } }
                     }
-                    Text {
+
+                    // Unfilled Track (Right of drag line)
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.leftMargin: Math.min(audTrack.trackW, audTrack.handleX + 4 + audTrack.gap)
+                        anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        text: Math.round(audFillItem.val) + "%"
-                        color: audioData.muted ? root.ink : (audFillItem.width > 64 ? root.paper : root.ink)
-                        font.pixelSize: 12
-                        font.family: root.barFont
-                        font.weight: Font.DemiBold
-                        opacity: audSlider.sliding ? 1 : 0
-                        visible: opacity > 0
-                        Behavior on opacity { NumberAnimation { duration: 200 } }
+                        height: audTrack.barHeight
+                        radius: audTrack.barHeight / 2
+                        color: audioData.muted ? root.fillIdle : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25)
+                        Behavior on anchors.leftMargin { enabled: !audSlider.sliding; NumberAnimation { duration: 120 } }
+                    }
+
+                    // Vertical Drag Line (Taller than the bar)
+                    Rectangle {
+                        id: audHandle
+                        x: audTrack.handleX
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 4
+                        height: 26
+                        radius: 2
+                        color: audioData.muted ? root.fillHover : root.seal
+                        Behavior on x { enabled: !audSlider.sliding; NumberAnimation { duration: 120 } }
                     }
                 }
                 
                 MouseArea {
                     anchors.fill: parent
-                    onPressed: { audSlider.sliding = true }
+                    cursorShape: Qt.PointingHandCursor
+                    hoverEnabled: true
+
+                    function updateFromPos(mouseX) {
+                        let relX = mouseX - audTrack.x
+                        let pct = Math.max(0, Math.min(100, Math.round((relX / Math.max(1, audTrack.width)) * 100)))
+                        audSlider.localValue = pct
+                        return pct
+                    }
+
+                    onPressed: (mouse) => {
+                        audSlider.sliding = true
+                        updateFromPos(mouse.x)
+                    }
                     onPositionChanged: (mouse) => {
-                        if (pressed) audSlider.localValue = Math.max(0, Math.min(100, Math.round((mouse.x / width) * 100)))
+                        if (pressed) updateFromPos(mouse.x)
                     }
                     onReleased: (mouse) => {
+                        let pct = updateFromPos(mouse.x)
                         audSlider.sliding = false
-                        let pct = Math.max(0, Math.min(100, Math.round((mouse.x / width) * 100)))
                         Quickshell.execDetached(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", pct + "%"])
                     }
                 }
@@ -473,6 +523,60 @@ Item {
                         onExited: moveNextTip.hide()
                         onClicked: {
                             dashboardContent.moveSelectedTile(1)
+                        }
+                    }
+                }
+
+                // Cycle Size button (1x1 -> 1x2 -> 2x2)
+                Rectangle {
+                    width: sizeRow.implicitWidth + 14
+                    height: 32
+                    radius: 16
+                    visible: dashboardContent.selectedTileId !== ""
+                    color: sizeBtnMa.containsMouse ? root.fillHover : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.14)
+                    Behavior on color { ColorAnimation { duration: 150 } }
+
+                    Row {
+                        id: sizeRow
+                        anchors.centerIn: parent
+                        spacing: 4
+
+                        IconText {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "aspect_ratio"
+                            color: root.seal
+                            font.pixelSize: 15
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            readonly property var curSpan: dashboardContent.selectedTileId ? dashboardContent.getTileSpan(dashboardContent.selectedTileId) : 1
+                            text: curSpan === 4 ? "2x2" : (curSpan === 2 ? "1x2" : "1x1")
+                            color: root.ink
+                            font.pixelSize: 11
+                            font.family: root.barFont
+                            font.weight: Font.DemiBold
+                        }
+                    }
+
+                    TooltipMixin {
+                        id: sizeTip
+                        root: dashboardContent.root
+                        owner: parent
+                        text: "Cycle tile size: 1x1, 1x2, 2x2"
+                    }
+
+                    MouseArea {
+                        id: sizeBtnMa
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        hoverEnabled: true
+                        onEntered: sizeTip.show()
+                        onExited: sizeTip.hide()
+                        onClicked: {
+                            if (dashboardContent.selectedTileId) {
+                                dashboardContent.cycleTileSpan(dashboardContent.selectedTileId)
+                            }
                         }
                     }
                 }

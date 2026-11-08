@@ -141,20 +141,16 @@ Item {
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
         readonly property var subPagesList: [
-            { id: "workspaces",    name: "Workspaces",        icon: "view_carousel" },
             { id: "wifi",          name: "Wi-Fi & Network",    icon: "wifi" },
             { id: "bluetooth",     name: "Bluetooth",         icon: "bluetooth" },
             { id: "volume",        name: "Sound & Volume",    icon: "volume_up" },
             { id: "battery",       name: "Battery & Power",   icon: "battery_charging_full" },
-            { id: "cpu",           name: "CPU Performance",   icon: "memory" },
-            { id: "memory",        name: "Memory Usage",      icon: "storage" },
             { id: "screentime",    name: "Screen Time",       icon: "schedule" },
             { id: "notifications", name: "Notifications",     icon: "notifications" },
             { id: "calendar",      name: "Calendar & Notes",  icon: "calendar_month" },
             { id: "notes",         name: "Notes",             icon: "edit_note" },
             { id: "theme",         name: "Themes",            icon: "palette" },
             { id: "wallpaper",     name: "Wallpapers",        icon: "wallpaper" },
-            { id: "lockscreen",    name: "Lock Screen",       icon: "lock" },
             { id: "system",        name: "System & Power",    icon: "power_settings_new" },
             { id: "plugins",       name: "Omarchy Plugins",   icon: "extension" },
             { id: "updates",       name: "Software Updates",  icon: "system_update" }

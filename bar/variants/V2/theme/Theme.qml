@@ -227,9 +227,10 @@ ThemeBase {
     // ── 5. Laptop Charging Dynamic Island Popup ───────────────────────
     property bool chargingPopupActive: false
     property int chargingPopupPercent: 100
+    property string chargingPopupState: "charging" // "charging" | "discharging"
     property int prevAcOnline: -1
     property int currentBatteryPercent: 100
-    function triggerChargingPopup(pct) { liveActivities.triggerChargingPopup(pct) }
+    function triggerChargingPopup(pct, state) { liveActivities.triggerChargingPopup(pct, state) }
 
     // ── picker visual style (theme/wallpaper/screenshot/video pickers) ──
     property string pickerStyle: "tanzaku"   // "tanzaku", "hearthstone", "carousel", "gravemind"

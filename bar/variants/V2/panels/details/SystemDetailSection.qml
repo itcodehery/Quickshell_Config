@@ -21,6 +21,11 @@ Item {
     property string uptimeStr: "0h 0m"
     property int focusedIndex: 0
 
+    FontLoader {
+        id: biggerFont
+        source: "file://" + Quickshell.env("HOME") + "/.local/share/fonts/Unknown Vendor/OpenType/Bigger/Bigger_Display.otf"
+    }
+
     // Material 3 Expressive geometric vector paths (normalized to 64x64 box)
     readonly property string pathFlower: "M 62.5 32.0 L 62.1 35.0 L 61.1 37.8 L 59.4 40.3 L 57.1 42.4 L 54.4 44.0 L 51.3 44.9 L 48.1 45.2 L 44.7 44.7 L 45.2 48.1 L 44.9 51.3 L 44.0 54.4 L 42.4 57.1 L 40.3 59.4 L 37.8 61.1 L 35.0 62.1 L 32.0 62.5 L 29.0 62.1 L 26.2 61.1 L 23.7 59.4 L 21.6 57.1 L 20.0 54.4 L 19.1 51.3 L 18.8 48.1 L 19.3 44.7 L 15.9 45.2 L 12.7 44.9 L 9.6 44.0 L 6.9 42.4 L 4.6 40.3 L 2.9 37.8 L 1.9 35.0 L 1.5 32.0 L 1.9 29.0 L 2.9 26.2 L 4.6 23.7 L 6.9 21.6 L 9.6 20.0 L 12.7 19.1 L 15.9 18.8 L 19.3 19.3 L 18.8 15.9 L 19.1 12.7 L 20.0 9.6 L 21.6 6.9 L 23.7 4.6 L 26.2 2.9 L 29.0 1.9 L 32.0 1.5 L 35.0 1.9 L 37.8 2.9 L 40.3 4.6 L 42.4 6.9 L 44.0 9.6 L 44.9 12.7 L 45.2 15.9 L 44.7 19.3 L 48.1 18.8 L 51.3 19.1 L 54.4 20.0 L 57.1 21.6 L 59.4 23.7 L 61.1 26.2 L 62.1 29.0 Z"
     readonly property string pathArch: "M 2 32 A 30 30 0 0 1 62 32 L 62 46 A 16 16 0 0 1 46 62 L 18 62 A 16 16 0 0 1 2 46 Z"
@@ -439,36 +444,36 @@ Item {
                     }
                 }
 
-                // Top Right: Uptime Badge + Close Button
+                // Top Right: Live session badge + Close Button
                 Row {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 6
 
-                    // Uptime Pill
+                    // Live Status Pill
                     Rectangle {
                         height: 26
                         radius: 13
                         color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                        width: upRow.implicitWidth + 16
+                        width: liveStatusRow.implicitWidth + 16
 
                         Row {
-                            id: upRow
+                            id: liveStatusRow
                             anchors.centerIn: parent
-                            spacing: 4
+                            spacing: 5
 
-                            IconText {
-                                text: "timelapse"
-                                font.pixelSize: 11
-                                color: root.seal
+                            Rectangle {
+                                width: 6; height: 6; radius: 3
+                                color: "#a9b665"
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Text {
-                                text: "Up " + systemSection.uptimeStr
+                                text: "Active"
                                 font.family: root.barFont
                                 font.pixelSize: 10
                                 font.weight: Font.Bold
                                 color: root.ink
+                                opacity: 0.85
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }
@@ -509,158 +514,229 @@ Item {
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 10
 
-                Rectangle {
+                Column {
                     anchors.fill: parent
-                    radius: 14
-                    color: Qt.rgba(1, 1, 1, 0.03)
-                    border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.05)
-                    clip: true
+                    spacing: 8
 
-                    Column {
-                        anchors.centerIn: parent
-                        width: parent.width - 24
-                        spacing: 8
+                    // ── 1. Machine & Host Identity Card ──
+                    Rectangle {
+                        width: parent.width
+                        height: 78
+                        radius: 16
+                        color: Qt.rgba(1, 1, 1, 0.03)
+                        border.width: 1
+                        border.color: Qt.rgba(1, 1, 1, 0.05)
 
-                        // 1. Hero Ring Circle with System Icon
-                        Item {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: 68
-                            height: 68
+                        Row {
+                            anchors.fill: parent
+                            anchors.leftMargin: 14
+                            anchors.rightMargin: 14
+                            spacing: 12
 
-                            // Outer track circle
+                            // Machine Icon Circle
                             Rectangle {
-                                anchors.fill: parent
-                                radius: 34
-                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
-                                border.width: 4
-                                border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                            }
-
-                            // Dynamic Accent Ring
-                            Rectangle {
-                                anchors.fill: parent
-                                radius: 34
+                                width: 48
+                                height: 48
+                                radius: 24
                                 color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.12)
-                                border.width: 3
-                                border.color: root.seal
-                            }
-
-                            Column {
-                                anchors.centerIn: parent
-                                spacing: 1
+                                border.width: 1.5
+                                border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.28)
+                                anchors.verticalCenter: parent.verticalCenter
 
                                 IconText {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: "desktop_windows"
-                                    font.pixelSize: 22
+                                    anchors.centerIn: parent
+                                    text: "computer"
+                                    font.pixelSize: 24
                                     color: root.seal
+                                }
+                            }
+
+                            // Hostname in Bigger Font & Specs
+                            Column {
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 2
+
+                                Row {
+                                    spacing: 8
+                                    Text {
+                                        id: hostBigTxt
+                                        text: systemSection.hostname.toUpperCase()
+                                        font.family: biggerFont.name.length > 0 ? biggerFont.name : root.barFont
+                                        font.pixelSize: 26
+                                        font.weight: Font.Bold
+                                        color: root.ink
+                                        anchors.bottom: parent.bottom
+                                        anchors.bottomMargin: -2
+                                    }
+
+                                    // OS Pill
+                                    Rectangle {
+                                        height: 18
+                                        radius: 9
+                                        color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.16)
+                                        width: osPillTxt.implicitWidth + 12
+                                        anchors.bottom: hostBigTxt.bottom
+                                        anchors.bottomMargin: 3
+
+                                        Text {
+                                            id: osPillTxt
+                                            anchors.centerIn: parent
+                                            text: "Arch Linux"
+                                            font.family: root.barFont
+                                            font.pixelSize: 9
+                                            font.weight: Font.Bold
+                                            color: root.seal
+                                        }
+                                    }
                                 }
 
                                 Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: "SYSTEM"
+                                    text: "Linux " + systemSection.kernel + "  \u2022  Hyprland"
                                     font.family: root.barFont
-                                    font.pixelSize: 8
+                                    font.pixelSize: 10
+                                    font.weight: Font.Medium
+                                    color: root.ink
+                                    opacity: 0.55
+                                    elide: Text.ElideRight
+                                    width: Math.min(implicitWidth, rightColContainer.width - 100)
+                                }
+                            }
+                        }
+                    }
+
+                    // ── 2. Hero Uptime & Telemetry Card ──
+                    Rectangle {
+                        width: parent.width
+                        height: 74
+                        radius: 16
+                        color: Qt.rgba(1, 1, 1, 0.03)
+                        border.width: 1
+                        border.color: Qt.rgba(1, 1, 1, 0.05)
+
+                        Item {
+                            anchors.fill: parent
+                            anchors.leftMargin: 14
+                            anchors.rightMargin: 14
+
+                            // Left: Uptime in Bigger Font
+                            Row {
+                                id: uptimeHeroRow
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 4
+
+                                readonly property string rawUp: systemSection.uptimeStr.trim()
+                                readonly property var parsed: {
+                                    var s = rawUp
+                                    var hMatch = s.match(/(\d+)\s*h/i)
+                                    var mMatch = s.match(/(\d+)\s*m/i)
+                                    return {
+                                        hasH: !!hMatch,
+                                        hVal: hMatch ? hMatch[1] : "",
+                                        hasM: !!mMatch,
+                                        mVal: mMatch ? mMatch[1] : (hMatch ? "" : s)
+                                    }
+                                }
+
+                                IconText {
+                                    text: "timelapse"
+                                    font.pixelSize: 20
+                                    color: root.seal
+                                    anchors.bottom: parent.bottom
+                                    anchors.bottomMargin: 4
+                                    rightPadding: 2
+                                }
+
+                                Text {
+                                    visible: uptimeHeroRow.parsed.hasH
+                                    text: uptimeHeroRow.parsed.hVal
+                                    font.family: biggerFont.name.length > 0 ? biggerFont.name : root.barFont
+                                    font.pixelSize: 30
                                     font.weight: Font.Bold
                                     color: root.ink
-                                    opacity: 0.45
+                                    anchors.bottom: parent.bottom
+                                    anchors.bottomMargin: -2
                                 }
-                            }
-                        }
+                                Text {
+                                    visible: uptimeHeroRow.parsed.hasH
+                                    text: "h"
+                                    font.family: root.barFont
+                                    font.pixelSize: 13
+                                    font.weight: Font.Bold
+                                    color: root.seal
+                                    anchors.bottom: parent.bottom
+                                    anchors.bottomMargin: 3
+                                }
 
-                        // 2. Hostname & Kernel Info
-                        Column {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: parent.width
-                            spacing: 2
+                                Item { width: 3; height: 1; visible: uptimeHeroRow.parsed.hasH && uptimeHeroRow.parsed.hasM }
 
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: systemSection.hostname
-                                font.family: root.barFont
-                                font.pixelSize: 13
-                                font.weight: Font.Bold
-                                color: root.ink
-                                elide: Text.ElideRight
-                                maximumLineCount: 1
-                                horizontalAlignment: Text.AlignHCenter
-                                width: parent.width
-                            }
+                                Text {
+                                    visible: uptimeHeroRow.parsed.hasM
+                                    text: uptimeHeroRow.parsed.mVal
+                                    font.family: biggerFont.name.length > 0 ? biggerFont.name : root.barFont
+                                    font.pixelSize: 30
+                                    font.weight: Font.Bold
+                                    color: root.ink
+                                    anchors.bottom: parent.bottom
+                                    anchors.bottomMargin: -2
+                                }
+                                Text {
+                                    visible: uptimeHeroRow.parsed.hasM
+                                    text: "m"
+                                    font.family: root.barFont
+                                    font.pixelSize: 13
+                                    font.weight: Font.Bold
+                                    color: root.seal
+                                    anchors.bottom: parent.bottom
+                                    anchors.bottomMargin: 3
+                                }
 
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: "Linux " + systemSection.kernel
-                                font.family: root.barFont
-                                font.pixelSize: 10
-                                color: root.ink
-                                opacity: 0.5
-                                horizontalAlignment: Text.AlignHCenter
-                                elide: Text.ElideRight
-                                width: parent.width
-                            }
-                        }
-
-                        // 3. Telemetry Stats Badges
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: 6
-
-                            // Session Badge
-                            Rectangle {
-                                height: 22
-                                radius: 11
-                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
-                                width: sessionRow.implicitWidth + 12
-
-                                Row {
-                                    id: sessionRow
-                                    anchors.centerIn: parent
-                                    spacing: 4
-                                    IconText {
-                                        text: "dashboard"
-                                        font.pixelSize: 10
-                                        color: root.ink
-                                        opacity: 0.6
-                                        anchors.verticalCenter: parent.verticalCenter
-                                    }
-                                    Text {
-                                        text: "Hyprland"
-                                        font.family: root.barFont
-                                        font.pixelSize: 10
-                                        font.weight: Font.Bold
-                                        color: root.ink
-                                        anchors.verticalCenter: parent.verticalCenter
-                                    }
+                                Text {
+                                    text: "uptime"
+                                    font.family: root.barFont
+                                    font.pixelSize: 11
+                                    font.weight: Font.Medium
+                                    color: root.ink
+                                    opacity: 0.55
+                                    anchors.bottom: parent.bottom
+                                    anchors.bottomMargin: 4
+                                    leftPadding: 6
                                 }
                             }
 
-                            // User Badge
-                            Rectangle {
-                                height: 22
-                                radius: 11
-                                color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15)
-                                border.width: 1
-                                border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25)
-                                width: userRow.implicitWidth + 12
+                            // Right: User badge
+                            Item {
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: userChipRow.implicitWidth + 16
+                                height: 26
 
-                                Row {
-                                    id: userRow
-                                    anchors.centerIn: parent
-                                    spacing: 4
-                                    IconText {
-                                        text: "person"
-                                        font.pixelSize: 10
-                                        color: root.seal
-                                        anchors.verticalCenter: parent.verticalCenter
-                                    }
-                                    Text {
-                                        text: Quickshell.env("USER") || "user"
-                                        font.family: root.barFont
-                                        font.pixelSize: 10
-                                        font.weight: Font.Bold
-                                        color: root.seal
-                                        anchors.verticalCenter: parent.verticalCenter
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: 13
+                                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
+                                    border.width: 1
+                                    border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+
+                                    Row {
+                                        id: userChipRow
+                                        anchors.centerIn: parent
+                                        spacing: 4
+
+                                        IconText {
+                                            text: "person"
+                                            font.pixelSize: 11
+                                            color: root.seal
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                        Text {
+                                            text: Quickshell.env("USER") || "user"
+                                            font.family: root.barFont
+                                            font.pixelSize: 10
+                                            font.weight: Font.Bold
+                                            color: root.ink
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
                                     }
                                 }
                             }

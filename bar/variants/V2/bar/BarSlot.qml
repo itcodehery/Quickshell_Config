@@ -33,7 +33,7 @@ PanelWindow {
     readonly property bool isPickerDetail: barSlot.root.dashboardDetail === "theme" || barSlot.root.dashboardDetail === "wallpaper"
     readonly property bool isSubPageOpen: barSlot.root.dashboardDetail !== "" && barSlot.root.dashboardDetail !== "workspaces"
     readonly property real dashboardExpandedWidth: Math.min((isPickerDetail ? 960 : 840) + (isSubPageOpen ? 52 : 0), barSlot.width - 32)
-    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - 40, isPickerDetail ? 430 : 292)
+    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - 40, isPickerDetail ? 430 : 314)
 
     readonly property real dashboardTopRadius: 24
     readonly property real dashboardBottomRadius: 24
