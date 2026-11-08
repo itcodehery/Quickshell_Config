@@ -43,7 +43,7 @@ PanelWindow {
         ? (island.notifPeekBody !== "" ? Math.min(94, Math.max(70, islandNotifPeekItem.desiredCardHeight)) : 46)
         : barSlot.root.v2BarHeight
     readonly property int chargingTargetHeight: barSlot.root.v2BarHeight
-    readonly property int barExpandedHeight: 156
+    readonly property int barExpandedHeight: 180
     readonly property bool isHoverExpanded: !isDashboardActive && (typeof island !== "undefined" && island) && !island.isIslandHidden
     readonly property real hoverMaskHeight: Math.max(continuousBarSurface.height, barExpandedHeight)
     readonly property real hoverMaskWidth: (typeof island !== "undefined" && island) ? Math.max(continuousBarSurface.width, island.expandedContainerWidth) : continuousBarSurface.width
@@ -60,7 +60,7 @@ PanelWindow {
         ? 24
         : ((island && island.notifPeekActive && island.notifPeekBody !== "")
             ? 20
-            : (isHoverExpanded ? 24 : Math.round(shellVisibleHeight / 2)))
+            : (isHoverExpanded ? 28 : Math.round(shellVisibleHeight / 2)))
     readonly property real shellTargetWidth: isDashboardActive
         ? dashboardExpandedWidth
         : Math.max(80,

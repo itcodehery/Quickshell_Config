@@ -30,6 +30,28 @@ Item {
     width: island ? island.expandedContainerWidth : 676
     height: barSlot.barExpandedHeight
     clip: true
+    focus: visible
+
+    Keys.onPressed: (event) => {
+        if (event.key === Qt.Key_Escape) {
+            if (omarchyMenuOpen) {
+                omarchyMenuOpen = false
+                omarchyTab = 0
+                event.accepted = true
+            } else if (root && root.dashboardExpanded) {
+                if (root.dashboardDetail !== "") {
+                    root.dashboardDetail = ""
+                } else {
+                    root.dashboardExpanded = false
+                }
+                event.accepted = true
+            } else if (island && island.isHovered) {
+                island.isHovered = false
+                if (root) root.hoverForce = false
+                event.accepted = true
+            }
+        }
+    }
 
     // Shared services
     ClockWidget {
@@ -362,7 +384,7 @@ Item {
     Process {
         id: stProc
         running: hoverPanel.visible
-        command: ["cat", "/home/hery/.cache/screentime_session.txt"]
+        command: ["cat", "/home/darshan/.cache/screentime_session.txt"]
         stdout: StdioCollector {
             onStreamFinished: {
                 let s = parseInt(this.text.trim())
@@ -411,11 +433,11 @@ Item {
     // ─────────────────────────────────────────────────────────────────────────────
     Rectangle {
         id: leftClockCard
-        x: 8
-        y: 6
-        width: 112
-        height: 144
-        radius: 18
+        x: 10
+        y: 8
+        width: 126
+        height: 164
+        radius: 20
         color: leftHover.hovered
             ? Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.09)
             : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.06)
@@ -425,7 +447,7 @@ Item {
 
         Column {
             anchors.centerIn: parent
-            spacing: 2
+            spacing: 3
             width: parent.width - 12
 
             // Vertically Arranged Clock: Big Hour on Top, Big Minute on Bottom (Bigger font)
@@ -445,7 +467,7 @@ Item {
                         return h < 10 ? "0" + h : String(h)
                     }
                     font.family: biggerFont.name.length > 0 ? biggerFont.name : "Bigger"
-                    font.pixelSize: 32
+                    font.pixelSize: 38
                     font.weight: Font.Bold
                     color: hoverPanel.root.ink
                 }
@@ -458,7 +480,7 @@ Item {
                         return m < 10 ? "0" + m : String(m)
                     }
                     font.family: biggerFont.name.length > 0 ? biggerFont.name : "Bigger"
-                    font.pixelSize: 32
+                    font.pixelSize: 38
                     font.weight: Font.Bold
                     color: hoverPanel.root.ink
                     opacity: 0.45
@@ -474,7 +496,7 @@ Item {
                     return m ? m[1] : ""
                 }
                 font.family: hoverPanel.root.barFont
-                font.pixelSize: 10
+                font.pixelSize: 11
                 font.weight: Font.Bold
                 color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.50)
             }
@@ -489,7 +511,7 @@ Item {
                     return days[d.getDay()] + ", " + d.getDate() + " " + months[d.getMonth()]
                 }
                 font.family: hoverPanel.root.barFont
-                font.pixelSize: 10
+                font.pixelSize: 11
                 font.weight: Font.Medium
                 color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.55)
             }
@@ -497,27 +519,27 @@ Item {
             // Weather capsule
             Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
-                height: 19
-                width: Math.min(parent.width, weatherRow.implicitWidth + 12)
-                radius: 9.5
+                height: 22
+                width: Math.min(parent.width, weatherRow.implicitWidth + 14)
+                radius: 11
                 color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.06)
 
                 Row {
                     id: weatherRow
                     anchors.centerIn: parent
-                    spacing: 3
+                    spacing: 4
 
                     IconText {
                         anchors.verticalCenter: parent.verticalCenter
                         text: barWeatherShared.weatherLoaded ? barWeatherShared.weatherIcon : "sunny"
-                        font.pixelSize: 11
+                        font.pixelSize: 12
                         color: hoverPanel.accent
                     }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: barWeatherShared.weatherLoaded ? barWeatherShared.weatherTempStr : "--°"
                         font.family: hoverPanel.root.barFont
-                        font.pixelSize: 10
+                        font.pixelSize: 11
                         font.weight: Font.Bold
                         color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.75)
                     }
@@ -543,21 +565,21 @@ Item {
     // ─────────────────────────────────────────────────────────────────────────────
     Item {
         id: middleSection
-        x: leftClockCard.x + leftClockCard.width + 8
-        y: 6
-        width: hoverPanel.width - leftClockCard.width - rightMediaCard.width - 32
-        height: 144
+        x: leftClockCard.x + leftClockCard.width + 10
+        y: 8
+        width: hoverPanel.width - leftClockCard.width - rightMediaCard.width - 40
+        height: 164
         Behavior on width { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
 
         Column {
             anchors.fill: parent
-            spacing: 6
+            spacing: 8
 
             // Top Row: Standard Quick Settings vs Omarchy Controls & System Info
             Item {
                 id: topContainer
                 width: parent.width
-                height: parent.height - 34
+                height: parent.height - 38
                 clip: true
 
                 // ── Standard Quick Settings View ──

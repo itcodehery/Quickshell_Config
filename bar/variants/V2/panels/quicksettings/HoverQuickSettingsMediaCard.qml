@@ -13,11 +13,11 @@ Rectangle {
     readonly property var mprisSel: hoverPanel.mprisSel
     readonly property var mediaCardArt: hoverPanel.mediaCardArt
 
-    x: hoverPanel.width - width - 8
-    y: 6
-    width: 156
-    height: 144
-    radius: 18
+    x: hoverPanel.width - width - 10
+    y: 8
+    width: 176
+    height: 164
+    radius: 20
     Behavior on x { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
 
     readonly property var player: mprisSel.player || ((hoverPanel.mprisPanel && hoverPanel.mprisPanel.player) ? hoverPanel.mprisPanel.player : null)
@@ -45,14 +45,14 @@ Rectangle {
     Column {
         anchors.centerIn: parent
         width: parent.width - 16
-        spacing: 4
+        spacing: 5
 
         // Large Squircle Album Art
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 52
-            height: 52
-            radius: 14
+            width: 64
+            height: 64
+            radius: 16
             color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.12)
             border.width: 0
             clip: true
@@ -60,7 +60,7 @@ Rectangle {
             Image {
                 anchors.fill: parent
                 source: mediaCardArt.source
-                sourceSize: Qt.size(104, 104)
+                sourceSize: Qt.size(128, 128)
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 visible: status === Image.Ready && source != ""
@@ -70,7 +70,7 @@ Rectangle {
                 anchors.centerIn: parent
                 visible: mediaCardArt.source == ""
                 text: "music_note"
-                font.pixelSize: 24
+                font.pixelSize: 28
                 color: rightMediaCard.artColor
             }
         }
@@ -80,7 +80,7 @@ Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             text: rightMediaCard.hasMedia ? hoverPanel.barSlot.formatTitleCase(rightMediaCard.trackTitle) : "Media Player"
             font.family: hoverPanel.root.barFont
-            font.pixelSize: 11
+            font.pixelSize: 12
             font.weight: Font.Bold
             color: hoverPanel.root.ink
             elide: Text.ElideRight
@@ -93,7 +93,7 @@ Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             text: rightMediaCard.hasMedia ? hoverPanel.barSlot.formatTitleCase(rightMediaCard.trackArtist) : "Not Playing"
             font.family: hoverPanel.root.barFont
-            font.pixelSize: 10
+            font.pixelSize: 11
             font.weight: Font.Medium
             color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.65)
             elide: Text.ElideRight
@@ -104,8 +104,8 @@ Rectangle {
         // Playback Controls Row
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 12
-            topPadding: 1
+            spacing: 14
+            topPadding: 3
 
             IconText {
                 id: prevIcon

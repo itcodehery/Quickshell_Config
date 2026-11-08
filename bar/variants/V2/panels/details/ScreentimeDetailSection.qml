@@ -178,7 +178,7 @@ Item {
 
     Process {
         id: stStatusProc
-        command: ["python3", "/home/hery/.config/quickshell/bar/scripts/screentime_info.py"]
+        command: ["python3", "/home/darshan/.config/quickshell/bar/scripts/screentime_info.py"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {

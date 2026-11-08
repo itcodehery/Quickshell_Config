@@ -183,7 +183,7 @@ Item {
 
                                     Image {
                                         anchors.fill: parent
-                                        source: "file:///home/hery/.config/quickshell/bar/assets/icons/spotify.svg"
+                                        source: "file:///home/darshan/.config/quickshell/bar/assets/icons/spotify.svg"
                                         visible: parent.isSpot
                                     }
 
@@ -260,7 +260,7 @@ Item {
                     Image {
                         id: spotLogo
                         anchors.fill: parent
-                        source: "file:///home/hery/.config/quickshell/bar/assets/icons/spotify.svg"
+                        source: "file:///home/darshan/.config/quickshell/bar/assets/icons/spotify.svg"
                         visible: mediaCard.isSpotify && status === Image.Ready
                     }
 

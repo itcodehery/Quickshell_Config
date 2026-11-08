@@ -63,7 +63,7 @@ Item {
     // Polling process
     Process {
         id: btStatusProc
-        command: ["python3", "/home/hery/.config/quickshell/bar/scripts/bluetooth_info.py", "status"]
+        command: ["python3", "/home/darshan/.config/quickshell/bar/scripts/bluetooth_info.py", "status"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -123,7 +123,7 @@ Item {
     function doConnect(mac) {
         btSection.working = true
         btSection.actionError = ""
-        btActionProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/bluetooth_info.py", "connect", mac]
+        btActionProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/bluetooth_info.py", "connect", mac]
         btActionProc.running = false
         btActionProc.running = true
     }
@@ -131,7 +131,7 @@ Item {
     function doDisconnect(mac) {
         btSection.working = true
         btSection.actionError = ""
-        btActionProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/bluetooth_info.py", "disconnect", mac]
+        btActionProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/bluetooth_info.py", "disconnect", mac]
         btActionProc.running = false
         btActionProc.running = true
     }
@@ -139,7 +139,7 @@ Item {
     function doPair(mac) {
         btSection.working = true
         btSection.actionError = ""
-        btActionProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/bluetooth_info.py", "pair", mac]
+        btActionProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/bluetooth_info.py", "pair", mac]
         btActionProc.running = false
         btActionProc.running = true
     }
@@ -147,20 +147,20 @@ Item {
     function doRemove(mac) {
         btSection.working = true
         btSection.actionError = ""
-        btActionProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/bluetooth_info.py", "remove", mac]
+        btActionProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/bluetooth_info.py", "remove", mac]
         btActionProc.running = false
         btActionProc.running = true
     }
 
     function doTogglePower() {
-        btActionProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/bluetooth_info.py", "toggle-power"]
+        btActionProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/bluetooth_info.py", "toggle-power"]
         btActionProc.running = false
         btActionProc.running = true
     }
 
     function doScan() {
         btSection.scanning = true
-        btActionProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/bluetooth_info.py", "scan"]
+        btActionProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/bluetooth_info.py", "scan"]
         btActionProc.running = false
         btActionProc.running = true
         scanTimer.restart()

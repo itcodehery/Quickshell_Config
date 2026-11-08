@@ -281,14 +281,25 @@ Item {
                                             width: 52
                                             height: 52
                                             scale: (optionCard.isHovered || optionCard.isFocused) ? 1.08 : 1.0
-                                            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
+                                            Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.25 } }
 
                                             Item {
+                                                id: shapeRotator
                                                 width: 64
                                                 height: 64
                                                 anchors.centerIn: parent
                                                 scale: 52 / 64.0
                                                 transformOrigin: Item.Center
+
+                                                // Material 3 Expressive Shape Rotation: Revolves smoothly when focused or hovered
+                                                rotation: (optionCard.isHovered || optionCard.isFocused) ? 90 : 0
+                                                Behavior on rotation {
+                                                    NumberAnimation {
+                                                        duration: 480
+                                                        easing.type: Easing.OutBack
+                                                        easing.overshoot: 1.35
+                                                    }
+                                                }
 
                                                 Shape {
                                                     anchors.fill: parent
@@ -299,7 +310,7 @@ Item {
                                                         strokeColor: "transparent"
                                                         fillColor: (optionCard.isHovered || optionCard.isFocused)
                                                             ? optionCard.modelData.accent
-                                                            : Qt.rgba(optionCard.modelData.accent.r, optionCard.modelData.accent.g, optionCard.modelData.accent.b, 0.22)
+                                                             : Qt.rgba(optionCard.modelData.accent.r, optionCard.modelData.accent.g, optionCard.modelData.accent.b, 0.22)
                                                         Behavior on fillColor { ColorAnimation { duration: 160 } }
 
                                                         PathSvg {
@@ -308,14 +319,20 @@ Item {
                                                     }
                                                 }
 
-                                                IconText {
-                                                    anchors.centerIn: parent
-                                                    text: optionCard.modelData.icon
-                                                    font.pixelSize: 26
-                                                    color: (optionCard.isHovered || optionCard.isFocused)
-                                                        ? (root ? root.paper : "#181825")
-                                                        : optionCard.modelData.accent
-                                                    Behavior on color { ColorAnimation { duration: 160 } }
+                                                // Counter-rotate the icon so it stays upright while the expressive outer shape revolves
+                                                Item {
+                                                    anchors.fill: parent
+                                                    rotation: -shapeRotator.rotation
+
+                                                    IconText {
+                                                        anchors.centerIn: parent
+                                                        text: optionCard.modelData.icon
+                                                        font.pixelSize: 26
+                                                        color: (optionCard.isHovered || optionCard.isFocused)
+                                                            ? (root ? root.paper : "#181825")
+                                                            : optionCard.modelData.accent
+                                                        Behavior on color { ColorAnimation { duration: 160 } }
+                                                    }
                                                 }
                                             }
                                         }
@@ -407,13 +424,15 @@ Item {
                 anchors.rightMargin: 12
                 height: 26
 
-                // Section Title Pill
+                // Section Title Pill (M3 Tonal filled primary badge)
                 Rectangle {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     height: 26
                     radius: 13
-                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                    color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.14)
+                    border.width: 1
+                    border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.28)
                     width: rightTitleRow.implicitWidth + 18
 
                     Row {
@@ -424,7 +443,7 @@ Item {
                         IconText {
                             text: "computer"
                             font.pixelSize: 13
-                            color: root.ink
+                            color: root.seal
                             anchors.verticalCenter: parent.verticalCenter
                         }
 
@@ -432,7 +451,7 @@ Item {
                             text: "Arch Linux"
                             font.family: root.barFont
                             font.pixelSize: 11
-                            font.weight: Font.Bold
+                            font.weight: Font.DemiBold
                             color: root.ink
                             anchors.verticalCenter: parent.verticalCenter
                         }
@@ -445,7 +464,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 6
 
-                    // Uptime Pill
+                    // Uptime Pill (M3 Expressive Tertiary Mint Accent)
                     Rectangle {
                         height: 26
                         radius: 13
@@ -458,26 +477,29 @@ Item {
                             spacing: 4
 
                             IconText {
-                                text: "timelapse"
-                                font.pixelSize: 11
-                                color: root.seal
+                                text: "schedule"
+                                font.pixelSize: 12
+                                color: (root && root.color06) ? root.color06 : "#79dabb" // Dynamic M3 Tertiary Mint
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Text {
                                 text: "Up " + systemSection.uptimeStr
                                 font.family: root.barFont
                                 font.pixelSize: 10
-                                font.weight: Font.Bold
+                                font.weight: Font.DemiBold
                                 color: root.ink
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }
                     }
 
-                    // Close Button
+                    // Close Button (M3 Filled Tonal Icon Button)
                     Rectangle {
                         width: 26; height: 26; radius: 13
                         color: closeRightMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                        scale: closeRightMa.pressed ? 0.94 : 1.0
+                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                        Behavior on color { ColorAnimation { duration: 150 } }
 
                         IconText {
                             anchors.centerIn: parent
@@ -498,7 +520,7 @@ Item {
                 }
             }
 
-            // Right Column Body Content
+            // Right Column Body Content (M3 Expressive Center Anchor)
             Item {
                 anchors.top: rightTopBar.bottom
                 anchors.topMargin: 8
@@ -511,7 +533,7 @@ Item {
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: 14
+                    radius: 16
                     color: Qt.rgba(1, 1, 1, 0.03)
                     border.width: 1
                     border.color: Qt.rgba(1, 1, 1, 0.05)
@@ -520,56 +542,57 @@ Item {
                     Column {
                         anchors.centerIn: parent
                         width: parent.width - 24
-                        spacing: 8
+                        spacing: 9
 
-                        // 1. Hero Ring Circle with System Icon
+                        // 1. M3 Expressive Hero Squircle Container (Replaces thin circular ring)
                         Item {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            width: 68
-                            height: 68
+                            width: 62
+                            height: 62
 
-                            // Outer track circle
                             Rectangle {
+                                id: heroPlate
                                 anchors.fill: parent
-                                radius: 34
-                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
-                                border.width: 4
-                                border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                            }
+                                radius: 20 // Soft M3 Squircle
+                                color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15)
+                                border.width: 1.5
+                                border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.38)
 
-                            // Dynamic Accent Ring
-                            Rectangle {
-                                anchors.fill: parent
-                                radius: 34
-                                color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.12)
-                                border.width: 3
-                                border.color: root.seal
-                            }
+                                scale: heroMa.containsMouse ? 1.07 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 1.25 } }
 
-                            Column {
-                                anchors.centerIn: parent
-                                spacing: 1
+                                Column {
+                                    anchors.centerIn: parent
+                                    spacing: 2
 
-                                IconText {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: "desktop_windows"
-                                    font.pixelSize: 22
-                                    color: root.seal
+                                    IconText {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        text: "desktop_windows"
+                                        font.pixelSize: 24
+                                        color: root.seal
+                                    }
+
+                                    Text {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        text: "SYSTEM"
+                                        font.family: root.barFont
+                                        font.pixelSize: 8
+                                        font.weight: Font.Black
+                                        font.letterSpacing: 0.8
+                                        color: root.seal
+                                        opacity: 0.88
+                                    }
                                 }
 
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: "SYSTEM"
-                                    font.family: root.barFont
-                                    font.pixelSize: 8
-                                    font.weight: Font.Bold
-                                    color: root.ink
-                                    opacity: 0.45
+                                MouseArea {
+                                    id: heroMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
                                 }
                             }
                         }
 
-                        // 2. Hostname & Kernel Info
+                        // 2. Hostname & Kernel Info (M3 Typographic Hierarchy)
                         Column {
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: parent.width
@@ -579,8 +602,9 @@ Item {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 text: systemSection.hostname
                                 font.family: root.barFont
-                                font.pixelSize: 13
+                                font.pixelSize: 14
                                 font.weight: Font.Bold
+                                font.letterSpacing: -0.2
                                 color: root.ink
                                 elide: Text.ElideRight
                                 maximumLineCount: 1
@@ -591,66 +615,81 @@ Item {
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 text: "Linux " + systemSection.kernel
-                                font.family: root.barFont
+                                font.family: "Monospace"
                                 font.pixelSize: 10
+                                font.weight: Font.Medium
                                 color: root.ink
-                                opacity: 0.5
+                                opacity: 0.55
                                 horizontalAlignment: Text.AlignHCenter
                                 elide: Text.ElideRight
                                 width: parent.width
                             }
                         }
 
-                        // 3. Telemetry Stats Badges
+                        // 3. M3 Assist Chips (Hyprland & User)
                         Row {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: 6
+                            spacing: 8
 
-                            // Session Badge
+                            // Session / Compositor Assist Chip
                             Rectangle {
-                                height: 22
-                                radius: 11
-                                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
-                                width: sessionRow.implicitWidth + 12
+                                height: 24
+                                radius: 12
+                                color: chip1Ma.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.12) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.07)
+                                border.width: 1
+                                border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                                width: sessionRow.implicitWidth + 16
+                                scale: chip1Ma.pressed ? 0.95 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 150 } }
+                                Behavior on color { ColorAnimation { duration: 150 } }
 
                                 Row {
                                     id: sessionRow
                                     anchors.centerIn: parent
-                                    spacing: 4
+                                    spacing: 5
                                     IconText {
-                                        text: "dashboard"
-                                        font.pixelSize: 10
+                                        text: "grid_view"
+                                        font.pixelSize: 11
                                         color: root.ink
-                                        opacity: 0.6
+                                        opacity: 0.7
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
                                     Text {
                                         text: "Hyprland"
                                         font.family: root.barFont
                                         font.pixelSize: 10
-                                        font.weight: Font.Bold
+                                        font.weight: Font.DemiBold
                                         color: root.ink
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
                                 }
+
+                                MouseArea {
+                                    id: chip1Ma
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                }
                             }
 
-                            // User Badge
+                            // User Identity Assist Chip
                             Rectangle {
-                                height: 22
-                                radius: 11
-                                color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15)
+                                height: 24
+                                radius: 12
+                                color: chip2Ma.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22) : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.13)
                                 border.width: 1
-                                border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25)
-                                width: userRow.implicitWidth + 12
+                                border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.32)
+                                width: userRow.implicitWidth + 16
+                                scale: chip2Ma.pressed ? 0.95 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 150 } }
+                                Behavior on color { ColorAnimation { duration: 150 } }
 
                                 Row {
                                     id: userRow
                                     anchors.centerIn: parent
-                                    spacing: 4
+                                    spacing: 5
                                     IconText {
-                                        text: "person"
-                                        font.pixelSize: 10
+                                        text: "account_circle"
+                                        font.pixelSize: 12
                                         color: root.seal
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
@@ -662,6 +701,12 @@ Item {
                                         color: root.seal
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
+                                }
+
+                                MouseArea {
+                                    id: chip2Ma
+                                    anchors.fill: parent
+                                    hoverEnabled: true
                                 }
                             }
                         }

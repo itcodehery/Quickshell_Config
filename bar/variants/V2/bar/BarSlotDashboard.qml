@@ -12,6 +12,21 @@ Item {
     required property var barSlot
 
     clip: true
+    focus: expandedDashboardContainer.barSlot.isDashboardActive
+    Keys.priority: Keys.AfterItem
+    Keys.onEscapePressed: (event) => {
+        if (expandedDashboardContainer.barSlot.root.dashboardDetail !== "") {
+            expandedDashboardContainer.barSlot.root.dashboardDetail = ""
+            if (dashboardLoader.item) {
+                dashboardLoader.item.activeDetailView = ""
+                dashboardLoader.item.forceActiveFocus()
+            }
+        } else {
+            expandedDashboardContainer.barSlot.root.dashboardExpanded = false
+        }
+        event.accepted = true
+    }
+
     opacity: expandedDashboardContainer.barSlot.isDashboardActive ? 1.0 : 0.0
     scale: expandedDashboardContainer.barSlot.isDashboardActive ? 1.0 : 0.97
     transform: Translate {
@@ -80,6 +95,20 @@ Item {
     }
 
     Timer {
+        id: focusPrimeTimer
+        interval: 50
+        repeat: false
+        onTriggered: {
+            if (expandedDashboardContainer.barSlot.isDashboardActive) {
+                expandedDashboardContainer.forceActiveFocus()
+                if (dashboardLoader.item) {
+                    dashboardLoader.item.forceActiveFocus()
+                }
+            }
+        }
+    }
+
+    Timer {
         id: dashboardCloseTimer
         interval: 220
         repeat: false
@@ -109,6 +138,7 @@ Item {
                     }
                     dashboardLoader.item.forceActiveFocus()
                 }
+                focusPrimeTimer.restart()
             } else {
                 dashboardAdapter.searchOpen = false
                 if (petSearch) petSearch.close()

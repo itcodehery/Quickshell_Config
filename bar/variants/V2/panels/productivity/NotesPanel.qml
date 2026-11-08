@@ -42,7 +42,7 @@ PanelWindow {
 
     FileView {
         id: notesFile
-        path: "/home/hery/.local/state/quickshell_notes.json"
+        path: "/home/darshan/.local/state/quickshell_notes.json"
         watchChanges: true
         onLoaded: {
             if (saveTimer.running || writeProc.running) return;
@@ -58,7 +58,7 @@ PanelWindow {
     Process {
         id: writeProc
         property string jsonContent: "[]"
-        command: ["python3", "-c", "import sys, os; os.makedirs(os.path.dirname(sys.argv[1]), exist_ok=True); open(sys.argv[1], 'w', encoding='utf-8').write(sys.argv[2])", "/home/hery/.local/state/quickshell_notes.json", jsonContent]
+        command: ["python3", "-c", "import sys, os; os.makedirs(os.path.dirname(sys.argv[1]), exist_ok=True); open(sys.argv[1], 'w', encoding='utf-8').write(sys.argv[2])", "/home/darshan/.local/state/quickshell_notes.json", jsonContent]
     }
 
     function saveNotesToDisk() {

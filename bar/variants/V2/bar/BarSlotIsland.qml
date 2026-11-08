@@ -230,13 +230,13 @@ Item {
         ? (islandChargingItem.targetWidth)
         : (2 * fitPadding + ((1.0 - overlayProgress) * defaultCollapsedCenterWidth + overlayProgress * overlayTargetWidth))
 
-    readonly property real leftCardWidth: 112
-    readonly property real rightCardWidth: 156
-    readonly property real middleGap: 8
-    readonly property real middleWidth: (hoverQuickPanel && hoverQuickPanel.omarchyMenuOpen) ? 580 : 380
+    readonly property real leftCardWidth: 126
+    readonly property real rightCardWidth: 176
+    readonly property real middleGap: 10
+    readonly property real middleWidth: (hoverQuickPanel && hoverQuickPanel.omarchyMenuOpen) ? 640 : 430
     readonly property real expandedContainerWidth: Math.min(
         island.barSlot.width - 24,
-        leftCardWidth + middleGap + middleWidth + middleGap + rightCardWidth + 16
+        leftCardWidth + middleGap + middleWidth + middleGap + rightCardWidth + 20
     )
 
     readonly property real fitNaturalWidth: island.barSlot.isHoverExpanded

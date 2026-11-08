@@ -57,7 +57,7 @@ Item {
 
     Process {
         id: batStatusProc
-        command: ["python3", "/home/hery/.config/quickshell/bar/scripts/battery_info.py", "status"]
+        command: ["python3", "/home/darshan/.config/quickshell/bar/scripts/battery_info.py", "status"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -99,7 +99,7 @@ Item {
         id: setProfileProcComp
         Process {
             property string targetProfile: ""
-            command: ["python3", "/home/hery/.config/quickshell/bar/scripts/battery_info.py", "set-profile", targetProfile]
+            command: ["python3", "/home/darshan/.config/quickshell/bar/scripts/battery_info.py", "set-profile", targetProfile]
             stdout: StdioCollector {
                 onStreamFinished: {
                     if (!batStatusProc.running) batStatusProc.running = true
@@ -120,7 +120,7 @@ Item {
     }
 
     function doKillProcess(pid) {
-        killProc.command = ["python3", "/home/hery/.config/quickshell/bar/scripts/cpu_info.py", "kill", String(pid)]
+        killProc.command = ["python3", "/home/darshan/.config/quickshell/bar/scripts/cpu_info.py", "kill", String(pid)]
         killProc.running = false
         killProc.running = true
     }

@@ -150,6 +150,8 @@ def main():
     last_scale = 1.0
     last_move_time = time.monotonic()
     last_notif_check = 0.0
+    last_mon_check = 0.0
+    cached_monitors = []
 
     notif_count = 0
 
@@ -168,6 +170,24 @@ def main():
             except Exception:
                 notif_count = 0
 
+        # Query monitors every ~2 seconds (or on first run) to map compositor coordinates to monitor coordinates
+        if now - last_mon_check >= 2.0 or not cached_monitors:
+            last_mon_check = now
+            try:
+                sm = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                sm.connect(sock_path)
+                sm.sendall(b"j/monitors")
+                mon_buf = b""
+                while True:
+                    chunk = sm.recv(4096)
+                    if not chunk:
+                        break
+                    mon_buf += chunk
+                sm.close()
+                cached_monitors = json.loads(mon_buf.decode())
+            except Exception:
+                pass
+
         # Query cursor position from Hyprland IPC
         try:
             s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -176,23 +196,42 @@ def main():
             raw = s.recv(1024).decode()
             s.close()
             data = json.loads(raw)
-            x, y = data.get("x", 0), data.get("y", 0)
+            raw_x, raw_y = data.get("x", 0), data.get("y", 0)
         except Exception:
             # If socket fails briefly, wait and retry
             time.sleep(0.05)
             continue
 
-        shaking, scale = detector.update(now, x, y)
+        # Map global compositor coordinates to local monitor coordinates
+        local_x, local_y = raw_x, raw_y
+        for mon in cached_monitors:
+            mx, my = mon.get("x", 0), mon.get("y", 0)
+            mw, mh = mon.get("width", 1920), mon.get("height", 1080)
+            mscale = mon.get("scale", 1.0) or 1.0
+            lw = mw / mscale
+            lh = mh / mscale
+            if mx <= raw_x < mx + lw and my <= raw_y < my + lh:
+                local_x = raw_x - mx
+                local_y = raw_y - my
+                break
+        else:
+            if cached_monitors:
+                # Default to primary or first monitor offset
+                first_m = cached_monitors[0]
+                local_x = raw_x - first_m.get("x", 0)
+                local_y = raw_y - first_m.get("y", 0)
+
+        shaking, scale = detector.update(now, raw_x, raw_y)
         is_shaking_int = 1 if shaking else 0
 
         # Print output when cursor moved, notifications changed, or shake state changed
-        if (x != last_x or y != last_y or
+        if (local_x != last_x or local_y != last_y or
             notif_count != last_notif_count or
             is_shaking_int != last_is_shaking or
             (shaking and abs(scale - last_scale) > 0.05)):
 
-            print(f"{x} {y} {notif_count} {is_shaking_int} {scale:.2f}", flush=True)
-            last_x, last_y = x, y
+            print(f"{local_x} {local_y} {notif_count} {is_shaking_int} {scale:.2f}", flush=True)
+            last_x, last_y = local_x, local_y
             last_notif_count = notif_count
             last_is_shaking = is_shaking_int
             last_scale = scale

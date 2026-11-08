@@ -151,7 +151,7 @@ Item {
     onBarScreensChanged: ensureActivePopupScreen()
     Component.onCompleted: {
         ensureActivePopupScreen()
-        Quickshell.execDetached(["/home/hery/.config/quickshell/bar/variants/V2/scripts/start_screentime.sh"])
+        Quickshell.execDetached(["/home/darshan/.config/quickshell/bar/variants/V2/scripts/start_screentime.sh"])
     }
 
     // Secondary guard for failures that do not replace the ShellScreen object.

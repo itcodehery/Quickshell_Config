@@ -34,6 +34,16 @@ Item {
         recalculateGridLayout()
     }
 
+    Connections {
+        target: dashboardContent.root
+        ignoreUnknownSignals: true
+        function onDashboardExpandedChanged() {
+            if (dashboardContent.root && dashboardContent.root.dashboardExpanded) {
+                dashboardContent.forceActiveFocus()
+            }
+        }
+    }
+
     SpringPress {}
     MouseArea {
         anchors.fill: parent

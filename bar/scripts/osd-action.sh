@@ -4,7 +4,7 @@ set -euo pipefail
 action="${1:-}"
 param="${2:-}"
 
-qs_cfg="/home/hery/.config/quickshell/bar/shell.qml"
+qs_cfg="/home/darshan/.config/quickshell/bar/shell.qml"
 if [[ "$action" == "volume" ]]; then
     sink="$(omarchy-audio-output-sink 2>/dev/null || echo "@DEFAULT_SINK@")"
     if [[ "$param" == "mute-toggle" ]]; then
