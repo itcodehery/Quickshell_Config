@@ -749,8 +749,10 @@ function handleKeyPressed(dc, event) {
             event.accepted = true
             return
         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-            if (dc.selectedTileId) {
-                triggerTileAction(dc, dc.selectedTileId)
+            let tid = dc.selectedTileId || (dc.tilesModel && dc.tilesModel.count > 0 ? dc.tilesModel.get(0).id : "")
+            if (tid) {
+                dc.selectedTileId = tid
+                triggerTileAction(dc, tid)
                 event.accepted = true
                 return
             }
@@ -764,6 +766,15 @@ function handleKeyPressed(dc, event) {
             dc.activeDetailView !== "notes") {
             dc.activeDetailView = ""
             if (root) root.dashboardDetail = ""
+            event.accepted = true
+            return
+        } else if ((event.key === Qt.Key_L || event.key === Qt.Key_Right) &&
+            dc.activeDetailView !== "system" &&
+            dc.activeDetailView !== "plugins" &&
+            dc.activeDetailView !== "theme" &&
+            dc.activeDetailView !== "wallpaper" &&
+            dc.activeDetailView !== "notes") {
+            dc.jumpNextCategory()
             event.accepted = true
             return
         }

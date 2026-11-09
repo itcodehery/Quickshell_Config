@@ -44,7 +44,7 @@ Item {
     MouseArea {
         anchors.fill: parent
         // Prevent clicks anywhere on the dashboard background from closing the dashboard
-        onClicked: {}
+        onClicked: { dashboardContent.forceActiveFocus() }
     }
 
     // ── Resizable & Movable Tiles State ──
@@ -245,92 +245,6 @@ Item {
         jumpPrevCategory()
     }
 
-    Keys.onUpPressed: {
-        if (dashboardContent.activeDetailView === "notes" ||
-            (calDetailSection && calDetailSection.isInputFocused) ||
-            (notesDetailSection && notesDetailSection.isInputFocused)) {
-            return
-        }
-        if (dashboardContent.activeDetailView === "theme" || dashboardContent.activeDetailView === "wallpaper") {
-            if (themeDetailSection && themeDetailSection.setMode) {
-                themeDetailSection.setMode(themeDetailSection.activeMode === "theme" ? "wallpaper" : "theme")
-            }
-            return
-        }
-        if (dashboardContent.activeDetailView === "system") {
-            if (sysDetailSection) sysDetailSection.focusedIndex = (sysDetailSection.focusedIndex - 1 + 4) % 4
-            return
-        }
-        if (dashboardContent.activeDetailView === "plugins") {
-            if (pluginsDetailSection) pluginsDetailSection.focusedIndex = Math.max(0, pluginsDetailSection.focusedIndex - 1)
-            return
-        }
-        if (dashboardContent.activeDetailView === "") {
-            navigateTile("up")
-            return
-        }
-        pageUp()
-    }
-    Keys.onDownPressed: {
-        if (dashboardContent.activeDetailView === "notes" ||
-            (calDetailSection && calDetailSection.isInputFocused) ||
-            (notesDetailSection && notesDetailSection.isInputFocused)) {
-            return
-        }
-        if (dashboardContent.activeDetailView === "theme" || dashboardContent.activeDetailView === "wallpaper") {
-            if (themeDetailSection && themeDetailSection.setMode) {
-                themeDetailSection.setMode(themeDetailSection.activeMode === "theme" ? "wallpaper" : "theme")
-            }
-            return
-        }
-        if (dashboardContent.activeDetailView === "system") {
-            if (sysDetailSection) sysDetailSection.focusedIndex = (sysDetailSection.focusedIndex + 1) % 4
-            return
-        }
-        if (dashboardContent.activeDetailView === "plugins") {
-            if (pluginsDetailSection) pluginsDetailSection.focusedIndex = pluginsDetailSection.focusedIndex + 1
-            return
-        }
-        if (dashboardContent.activeDetailView === "") {
-            navigateTile("down")
-            return
-        }
-        pageDown()
-    }
-    Keys.onLeftPressed: {
-        if (dashboardContent.activeDetailView === "notes" ||
-            (calDetailSection && calDetailSection.isInputFocused) ||
-            (notesDetailSection && notesDetailSection.isInputFocused)) {
-            return
-        }
-        if (dashboardContent.activeDetailView === "") {
-            navigateTile("left")
-            return
-        }
-        prevOption()
-    }
-    Keys.onRightPressed: {
-        if (dashboardContent.activeDetailView === "notes" ||
-            (calDetailSection && calDetailSection.isInputFocused) ||
-            (notesDetailSection && notesDetailSection.isInputFocused)) {
-            return
-        }
-        if (dashboardContent.activeDetailView === "") {
-            navigateTile("right")
-            return
-        }
-        nextOption()
-    }
-    Keys.onReturnPressed: {
-        if (dashboardContent.activeDetailView === "" && selectedTileId) {
-            triggerTileAction(selectedTileId)
-        }
-    }
-    Keys.onEnterPressed: {
-        if (dashboardContent.activeDetailView === "" && selectedTileId) {
-            triggerTileAction(selectedTileId)
-        }
-    }
     Keys.onPressed: (event) => {
         Helpers.handleKeyPressed(dashboardContent, event)
     }

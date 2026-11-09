@@ -750,6 +750,7 @@ Item {
             Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
             Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
             active: expandedDashboardContainer.barSlot.dashboardEverActivated
+            focus: expandedDashboardContainer.barSlot.isDashboardActive
             source: Qt.resolvedUrl("../panels/homescreen/HomescreenDashboardContent.qml")
             z: 5
 

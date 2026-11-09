@@ -305,6 +305,7 @@ Rectangle {
                     if (mouse.button === Qt.RightButton) return
                     if (dashContent && dashContent.editTilesMode) {
                         dashContent.selectedTileId = tileId
+                        dashContent.forceActiveFocus()
                         return
                     }
                     if (!dashContent) return
@@ -817,6 +818,7 @@ Rectangle {
 
             if (dashContent) {
                 dashContent.selectedTileId = tileId
+                dashContent.forceActiveFocus()
             }
         }
 
@@ -845,6 +847,7 @@ Rectangle {
             if (!dashContent) return
 
             dashContent.selectedTileId = tileId
+            dashContent.forceActiveFocus()
 
             if (dashContent.editTilesMode) {
                 return

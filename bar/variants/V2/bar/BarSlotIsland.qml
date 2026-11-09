@@ -21,11 +21,9 @@ Item {
     visible: opacity > 0.001
     enabled: !island.barSlot.isDashboardActive && !island.barSlot.isDashboardClosing
     Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-    focus: island.barSlot.root.barUnlocked || island.barSlot.isDashboardActive
+    focus: island.barSlot.root.barUnlocked && !island.barSlot.isDashboardActive
     Keys.onEscapePressed: {
-        if (island.barSlot.isDashboardActive) {
-            island.barSlot.root.dashboardExpanded = false
-        } else {
+        if (island.barSlot.root.barUnlocked) {
             island.barSlot.root.barUnlocked = false
         }
     }
