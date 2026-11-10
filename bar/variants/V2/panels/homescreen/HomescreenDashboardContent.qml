@@ -113,6 +113,18 @@ Item {
         Helpers.cycleTileSpan(dashboardContent, tilesModel, id)
     }
 
+    function setTileShape(id, shape) {
+        Helpers.setTileShape(dashboardContent, tilesModel, id, shape)
+    }
+
+    function cycleTileShape(id) {
+        Helpers.cycleTileShape(dashboardContent, tilesModel, id)
+    }
+
+    function getTileShape(id) {
+        return Helpers.getTileShape(tilesModel, id)
+    }
+
     function getTileSpan(id) {
         return Helpers.getTileSpan(tilesModel, id)
     }

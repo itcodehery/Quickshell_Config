@@ -16,6 +16,7 @@ Item {
     property alias islandNotifPeekItem: islandOverlays.islandNotifPeekItem
     property alias islandDictationItem: islandOverlays.islandDictationItem
     property alias islandChargingItem: islandOverlays.islandChargingItem
+    property alias hoverQuickPanel: hoverQuickPanel
 
     opacity: (island.barSlot.isDashboardActive || island.barSlot.isDashboardClosing) ? 0.0 : 1.0
     visible: opacity > 0.001
@@ -228,13 +229,13 @@ Item {
         ? (islandChargingItem.targetWidth)
         : (2 * fitPadding + ((1.0 - overlayProgress) * defaultCollapsedCenterWidth + overlayProgress * overlayTargetWidth))
 
-    readonly property real leftCardWidth: 112
-    readonly property real rightCardWidth: 156
+    readonly property real leftCardWidth: 140
+    readonly property real rightCardWidth: 204
     readonly property real middleGap: 8
-    readonly property real middleWidth: (hoverQuickPanel && hoverQuickPanel.omarchyMenuOpen) ? 580 : 380
+    readonly property real middleWidth: (hoverQuickPanel && hoverQuickPanel.omarchyMenuOpen) ? 530 : 440
     readonly property real expandedContainerWidth: Math.min(
         island.barSlot.width - 24,
-        leftCardWidth + middleGap + middleWidth + middleGap + rightCardWidth + 16
+        leftCardWidth + middleGap + middleWidth + rightCardWidth + 24
     )
 
     readonly property real fitNaturalWidth: island.barSlot.isHoverExpanded

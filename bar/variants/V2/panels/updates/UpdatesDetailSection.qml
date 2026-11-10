@@ -222,6 +222,8 @@ Item {
             height: contentColumns.height
             radius: 20
             color: root.fillIdle
+            border.width: root.isLightMode ? 1 : 0
+            border.color: root.cardBorderColor
             clip: true
 
             // Top Bar
@@ -513,6 +515,8 @@ Item {
             height: contentColumns.height
             radius: 20
             color: root.fillIdle
+            border.width: root.isLightMode ? 1 : 0
+            border.color: root.cardBorderColor
             clip: true
 
             // ── TAB 1: PACKAGES VIEW ──

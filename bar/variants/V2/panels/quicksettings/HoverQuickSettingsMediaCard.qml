@@ -5,7 +5,7 @@ import Quickshell.Services.Mpris
 import "../../modules"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RIGHT CARD: Media Player with Everything Vertically Arranged
+// RIGHT CARD: Compact Horizontal Media Player
 // ─────────────────────────────────────────────────────────────────────────────
 Rectangle {
     id: rightMediaCard
@@ -14,10 +14,10 @@ Rectangle {
     readonly property var mediaCardArt: hoverPanel.mediaCardArt
 
     x: hoverPanel.width - width - 8
-    y: 6
-    width: 156
-    height: 144
-    radius: 18
+    y: Math.round((hoverPanel.height - height) / 2)
+    width: 196
+    height: hoverPanel.height - 8
+    radius: 14
     Behavior on x { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
 
     readonly property var player: mprisSel.player || ((hoverPanel.mprisPanel && hoverPanel.mprisPanel.player) ? hoverPanel.mprisPanel.player : null)
@@ -38,29 +38,28 @@ Rectangle {
     color: hasMedia
         ? Qt.rgba(artColor.r, artColor.g, artColor.b, rightHov.hovered ? 0.22 : 0.14)
         : (rightHov.hovered ? Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.09) : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.06))
-    border.width: 0
+    border.width: 1
+    border.color: hoverPanel.root.cardBorderColor
     Behavior on color { ColorAnimation { duration: 160 } }
 
-    // Vertically Arranged Media Layout (Always displayed as Media Player)
-    Column {
-        anchors.centerIn: parent
-        width: parent.width - 16
-        spacing: 4
+    Row {
+        anchors.fill: parent
+        anchors.margins: 5
+        spacing: 6
 
-        // Large Squircle Album Art
+        // Squircle Album Art
         Rectangle {
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: 52
-            height: 52
-            radius: 14
+            width: parent.height
+            height: parent.height
+            radius: 10
             color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.12)
-            border.width: 0
             clip: true
+            anchors.verticalCenter: parent.verticalCenter
 
             Image {
                 anchors.fill: parent
                 source: mediaCardArt.source
-                sourceSize: Qt.size(104, 104)
+                sourceSize: Qt.size(68, 68)
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 visible: status === Image.Ready && source != ""
@@ -70,49 +69,50 @@ Rectangle {
                 anchors.centerIn: parent
                 visible: mediaCardArt.source == ""
                 text: "music_note"
-                font.pixelSize: 24
+                font.pixelSize: 15
                 color: rightMediaCard.artColor
             }
         }
 
-        // Track Title
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: rightMediaCard.hasMedia ? hoverPanel.barSlot.formatTitleCase(rightMediaCard.trackTitle) : "Media Player"
-            font.family: hoverPanel.root.barFont
-            font.pixelSize: 11
-            font.weight: Font.Bold
-            color: hoverPanel.root.ink
-            elide: Text.ElideRight
-            horizontalAlignment: Text.AlignHCenter
-            width: parent.width - 8
-        }
+        // Track Title & Artist
+        Column {
+            anchors.verticalCenter: parent.verticalCenter
+            width: parent.width - parent.height - controlsRow.width - 12
+            spacing: 1
+            clip: true
 
-        // Artist
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: rightMediaCard.hasMedia ? hoverPanel.barSlot.formatTitleCase(rightMediaCard.trackArtist) : "Not Playing"
-            font.family: hoverPanel.root.barFont
-            font.pixelSize: 10
-            font.weight: Font.Medium
-            color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.65)
-            elide: Text.ElideRight
-            horizontalAlignment: Text.AlignHCenter
-            width: parent.width - 8
+            Text {
+                width: parent.width
+                text: rightMediaCard.hasMedia ? hoverPanel.barSlot.formatTitleCase(rightMediaCard.trackTitle) : "Media"
+                font.family: hoverPanel.root.barFont
+                font.pixelSize: 10
+                font.weight: Font.Bold
+                color: hoverPanel.root.ink
+                elide: Text.ElideRight
+            }
+
+            Text {
+                width: parent.width
+                text: rightMediaCard.hasMedia ? hoverPanel.barSlot.formatTitleCase(rightMediaCard.trackArtist) : "Not playing"
+                font.family: hoverPanel.root.barFont
+                font.pixelSize: 9
+                font.weight: Font.Medium
+                color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.65)
+                elide: Text.ElideRight
+            }
         }
 
         // Playback Controls Row
         Row {
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 12
-            topPadding: 1
+            id: controlsRow
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 3
 
             IconText {
-                id: prevIcon
                 anchors.verticalCenter: parent.verticalCenter
                 text: "skip_previous"
-                font.pixelSize: 16
-                color: "#ffffff"
+                font.pixelSize: 14
+                color: hoverPanel.root.ink
                 opacity: rightMediaCard.canPrev ? (prevMa.containsMouse ? 1.0 : 0.72) : 0.25
                 Behavior on opacity { NumberAnimation { duration: 120 } }
                 MouseArea {
@@ -128,17 +128,21 @@ Rectangle {
             }
 
             Rectangle {
-                width: 24
-                height: 24
-                radius: 12
+                width: 22
+                height: 22
+                radius: 11
                 anchors.verticalCenter: parent.verticalCenter
                 color: Qt.rgba(rightMediaCard.artColor.r, rightMediaCard.artColor.g, rightMediaCard.artColor.b, 0.90)
 
                 IconText {
                     anchors.centerIn: parent
                     text: rightMediaCard.isPlaying ? "pause" : "play_arrow"
-                    font.pixelSize: 14
-                    color: "#ffffff"
+                    font.pixelSize: 12
+                    color: {
+                        var c = rightMediaCard.artColor
+                        var l = c.r * 0.299 + c.g * 0.587 + c.b * 0.114
+                        return l > 0.55 ? "#121212" : "#ffffff"
+                    }
                 }
 
                 MouseArea {
@@ -152,11 +156,10 @@ Rectangle {
             }
 
             IconText {
-                id: nextIcon
                 anchors.verticalCenter: parent.verticalCenter
                 text: "skip_next"
-                font.pixelSize: 16
-                color: "#ffffff"
+                font.pixelSize: 14
+                color: hoverPanel.root.ink
                 opacity: rightMediaCard.canNext ? (nextMa.containsMouse ? 1.0 : 0.72) : 0.25
                 Behavior on opacity { NumberAnimation { duration: 120 } }
                 MouseArea {

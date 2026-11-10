@@ -329,6 +329,10 @@ ThemeBase {
         if (_widgetsLoaded) saveWidgets()
         updatesWorkers.saveDesktopMenuMode()
     }
+    onSliderStyleChanged: if (_widgetsLoaded) saveWidgets()
+    onTileShape1x1Changed: if (_widgetsLoaded) saveWidgets()
+    onTileShape1x2Changed: if (_widgetsLoaded) saveWidgets()
+    onTileShape2x2Changed: if (_widgetsLoaded) saveWidgets()
 
     function saveWidgets() { updatesWorkers.saveWidgets() }
 

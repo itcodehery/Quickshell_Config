@@ -114,6 +114,7 @@ Item {
                     dashContent: dashboardContent
                     tileId: model.id
                     span: model.span
+                    tileShape: model.shape || ""
                     tileIndex: index
                     gridPage: model.gridPage
                     gridRow: model.gridRow

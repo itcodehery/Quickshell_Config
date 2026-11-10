@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pipewire
 import "../../modules"
+import "../../modules/common"
 import "../../motion"
 
 Item {
@@ -273,7 +274,8 @@ Item {
             height: columnsRow.height
             radius: 20
             color: root.fillIdle
-            border.width: 0
+            border.width: root.isLightMode ? 1 : 0
+            border.color: root.cardBorderColor
             clip: true
 
             // Top Bar
@@ -459,40 +461,18 @@ Item {
                                 }
 
                                 // Interactive Master Slider Track
-                                Rectangle {
+                                Item {
                                     id: masterTrackRect
                                     width: parent.width - 26 - 8 - 42 - 8
                                     height: 24
-                                    radius: 12
-                                    color: root.fillIdle
-                                    clip: true
                                     anchors.verticalCenter: parent.verticalCenter
 
-                                    Item {
-                                        id: masterFillItem
-                                        readonly property real val: masterCard.dragging ? masterCard.localVal : volSection.volume
-                                        width: Math.max(parent.height, parent.width * (val / 100.0))
-                                        height: parent.height
-
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            radius: 12
-                                            color: volSection.muted ? root.fillHover : root.seal
-
-                                            Behavior on color { ColorAnimation { duration: 150 } }
-                                        }
-
-                                        // Thumb notch indicator
-                                        Rectangle {
-                                            anchors.right: parent.right
-                                            anchors.rightMargin: 4
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            width: 3
-                                            height: parent.height - 8
-                                            radius: 1.5
-                                            color: root.paper
-                                            opacity: 0.8
-                                        }
+                                    StyledSliderTrack {
+                                        anchors.fill: parent
+                                        root: volSection.root
+                                        value: masterCard.dragging ? masterCard.localVal : volSection.volume
+                                        sliding: masterCard.dragging
+                                        accentColor: volSection.muted ? root.fillHover : root.seal
                                     }
 
                                     MouseArea {
@@ -644,25 +624,18 @@ Item {
                                         }
 
                                         // App Slider Track
-                                        Rectangle {
+                                        Item {
                                             id: appTrackRect
                                             width: parent.width - 22 - 8 - 68 - 8 - 34 - 6 - 22 - 8
                                             height: 18
-                                            radius: 9
-                                            color: root.fillIdle
-                                            clip: true
                                             anchors.verticalCenter: parent.verticalCenter
 
-                                            Item {
-                                                readonly property real appVal: appRowCard.dragging ? appRowCard.localAppVol : appRowCard.modelData.vol
-                                                width: Math.max(parent.height, parent.width * (appVal / 100.0))
-                                                height: parent.height
-
-                                                Rectangle {
-                                                    anchors.fill: parent
-                                                    radius: 9
-                                                    color: appRowCard.modelData.muted ? root.fillHover : root.seal
-                                                }
+                                            StyledSliderTrack {
+                                                anchors.fill: parent
+                                                root: volSection.root
+                                                value: appRowCard.dragging ? appRowCard.localAppVol : appRowCard.modelData.vol
+                                                sliding: appRowCard.dragging
+                                                accentColor: appRowCard.modelData.muted ? root.fillHover : root.seal
                                             }
 
                                             MouseArea {

@@ -154,7 +154,8 @@ Item {
             height: columnsRow.height
             radius: 20
             color: root.fillIdle
-            border.width: 0
+            border.width: root.isLightMode ? 1 : 0
+            border.color: root.cardBorderColor
             clip: true
 
             // Top Bar
@@ -398,7 +399,8 @@ Item {
             height: columnsRow.height
             radius: 20
             color: root.fillIdle
-            border.width: 0
+            border.width: root.isLightMode ? 1 : 0
+            border.color: root.cardBorderColor
             clip: true
 
             // Top Bar

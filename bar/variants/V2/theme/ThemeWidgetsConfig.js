@@ -286,7 +286,11 @@ function buildSaveWidgetsLine(theme) {
          + (theme.barBorderEnabled ? "1" : "0") + " "                 // +43 outer bar border
          + (theme.panelTooltipBorderEnabled ? "1" : "0") + " "        // +44 panel + tooltip outer border
          + (theme.v2AutoHide ? "1" : "0") + " "                       // +45 v2 auto-hide
-         + (theme.desktopMenuListMode ? "1" : "0")                    // +46 desktop context menu list mode
+         + (theme.desktopMenuListMode ? "1" : "0") + " "              // +46 desktop context menu list mode
+         + theme.sliderStyle + " "                                   // +47 slider presentation style
+         + theme.tileShape1x1 + " "                                  // +48 1x1 tile shape
+         + theme.tileShape1x2 + " "                                  // +49 1x2 tile shape
+         + theme.tileShape2x2                                        // +50 2x2 tile shape
 }
 
 function parseLoadedWidgets(theme, rawText) {
@@ -395,6 +399,22 @@ function parseLoadedWidgets(theme, rawText) {
             theme.panelTooltipBorderEnabled = parts[wsField + 44] !== "0"
         if (parts.length > wsField + 46)
             theme.desktopMenuListMode = parts[wsField + 46] !== "0"
+        if (parts.length > wsField + 47) {
+            var ss = parts[wsField + 47]
+            if (theme.sliderStyleValid(ss)) theme.sliderStyle = ss
+        }
+        if (parts.length > wsField + 48) {
+            var s1 = parts[wsField + 48]
+            if (theme.tileShape1x1Valid(s1)) theme.tileShape1x1 = s1
+        }
+        if (parts.length > wsField + 49) {
+            var s2 = parts[wsField + 49]
+            if (theme.tileShape1x2Valid(s2)) theme.tileShape1x2 = s2
+        }
+        if (parts.length > wsField + 50) {
+            var s4 = parts[wsField + 50]
+            if (theme.tileShape2x2Valid(s4)) theme.tileShape2x2 = s4
+        }
     }
     theme._widgetsLoaded = true
 }

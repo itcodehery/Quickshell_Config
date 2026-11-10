@@ -135,7 +135,7 @@ Item {
         topRightRadius: 0
         bottomRightRadius: 0
 
-        color: Qt.darker(expandedDashboardContainer.barSlot.root.barBg, 1.35)
+        color: expandedDashboardContainer.barSlot.root.sidebarBg
 
         Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }

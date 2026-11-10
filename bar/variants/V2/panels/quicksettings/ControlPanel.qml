@@ -225,6 +225,8 @@ PanelWindow {
         height: implicitHeight
         radius: ctrlPanel.cardRadius
         color: ctrlPanel.cardBg
+        border.width: root.isLightMode ? 1 : 0
+        border.color: root.cardBorderColor
 
         Item {
             id: _cardHead
@@ -265,7 +267,8 @@ PanelWindow {
         // false when the tile sits directly on the panel (not inside a Card)
         property bool onCard: true
         signal activated()
-        readonly property color fg: active ? root.paper : root.ink
+        signal secondaryActivated()
+        readonly property color fg: active ? ((accent.r * 0.299 + accent.g * 0.587 + accent.b * 0.114 > 0.55) ? "#121212" : "#ffffff") : root.ink
         height: 30
         radius: height / 2
         opacity: enabled ? 1.0 : 0.4          // built-in `enabled` also blocks input
@@ -299,7 +302,14 @@ PanelWindow {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: _tile.activated()
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onClicked: (mouse) => {
+                if (mouse.button === Qt.RightButton) {
+                    _tile.secondaryActivated()
+                } else {
+                    _tile.activated()
+                }
+            }
         }
     }
 
@@ -313,7 +323,7 @@ PanelWindow {
         property color accent: root.seal
         signal activated()
         signal secondaryActivated()
-        readonly property color fg: active ? root.paper : root.ink
+        readonly property color fg: active ? ((accent.r * 0.299 + accent.g * 0.587 + accent.b * 0.114 > 0.55) ? "#121212" : "#ffffff") : root.ink
         height: 56
         radius: height / 2
         color: active
@@ -612,41 +622,28 @@ PanelWindow {
                 }
             }
 
-            Grid {
+            Row {
                 width: parent.width
-                columns: 2
-                columnSpacing: 6
-                rowSpacing: 6
-                readonly property real tileW: root.evenW((width - columnSpacing) / 2)
+                spacing: 6
+                readonly property real tileW: root.evenW((width - 12) / 3)
 
-                QuickTile {
+                Tile {
                     width: parent.tileW
                     icon: root.barPosition === "bottom" ? "vertical_align_bottom" : "vertical_align_top"
-                    title: "Position"
-                    subtitle: root.barPosition === "bottom" ? "Bottom" : "Top"
+                    label: root.barPosition === "bottom" ? "Bottom" : "Top"
                     onActivated: root.barPosition = root.barPosition === "bottom" ? "top" : "bottom"
                 }
-                QuickTile {
-                    width: parent.tileW
-                    icon: root.notifSilenced ? "notifications_off" : "notifications"
-                    title: "Do not disturb"
-                    subtitle: root.notifSilenced ? "Silenced" : "Alerts on"
-                    active: root.notifSilenced
-                    onActivated: { dndProc.running = false; dndProc.running = true }
-                }
-                QuickTile {
+                Tile {
                     width: parent.tileW
                     icon: "border_outer"
-                    title: "Bar border"
-                    subtitle: root.barBorderEnabled ? "On" : "Off"
+                    label: "Border"
                     active: root.barBorderEnabled
                     onActivated: root.barBorderEnabled = !root.barBorderEnabled
                 }
-                QuickTile {
+                Tile {
                     width: parent.tileW
                     icon: ctrlPanel.projectIcon !== "" ? ctrlPanel.projectIcon : "cast"
-                    title: "Project"
-                    subtitle: ctrlPanel.projectLabel !== "" ? ctrlPanel.projectLabel : "Extend"
+                    label: ctrlPanel.projectLabel !== "" ? ctrlPanel.projectLabel : "Project"
                     active: ctrlPanel.projectActive
                     onActivated: {
                         projectCycleProc.running = false
@@ -679,38 +676,6 @@ PanelWindow {
                             onPicked: root.barColor = modelData
                         }
                     }
-                }
-            }
-
-            // ── PICKER style (theme/wallpaper/screenshot/video picker visual) ──
-            Card {
-                title: "Picker style"
-                Segmented {
-                    width: parent.width
-                    options: [
-                        { label: "Tanzaku",     value: "tanzaku"     },
-                        { label: "Hearthstone", value: "hearthstone" },
-                        { label: "Carousel",    value: "carousel"    },
-                        { label: "Gravemind",   value: "gravemind"   }
-                    ]
-                    current: root.pickerStyle
-                    onChosen: (v) => root.pickerStyle = v
-                }
-            }
-
-            // ── SYSTEM INFO ──
-            Card {
-                title: "System"
-                Grid {
-                    id: specGrid
-                    width: parent.width
-                    columns: 2
-                    spacing: 6
-                    readonly property real tileW: root.evenW((width - spacing) / 2)
-                    InfoTile { width: specGrid.tileW; icon: "developer_board"; label: "Processor"; value: ctrlPanel.cpuModel(ctrlPanel.siCpu);         chip: ctrlPanel._vendorOf(ctrlPanel.siCpu) }
-                    InfoTile { width: specGrid.tileW; icon: "memory";          label: "Memory";    value: "16 GB";                                     chip: "RAM" }
-                    InfoTile { width: specGrid.tileW; icon: "videogame_asset"; label: "Graphics";  value: ctrlPanel.gpuModel(ctrlPanel.siGpu);         chip: ctrlPanel.gpuChip(ctrlPanel.siGpu) }
-                    InfoTile { width: specGrid.tileW; icon: "desktop_windows"; label: "Display";   value: ctrlPanel.displayModel(ctrlPanel.siDisplay); chip: ctrlPanel.displayChip(ctrlPanel.siDisplay) }
                 }
             }
         }
@@ -780,13 +745,6 @@ PanelWindow {
                     }
                     Tile {
                         width: widgetGrid.tileW
-                        icon: "notifications"
-                        label: "Notifications"
-                        active: root.modNotif
-                        onActivated: root.modNotif = !root.modNotif
-                    }
-                    Tile {
-                        width: widgetGrid.tileW
                         icon: "music_note"
                         label: "Now playing"
                         active: root.modMpris
@@ -813,13 +771,6 @@ PanelWindow {
                         visible: root.hasBattery
                         active: root.modBattery
                         onActivated: root.modBattery = !root.modBattery
-                    }
-                    Tile {
-                        width: widgetGrid.tileW
-                        icon: "hourglass_top"
-                        label: "Screentime"
-                        active: root.modScreentime
-                        onActivated: root.modScreentime = !root.modScreentime
                     }
                     Tile {
                         width: widgetGrid.tileW

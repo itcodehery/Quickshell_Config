@@ -3,6 +3,7 @@ import ".."
 import Quickshell
 import Quickshell.Widgets
 import "../../modules"
+import "../../modules/common"
 import "../../motion"
 
 Item {
@@ -71,44 +72,12 @@ Item {
                     height: 28
                     Behavior on anchors.leftMargin { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
 
-                    readonly property real trackW: width
-                    readonly property real handleX: Math.round((Math.max(0, Math.min(100, briSlider.effectiveVal)) / 100) * Math.max(1, trackW - 4))
-                    readonly property real gap: 4
-                    readonly property real barHeight: 14
-
-                    // Filled Track (Left of drag line)
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Math.max(0, briTrack.handleX - briTrack.gap)
-                        height: briTrack.barHeight
-                        radius: briTrack.barHeight / 2
-                        color: root.seal
-                        Behavior on width { enabled: !briSlider.sliding; NumberAnimation { duration: 120 } }
-                    }
-
-                    // Unfilled Track (Right of drag line)
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.leftMargin: Math.min(briTrack.trackW, briTrack.handleX + 4 + briTrack.gap)
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        height: briTrack.barHeight
-                        radius: briTrack.barHeight / 2
-                        color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25)
-                        Behavior on anchors.leftMargin { enabled: !briSlider.sliding; NumberAnimation { duration: 120 } }
-                    }
-
-                    // Vertical Drag Line (Taller than the bar)
-                    Rectangle {
-                        id: briHandle
-                        x: briTrack.handleX
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 4
-                        height: 26
-                        radius: 2
-                        color: root.seal
-                        Behavior on x { enabled: !briSlider.sliding; NumberAnimation { duration: 120 } }
+                    StyledSliderTrack {
+                        anchors.fill: parent
+                        root: topControlArea.root
+                        value: briSlider.effectiveVal
+                        sliding: briSlider.sliding
+                        accentColor: root.seal
                     }
                 }
                 
@@ -288,44 +257,13 @@ Item {
                     height: 28
                     Behavior on anchors.leftMargin { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
 
-                    readonly property real trackW: width
-                    readonly property real handleX: Math.round((Math.max(0, Math.min(100, audSlider.effectiveVal)) / 100) * Math.max(1, trackW - 4))
-                    readonly property real gap: 4
-                    readonly property real barHeight: 14
-
-                    // Filled Track (Left of drag line)
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Math.max(0, audTrack.handleX - audTrack.gap)
-                        height: audTrack.barHeight
-                        radius: audTrack.barHeight / 2
-                        color: audioData.muted ? root.fillHover : root.seal
-                        Behavior on width { enabled: !audSlider.sliding; NumberAnimation { duration: 120 } }
-                    }
-
-                    // Unfilled Track (Right of drag line)
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.leftMargin: Math.min(audTrack.trackW, audTrack.handleX + 4 + audTrack.gap)
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        height: audTrack.barHeight
-                        radius: audTrack.barHeight / 2
-                        color: audioData.muted ? root.fillIdle : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25)
-                        Behavior on anchors.leftMargin { enabled: !audSlider.sliding; NumberAnimation { duration: 120 } }
-                    }
-
-                    // Vertical Drag Line (Taller than the bar)
-                    Rectangle {
-                        id: audHandle
-                        x: audTrack.handleX
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 4
-                        height: 26
-                        radius: 2
-                        color: audioData.muted ? root.fillHover : root.seal
-                        Behavior on x { enabled: !audSlider.sliding; NumberAnimation { duration: 120 } }
+                    StyledSliderTrack {
+                        anchors.fill: parent
+                        root: topControlArea.root
+                        value: audSlider.effectiveVal
+                        sliding: audSlider.sliding
+                        accentColor: audioData.muted ? root.fillHover : root.seal
+                        unfilledColor: audioData.muted ? root.fillIdle : (root.isLightMode ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25))
                     }
                 }
                 

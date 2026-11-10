@@ -13,8 +13,8 @@ Item {
     property bool dotVisible: true
     property string icon: ""
     property string text: ""
-    property color cardBg: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.05)
-    property color cardBorder: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+    property color cardBg: root.isLightMode ? root.paper : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.05)
+    property color cardBorder: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, root.isLightMode ? 0.10 : 0.08)
 
     // Geometry knobs
     property real tabHeight: 30

@@ -100,6 +100,46 @@ function cycleTileSpan(dc, tilesModel, id) {
     setTileSpan(dc, tilesModel, id, next)
 }
 
+function getTileShape(tilesModel, id) {
+    for (let i = 0; i < tilesModel.count; i++) {
+        if (tilesModel.get(i).id === id) return tilesModel.get(i).shape || ""
+    }
+    return ""
+}
+
+function setTileShape(dc, tilesModel, id, shape) {
+    for (let i = 0; i < tilesModel.count; i++) {
+        if (tilesModel.get(i).id === id) {
+            tilesModel.setProperty(i, "shape", shape)
+            dc.saveTilesLayout()
+            return
+        }
+    }
+}
+
+function cycleTileShape(dc, tilesModel, id) {
+    for (let i = 0; i < tilesModel.count; i++) {
+        if (tilesModel.get(i).id === id) {
+            let item = tilesModel.get(i)
+            let span = normalizeSpan(item.span)
+            let curShape = item.shape || ""
+            let options = []
+            if (span === 1) {
+                options = ["circle", "squircle", "leaf", "chamfer", "diamond", "ticket", "block"]
+            } else if (span === 2) {
+                options = ["capsule", "squircle", "leaf", "chamfer", "ticket", "tab", "block"]
+            } else {
+                options = ["rounded", "squircle", "leaf", "chamfer", "ticket", "shield", "block"]
+            }
+            let idx = options.indexOf(curShape)
+            let next = options[(idx + 1) % options.length]
+            tilesModel.setProperty(i, "shape", next)
+            dc.saveTilesLayout()
+            return
+        }
+    }
+}
+
 function getTileSpan(tilesModel, id) {
     for (let i = 0; i < tilesModel.count; i++) {
         if (tilesModel.get(i).id === id) return normalizeSpan(tilesModel.get(i).span)
@@ -243,6 +283,7 @@ function loadDefaultTiles(dc, tilesModel) {
         tilesModel.append({
             id: dc.defaultTiles[i].id,
             span: dc.defaultTiles[i].span,
+            shape: "",
             gridPage: 0,
             gridRow: 0,
             gridCol: 0
@@ -261,14 +302,14 @@ function loadCustomTiles(dc, tilesModel, savedList) {
     for (let i = 0; i < savedList.length; i++) {
         let item = savedList[i]
         if (knownIds.indexOf(item.id) !== -1 && !savedMap[item.id]) {
-            result.push({ id: item.id, span: normalizeSpan(item.span) })
+            result.push({ id: item.id, span: normalizeSpan(item.span), shape: item.shape || "" })
             savedMap[item.id] = true
         }
     }
     for (let j = 0; j < dc.defaultTiles.length; j++) {
         let dt = dc.defaultTiles[j]
         if (!savedMap[dt.id]) {
-            result.push({ id: dt.id, span: normalizeSpan(dt.span) })
+            result.push({ id: dt.id, span: normalizeSpan(dt.span), shape: "" })
         }
     }
     tilesModel.clear()
@@ -276,6 +317,7 @@ function loadCustomTiles(dc, tilesModel, savedList) {
         tilesModel.append({
             id: result[k].id,
             span: result[k].span,
+            shape: result[k].shape || "",
             gridPage: 0,
             gridRow: 0,
             gridCol: 0
@@ -292,7 +334,7 @@ function saveTilesLayout(tilesModel, saveLayoutProc) {
     let toSave = []
     for (let i = 0; i < tilesModel.count; i++) {
         let item = tilesModel.get(i)
-        toSave.push({ id: item.id, span: normalizeSpan(item.span) })
+        toSave.push({ id: item.id, span: normalizeSpan(item.span), shape: item.shape || "" })
     }
     saveLayoutProc.jsonContent = JSON.stringify(toSave, null, 2)
     saveLayoutProc.running = true

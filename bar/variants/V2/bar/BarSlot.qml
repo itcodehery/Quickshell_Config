@@ -43,7 +43,7 @@ PanelWindow {
         ? (island.notifPeekBody !== "" ? Math.min(94, Math.max(70, islandNotifPeekItem.desiredCardHeight)) : 46)
         : barSlot.root.v2BarHeight
     readonly property int chargingTargetHeight: barSlot.root.v2BarHeight
-    readonly property int barExpandedHeight: 156
+    readonly property int barExpandedHeight: (typeof island !== "undefined" && island && island.hoverQuickPanel && island.hoverQuickPanel.omarchyTab === 1) ? 120 : 56
     readonly property bool isHoverExpanded: !isDashboardActive && (typeof island !== "undefined" && island) && !island.isIslandHidden
     readonly property real hoverMaskHeight: Math.max(continuousBarSurface.height, barExpandedHeight)
     readonly property real hoverMaskWidth: (typeof island !== "undefined" && island) ? Math.max(continuousBarSurface.width, island.expandedContainerWidth) : continuousBarSurface.width
@@ -296,7 +296,7 @@ PanelWindow {
 
             ShapePath {
                 strokeColor: "transparent"
-                fillColor: barSlot.isSubPageOpen ? Qt.darker(barSlot.root.barBg, 1.35) : barSlot.root.barBg
+                fillColor: barSlot.isSubPageOpen ? barSlot.root.sidebarBg : barSlot.root.barBg
                 startX: continuousBarSurface.topCornerRadius
                 startY: 0
                 PathLine { x: surfaceFill.width - continuousBarSurface.topCornerRadius; y: 0 }
@@ -331,7 +331,7 @@ PanelWindow {
     Rectangle {
         anchors.fill: parent
         color: "#000000"
-        opacity: barSlot.root.barUnlocked ? 0.4 : (barSlot.isDashboardActive ? 0.65 : 0.0)
+        opacity: barSlot.root.barUnlocked ? 0.4 : (barSlot.isDashboardActive ? (barSlot.root.isLightMode ? 0.35 : 0.65) : 0.0)
         visible: opacity > 0.001
         z: 10
         Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }

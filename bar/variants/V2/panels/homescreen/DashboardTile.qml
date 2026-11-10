@@ -6,6 +6,7 @@ import Quickshell.Io
 import Quickshell.Widgets
 import Quickshell.Hyprland
 import "../../modules"
+import "../../modules/common"
 
 Rectangle {
     id: tileRoot
@@ -14,6 +15,7 @@ Rectangle {
     property var dashContent: null
     readonly property var root: (dashContent && dashContent.root) ? dashContent.root : null
     property string tileId: ""
+    property string tileShape: ""
     property var span: 1          // 1 (1x1), 2 (1x2), 4 (2x2)
     property int tileIndex: -1
     property int gridPage: 0
@@ -136,28 +138,32 @@ Rectangle {
 
     readonly property color beanColor: {
         if (isActive || (tileId === "caffeine" && dashContent && dashContent.caffeineActive) || (tileId === "pomodoro" && root && root.timerActive) || (tileId === "nightlight" && dashContent && dashContent.nightMode > 0) || (is1x1 && isLit)) {
-            return paperCol
+            var bgCol = effectiveTileColor
+            var luma = bgCol.r * 0.299 + bgCol.g * 0.587 + bgCol.b * 0.114
+            return luma > 0.55 ? "#121212" : "#ffffff"
         }
         return tileAccentCol
     }
 
-    // ── Tile Background & Border ──
-    Rectangle {
+    // ── Tile Background & Border (Dynamic Multi-Style Shape) ──
+    StyledTileShape {
         id: tileBg
         anchors.fill: parent
-        radius: parent.radius
-        color: tileRoot.effectiveTileColor
-        border.color: tileRoot.isDropTarget ? tileRoot.sealCol : ((dashContent && dashContent.editTilesMode) ? Qt.rgba(tileRoot.tileAccentCol.r, tileRoot.tileAccentCol.g, tileRoot.tileAccentCol.b, 0.45) : "transparent")
-        border.width: tileRoot.isDropTarget ? 2 : ((dashContent && dashContent.editTilesMode) ? 1.5 : 0)
-        Behavior on color { ColorAnimation { duration: 180 } }
-        Behavior on border.color { ColorAnimation { duration: 180 } }
+        root: tileRoot.root
+        span: tileRoot.span
+        shapeType: tileRoot.tileShape
+        fillColor: tileRoot.effectiveTileColor
+        borderColor: tileRoot.isDropTarget ? tileRoot.sealCol : ((dashContent && dashContent.editTilesMode) ? Qt.rgba(tileRoot.tileAccentCol.r, tileRoot.tileAccentCol.g, tileRoot.tileAccentCol.b, 0.45) : (root && root.isLightMode && !isTileActive ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06) : "transparent"))
+        borderWidth: tileRoot.isDropTarget ? 2 : ((dashContent && dashContent.editTilesMode) ? 1.5 : (root && root.isLightMode && !isTileActive ? 1 : 0))
         z: 0
     }
 
     // ── Foreground Color for 1x2 text ──
     readonly property color fgColor: {
         if (isActive || (tileId === "caffeine" && dashContent && dashContent.caffeineActive) || (tileId === "pomodoro" && root && root.timerActive) || (tileId === "nightlight" && dashContent && dashContent.nightMode > 0)) {
-            return paperCol
+            var bgCol = effectiveTileColor
+            var luma = bgCol.r * 0.299 + bgCol.g * 0.587 + bgCol.b * 0.114
+            return luma > 0.55 ? "#121212" : "#ffffff"
         }
         return inkCol
     }
@@ -700,6 +706,55 @@ Rectangle {
                 radiusY: cornerBean.r
                 startAngle: 28
                 sweepAngle: 34
+            }
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // ── SHAPE CYCLE BUTTON (Edit Mode - customize shape per individual tile)
+    // ══════════════════════════════════════════════════════════════════════
+    Item {
+        id: shapeIndicator
+        visible: dashContent && dashContent.editTilesMode
+        anchors.horizontalCenter: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        width: 28
+        height: 36
+        z: 35
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 18
+            height: 18
+            radius: 9
+            color: shapeMa.pressed ? tileRoot.tileAccentCol : (shapeMa.containsMouse ? Qt.rgba(tileRoot.tileAccentCol.r, tileRoot.tileAccentCol.g, tileRoot.tileAccentCol.b, 0.35) : tileRoot.paperCol)
+            border.color: tileRoot.tileAccentCol
+            border.width: 1.5
+
+            IconText {
+                anchors.centerIn: parent
+                text: "category"
+                font.pixelSize: 10
+                color: shapeMa.pressed ? "#ffffff" : tileRoot.tileAccentCol
+            }
+
+            scale: shapeMa.pressed ? 0.85 : (shapeMa.containsMouse ? 1.25 : 1.0)
+            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+            Behavior on color { ColorAnimation { duration: 150 } }
+        }
+
+        MouseArea {
+            id: shapeMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            acceptedButtons: Qt.LeftButton
+
+            onClicked: {
+                if (dashContent) {
+                    dashContent.selectedTileId = tileRoot.tileId
+                    dashContent.cycleTileShape(tileRoot.tileId)
+                }
             }
         }
     }

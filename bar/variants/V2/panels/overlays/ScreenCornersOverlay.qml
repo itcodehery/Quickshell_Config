@@ -74,7 +74,7 @@ PanelWindow {
                 y: win.height
                 radiusX: win.cornerRadius
                 radiusY: win.cornerRadius
-                direction: PathArc.Clockwise
+                direction: PathArc.Counterclockwise
             }
             PathLine { x: 0; y: win.height }
         }

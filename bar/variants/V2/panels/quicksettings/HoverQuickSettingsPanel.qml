@@ -85,10 +85,6 @@ Item {
         repeat: true
         running: hoverPanel.visible
         onTriggered: {
-            if (!wifiProc.running) wifiProc.running = true
-            if (!stProc.running) stProc.running = true
-            if (!omarchyUpdateProc.running) omarchyUpdateProc.running = true
-            if (!omarchyVerProc.running && hoverPanel.omarchyVersion === "") omarchyVerProc.running = true
             if (!projectStatusProc.running) projectStatusProc.running = true
         }
     }
@@ -304,6 +300,7 @@ Item {
         command: ["bash", "-c",
             "cache_file=\"$HOME/.cache/quickshell_ghchart_raw.svg\"; " +
             "colored_file=\"$HOME/.cache/quickshell_ghchart_colored.svg\"; " +
+            "crop_script=\"$HOME/.config/quickshell/bin/qs-ghchart-crop.py\"; " +
             "fetch=false; " +
             "if [ ! -f \"$cache_file\" ]; then fetch=true; else " +
             "  cache_age=$(($(date +%s) - $(stat -c %Y \"$cache_file\"))); " +
@@ -314,13 +311,19 @@ Item {
             "  if grep -q '<svg' \"$cache_file.tmp\"; then mv \"$cache_file.tmp\" \"$cache_file\"; else rm -f \"$cache_file.tmp\"; fi; " +
             "fi; " +
             "if [ -f \"$cache_file\" ]; then " +
-            "  cp \"$cache_file\" \"$colored_file\"; " +
-            "  sed -i 's/#eeeeee/" + hoverPanel.ghHexEmpty + "/g' \"$colored_file\"; " +
-            "  sed -i 's/#c6e48b/" + hoverPanel.ghHexLvl1 + "/g' \"$colored_file\"; " +
-            "  sed -i 's/#7bc96f/" + hoverPanel.ghHexLvl2 + "/g' \"$colored_file\"; " +
-            "  sed -i 's/#239a3b/" + hoverPanel.ghHexLvl3 + "/g' \"$colored_file\"; " +
-            "  sed -i 's/#196127/" + hoverPanel.ghHexLvl4 + "/g' \"$colored_file\"; " +
-            "  sed -i 's/#767676/" + hoverPanel.ghHexText + "/g' \"$colored_file\"; " +
+            "  if [ -x \"$crop_script\" ]; then " +
+            "    \"$crop_script\" \"$cache_file\" \"$colored_file\" " +
+            "      \"" + hoverPanel.ghHexEmpty + "\" \"" + hoverPanel.ghHexLvl1 + "\" \"" + hoverPanel.ghHexLvl2 + "\" " +
+            "      \"" + hoverPanel.ghHexLvl3 + "\" \"" + hoverPanel.ghHexLvl4 + "\" \"" + hoverPanel.ghHexText + "\" 327; " +
+            "  else " +
+            "    cp \"$cache_file\" \"$colored_file\"; " +
+            "    sed -i 's/#eeeeee/" + hoverPanel.ghHexEmpty + "/g' \"$colored_file\"; " +
+            "    sed -i 's/#c6e48b/" + hoverPanel.ghHexLvl1 + "/g' \"$colored_file\"; " +
+            "    sed -i 's/#7bc96f/" + hoverPanel.ghHexLvl2 + "/g' \"$colored_file\"; " +
+            "    sed -i 's/#239a3b/" + hoverPanel.ghHexLvl3 + "/g' \"$colored_file\"; " +
+            "    sed -i 's/#196127/" + hoverPanel.ghHexLvl4 + "/g' \"$colored_file\"; " +
+            "    sed -i 's/#767676/" + hoverPanel.ghHexText + "/g' \"$colored_file\"; " +
+            "  fi; " +
             "fi"
         ]
         onExited: {
@@ -407,119 +410,146 @@ Item {
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // LEFT CARD: Vertically Arranged Clock (Bigger Font) + AM/PM Below + Date & Weather
+    // LEFT CARD: Compact Redesigned Clock & Calendar Card
     // ─────────────────────────────────────────────────────────────────────────────
     Rectangle {
         id: leftClockCard
         x: 8
-        y: 6
-        width: 112
-        height: 144
-        radius: 18
+        y: Math.round((hoverPanel.height - height) / 2)
+        width: 140
+        height: hoverPanel.height - 8
+        radius: 13
         color: leftHover.hovered
             ? Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.09)
             : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.06)
         border.width: 1
-        border.color: Qt.rgba(255, 255, 255, 0.04)
+        border.color: hoverPanel.root.cardBorderColor
         Behavior on color { ColorAnimation { duration: 160 } }
 
-        Column {
-            anchors.centerIn: parent
-            spacing: 2
-            width: parent.width - 12
+        Row {
+            anchors.fill: parent
+            anchors.margins: 6
+            spacing: 8
 
-            // Vertically Arranged Clock: Big Hour on Top, Big Minute on Bottom (Bigger font)
-            Column {
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: -6
-
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: {
-                        var d = barClockShared.now || new Date()
-                        var h = d.getHours()
-                        if (barClockShared.is12Hour !== false) {
-                            h = h % 12
-                            if (h === 0) h = 12
-                        }
-                        return h < 10 ? "0" + h : String(h)
-                    }
-                    font.family: biggerFont.name.length > 0 ? biggerFont.name : "Bigger"
-                    font.pixelSize: 32
-                    font.weight: Font.Bold
-                    color: hoverPanel.root.ink
-                }
-
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: {
-                        var d = barClockShared.now || new Date()
-                        var m = d.getMinutes()
-                        return m < 10 ? "0" + m : String(m)
-                    }
-                    font.family: biggerFont.name.length > 0 ? biggerFont.name : "Bigger"
-                    font.pixelSize: 32
-                    font.weight: Font.Bold
-                    color: hoverPanel.root.ink
-                    opacity: 0.45
-                }
-            }
-
-            // AM/PM below the clock
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: {
-                    var t = barClockShared.timeStr || ""
-                    var m = t.match(/\b(AM|PM)\b/i)
-                    return m ? m[1] : ""
-                }
-                font.family: hoverPanel.root.barFont
-                font.pixelSize: 10
-                font.weight: Font.Bold
-                color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.50)
-            }
-
-            // Date
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: {
-                    var d = barClockShared.now || new Date()
-                    var days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
-                    var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-                    return days[d.getDay()] + ", " + d.getDate() + " " + months[d.getMonth()]
-                }
-                font.family: hoverPanel.root.barFont
-                font.pixelSize: 10
-                font.weight: Font.Medium
-                color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.55)
-            }
-
-            // Weather capsule
+            // Left mini accent pill with calendar icon / day of week
             Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                height: 19
-                width: Math.min(parent.width, weatherRow.implicitWidth + 12)
-                radius: 9.5
-                color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.06)
+                width: 34
+                height: parent.height
+                radius: 10
+                color: Qt.rgba(hoverPanel.accent.r, hoverPanel.accent.g, hoverPanel.accent.b, leftHover.hovered ? 0.22 : 0.15)
+                anchors.verticalCenter: parent.verticalCenter
+                Behavior on color { ColorAnimation { duration: 160 } }
+
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 0
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: {
+                            var d = barClockShared.now || new Date()
+                            var days = ["SUN","MON","TUE","WED","THU","FRI","SAT"]
+                            return days[d.getDay()]
+                        }
+                        font.family: hoverPanel.root.barFont
+                        font.pixelSize: 8
+                        font.weight: Font.Black
+                        font.letterSpacing: 0.5
+                        color: hoverPanel.accent
+                    }
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: {
+                            var d = barClockShared.now || new Date()
+                            return String(d.getDate())
+                        }
+                        font.family: hoverPanel.root.barFont
+                        font.pixelSize: 13
+                        font.weight: Font.Bold
+                        color: hoverPanel.root.ink
+                    }
+                }
+            }
+
+            // Right side: Bold Time + Weather & Month
+            Column {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 1
 
                 Row {
-                    id: weatherRow
-                    anchors.centerIn: parent
                     spacing: 3
+                    Text {
+                        id: mainTimeDigits
+                        text: {
+                            var d = barClockShared.now || new Date()
+                            var h = d.getHours()
+                            if (barClockShared.is12Hour !== false) {
+                                h = h % 12
+                                if (h === 0) h = 12
+                            }
+                            var m = d.getMinutes()
+                            return (h < 10 ? "0" + h : String(h)) + ":" + (m < 10 ? "0" + m : String(m))
+                        }
+                        font.family: hoverPanel.root.barFont
+                        font.pixelSize: 16
+                        font.weight: Font.Black
+                        color: hoverPanel.root.ink
+                        renderType: Text.QtRendering
+                    }
 
+                    Text {
+                        anchors.baseline: mainTimeDigits.baseline
+                        text: {
+                            var t = barClockShared.timeStr || ""
+                            var m = t.match(/\b(AM|PM)\b/i)
+                            return m ? m[1] : ""
+                        }
+                        font.family: hoverPanel.root.barFont
+                        font.pixelSize: 9
+                        font.weight: Font.Bold
+                        color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.50)
+                    }
+                }
+
+                // Weather and month
+                Row {
+                    spacing: 4
                     IconText {
                         anchors.verticalCenter: parent.verticalCenter
                         text: barWeatherShared.weatherLoaded ? barWeatherShared.weatherIcon : "sunny"
                         font.pixelSize: 11
                         color: hoverPanel.accent
                     }
+
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: barWeatherShared.weatherLoaded ? barWeatherShared.weatherTempStr : "--°"
                         font.family: hoverPanel.root.barFont
-                        font.pixelSize: 10
+                        font.pixelSize: 9
                         font.weight: Font.Bold
                         color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.75)
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "·"
+                        font.family: hoverPanel.root.barFont
+                        font.pixelSize: 8
+                        color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.35)
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: {
+                            var d = barClockShared.now || new Date()
+                            var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+                            return months[d.getMonth()]
+                        }
+                        font.family: hoverPanel.root.barFont
+                        font.pixelSize: 9
+                        font.weight: Font.Medium
+                        color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.55)
                     }
                 }
             }
@@ -539,231 +569,234 @@ Item {
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // MIDDLE SECTION: 2x2 Big Buttons, Brightness Card, Sound Card, Data Strip
+    // MIDDLE SECTION: Single Compact Row (Standard View + Workspaces Strip)
     // ─────────────────────────────────────────────────────────────────────────────
     Item {
         id: middleSection
         x: leftClockCard.x + leftClockCard.width + 8
-        y: 6
-        width: hoverPanel.width - leftClockCard.width - rightMediaCard.width - 32
-        height: 144
+        y: Math.round((hoverPanel.height - height) / 2)
+        width: Math.max(100, hoverPanel.width - leftClockCard.width - rightMediaCard.width - 24)
+        height: hoverPanel.height - 8
         Behavior on width { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
 
-        Column {
+        Item {
             anchors.fill: parent
-            spacing: 6
 
-            // Top Row: Standard Quick Settings vs Omarchy Controls & System Info
-            Item {
-                id: topContainer
-                width: parent.width
-                height: parent.height - 34
-                clip: true
+            // 1. Standard View + Workspaces Strip (Shown when omarchyMenuOpen is FALSE)
+            Row {
+                anchors.fill: parent
+                spacing: 6
+                visible: !hoverPanel.omarchyMenuOpen && hoverPanel.omarchyTab !== 1
 
-                // ── Standard Quick Settings View ──
                 HoverQuickSettingsStandardView {
                     id: standardQuickView
                     hoverPanel: hoverPanel
+                    width: parent.width - wsBlock.width - 6
+                    height: parent.height
                 }
 
-                // ── Omarchy Controls & System Info View ──
-                HoverQuickSettingsOmarchyView {
-                    id: omarchyView
-                    hoverPanel: hoverPanel
-                }
-            } // end topContainer
+                Row {
+                    id: wsBlock
+                    height: parent.height
+                    spacing: 6
 
-            // Bottom Row: Omarchy Control Button + Workspace Indicator Strip
-            Row {
-                width: parent.width
-                height: 28
-                spacing: 6
-
-                // Omarchy Control Center Button (toggles Omarchy Controls view)
-                Rectangle {
-                    id: omarchyControlBtn
-                    width: 28
-                    height: 28
-                    radius: 14
-                    color: omarchyBtnHov.hovered
-                        ? (hoverPanel.omarchyMenuOpen
-                            ? hoverPanel.accent
-                            : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.14))
-                        : (hoverPanel.omarchyMenuOpen
-                            ? hoverPanel.accent
-                            : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.07))
-                    border.width: 1
-                    border.color: Qt.rgba(255, 255, 255, 0.04)
-
-                    scale: omarchyBtnMa.pressed ? 0.92 : (omarchyBtnHov.hovered ? 1.05 : 1.0)
-                    Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
-                    Behavior on color { ColorAnimation { duration: 150 } }
-
-                    HoverHandler { id: omarchyBtnHov }
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: hoverPanel.root.launcherLogoIconGlyph(hoverPanel.root.launcherLogoIcon)
-                        font.family: hoverPanel.root.launcherLogoIconFont(hoverPanel.root.launcherLogoIcon)
-                        font.pixelSize: hoverPanel.root.launcherLogoIconSize(hoverPanel.root.launcherLogoIcon)
-                        color: hoverPanel.omarchyMenuOpen ? hoverPanel.root.paper : hoverPanel.root.ink
-                        renderType: Text.QtRendering
-                    }
-
-                    MouseArea {
-                        id: omarchyBtnMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            hoverPanel.omarchyMenuOpen = !hoverPanel.omarchyMenuOpen
-                        }
-                    }
-                }
-
-                // Workspace Indicator Strip
-                Rectangle {
-                    width: parent.width - omarchyControlBtn.width - parent.spacing
-                    height: 28
-                    radius: 14
-                    color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.05)
-                    border.width: 1
-                    border.color: Qt.rgba(255, 255, 255, 0.03)
-
-                    // Workspace row with wider animated active pill
-                    Item {
-                        id: wsStripArea
-                        anchors.centerIn: parent
-                        width: wsRow.width
-                        height: 20
-
-                    function wsHasWindows(id) {
-                        var ws = Hyprland.workspaces.values
-                        for (var i = 0; i < ws.length; i++) {
-                            if (ws[i].id === id) {
-                                var topCount = (ws[i].toplevels && ws[i].toplevels.values) ? ws[i].toplevels.values.length : 0
-                                return topCount > 0 || (ws[i].windows !== undefined && ws[i].windows > 0)
-                            }
-                        }
-                        return false
-                    }
-
-                    function getWsCellWidth(id, isFoc) {
-                        if (isFoc) return 34
-                        return wsHasWindows(id) ? 22 : 16
-                    }
-
-                    readonly property int focusedIndex: {
-                        var f = Hyprland.focusedWorkspace
-                        if (!f) return 0
-                        var idx = hoverPanel.workspaceList.indexOf(f.id)
-                        return idx >= 0 ? idx : 0
-                    }
-
-                    readonly property real targetX: {
-                        var tx = 0
-                        for (var i = 0; i < focusedIndex && i < hoverPanel.workspaceList.length; i++) {
-                            var id = hoverPanel.workspaceList[i]
-                            tx += getWsCellWidth(id, false) + wsRow.spacing
-                        }
-                        return tx
-                    }
-
-                    // Sliding Active Pill (wider animated pill for the active workspace)
+                    // Omarchy Control Center Button (toggles Omarchy Controls view)
                     Rectangle {
-                        id: slidingPill
-                        width: 34
-                        height: 18
-                        radius: 9
-                        anchors.verticalCenter: parent.verticalCenter
-                        color: hoverPanel.accent
-                        x: wsStripArea.targetX
+                        id: omarchyControlBtn
+                        width: parent.height
+                        height: parent.height
+                        radius: 12
+                        color: omarchyBtnHov.hovered
+                            ? (hoverPanel.omarchyMenuOpen
+                                ? hoverPanel.accent
+                                : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.14))
+                            : (hoverPanel.omarchyMenuOpen
+                                ? hoverPanel.accent
+                                : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.07))
+                        border.width: 1
+                        border.color: hoverPanel.root.cardBorderColor
 
-                        Behavior on x {
-                            NumberAnimation {
-                                duration: 240
-                                easing.type: Easing.OutBack
-                                easing.overshoot: 1.25
+                        scale: omarchyBtnMa.pressed ? 0.92 : (omarchyBtnHov.hovered ? 1.05 : 1.0)
+                        Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+                        Behavior on color { ColorAnimation { duration: 150 } }
+
+                        HoverHandler { id: omarchyBtnHov }
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: hoverPanel.root.launcherLogoIconGlyph(hoverPanel.root.launcherLogoIcon)
+                            font.family: hoverPanel.root.launcherLogoIconFont(hoverPanel.root.launcherLogoIcon)
+                            font.pixelSize: 15
+                            color: hoverPanel.omarchyMenuOpen
+                                ? ((hoverPanel.accent.r * 0.299 + hoverPanel.accent.g * 0.587 + hoverPanel.accent.b * 0.114 > 0.55) ? "#121212" : "#ffffff")
+                                : hoverPanel.root.ink
+                            renderType: Text.QtRendering
+                        }
+
+                        MouseArea {
+                            id: omarchyBtnMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                hoverPanel.omarchyMenuOpen = !hoverPanel.omarchyMenuOpen
                             }
                         }
                     }
 
-                    Row {
-                        id: wsRow
-                        spacing: 4
+                    // Workspace Indicator Strip
+                    Rectangle {
+                        height: parent.height
+                        width: wsStripArea.width + 12
+                        radius: 12
+                        color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.05)
+                        border.width: 1
+                        border.color: hoverPanel.root.cardBorderColor
 
-                        Repeater {
-                            model: hoverPanel.workspaceList
+                        Item {
+                            id: wsStripArea
+                            anchors.centerIn: parent
+                            width: wsRow.width
+                            height: 20
 
-                            delegate: Item {
-                                id: wsCell
-                                required property int modelData
-                                readonly property int wsId: modelData
-                                readonly property bool isFocused: Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id === wsId
-                                readonly property bool hasWindows: wsStripArea.wsHasWindows(wsId)
+                            function wsHasWindows(id) {
+                                var ws = Hyprland.workspaces.values
+                                for (var i = 0; i < ws.length; i++) {
+                                    if (ws[i].id === id) {
+                                        var topCount = (ws[i].toplevels && ws[i].toplevels.values) ? ws[i].toplevels.values.length : 0
+                                        return topCount > 0 || (ws[i].windows !== undefined && ws[i].windows > 0)
+                                    }
+                                }
+                                return false
+                            }
 
-                                width: wsStripArea.getWsCellWidth(wsId, isFocused)
-                                height: 20
+                            function getWsCellWidth(id, isFoc) {
+                                if (isFoc) return 26
+                                return wsHasWindows(id) ? 18 : 14
+                            }
 
-                                Behavior on width {
+                            readonly property int focusedIndex: {
+                                var f = Hyprland.focusedWorkspace
+                                if (!f) return 0
+                                var idx = hoverPanel.workspaceList.indexOf(f.id)
+                                return idx >= 0 ? idx : 0
+                            }
+
+                            readonly property real targetX: {
+                                var tx = 0
+                                for (var i = 0; i < focusedIndex && i < hoverPanel.workspaceList.length; i++) {
+                                    var id = hoverPanel.workspaceList[i]
+                                    tx += getWsCellWidth(id, false) + wsRow.spacing
+                                }
+                                return tx
+                            }
+
+                            // Sliding Active Pill
+                            Rectangle {
+                                id: slidingPill
+                                width: 26
+                                height: 18
+                                radius: 9
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: hoverPanel.accent
+                                x: wsStripArea.targetX
+
+                                Behavior on x {
                                     NumberAnimation {
                                         duration: 240
                                         easing.type: Easing.OutBack
                                         easing.overshoot: 1.25
                                     }
                                 }
+                            }
 
-                                // Subtle hover indicator for unselected items
-                                Rectangle {
-                                    visible: !isFocused && wsHov.hovered
-                                    anchors.centerIn: parent
-                                    width: parent.width
-                                    height: 18
-                                    radius: 9
-                                    color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.12)
-                                }
+                            Row {
+                                id: wsRow
+                                spacing: 3
 
-                                // Dot ONLY for workspaces with NO windows (and not focused)
-                                Rectangle {
-                                    visible: !isFocused && !hasWindows
-                                    anchors.centerIn: parent
-                                    width: 5
-                                    height: 5
-                                    radius: 2.5
-                                    color: wsHov.hovered ? hoverPanel.root.ink : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.40)
-                                }
+                                Repeater {
+                                    model: hoverPanel.workspaceList
 
-                                // Number shown for focused AND for workspaces with windows!
-                                Text {
-                                    visible: isFocused || hasWindows
-                                    anchors.centerIn: parent
-                                    text: String(wsId)
-                                    font.family: hoverPanel.root.barFont
-                                    font.pixelSize: 10
-                                    font.weight: isFocused ? Font.Bold : Font.Medium
-                                    color: isFocused ? hoverPanel.root.paper : hoverPanel.root.ink
-                                }
+                                    delegate: Item {
+                                        id: wsCell
+                                        required property int modelData
+                                        readonly property int wsId: modelData
+                                        readonly property bool isFocused: Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id === wsId
+                                        readonly property bool hasWindows: wsStripArea.wsHasWindows(wsId)
 
-                                HoverHandler { id: wsHov; cursorShape: Qt.PointingHandCursor }
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: hoverPanel.root.gotoWorkspace(wsId)
+                                        width: wsStripArea.getWsCellWidth(wsId, isFocused)
+                                        height: 20
+
+                                        Behavior on width {
+                                            NumberAnimation {
+                                                duration: 240
+                                                easing.type: Easing.OutBack
+                                                easing.overshoot: 1.25
+                                            }
+                                        }
+
+                                        // Subtle hover indicator for unselected items
+                                        Rectangle {
+                                            visible: !isFocused && wsHov.hovered
+                                            anchors.centerIn: parent
+                                            width: parent.width
+                                            height: 16
+                                            radius: 8
+                                            color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.12)
+                                        }
+
+                                        // Dot ONLY for workspaces with NO windows
+                                        Rectangle {
+                                            visible: !isFocused && !hasWindows
+                                            anchors.centerIn: parent
+                                            width: 4
+                                            height: 4
+                                            radius: 2
+                                            color: wsHov.hovered ? hoverPanel.root.ink : Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.40)
+                                        }
+
+                                        // Number shown for focused AND for workspaces with windows
+                                        Text {
+                                            visible: isFocused || hasWindows
+                                            anchors.centerIn: parent
+                                            text: String(wsId)
+                                            font.family: hoverPanel.root.barFont
+                                            font.pixelSize: 9
+                                            font.weight: isFocused ? Font.Bold : Font.Medium
+                                            color: isFocused
+                                                ? ((hoverPanel.accent.r * 0.299 + hoverPanel.accent.g * 0.587 + hoverPanel.accent.b * 0.114 > 0.55) ? "#121212" : "#ffffff")
+                                                : hoverPanel.root.ink
+                                        }
+
+                                        HoverHandler { id: wsHov; cursorShape: Qt.PointingHandCursor }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: hoverPanel.root.gotoWorkspace(wsId)
+                                        }
+                                    }
                                 }
+                            }
+                        }
+
+                        WheelHandler {
+                            onWheel: (event) => {
+                                if (event.angleDelta.y < 0) hoverPanel.root.nextWorkspace()
+                                else if (event.angleDelta.y > 0) hoverPanel.root.prevWorkspace()
                             }
                         }
                     }
                 }
+            }
 
-                WheelHandler {
-                    onWheel: (event) => {
-                        if (event.angleDelta.y < 0) hoverPanel.root.nextWorkspace()
-                        else if (event.angleDelta.y > 0) hoverPanel.root.prevWorkspace()
-                    }
-                }
+            // 2. Omarchy Settings View (Shown when omarchyMenuOpen is TRUE)
+            HoverQuickSettingsOmarchyView {
+                id: omarchyView
+                hoverPanel: hoverPanel
+                anchors.fill: parent
             }
         }
-    }
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

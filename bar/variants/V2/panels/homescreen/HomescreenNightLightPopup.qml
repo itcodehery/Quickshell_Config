@@ -2,6 +2,7 @@ import QtQuick
 import ".."
 import Quickshell
 import "../../modules"
+import "../../modules/common"
 import "../../motion"
 
 // ── NIGHT LIGHT INTENSITY POPUP ──
@@ -203,44 +204,12 @@ Item {
                     height: 22
                     Behavior on anchors.leftMargin { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
 
-                    readonly property real trackW: width
-                    readonly property real handleX: Math.round((Math.max(0, Math.min(100, nightSlider.effectiveVal)) / 100) * Math.max(1, trackW - 4))
-                    readonly property real gap: 3
-                    readonly property real barHeight: 10
-
-                    // Filled Track (Left of drag line)
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Math.max(0, nightTrack.handleX - nightTrack.gap)
-                        height: nightTrack.barHeight
-                        radius: nightTrack.barHeight / 2
-                        color: root.seal
-                        Behavior on width { enabled: !nightSlider.sliding; NumberAnimation { duration: 120 } }
-                    }
-
-                    // Unfilled Track (Right of drag line)
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.leftMargin: Math.min(nightTrack.trackW, nightTrack.handleX + 3 + nightTrack.gap)
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        height: nightTrack.barHeight
-                        radius: nightTrack.barHeight / 2
-                        color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25)
-                        Behavior on anchors.leftMargin { enabled: !nightSlider.sliding; NumberAnimation { duration: 120 } }
-                    }
-
-                    // Vertical Drag Line (Taller than the bar)
-                    Rectangle {
-                        id: nightHandle
-                        x: nightTrack.handleX
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 3
-                        height: 20
-                        radius: 1.5
-                        color: root.seal
-                        Behavior on x { enabled: !nightSlider.sliding; NumberAnimation { duration: 120 } }
+                    StyledSliderTrack {
+                        anchors.fill: parent
+                        root: nightPopupRoot.root
+                        value: nightSlider.effectiveVal
+                        sliding: nightSlider.sliding
+                        accentColor: root.seal
                     }
                 }
 

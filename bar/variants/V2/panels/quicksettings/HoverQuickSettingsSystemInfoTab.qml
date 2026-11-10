@@ -27,7 +27,7 @@ Item {
             radius: 14
             color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.06)
             border.width: 1
-            border.color: Qt.rgba(255, 255, 255, 0.04)
+            border.color: hoverPanel.root.cardBorderColor
 
             Item {
                 anchors.fill: parent
@@ -96,7 +96,7 @@ Item {
             radius: 14
             color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.06)
             border.width: 1
-            border.color: Qt.rgba(255, 255, 255, 0.04)
+            border.color: hoverPanel.root.cardBorderColor
 
             Item {
                 anchors.fill: parent
@@ -165,7 +165,7 @@ Item {
             radius: 14
             color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.06)
             border.width: 1
-            border.color: Qt.rgba(255, 255, 255, 0.04)
+            border.color: hoverPanel.root.cardBorderColor
 
             Item {
                 anchors.fill: parent
@@ -236,7 +236,7 @@ Item {
             radius: 14
             color: Qt.rgba(hoverPanel.root.ink.r, hoverPanel.root.ink.g, hoverPanel.root.ink.b, 0.06)
             border.width: 1
-            border.color: Qt.rgba(255, 255, 255, 0.04)
+            border.color: hoverPanel.root.cardBorderColor
 
             Item {
                 anchors.fill: parent
