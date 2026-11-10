@@ -605,37 +605,40 @@ Item {
                     }
                 }
 
-                // Voice Dictation Button (Top Header Bar)
+                // Settings Button (Replaces Voice Dictation Button in Top Header Bar)
                 Rectangle {
-                    id: dictationHeaderBtn
+                    id: settingsHeaderBtn
                     height: 28
                     width: 28
                     radius: 14
                     anchors.verticalCenter: parent.verticalCenter
-                    color: expandedDashboardContainer.barSlot.root.dictationActive
+                    color: expandedDashboardContainer.barSlot.root.dashboardDetail === "settings"
                         ? Qt.rgba(expandedDashboardContainer.barSlot.root.seal.r, expandedDashboardContainer.barSlot.root.seal.g, expandedDashboardContainer.barSlot.root.seal.b, 0.28)
-                        : (dictationHeaderMa.containsMouse ? expandedDashboardContainer.barSlot.root.fillHover : expandedDashboardContainer.barSlot.root.fillIdle)
-                    border.width: expandedDashboardContainer.barSlot.root.dictationActive ? 1.5 : 0
+                        : (settingsHeaderMa.containsMouse ? expandedDashboardContainer.barSlot.root.fillHover : expandedDashboardContainer.barSlot.root.fillIdle)
+                    border.width: expandedDashboardContainer.barSlot.root.dashboardDetail === "settings" ? 1.5 : 0
                     border.color: expandedDashboardContainer.barSlot.accent
-                    scale: dictationHeaderMa.pressed ? 0.92 : (dictationHeaderMa.containsMouse ? 1.06 : 1.0)
-                    Behavior on scale { NumberAnimation { duration: 120 } }
+                    scale: settingsHeaderMa.pressed ? 0.90 : (settingsHeaderMa.containsMouse ? 1.08 : 1.0)
+                    Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
                     Behavior on color { ColorAnimation { duration: 150 } }
 
                     IconText {
                         anchors.centerIn: parent
-                        text: expandedDashboardContainer.barSlot.root.dictationState === "transcribing" ? "auto_awesome" : "mic"
-                        color: expandedDashboardContainer.barSlot.root.dictationActive ? expandedDashboardContainer.barSlot.accent : expandedDashboardContainer.barSlot.root.ink
+                        text: "settings"
+                        color: expandedDashboardContainer.barSlot.root.dashboardDetail === "settings" ? expandedDashboardContainer.barSlot.accent : expandedDashboardContainer.barSlot.root.ink
                         font.pixelSize: 15
                     }
 
                     MouseArea {
-                        id: dictationHeaderMa
+                        id: settingsHeaderMa
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            expandedDashboardContainer.barSlot.root.dashboardExpanded = false
-                            expandedDashboardContainer.barSlot.root.toggleDictation()
+                            if (expandedDashboardContainer.barSlot.root.dashboardDetail === "settings") {
+                                expandedDashboardContainer.barSlot.root.dashboardDetail = ""
+                            } else {
+                                expandedDashboardContainer.barSlot.root.dashboardDetail = "settings"
+                            }
                         }
                     }
                 }

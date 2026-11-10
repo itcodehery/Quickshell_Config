@@ -204,7 +204,8 @@ Item {
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     onClicked: (mouse) => {
                         if (mouse.button === Qt.RightButton) {
-                            dashboardContent.setNightMode(0)
+                            let pt = localNightToggle.mapToItem(dashboardContent, 0, localNightToggle.height)
+                            dashboardContent.toggleNightLightPopup(pt.x + localNightToggle.width / 2, pt.y)
                         } else {
                             dashboardContent.cycleNightMode()
                         }

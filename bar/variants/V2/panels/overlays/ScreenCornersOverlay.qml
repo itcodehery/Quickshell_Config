@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Shapes
 import ".."
 import Quickshell
 import Quickshell.Wayland
@@ -17,109 +18,81 @@ PanelWindow {
     }
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "screen-corners"
     mask: Region {}
 
     readonly property int cornerRadius: 16
     readonly property color cornerColor: "#000000"
 
-    // Top-Left Corner
-    Canvas {
-        id: tl
-        width: win.cornerRadius
-        height: win.cornerRadius
-        anchors.top: parent.top
-        anchors.left: parent.left
-        onPaint: {
-            var ctx = getContext("2d")
-            ctx.reset()
-            ctx.fillStyle = win.cornerColor
-            ctx.beginPath()
-            ctx.moveTo(0, 0)
-            ctx.lineTo(width, 0)
-            ctx.arc(width, height, width, -Math.PI / 2, Math.PI, true)
-            ctx.closePath()
-            ctx.fill()
-        }
-        Connections {
-            target: win
-            function onCornerColorChanged() { tl.requestPaint() }
-        }
-    }
+    // Standard smooth corner rounding
+    Shape {
+        anchors.fill: parent
+        preferredRendererType: Shape.CurveRenderer
+        antialiasing: true
 
-    // Top-Right Corner
-    Canvas {
-        id: tr
-        width: win.cornerRadius
-        height: win.cornerRadius
-        anchors.top: parent.top
-        anchors.right: parent.right
-        onPaint: {
-            var ctx = getContext("2d")
-            ctx.reset()
-            ctx.fillStyle = win.cornerColor
-            ctx.beginPath()
-            ctx.moveTo(0, 0)
-            ctx.lineTo(width, 0)
-            ctx.lineTo(width, height)
-            ctx.arc(0, height, width, 0, -Math.PI / 2, true)
-            ctx.closePath()
-            ctx.fill()
+        // Top-Left Corner
+        ShapePath {
+            fillColor: win.cornerColor
+            strokeColor: "transparent"
+            startX: 0; startY: 0
+            PathLine { x: win.cornerRadius; y: 0 }
+            PathArc {
+                x: 0
+                y: win.cornerRadius
+                radiusX: win.cornerRadius
+                radiusY: win.cornerRadius
+                direction: PathArc.Counterclockwise
+            }
+            PathLine { x: 0; y: 0 }
         }
-        Connections {
-            target: win
-            function onCornerColorChanged() { tr.requestPaint() }
-        }
-    }
 
-    // Bottom-Left Corner
-    Canvas {
-        id: bl
-        width: win.cornerRadius
-        height: win.cornerRadius
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        onPaint: {
-            var ctx = getContext("2d")
-            ctx.reset()
-            ctx.fillStyle = win.cornerColor
-            ctx.beginPath()
-            ctx.moveTo(0, 0)
-            ctx.lineTo(0, height)
-            ctx.lineTo(width, height)
-            ctx.arc(width, 0, width, Math.PI / 2, Math.PI, false)
-            ctx.closePath()
-            ctx.fill()
+        // Top-Right Corner
+        ShapePath {
+            fillColor: win.cornerColor
+            strokeColor: "transparent"
+            startX: win.width; startY: 0
+            PathLine { x: win.width - win.cornerRadius; y: 0 }
+            PathArc {
+                x: win.width
+                y: win.cornerRadius
+                radiusX: win.cornerRadius
+                radiusY: win.cornerRadius
+                direction: PathArc.Clockwise
+            }
+            PathLine { x: win.width; y: 0 }
         }
-        Connections {
-            target: win
-            function onCornerColorChanged() { bl.requestPaint() }
-        }
-    }
 
-    // Bottom-Right Corner
-    Canvas {
-        id: br
-        width: win.cornerRadius
-        height: win.cornerRadius
-        anchors.bottom: parent.bottom
-        anchors.right: parent.right
-        onPaint: {
-            var ctx = getContext("2d")
-            ctx.reset()
-            ctx.fillStyle = win.cornerColor
-            ctx.beginPath()
-            ctx.moveTo(width, 0)
-            ctx.lineTo(width, height)
-            ctx.lineTo(0, height)
-            ctx.arc(0, 0, width, Math.PI / 2, 0, true)
-            ctx.closePath()
-            ctx.fill()
+        // Bottom-Left Corner
+        ShapePath {
+            fillColor: win.cornerColor
+            strokeColor: "transparent"
+            startX: 0; startY: win.height
+            PathLine { x: 0; y: win.height - win.cornerRadius }
+            PathArc {
+                x: win.cornerRadius
+                y: win.height
+                radiusX: win.cornerRadius
+                radiusY: win.cornerRadius
+                direction: PathArc.Clockwise
+            }
+            PathLine { x: 0; y: win.height }
         }
-        Connections {
-            target: win
-            function onCornerColorChanged() { br.requestPaint() }
+
+        // Bottom-Right Corner
+        ShapePath {
+            fillColor: win.cornerColor
+            strokeColor: "transparent"
+            startX: win.width; startY: win.height
+            PathLine { x: win.width - win.cornerRadius; y: win.height }
+            PathArc {
+                x: win.width
+                y: win.height - win.cornerRadius
+                radiusX: win.cornerRadius
+                radiusY: win.cornerRadius
+                direction: PathArc.Counterclockwise
+            }
+            PathLine { x: win.width; y: win.height }
         }
     }
 }

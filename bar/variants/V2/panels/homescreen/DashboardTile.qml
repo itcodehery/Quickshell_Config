@@ -85,6 +85,7 @@ Rectangle {
             case "wallpaper": return dashContent.activeDetailView === "wallpaper"
             case "notes": return dashContent.activeDetailView === "notes"
             case "calendar": return dashContent.activeDetailView === "calendar"
+            case "settings": return dashContent.activeDetailView === "settings"
             default: return false
         }
     }
@@ -180,6 +181,7 @@ Rectangle {
             case "wallpaper": return "Wallpapers"
             case "notes": return "Notes"
             case "calendar": return "Calendar"
+            case "settings": return "Settings"
             default: return tileId
         }
     }
@@ -221,6 +223,7 @@ Rectangle {
             case "wallpaper": return "Gallery & Picker"
             case "notes": return "Quick Notes"
             case "calendar": return "Events & Agenda"
+            case "settings": return root ? (root.isBarNotch ? "Notch Mode" : "Pill Mode") : "Customize"
             default: return ""
         }
     }
@@ -245,6 +248,7 @@ Rectangle {
             case "wallpaper": return "wallpaper"
             case "notes": return "edit_note"
             case "calendar": return "calendar_month"
+            case "settings": return "settings"
             default: return "settings"
         }
     }
@@ -295,6 +299,12 @@ Rectangle {
                 onPressed: (mouse) => {
                     if (mouse.button === Qt.RightButton) {
                         tileTip.hide()
+                        if (tileId === "nightlight" && dashContent) {
+                            let pt = tileRoot.mapToItem(dashContent, 0, tileRoot.height)
+                            dashContent.toggleNightLightPopup(pt.x + tileRoot.width / 2, pt.y)
+                            mouse.accepted = true
+                            return
+                        }
                         if (dashContent) dashContent.toggleEditMode(tileId)
                         mouse.accepted = true
                     }
@@ -811,6 +821,12 @@ Rectangle {
 
             if (mouse.button === Qt.RightButton) {
                 tileTip.hide()
+                if (tileId === "nightlight" && dashContent) {
+                    let pt = tileRoot.mapToItem(dashContent, 0, tileRoot.height)
+                    dashContent.toggleNightLightPopup(pt.x + tileRoot.width / 2, pt.y)
+                    mouse.accepted = true
+                    return
+                }
                 if (dashContent) dashContent.toggleEditMode(tileId)
                 mouse.accepted = true
                 return

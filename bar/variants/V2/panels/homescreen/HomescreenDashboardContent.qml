@@ -70,7 +70,8 @@ Item {
         { id: "pomodoro", span: 1 },
         { id: "quickshare", span: 1 },
         { id: "theme", span: 1 },
-        { id: "wallpaper", span: 1 }
+        { id: "wallpaper", span: 1 },
+        { id: "settings", span: 1 }
     ]
 
     readonly property real gridCardPadding: 10
@@ -80,6 +81,11 @@ Item {
     readonly property real pageStride: 122 + 12
     property int totalPageCount: 1
     property bool showPomodoroPopup: false
+    property bool showNightLightPopup: false
+    property real nightPopupTargetX: 0
+    property real nightPopupTargetY: 0
+    property int nightLightIntensity: 0
+    property int nightLightSavedIntensity: 40
 
     readonly property alias tilesModel: tilesModel
     ListModel {
@@ -183,7 +189,7 @@ Item {
         saveTilesLayout()
     }
 
-    readonly property var detailOrder: ["", "wifi", "bluetooth", "notifications", "screentime", "plugins", "updates", "notes", "battery", "calendar", "volume", "system", "theme", "wallpaper"]
+    readonly property var detailOrder: ["", "wifi", "bluetooth", "notifications", "screentime", "plugins", "updates", "notes", "battery", "calendar", "volume", "system", "theme", "wallpaper", "settings"]
 
     function selectCategoryByIndex(idx) {
         if (idx < 0) idx = 0
@@ -387,6 +393,7 @@ Item {
     readonly property var notesDetailSection: detailOverlay.notesDetailSection
     readonly property var pluginsDetailSection: detailOverlay.pluginsDetailSection
     readonly property var themeDetailSection: detailOverlay.themeDetailSection
+    readonly property var settingsDetailSection: detailOverlay.settingsDetailSection
 
     Connections {
         target: dashboardContent.root
@@ -442,6 +449,47 @@ Item {
     property int nightMode: 0 // 0: Off, 1: Soft (4500K), 2: Intense (3000K)
     property real lastNightChange: 0
 
+    function openNightLightPopup(targetX, targetY) {
+        nightPopupTargetX = targetX
+        nightPopupTargetY = targetY
+        showNightLightPopup = true
+    }
+
+    function toggleNightLightPopup(targetX, targetY) {
+        if (showNightLightPopup) {
+            showNightLightPopup = false
+        } else {
+            openNightLightPopup(targetX, targetY)
+        }
+    }
+
+    Connections {
+        target: dashboardContent.root ? dashboardContent.root : null
+        ignoreUnknownSignals: true
+        function onRequestNightLightPopup() {
+            dashboardContent.openNightLightPopup(230, 80)
+        }
+    }
+
+    function applyNightTemperature(pct) {
+        lastNightChange = Date.now()
+        pct = Math.max(0, Math.min(100, Math.round(pct)))
+        nightLightIntensity = pct
+        if (pct === 0) {
+            nightMode = 0
+            Quickshell.execDetached(["bash", "-c", "pkill -x hyprsunset"])
+        } else {
+            nightLightSavedIntensity = pct
+            nightMode = pct >= 60 ? 2 : 1
+            let temp = Math.max(2000, Math.min(5800, Math.round(6000 - (pct / 100) * 3800)))
+            Quickshell.execDetached(["bash", "-c", "pkill -x hyprsunset; while pgrep -x hyprsunset > /dev/null; do sleep 0.01; done; exec hyprsunset -t " + temp])
+        }
+    }
+
+    function setNightIntensity(pct) {
+        applyNightTemperature(pct)
+    }
+
     function cycleNightMode() {
         let nextMode = (nightMode + 1) % 3
         setNightMode(nextMode)
@@ -451,25 +499,39 @@ Item {
         lastNightChange = Date.now()
         nightMode = mode
         if (mode === 0) {
+            nightLightIntensity = 0
             Quickshell.execDetached(["bash", "-c", "pkill -x hyprsunset"])
         } else if (mode === 1) {
-            Quickshell.execDetached(["bash", "-c", "pkill -x hyprsunset; while pgrep -x hyprsunset > /dev/null; do sleep 0.02; done; exec hyprsunset -t 4500"])
+            let pct = (nightLightSavedIntensity > 0 && nightLightSavedIntensity < 60) ? nightLightSavedIntensity : 40
+            nightLightIntensity = pct
+            let temp = Math.max(2000, Math.min(5800, Math.round(6000 - (pct / 100) * 3800)))
+            Quickshell.execDetached(["bash", "-c", "pkill -x hyprsunset; while pgrep -x hyprsunset > /dev/null; do sleep 0.01; done; exec hyprsunset -t " + temp])
         } else if (mode === 2) {
-            Quickshell.execDetached(["bash", "-c", "pkill -x hyprsunset; while pgrep -x hyprsunset > /dev/null; do sleep 0.02; done; exec hyprsunset -t 3000"])
+            let pct = nightLightSavedIntensity >= 60 ? nightLightSavedIntensity : 80
+            nightLightIntensity = pct
+            let temp = Math.max(2000, Math.min(5800, Math.round(6000 - (pct / 100) * 3800)))
+            Quickshell.execDetached(["bash", "-c", "pkill -x hyprsunset; while pgrep -x hyprsunset > /dev/null; do sleep 0.01; done; exec hyprsunset -t " + temp])
         }
     }
 
     Process {
         id: nightUpdater
         running: true
-        command: ["bash", "-c", "out=$(pgrep -a hyprsunset); if [ -z \"$out\" ]; then echo 'off'; elif echo \"$out\" | grep -q '3000'; then echo 'intense'; else echo 'soft'; fi"]
+        command: ["bash", "-c", "out=$(pgrep -a hyprsunset); if [ -z \"$out\" ]; then echo 'off 0'; else t=$(echo \"$out\" | grep -oP '(?<=-t )\\d+' | head -n1); echo \"on ${t:-4500}\"; fi"]
         stdout: StdioCollector {
             onStreamFinished: {
                 if (Date.now() - dashboardContent.lastNightChange < 1500) return
-                let s = this.text.trim()
-                if (s === "intense") dashboardContent.nightMode = 2
-                else if (s === "soft") dashboardContent.nightMode = 1
-                else dashboardContent.nightMode = 0
+                let parts = this.text.trim().split(" ")
+                if (parts[0] === "off") {
+                    dashboardContent.nightMode = 0
+                    dashboardContent.nightLightIntensity = 0
+                } else {
+                    let temp = parseInt(parts[1]) || 4500
+                    let pct = Math.max(5, Math.min(100, Math.round(((6000 - temp) / 3800) * 100)))
+                    dashboardContent.nightLightIntensity = pct
+                    dashboardContent.nightLightSavedIntensity = pct
+                    dashboardContent.nightMode = pct >= 60 ? 2 : 1
+                }
             }
         }
     }
@@ -816,13 +878,21 @@ Item {
         id: detailOverlay
         anchors.fill: parent
         dashboardContent: dashboardContent
-        root: dashboardContent.root
-        panel: dashboardContent.panel
+        root: (dashboardContent && dashboardContent.root) ? dashboardContent.root : null
+        panel: (dashboardContent && dashboardContent.panel) ? dashboardContent.panel : null
     }
 
     // ── POMODORO TIMER POPUP (Sleek Material You modal to view, pause, or disable the timer) ──
     HomescreenPomodoroPopup {
         id: pomodoroPopupBackdrop
+        anchors.fill: parent
+        dashboardContent: dashboardContent
+        root: dashboardContent.root
+    }
+
+    // ── NIGHT LIGHT INTENSITY POPUP ──
+    HomescreenNightLightPopup {
+        id: nightLightPopupBackdrop
         anchors.fill: parent
         dashboardContent: dashboardContent
         root: dashboardContent.root

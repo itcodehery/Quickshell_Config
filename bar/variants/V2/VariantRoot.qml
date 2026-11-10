@@ -54,12 +54,18 @@ Item {
     function setHover(on) { theme.hoverForce = on }
     function toggleBar() { theme.barHidden = !theme.barHidden }
     function toggleDashboard() {
+        if (!theme.activePopupScreenName && barScreens.length > 0) {
+            theme.activatePopupScreen(barScreens[0])
+        }
         if (!theme.dashboardExpanded) {
             theme.dashboardDetail = ""
         }
         theme.dashboardExpanded = !theme.dashboardExpanded
     }
     function openDashboardDetail(detail) {
+        if (!theme.activePopupScreenName && barScreens.length > 0) {
+            theme.activatePopupScreen(barScreens[0])
+        }
         if (theme.dashboardExpanded && theme.dashboardDetail === detail) {
             theme.dashboardExpanded = false
             theme.dashboardDetail = ""
@@ -68,12 +74,24 @@ Item {
             theme.dashboardExpanded = true
         }
     }
+    function openNightLightPopup() {
+        if (!theme.activePopupScreenName && barScreens.length > 0) {
+            theme.activatePopupScreen(barScreens[0])
+        }
+        theme.dashboardExpanded = true
+        theme.dashboardDetail = ""
+        theme.requestNightLightPopup()
+    }
     function togglePluginsDrawer() { theme.togglePluginsDrawer() }
     function switchWorkspace(dir) { theme.switchWorkspace(dir) }
     function finishWorkspaceSwitch() { theme.finishWorkspaceSwitch() }
     function lockRetract() {}
     function lockReveal() {}
     function currentShellStyle() { return theme.barShellStyle }
+    function setShellStyle(style) {
+        theme.barShellStyle = style
+        if (typeof theme.saveWidgets === "function") theme.saveWidgets()
+    }
     function showIslandOsd(kind, value) { theme.showIslandOsd(kind, value) }
     function triggerNotifPeek(app, summary, body, icon) { theme.triggerNotifPeek(app, summary, body, icon) }
     function dismissNotifPeek(notifId) { theme.dismissNotifPeek(notifId) }
@@ -270,6 +288,20 @@ Item {
             && !root.isActivePopupScreenName(targetScreen.name)
     }
 
+
+    Variants {
+        model: root.barScreens
+
+        delegate: Component {
+            ScreenCornersOverlay {
+                required property var modelData
+
+                root: theme
+                targetScreen: modelData
+            }
+        }
+    }
+
     Variants {
         model: root.barScreens
 
@@ -346,18 +378,6 @@ Item {
         }
     }
 
-    Variants {
-        model: root.barScreens
-
-        delegate: Component {
-            ScreenCornersOverlay {
-                required property var modelData
-
-                root: theme
-                targetScreen: modelData
-            }
-        }
-    }
 
 
     Variants {

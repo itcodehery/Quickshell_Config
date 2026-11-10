@@ -8,9 +8,9 @@ import "../../motion"
 // ── DETAIL OVERLAY (Phone-style sub-page sheet) ──
 Item {
     id: detailOverlay
-    required property var dashboardContent
-    required property var root
-    required property var panel
+    property var dashboardContent: null
+    property var root: null
+    property var panel: null
 
     readonly property var wifiDetailSection: wifiDetailLoader.item
     readonly property var btDetailSection: btDetailLoader.item
@@ -24,6 +24,7 @@ Item {
     readonly property var notesDetailSection: notesDetailLoader.item
     readonly property var pluginsDetailSection: pluginsDetailLoader.item
     readonly property var themeDetailSection: themeLoader.item
+    readonly property var settingsDetailSection: settingsDetailLoader.item
 
     visible: (opacity > 0.001)
     opacity: dashboardContent.activeDetailView !== "" ? 1.0 : 0.0
@@ -107,6 +108,7 @@ Item {
                     case "wallpaper": return "Wallpapers"
                     case "plugins": return "Omarchy Plugins"
                     case "notes": return "Notes"
+                    case "settings": return "Dashboard & Shell Settings"
                     default: return ""
                 }
             }
@@ -213,6 +215,20 @@ Item {
                 onCloseRequested: {
                     dashboardContent.activeDetailView = ""
                     if (dashboardContent.root) dashboardContent.root.dashboardDetail = ""
+                }
+            }
+        }
+        DetailLoader {
+            id: settingsDetailLoader
+            viewName: "settings"
+            onLoaded: if (item) item.forceActiveFocus()
+            sourceComponent: DashboardSettingsDetailSection {
+                root: detailOverlay.root || (detailOverlay.dashboardContent ? detailOverlay.dashboardContent.root : null)
+                panel: detailOverlay.panel || (detailOverlay.dashboardContent ? detailOverlay.dashboardContent.panel : null)
+                dashboardContent: detailOverlay.dashboardContent
+                onCloseRequested: {
+                    if (detailOverlay.dashboardContent) detailOverlay.dashboardContent.activeDetailView = ""
+                    if (detailOverlay.root) detailOverlay.root.dashboardDetail = ""
                 }
             }
         }

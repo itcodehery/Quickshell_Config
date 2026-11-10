@@ -161,6 +161,7 @@ Item {
     function openImagePicker(mode, screen) { PopupLayout.openImagePicker(theme, mode, screen) }
     function toggleImagePicker(mode, screen) { PopupLayout.toggleImagePicker(theme, mode, screen) }
     function openMediaBrowser(mode) { PopupLayout.openMediaBrowser(theme, mode) }
+    signal requestNightLightPopup()
 
     // ── bar screen position & outer bar shell (persisted) ──
     property string barPosition: "top"   // "top" or "bottom"
@@ -168,12 +169,21 @@ Item {
     // Auto-hide removed. Kept only so the persisted widget-state field (+45)
     // stays position-stable; it is always written as "0" and never read back.
     readonly property bool v2AutoHide: false
-    property string barShellStyle: "island"
+    property string barShellStyle: "pill"
+    onBarShellStyleChanged: {
+        if (barShellStyle !== "notch" && barShellStyle !== "pill" && barShellStyle !== "island") {
+            barShellStyle = "pill"
+        }
+    }
+    readonly property bool isBarPill: barShellStyle === "pill" || barShellStyle === "island"
+    readonly property bool isBarNotch: barShellStyle === "notch"
     property bool barBorderEnabled: true
     property bool panelTooltipBorderEnabled: true
     // ── desktop context menu presentation mode (radial vs list, persisted) ──
     property bool desktopMenuListMode: false
-    function barShellStyleValid(value) { return value === "island" }
+    function barShellStyleValid(value) {
+        return value === "pill" || value === "island" || value === "notch"
+    }
 
     // ── pill/card border (default, non-borderless mode) ──
     // A premium "inactive window border" look: the surface tone (paper) nudged a

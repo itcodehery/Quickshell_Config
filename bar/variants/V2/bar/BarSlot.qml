@@ -81,10 +81,12 @@ PanelWindow {
     }
     implicitHeight: barSlot.screen ? barSlot.screen.height : 1440
     exclusionMode: ExclusionMode.Normal
-    exclusiveZone: effectivelyHidden ? 1 : barSlot.root.v2BarHeight + 8
+    exclusiveZone: effectivelyHidden ? 1 : (barSlot.root.isBarNotch ? barSlot.root.v2BarHeight : (barSlot.root.v2BarHeight + 8))
 
     // Auto-hide was removed; the bar is always shown.
     readonly property bool effectivelyHidden: false
+
+    readonly property int barEdgeOffset: barSlot.root.isBarNotch ? 0 : 4
 
     mask: Region {
         x: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? 0
@@ -96,9 +98,9 @@ PanelWindow {
                ? (barSlot.root.barPosition === "bottom" ? barSlot.height - 1 : 0)
                : (barSlot.root.barPosition === "bottom"
                    ? (barSlot.isHoverExpanded
-                       ? barSlot.height - Math.round(barSlot.hoverMaskHeight) - 4
-                       : barSlot.height - Math.round(continuousBarSurface.height) - 4)
-                   : 4)
+                       ? barSlot.height - Math.round(barSlot.hoverMaskHeight) - barSlot.barEdgeOffset
+                       : barSlot.height - Math.round(continuousBarSurface.height) - barSlot.barEdgeOffset)
+                   : barSlot.barEdgeOffset)
         width: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? barSlot.width
            : (barSlot.isHoverExpanded ? Math.round(barSlot.hoverMaskWidth) : Math.round(continuousBarSurface.width))
         height: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? barSlot.height
@@ -164,7 +166,7 @@ PanelWindow {
     Rectangle {
         id: continuousBarSurface
         x: Math.round((barSlot.width - width) / 2)
-        readonly property int islandMargin: 4
+        readonly property int islandMargin: barSlot.root.isBarNotch ? 0 : 4
         property string lastBarPos: barSlot.root.barPosition
         property bool barPosTransitioning: false
         Timer {
@@ -210,8 +212,16 @@ PanelWindow {
         color: "transparent"
         z: (barSlot.isDashboardActive || barSlot.isDashboardClosing) ? 20 : 0
 
-        readonly property real targetTopCornerRadius: barSlot.isDashboardActive ? barSlot.dashboardTopRadius : radius
-        readonly property real targetBottomCornerRadius: barSlot.isDashboardActive ? barSlot.dashboardBottomRadius : radius
+        readonly property real targetTopCornerRadius: barSlot.isDashboardActive ? barSlot.dashboardTopRadius : (
+            barSlot.root.isBarNotch
+                ? (barSlot.root.barPosition === "bottom" ? radius : 0)
+                : radius
+        )
+        readonly property real targetBottomCornerRadius: barSlot.isDashboardActive ? barSlot.dashboardBottomRadius : (
+            barSlot.root.isBarNotch
+                ? (barSlot.root.barPosition === "bottom" ? 0 : radius)
+                : radius
+        )
 
         property real topCornerRadius: targetTopCornerRadius
         Behavior on topCornerRadius { NumberAnimation { duration: barSlot.isDashboardActive ? 220 : 160; easing.type: Easing.OutCubic } }
@@ -239,11 +249,18 @@ PanelWindow {
                 capStyle: ShapePath.RoundCap
                 joinStyle: ShapePath.RoundJoin
 
-                startX: islandSurfaceBorder.topR
-                startY: 0.5
-                PathLine { x: islandSurfaceBorder.w - islandSurfaceBorder.topR; y: 0.5 }
+                startX: (islandSurfaceBorder.topR === 0 && barSlot.root.barPosition === "top")
+                    ? (islandSurfaceBorder.w - 0.5)
+                    : islandSurfaceBorder.topR
+                startY: (islandSurfaceBorder.topR === 0 && barSlot.root.barPosition === "top")
+                    ? 0
+                    : 0.5
+                PathLine {
+                    x: islandSurfaceBorder.w - islandSurfaceBorder.topR
+                    y: (islandSurfaceBorder.topR === 0 && barSlot.root.barPosition === "top") ? 0 : 0.5
+                }
                 PathQuad {
-                    x: islandSurfaceBorder.w - 0.5; y: islandSurfaceBorder.topR
+                    x: islandSurfaceBorder.w - 0.5; y: Math.max(0.5, islandSurfaceBorder.topR)
                     controlX: islandSurfaceBorder.w - 0.5; controlY: 0.5
                 }
                 PathLine {
@@ -260,7 +277,7 @@ PanelWindow {
                     x: 0.5; y: islandSurfaceBorder.h - islandSurfaceBorder.botR
                     controlX: 0.5; controlY: islandSurfaceBorder.h - 0.5
                 }
-                PathLine { x: 0.5; y: islandSurfaceBorder.topR }
+                PathLine { x: 0.5; y: Math.max(0.5, islandSurfaceBorder.topR) }
                 PathQuad {
                     x: islandSurfaceBorder.topR; y: 0.5
                     controlX: 0.5; controlY: 0.5

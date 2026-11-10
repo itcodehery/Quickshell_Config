@@ -99,6 +99,7 @@ Item {
         function togglebar() { router.invoke("toggleBar") }
         function toggledashboard() { router.invoke("toggleDashboard") }
         function opendetail(name: string) { router.invoke("openDashboardDetail", name) }
+        function opennightlight() { router.invoke("openNightLightPopup") }
         function switchworkspace(dir: string) { router.invoke("switchWorkspace", dir) }
         function finishworkspaceswitch() { router.invoke("finishWorkspaceSwitch") }
         // Lock-screen slide: retract before hyprlock, reveal after unlock.
@@ -109,6 +110,7 @@ Item {
             var fn = router.variantHost.activeItem.currentShellStyle
             return fn ? String(fn()) : ""
         }
+        function setshellstyle(style: string) { router.invoke("setShellStyle", style) }
     }
 
     IpcHandler {

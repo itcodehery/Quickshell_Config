@@ -11,6 +11,7 @@ CalendarDetailNotesColumn 1.0 productivity/CalendarDetailNotesColumn.qml
 CalendarDetailSection 1.0 productivity/CalendarDetailSection.qml
 ControlPanel 1.0 quicksettings/ControlPanel.qml
 CursorDotOverlay 1.0 overlays/CursorDotOverlay.qml
+DashboardSettingsDetailSection 1.0 details/DashboardSettingsDetailSection.qml
 DashboardTile 1.0 homescreen/DashboardTile.qml
 DesktopContextMenu 1.0 overlays/DesktopContextMenu.qml
 DesktopContextMenuListCard 1.0 overlays/DesktopContextMenuListCard.qml
@@ -20,6 +21,7 @@ HomescreenDashboardContent 1.0 homescreen/HomescreenDashboardContent.qml
 HomescreenDetailOverlay 1.0 homescreen/HomescreenDetailOverlay.qml
 HomescreenLyricsDrawer 1.0 homescreen/HomescreenLyricsDrawer.qml
 HomescreenMediaLyricsCard 1.0 homescreen/HomescreenMediaLyricsCard.qml
+HomescreenNightLightPopup 1.0 homescreen/HomescreenNightLightPopup.qml
 HomescreenPomodoroPopup 1.0 homescreen/HomescreenPomodoroPopup.qml
 HomescreenTilesPager 1.0 homescreen/HomescreenTilesPager.qml
 HomescreenTopControls 1.0 homescreen/HomescreenTopControls.qml

@@ -488,6 +488,7 @@ function triggerTileAction(dc, tileId) {
         case "wallpaper":
         case "notes":
         case "calendar":
+        case "settings":
             if (dc.activeDetailView === tileId) {
                 dc.activeDetailView = ""
                 if (root) root.dashboardDetail = ""
