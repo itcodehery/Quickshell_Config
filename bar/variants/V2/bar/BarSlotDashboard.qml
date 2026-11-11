@@ -354,7 +354,7 @@ Item {
                     id: petSearch
                     root: expandedDashboardContainer.barSlot.root
                     isOpen: dashboardAdapter.searchOpen
-                    maxContentWidth: Math.max(160, Math.min(260, topHeaderBar.width - systemPet.width - topHeaderRightRow.width - 24))
+                    maxContentWidth: Math.max(160, Math.min(290, topHeaderBar.width - systemPet.width - topHeaderRightRow.width - 24))
                     anchors.verticalCenter: parent.verticalCenter
                     onFocusLostOrClosed: {
                         dashboardAdapter.searchOpen = false

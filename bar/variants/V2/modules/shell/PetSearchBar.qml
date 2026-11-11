@@ -11,8 +11,8 @@ Item {
     required property var root
 
     property bool isOpen: false
-    property string engine: "ddg" // "ddg" | "youtube" | "claude"
-    property real maxContentWidth: 220
+    property string engine: "ddg" // "ddg" | "youtube" | "claude" | "github"
+    property real maxContentWidth: 250
     readonly property real contentHeight: 28
 
     signal focusLostOrClosed()
@@ -130,7 +130,7 @@ Item {
 
     function fetchSuggestions() {
         var q = textInput.text.trim()
-        if (!isOpen || q === "" || engine === "claude" || calcResult !== "") {
+        if (!isOpen || q === "" || engine === "claude" || engine === "github" || calcResult !== "") {
             webSuggestions = []
             rebuildRows()
             return
@@ -198,9 +198,12 @@ Item {
         engine = name
     }
 
-    // Cycles DuckDuckGo -> YouTube -> Claude -> DuckDuckGo
+    // Cycles DuckDuckGo -> YouTube -> Claude -> GitHub -> DuckDuckGo
     function toggleEngine() {
-        engine = (engine === "ddg" ? "youtube" : (engine === "youtube" ? "claude" : "ddg"))
+        if (engine === "ddg") engine = "youtube"
+        else if (engine === "youtube") engine = "claude"
+        else if (engine === "claude") engine = "github"
+        else engine = "ddg"
     }
 
     function open() {
@@ -239,6 +242,8 @@ Item {
             url = query === "" ? "https://duckduckgo.com" : "https://duckduckgo.com/?q=" + encodeURIComponent(query)
         } else if (engine === "youtube") {
             url = query === "" ? "https://www.youtube.com" : "https://www.youtube.com/results?search_query=" + encodeURIComponent(query)
+        } else if (engine === "github") {
+            url = query === "" ? "https://github.com" : "https://github.com/search?q=" + encodeURIComponent(query)
         } else {
             url = query === "" ? "https://claude.ai" : "https://claude.ai/new?q=" + encodeURIComponent(query)
         }
@@ -254,8 +259,14 @@ Item {
         close()
     }
 
-    readonly property color engineColor: engine === "ddg" ? "#E35934" : (engine === "youtube" ? "#FF3B30" : "#D97757")
-    readonly property color iconOnEngine: "#2B1710"
+    readonly property color engineColor: {
+        if (engine === "ddg") return "#E35934"
+        if (engine === "youtube") return "#FF3B30"
+        if (engine === "claude") return "#D97757"
+        if (engine === "github") return "#24292E"
+        return "#E35934"
+    }
+    readonly property color iconOnEngine: engine === "github" ? "#F0F6FC" : "#2B1710"
 
     // Main search pill (engine-coloured, like a chat composer)
     Rectangle {
@@ -264,6 +275,8 @@ Item {
         clip: true
         radius: searchBar.contentHeight / 2
         color: searchBar.engineColor
+        border.width: searchBar.engine === "github" ? 1 : 0
+        border.color: Qt.rgba(1, 1, 1, 0.18)
         Behavior on color { ColorAnimation { duration: 180 } }
 
         // Engine icon buttons (DuckDuckGo, YouTube, Claude) sitting directly on the pill
@@ -372,6 +385,39 @@ Item {
                     }
                 }
             }
+
+            Item {
+                id: githubBtn
+                width: 24
+                height: searchBar.contentHeight
+
+                Image {
+                    anchors.centerIn: parent
+                    width: 14
+                    height: 14
+                    fillMode: Image.PreserveAspectFit
+                    source: Quickshell.env("HOME") + "/.config/quickshell/bar/assets/icons/github.svg"
+                    layer.enabled: true
+                    layer.effect: MultiEffect {
+                        colorization: 1.0
+                        colorizationColor: searchBar.iconOnEngine
+                    }
+                    opacity: searchBar.engine === "github" ? 1.0 : (githubMa.containsMouse ? 0.7 : 0.45)
+                    Behavior on opacity { NumberAnimation { duration: 150 } }
+                }
+
+                SpringPress {}
+                MouseArea {
+                    id: githubMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        searchBar.setEngine("github")
+                        textInput.forceActiveFocus()
+                    }
+                }
+            }
         }
 
         // Light inner subsection holding the input, clear and go buttons
@@ -446,7 +492,7 @@ Item {
                         UiText {
                             anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
-                            text: searchBar.engine === "ddg" ? "Search web..." : (searchBar.engine === "youtube" ? "Search YouTube..." : "Ask Claude...")
+                            text: searchBar.engine === "ddg" ? "Search web..." : (searchBar.engine === "youtube" ? "Search YouTube..." : (searchBar.engine === "github" ? "Search GitHub..." : "Ask Claude..."))
                             font.family: root.barFont
                             font.pixelSize: 11
                             font.weight: Font.Medium

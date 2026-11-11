@@ -121,7 +121,7 @@ Clicking any dashboard tile or sidebar item opens a two-column detail view (`Hom
 - **Connectivity (`modules/connectivity/`)**: `NetworkWidget`, `BluetoothWidget`, `CloudflareSpeedTest`.
 - **Media & Voice (`modules/media/`)**: `AudioWidget`, `AudioData`, `MprisWidget`, `MprisArtwork`, `MprisSelect`, `MediaBrowserWidget`, `ScreenRecordWidget`, `VoxtypeWidget`.
 - **Productivity & AI (`modules/productivity/`)**: `ClockWidget`, `WeatherWidget`, `NotesWidget`, `ScreentimeWidget`, `GithubHeatmapWidget`, `ClaudeWidget` (Claude / OpenCode / Codex AI token & cost telemetry), `ArchUpdaterWidget`, `UpdateWidget`.
-- **Shell & Companion (`modules/shell/`)**: `WorkspaceWidget`, `LauncherWidget`, `TrayWidget`, `NotificationWidget`, `NotificationSilenceWidget`, `PluginsDrawerWidget`, `ThemeDisplayWidget`, `SystemPet` (mood-reactive desktop pet), `PetSearchBar` (web/YouTube/Claude/calculator launcher with `SearchCalc.js`).
+- **Shell & Companion (`modules/shell/`)**: `WorkspaceWidget`, `LauncherWidget`, `TrayWidget`, `NotificationWidget`, `NotificationSilenceWidget`, `PluginsDrawerWidget`, `ThemeDisplayWidget`, `SystemPet` (mood-reactive desktop pet), `PetSearchBar` (web/YouTube/Claude/GitHub/calculator launcher with `SearchCalc.js`).
 - **Common Primitives (`modules/common/`)**: `IconText`, `UiText`, `TooltipMixin`, `PillShadow`, `PanelPointer`, `ConnectedBarInset`, `ConnectedPanelSurface`, `ConnectedTabCard`, `AiBarInset`, `AiPanelSurface`.
 
 ---
