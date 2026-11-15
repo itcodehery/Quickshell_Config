@@ -170,23 +170,24 @@ Item {
     }
 
     function getNotifIcon(appName, iconHint) {
-        if (iconHint && typeof iconHint === "string" && iconHint.length > 0) {
-            if (!iconHint.startsWith("/") && !iconHint.startsWith("file://")) {
-                if (iconHint.indexOf(" ") === -1 && iconHint.length < 30) {
-                    return iconHint
-                }
+        var hint = (typeof iconHint === "string") ? iconHint.trim() : ""
+        // Only treat hint as a Material Symbol ligature if it uses lowercase letters/digits/underscores (no dots/hyphens like com.app.Name)
+        if (hint.length > 0 && /^[a-z0-9_]+$/.test(hint)) {
+            var hl = hint.toLowerCase()
+            if (hl !== "spotify" && hl !== "firefox" && hl !== "discord" && hl !== "telegram" && hl !== "whatsie" && hl !== "zen" && hl !== "kitty") {
+                return hint
             }
         }
-        var a = (appName || "").toLowerCase()
+        var a = ((appName || "") + " " + hint).toLowerCase()
         if (a.indexOf("spotify") !== -1 || a.indexOf("music") !== -1) return "music_note"
         if (a.indexOf("screenshot") !== -1 || a.indexOf("capture") !== -1 || a.indexOf("action") !== -1 || a.indexOf("grim") !== -1) return "screenshot_monitor"
         if (a.indexOf("bluetooth") !== -1) return "bluetooth"
         if (a.indexOf("wifi") !== -1 || a.indexOf("network") !== -1) return "wifi"
         if (a.indexOf("battery") !== -1 || a.indexOf("power") !== -1) return "battery_charging_full"
         if (a.indexOf("volume") !== -1 || a.indexOf("audio") !== -1) return "volume_up"
-        if (a.indexOf("terminal") !== -1 || a.indexOf("bash") !== -1 || a.indexOf("shell") !== -1) return "terminal"
+        if (a.indexOf("terminal") !== -1 || a.indexOf("bash") !== -1 || a.indexOf("shell") !== -1 || a.indexOf("kitty") !== -1) return "terminal"
         if (a.indexOf("browser") !== -1 || a.indexOf("zen") !== -1 || a.indexOf("firefox") !== -1 || a.indexOf("chrome") !== -1) return "language"
-        if (a.indexOf("discord") !== -1 || a.indexOf("slack") !== -1 || a.indexOf("chat") !== -1 || a.indexOf("message") !== -1) return "chat"
+        if (a.indexOf("whatsie") !== -1 || a.indexOf("whatsapp") !== -1 || a.indexOf("telegram") !== -1 || a.indexOf("signal") !== -1 || a.indexOf("discord") !== -1 || a.indexOf("slack") !== -1 || a.indexOf("chat") !== -1 || a.indexOf("message") !== -1) return "chat"
         if (a.indexOf("mail") !== -1) return "mail"
         if (a.indexOf("timer") !== -1 || a.indexOf("clock") !== -1) return "schedule"
         if (a.indexOf("update") !== -1 || a.indexOf("arch") !== -1 || a.indexOf("pacman") !== -1) return "system_update"

@@ -249,6 +249,7 @@ Item {
                 width: islandNotifPeekItem.hasBody ? 38 : 24
                 height: width
                 radius: islandNotifPeekItem.hasBody ? 11 : (height / 2)
+                clip: true
                 anchors.verticalCenter: parent.verticalCenter
                 color: Qt.rgba(overlaysRoot.barSlot.root.ink.r, overlaysRoot.barSlot.root.ink.g, overlaysRoot.barSlot.root.ink.b, 0.08)
                 border.width: 0
