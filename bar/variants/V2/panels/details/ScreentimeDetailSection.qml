@@ -239,9 +239,9 @@ Item {
             id: leftColContainer
             width: Math.round((columnsRow.width - columnsRow.spacing) / 2)
             height: columnsRow.height
-            radius: 20
-            color: root.fillIdle
-            border.width: root.isLightMode ? 1 : 0
+            radius: 28
+            color: "transparent"
+            border.width: 0
             border.color: root.cardBorderColor
             clip: true
 
@@ -348,7 +348,7 @@ Item {
                         radius: 12
                         width: resetWkText.implicitWidth + 14
                         color: resetWkMa.containsMouse ? root.fillHover : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15)
-                        border.width: 1
+                        border.width: 0
                         border.color: root.seal
 
                         Text {
@@ -605,7 +605,7 @@ Item {
                                                 anchors.margins: -2
                                                 radius: parent.radius + 2
                                                 color: "transparent"
-                                                border.width: 1.5
+                                                border.width: 0
                                                 border.color: root.seal
                                                 visible: dayBarCol.isSelected
                                             }
@@ -667,7 +667,7 @@ Item {
                         color: isCurrentDaySelected 
                             ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18) 
                             : (dayRowMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.03))
-                        border.width: 1
+                        border.width: 0
                         border.color: isCurrentDaySelected 
                             ? root.seal 
                             : (dayRowMa.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25) : Qt.rgba(1, 1, 1, 0.04))
@@ -768,9 +768,9 @@ Item {
             id: rightColContainer
             width: columnsRow.width - leftColContainer.width - columnsRow.spacing
             height: columnsRow.height
-            radius: 20
-            color: root.fillIdle
-            border.width: root.isLightMode ? 1 : 0
+            radius: 28
+            color: "transparent"
+            border.width: 0
             border.color: root.cardBorderColor
             clip: true
 
@@ -813,7 +813,7 @@ Item {
                         radius: 11
                         width: dayTotalText.implicitWidth + 14
                         color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.2)
-                        border.width: 1
+                        border.width: 0
                         border.color: root.seal
                         anchors.verticalCenter: parent.verticalCenter
 
@@ -928,7 +928,7 @@ Item {
                         height: 42
                         radius: 10
                         color: appItemMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.03)
-                        border.width: 1
+                        border.width: 0
                         border.color: appItemMa.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25) : Qt.rgba(1, 1, 1, 0.04)
 
                         MouseArea {

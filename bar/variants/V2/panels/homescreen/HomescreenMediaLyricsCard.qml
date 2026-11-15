@@ -2,10 +2,11 @@ import QtQuick
 import ".."
 import Quickshell
 import Quickshell.Widgets
+import Quickshell.Services.Mpris
 import "../../modules"
 import "../../motion"
 
-// --- MATERIAL YOU MEDIA PLAYER WITH EXTENDED LYRICS SECTION ---
+// ── COMPACT UNIFIED BOTTOM MEDIA + LYRICS CARD (Detached from main dashboard card) ──
 Item {
     id: mediaWithLyricsGroup
     required property var dashboardContent
@@ -14,751 +15,637 @@ Item {
     required property var mprisSel
     required property var mprisArt
     required property var audioData
-    property var mprisPanel: dashboardContent ? dashboardContent.mprisPanel : null
 
-    readonly property real lyricsVisibleHeight: Math.max(60, height - mediaCard.height)
+    readonly property bool isMediaVisible: mprisSel && mprisSel.player !== null
 
-    visible: opacity > 0.001
-    opacity: dashboardContent.showMediaPlayer ? 1.0 : 0.0
-    scale: dashboardContent.showMediaPlayer ? 1.0 : 0.96
-    Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
-    Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+    opacity: isMediaVisible ? 1.0 : 0.0
+    scale: isMediaVisible ? 1.0 : 0.96
+    visible: opacity > 0.01
+    z: 5
 
-    // Extended Lyrics Drawer (Starts from the back of the media player and extends down)
-    HomescreenLyricsDrawer {
-        id: lyricsExtender
-        z: 1
-        anchors.fill: parent
-        dashboardContent: mediaWithLyricsGroup.dashboardContent
-        root: mediaWithLyricsGroup.root
-        mprisSel: mediaWithLyricsGroup.mprisSel
-        mediaCard: mediaCard
-        lyricsVisibleHeight: mediaWithLyricsGroup.lyricsVisibleHeight
+    Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+    Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+
+    readonly property color paperCol: (root && root.paper) ? root.paper : "#111318"
+    readonly property color inkCol: (root && root.ink) ? root.ink : "#ffffff"
+    readonly property color sealCol: (root && root.seal) ? root.seal : "#a3e635"
+    readonly property bool isLight: (root && root.isLightMode) ? true : false
+
+    readonly property color domCol: (mprisArt && mprisArt.hasDominantColor) ? mprisArt.dominantColor : sealCol
+    readonly property bool hasVibrantDom: (mprisArt && mprisArt.hasDominantColor) ? true : false
+
+    readonly property color dockBg: hasVibrantDom
+        ? Qt.rgba(
+            paperCol.r * 0.65 + domCol.r * 0.35,
+            paperCol.g * 0.65 + domCol.g * 0.35,
+            paperCol.b * 0.65 + domCol.b * 0.35,
+            isLight ? 0.94 : 0.88
+          )
+        : Qt.rgba(paperCol.r, paperCol.g, paperCol.b, isLight ? 0.94 : 0.88)
+
+    readonly property color accentCol: hasVibrantDom
+        ? Qt.rgba(
+            Math.min(1, domCol.r * 0.55 + 0.45),
+            Math.min(1, domCol.g * 0.55 + 0.45),
+            Math.min(1, domCol.b * 0.55 + 0.45),
+            1.0
+          )
+        : sealCol
+
+    readonly property color onAccentCol: {
+        var luma = accentCol.r * 0.299 + accentCol.g * 0.587 + accentCol.b * 0.114
+        return luma > 0.55 ? "#121212" : "#ffffff"
     }
 
-    // --- MATERIAL YOU MEDIA PLAYER ---
+    readonly property bool isPlaying: mprisSel.player && mprisSel.player.playbackState === MprisPlaybackState.Playing
+
+    // Poll MPRIS position smoothly while playing so the progress bar & timestamps update live
+    Timer {
+        interval: 500
+        repeat: true
+        running: mediaWithLyricsGroup.visible && mediaWithLyricsGroup.isPlaying && Boolean(mprisSel.player)
+        onTriggered: if (mprisSel.player) mprisSel.player.positionChanged()
+    }
+
+    readonly property var mp: dashboardContent ? dashboardContent.mprisPanel : null
+    readonly property bool hasMprisLyrics: Boolean(
+        mp && mp.lyricsTrackId !== "" && mp.lyricsTrackId === mp.currentTrackId && mp.lyricsList && mp.lyricsList.length > 0
+    )
+    readonly property bool hasDashLyrics: Boolean(
+        dashboardContent && dashboardContent.hasSyncedLyrics && dashboardContent.activeLyricsList && dashboardContent.activeLyricsList.length > 0
+    )
+    readonly property bool hasLyrics: hasMprisLyrics || hasDashLyrics
+    readonly property string currentLyricText: {
+        if (hasMprisLyrics) {
+            var mIdx = Math.max(0, mp.currentLyricIndex)
+            if (mIdx < mp.lyricsList.length) {
+                return mp.lyricsList[mIdx].text || "♪"
+            }
+        }
+        if (hasDashLyrics) {
+            var dIdx = Math.max(0, dashboardContent.currentLyricIndex)
+            if (dIdx < dashboardContent.activeLyricsList.length) {
+                return dashboardContent.activeLyricsList[dIdx].text || "♪"
+            }
+        }
+        if (mp && mp._isFetchingLyrics) return "Searching lyrics..."
+        return ""
+    }
+
+    readonly property string trackTitleOnly: (mprisSel.player && mprisSel.player.trackTitle) ? mprisSel.player.trackTitle : "Not Playing"
+    readonly property string trackArtistOnly: (mprisSel.player && mprisSel.player.trackArtist) ? mprisSel.player.trackArtist : ""
+    readonly property string trackDisplayText: trackArtistOnly !== "" ? (trackArtistOnly + " — " + trackTitleOnly) : trackTitleOnly
+
+    readonly property string playerDisplayName: {
+        if (!mprisSel || !mprisSel.player) return ""
+        var id = (mprisSel.player.identity || "").trim()
+        var de = (mprisSel.player.desktopEntry || "").toLowerCase()
+        var db = (mprisSel.player.dbusName || "").toLowerCase()
+        var combined = (id + " " + de + " " + db).toLowerCase()
+        if (combined.indexOf("spotify") !== -1) return "Spotify"
+        if (combined.indexOf("zen") !== -1) return "Zen"
+        if (combined.indexOf("firefox") !== -1) return "Firefox"
+        if (combined.indexOf("chromium") !== -1) return "Chromium"
+        if (combined.indexOf("chrome") !== -1) return "Chrome"
+        if (combined.indexOf("brave") !== -1) return "Brave"
+        if (combined.indexOf("vlc") !== -1) return "VLC"
+        if (combined.indexOf("mpv") !== -1) return "mpv"
+        if (id !== "") return id
+        if (de !== "") return de.charAt(0).toUpperCase() + de.slice(1)
+        return "Player"
+    }
+
+    function jumpToMediaWorkspace() {
+        if (!mprisSel || !mprisSel.player) return
+        var p = mprisSel.player
+        var key = playerDisplayName.toLowerCase()
+        var de = (p.desktopEntry || "").toLowerCase()
+        var id = (p.identity || "").toLowerCase()
+        var title = (p.trackTitle || "").toLowerCase().slice(0, 24)
+
+        var useLua = (root && root.theme && root.theme.hyprUsesLua) ? "1" : "0"
+
+        var py = [
+            "import json, subprocess, sys",
+            "key, de, ident, title, use_lua = sys.argv[1:6]",
+            "clients = json.loads(subprocess.check_output(['hyprctl', 'clients', '-j']))",
+            "tokens = [t for t in [key, de, ident] if t]",
+            "best, best_score = None, 0",
+            "for c in clients:",
+            "    cls = (c.get('class') or '').lower()",
+            "    icls = (c.get('initialClass') or '').lower()",
+            "    ctitle = (c.get('title') or '').lower()",
+            "    score = 0",
+            "    for t in tokens:",
+            "        if t in cls or t in icls:",
+            "            score = max(score, 5)",
+            "    if score > 0 and title and title in ctitle:",
+            "        score += 10",
+            "    elif score == 0 and title and len(title) >= 4 and title in ctitle:",
+            "        score = 3",
+            "    if score > best_score:",
+            "        best, best_score = c, score",
+            "if best:",
+            "    ws = (best.get('workspace') or {}).get('id')",
+            "    addr = best.get('address')",
+            "    if ws and int(ws) > 0:",
+            "        if use_lua == '1':",
+            "            subprocess.run(['hyprctl', 'dispatch', f'hl.dsp.focus({{ workspace = \"{ws}\" }})'])",
+            "        else:",
+            "            subprocess.run(['hyprctl', 'dispatch', 'workspace', str(ws)])",
+            "    if addr and use_lua != '1':",
+            "        subprocess.run(['hyprctl', 'dispatch', 'focuswindow', 'address:' + addr])"
+        ].join("\n")
+
+        if (root) root.dashboardExpanded = false
+        Quickshell.execDetached(["python3", "-c", py, key, de, id, title, useLua])
+    }
+
+    function fmtTime(secs) {
+        if (!secs || isNaN(secs) || secs < 0) return "0:00"
+        var s = Math.floor(secs)
+        var m = Math.floor(s / 60)
+        var rem = s % 60
+        return m + ":" + (rem < 10 ? "0" + rem : rem)
+    }
+
+    // Single Unified Compact Card for both Media Player & Lyrics
     Rectangle {
-        id: mediaCard
-        z: 2
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        height: 144
+        id: unifiedMediaCard
+        anchors.fill: parent
         radius: 22
+        color: mediaWithLyricsGroup.dockBg
+        border.width: 0
 
-        readonly property bool isSpotify: mprisSel.player && /spotify/i.test((mprisSel.player.identity || "") + " " + (mprisSel.player.dbusName || ""))
-        readonly property bool isYouTube: mprisSel.player && (/youtube/i.test(mprisSel.player.trackTitle || "") || /youtube/i.test(mprisSel.player.identity || "") || /firefox|zen|chromium|chrome|brave/i.test(mprisSel.player.identity || "") || /firefox|zen|chromium|chrome|brave/i.test(mprisSel.player.dbusName || ""))
-
-        WheelHandler {
-            target: null
-            onWheel: (event) => {
-                if (!dashboardContent.hasMultiplePlayers) return
-                if (event.angleDelta.x > 30 || event.angleDelta.y < -40) {
-                    mprisSel.nextPlayer()
-                } else if (event.angleDelta.x < -30 || event.angleDelta.y > 40) {
-                    mprisSel.prevPlayer()
-                }
-            }
-        }
-
-        readonly property bool hasDominant: mprisArt.dominantColor && String(mprisArt.dominantColor) !== "#00000000" && String(mprisArt.dominantColor) !== "transparent"
-        readonly property color domCol: hasDominant ? mprisArt.dominantColor : root.seal
-        readonly property bool hasVibrantDom: hasDominant && (domCol.r * 0.299 + domCol.g * 0.587 + domCol.b * 0.114 > 0.18)
-        color: mediaCard.hasDominant ? Qt.rgba(mediaCard.domCol.r * 0.45, mediaCard.domCol.g * 0.45, mediaCard.domCol.b * 0.45, 0.5) : root.fillIdle
-        border.color: hasVibrantDom ? Qt.rgba(mediaCard.domCol.r, mediaCard.domCol.g, mediaCard.domCol.b, 0.45) : root.islandBorder
-        border.width: 1
-        // Clean pastel / paper color for the pill play button matching Android Material You
-        readonly property color pillBg: {
-            if (!hasDominant) return root.paper
-            var maxC = Math.max(domCol.r, domCol.g, domCol.b)
-            var minC = Math.min(domCol.r, domCol.g, domCol.b)
-            var sat = maxC > 0 ? (maxC - minC) / maxC : 0
-            // If dominant color is murky/dark/grey, fall back to clean, bright root.paper
-            if (sat < 0.25 || maxC < 0.35) {
-                return root.paper
-            }
-            // Soft pastel tint of root.paper
-            return Qt.tint(root.paper, Qt.rgba(domCol.r, domCol.g, domCol.b, 0.35))
-        }
-
-        Behavior on color { ColorAnimation { duration: 300 } }
-        Behavior on border.color { ColorAnimation { duration: 300 } }
-
-        // Inner clipping container ensures artwork and overlays are clipped to the rounded corners
+        // Left: Square Album Art spanning the combined height of the media bar + lyrics bar
         ClippingRectangle {
-            anchors.fill: parent
-            radius: 22
-            color: "transparent"
+            id: cardAlbumArt
+            anchors.left: parent.left
+            anchors.leftMargin: 8
+            anchors.top: parent.top
+            anchors.topMargin: 8
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 8
+            width: height
+            radius: 14
+            color: Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.10)
 
-            // Full-bleed album art background
+            readonly property string artSrc: (mprisArt && mprisArt.source) ? mprisArt.source : ((mprisSel.player && mprisSel.player.trackArtUrl) ? mprisSel.player.trackArtUrl : "")
+
             Image {
-                id: cardBgArt
                 anchors.fill: parent
-                source: mprisArt.source || root.lastMediaArtUrl
-                sourceSize: Qt.size(512, 512)
+                source: cardAlbumArt.artSrc
                 fillMode: Image.PreserveAspectCrop
+                visible: cardAlbumArt.artSrc !== ""
                 asynchronous: true
-                visible: status === Image.Ready
             }
 
-            // Smooth darkening and tint overlays so text/buttons pop
-            Rectangle {
-                anchors.fill: parent
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.35) }
-                    GradientStop { position: 0.5; color: Qt.rgba(0, 0, 0, 0.50) }
-                    GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.70) }
-                }
-            }
-
-            Rectangle {
-                anchors.fill: parent
-                color: mediaCard.hasDominant ? Qt.rgba(mediaCard.domCol.r, mediaCard.domCol.g, mediaCard.domCol.b, 0.28) : "transparent"
+            IconText {
+                anchors.centerIn: parent
+                text: "music_note"
+                font.pixelSize: 24
+                color: mediaWithLyricsGroup.accentCol
+                visible: cardAlbumArt.artSrc === ""
             }
         }
 
-        // TOP ROW: App Icon / Switcher (Left) + Output / Clock Controls (Right)
-        Item {
-            id: topRow
-            anchors.top: parent.top
-            anchors.left: parent.left
+        Column {
+            anchors.left: cardAlbumArt.right
+            anchors.leftMargin: 10
             anchors.right: parent.right
-            anchors.margins: 12
-            height: 22
+            anchors.rightMargin: 12
+            anchors.top: parent.top
+            anchors.topMargin: 8
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 8
+            spacing: 6
 
-            Row {
-                id: topRowLeft
-                anchors.left: parent.left
-                anchors.right: topRowRight.left
-                anchors.rightMargin: 8
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 8
-                clip: true
+            // ── ROW 1: COMPACT MEDIA PLAYER CONTROLS & SEEK BAR (36px) ──
+            Item {
+                width: parent.width
+                height: 36
 
-                // ── Multi-Player Source Switcher (modeled after DesktopContextMenu wallpaper picker) ──
-                Row {
-                    id: playerSwitcherRow
+                // Left/Center: Compact Interactive Progress Pill
+                Rectangle {
+                    id: seekBarPill
+                    anchors.left: parent.left
+                    anchors.right: rightControlsCluster.left
+                    anchors.rightMargin: 10
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 6
-                    visible: dashboardContent.hasMultiplePlayers
+                    height: 26
+                    radius: 13
+                    color: Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.08)
+                    clip: true
 
-                    Repeater {
-                        model: dashboardContent.hasMultiplePlayers ? mprisSel.playersList : []
-                        delegate: ClippingRectangle {
-                            id: playerPillItem
-                            required property var modelData
-                            required property int index
-                            readonly property bool isCurrent: index === mprisSel.selectedIndex
-                            width: isCurrent ? 84 : 22
-                            height: 22
-                            radius: 11
-                            color: isCurrent ? Qt.rgba(1, 1, 1, 0.28) : (playerPillMa.containsMouse ? Qt.rgba(1, 1, 1, 0.20) : Qt.rgba(0, 0, 0, 0.36))
-                            border.color: isCurrent ? Qt.rgba(1, 1, 1, 0.45) : Qt.rgba(1, 1, 1, 0.18)
-                            border.width: 1
+                    readonly property real posSecs: mprisSel.player ? mprisSel.player.position : 0
+                    readonly property real lenSecs: mprisSel.player ? mprisSel.player.length : 0
+                    readonly property real ratio: (lenSecs > 0) ? Math.max(0, Math.min(1, posSecs / lenSecs)) : 0
+                    readonly property string elapsedStr: mediaWithLyricsGroup.fmtTime(posSecs)
+                    readonly property string remainingStr: lenSecs > 0
+                        ? ("-" + mediaWithLyricsGroup.fmtTime(Math.max(0, lenSecs - posSecs)))
+                        : "0:00"
 
-                            Behavior on width { NumberAnimation { duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
-                            Behavior on color { ColorAnimation { duration: 150 } }
+                    Component {
+                        id: trackBadgeComp
+                        Row {
+                            id: badgeRow
+                            property color titleColor: mediaWithLyricsGroup.inkCol
+                            property color chipBg: Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.12)
+                            property color chipTextColor: Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.85)
+                            spacing: 6
+                            readonly property real maxTotalW: Math.max(80, seekBarPill.width - 116)
+                            readonly property real chipReserve: mediaWithLyricsGroup.trackArtistOnly !== "" ? Math.min(artistText.implicitWidth + 14, maxTotalW * 0.42) : 0
 
-                            // Artwork / Thumbnail background preview if available
-                            Image {
-                                anchors.fill: parent
-                                source: modelData.trackArtUrl || ""
-                                sourceSize: Qt.size(96, 96)
-                                fillMode: Image.PreserveAspectCrop
-                                asynchronous: true
-                                opacity: playerPillItem.isCurrent ? 0.35 : 0.55
-                                visible: status === Image.Ready
+                            Text {
+                                id: titleText
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: Math.min(implicitWidth, Math.max(40, badgeRow.maxTotalW - badgeRow.chipReserve - (badgeRow.chipReserve > 0 ? badgeRow.spacing : 0)))
+                                text: mediaWithLyricsGroup.trackTitleOnly
+                                color: badgeRow.titleColor
+                                font.family: "Genova"
+                                font.pixelSize: 12
+                                font.weight: Font.Bold
+                                elide: Text.ElideRight
+                                maximumLineCount: 1
                             }
 
-                            Row {
-                                anchors.centerIn: parent
-                                spacing: 4
+                            Rectangle {
+                                visible: mediaWithLyricsGroup.trackArtistOnly !== ""
+                                anchors.verticalCenter: parent.verticalCenter
+                                height: 16
+                                width: Math.min(artistText.implicitWidth + 12, badgeRow.maxTotalW * 0.42)
+                                radius: 8
+                                color: badgeRow.chipBg
 
-                                // App Icon
-                                Item {
-                                    width: 14; height: 14
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    readonly property bool isSpot: /spotify/i.test((modelData.identity || "") + " " + (modelData.dbusName || ""))
-                                    readonly property bool isYt: /youtube/i.test(modelData.trackTitle || "") || /firefox|zen|chromium|chrome|brave/i.test(modelData.identity || "")
-
-                                    Image {
-                                        anchors.fill: parent
-                                        source: "file:///home/hery/.config/quickshell/bar/assets/icons/spotify.svg"
-                                        visible: parent.isSpot
-                                    }
-
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        radius: 3
-                                        color: "#e50914"
-                                        visible: !parent.isSpot && parent.isYt
-
-                                        IconText {
-                                            anchors.centerIn: parent
-                                            text: "play_arrow"
-                                            color: "#ffffff"
-                                            font.pixelSize: 9
-                                        }
-                                    }
-
-                                    IconText {
-                                        anchors.centerIn: parent
-                                        text: "music_note"
-                                        color: "#ffffff"
-                                        font.pixelSize: 13
-                                        visible: !parent.isSpot && !parent.isYt
-                                    }
-                                }
-
-                                // Identity Name when expanded
                                 Text {
-                                    visible: playerPillItem.isCurrent
-                                    text: {
-                                        var idStr = modelData.identity || "Media"
-                                        return idStr.length > 7 ? idStr.substring(0, 6) + "…" : idStr
-                                    }
-                                    color: "#ffffff"
-                                    font.family: root.barFont
-                                    font.pixelSize: 9
+                                    id: artistText
+                                    anchors.centerIn: parent
+                                    width: parent.width - 10
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: mediaWithLyricsGroup.trackArtistOnly
+                                    color: badgeRow.chipTextColor
+                                    font.family: "Genova"
+                                    font.pixelSize: 10
                                     font.weight: Font.DemiBold
-                                    anchors.verticalCenter: parent.verticalCenter
+                                    elide: Text.ElideRight
+                                    maximumLineCount: 1
                                 }
-
-                                // Checkmark badge when active
-                                IconText {
-                                    visible: playerPillItem.isCurrent
-                                    text: "check"
-                                    color: "#ffffff"
-                                    font.pixelSize: 11
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-                            }
-
-                            MouseArea {
-                                id: playerPillMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: mprisSel.selectPlayer(index)
-                            }
-
-                            TooltipMixin {
-                                root: dashboardContent.root
-                                owner: parent
-                                text: modelData.trackTitle ? (modelData.trackTitle + " (" + (modelData.identity || "Media") + ")") : (modelData.identity || "Media Player")
                             }
                         }
                     }
-                }
 
-                // Single-player App icon badge (visible when only 1 player active)
-                Item {
-                    width: 20; height: 20
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: !dashboardContent.hasMultiplePlayers
-
-                    Image {
-                        id: spotLogo
-                        anchors.fill: parent
-                        source: "file:///home/hery/.config/quickshell/bar/assets/icons/spotify.svg"
-                        visible: mediaCard.isSpotify && status === Image.Ready
+                    Text {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: seekBarPill.elapsedStr
+                        color: Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.75)
+                        font.family: "Genova"
+                        font.pixelSize: 10
+                        font.weight: Font.DemiBold
                     }
 
-                    Rectangle {
-                        id: ytBadge
+                    Loader {
+                        anchors.centerIn: parent
+                        sourceComponent: trackBadgeComp
+                        onLoaded: {
+                            item.titleColor = mediaWithLyricsGroup.inkCol
+                            item.chipBg = Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.12)
+                            item.chipTextColor = Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.85)
+                        }
+                    }
+
+                    Text {
+                        anchors.right: parent.right
+                        anchors.rightMargin: 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: seekBarPill.remainingStr
+                        color: Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.75)
+                        font.family: "Genova"
+                        font.pixelSize: 10
+                        font.weight: Font.DemiBold
+                    }
+
+                    Item {
+                        id: progressClip
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: parent.width * seekBarPill.ratio
+                        clip: true
+
+                        Rectangle {
+                            width: seekBarPill.width
+                            height: seekBarPill.height
+                            radius: seekBarPill.radius
+                            color: mediaWithLyricsGroup.accentCol
+                            opacity: 0.92
+                        }
+
+                        Text {
+                            x: 12
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: seekBarPill.elapsedStr
+                            color: mediaWithLyricsGroup.onAccentCol
+                            font.family: "Genova"
+                            font.pixelSize: 10
+                            font.weight: Font.DemiBold
+                        }
+
+                        Loader {
+                            x: Math.round((seekBarPill.width - width) / 2)
+                            anchors.verticalCenter: parent.verticalCenter
+                            sourceComponent: trackBadgeComp
+                            onLoaded: {
+                                item.titleColor = mediaWithLyricsGroup.onAccentCol
+                                item.chipBg = Qt.rgba(mediaWithLyricsGroup.onAccentCol.r, mediaWithLyricsGroup.onAccentCol.g, mediaWithLyricsGroup.onAccentCol.b, 0.20)
+                                item.chipTextColor = mediaWithLyricsGroup.onAccentCol
+                            }
+                        }
+
+                        Text {
+                            x: seekBarPill.width - width - 12
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: seekBarPill.remainingStr
+                            color: mediaWithLyricsGroup.onAccentCol
+                            font.family: "Genova"
+                            font.pixelSize: 10
+                            font.weight: Font.DemiBold
+                        }
+                    }
+
+                    MouseArea {
                         anchors.fill: parent
-                        radius: 5
-                        color: "#e50914"
-                        visible: !spotLogo.visible && mediaCard.isYouTube
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        function seekToMouse(mouseX) {
+                            if (mprisSel.player && mprisSel.player.canSeek && mprisSel.player.length > 0) {
+                                var frac = Math.max(0, Math.min(1, mouseX / seekBarPill.width))
+                                mprisSel.player.position = frac * mprisSel.player.length
+                            }
+                        }
+                        onPressed: (mouse) => seekToMouse(mouse.x)
+                        onPositionChanged: (mouse) => { if (pressed) seekToMouse(mouse.x) }
+                    }
+                }
+
+                // Right: Transport Controls + "See on <Player>" + Audio Output Pill
+                Row {
+                    id: rightControlsCluster
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 5
+
+                    Rectangle {
+                        width: 28; height: 28; radius: 14
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: prevMa.containsMouse
+                            ? Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.14)
+                            : Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.06)
+                        scale: prevMa.pressed ? 0.90 : 1.0
+                        Behavior on color { ColorAnimation { duration: 140 } }
+                        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutBack } }
 
                         IconText {
                             anchors.centerIn: parent
-                            text: "play_arrow"
-                            color: "#ffffff"
-                            font.pixelSize: 13
+                            text: "skip_previous"
+                            color: mediaWithLyricsGroup.inkCol
+                            font.pixelSize: 16
+                        }
+                        MouseArea {
+                            id: prevMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: if (mprisSel.player && mprisSel.player.canGoPrevious) mprisSel.player.previous()
                         }
                     }
+
+                    Rectangle {
+                        width: 44; height: 28; radius: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: mediaWithLyricsGroup.accentCol
+                        scale: playMa.pressed ? 0.92 : (playMa.containsMouse ? 1.04 : 1.0)
+                        Behavior on color { ColorAnimation { duration: 140 } }
+                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+
+                        IconText {
+                            anchors.centerIn: parent
+                            text: mediaWithLyricsGroup.isPlaying ? "pause" : "play_arrow"
+                            color: mediaWithLyricsGroup.onAccentCol
+                            font.pixelSize: 18
+                        }
+                        MouseArea {
+                            id: playMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: if (mprisSel.player) mprisSel.player.togglePlaying()
+                        }
+                    }
+
+                    Rectangle {
+                        width: 28; height: 28; radius: 14
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: nextMa.containsMouse
+                            ? Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.14)
+                            : Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.06)
+                        scale: nextMa.pressed ? 0.90 : 1.0
+                        Behavior on color { ColorAnimation { duration: 140 } }
+                        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutBack } }
+
+                        IconText {
+                            anchors.centerIn: parent
+                            text: "skip_next"
+                            color: mediaWithLyricsGroup.inkCol
+                            font.pixelSize: 16
+                        }
+                        MouseArea {
+                            id: nextMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: if (mprisSel.player && mprisSel.player.canGoNext) mprisSel.player.next()
+                        }
+                    }
+
+                    Rectangle {
+                        height: 26
+                        width: seeOnRow.implicitWidth + 16
+                        radius: 13
+                        visible: mediaWithLyricsGroup.playerDisplayName !== ""
+                        color: seeOnMa.containsMouse
+                            ? Qt.rgba(mediaWithLyricsGroup.accentCol.r, mediaWithLyricsGroup.accentCol.g, mediaWithLyricsGroup.accentCol.b, 0.26)
+                            : Qt.rgba(mediaWithLyricsGroup.accentCol.r, mediaWithLyricsGroup.accentCol.g, mediaWithLyricsGroup.accentCol.b, 0.14)
+                        scale: seeOnMa.pressed ? 0.94 : 1.0
+                        Behavior on color { ColorAnimation { duration: 140 } }
+                        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutBack } }
+
+                        Row {
+                            id: seeOnRow
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            IconText {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "open_in_new"
+                                color: mediaWithLyricsGroup.accentCol
+                                font.pixelSize: 13
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "See on " + mediaWithLyricsGroup.playerDisplayName
+                                color: mediaWithLyricsGroup.inkCol
+                                font.family: "Genova"
+                                font.pixelSize: 10
+                                font.weight: Font.DemiBold
+                            }
+                        }
+
+                        MouseArea {
+                            id: seeOnMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: mediaWithLyricsGroup.jumpToMediaWorkspace()
+                        }
+                    }
+
+                    Rectangle {
+                        height: 26
+                        width: audioPillRow.implicitWidth + 16
+                        radius: 13
+                        color: audioOutMa.containsMouse
+                            ? Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.14)
+                            : Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.08)
+                        Behavior on color { ColorAnimation { duration: 140 } }
+
+                        Row {
+                            id: audioPillRow
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            IconText {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: (audioData && audioData.isMuted) ? "volume_off" : ((audioData && audioData.isHeadphone) ? "headphones" : "volume_up")
+                                color: mediaWithLyricsGroup.inkCol
+                                font.pixelSize: 14
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: (audioData && audioData.volume !== undefined) ? (Math.round(audioData.volume) + "%") : "Audio"
+                                color: mediaWithLyricsGroup.inkCol
+                                font.family: "Genova"
+                                font.pixelSize: 10
+                                font.weight: Font.DemiBold
+                            }
+                        }
+
+                        MouseArea {
+                            id: audioOutMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: dashboardContent.activeDetailView = "volume"
+                        }
+                    }
+                }
+            }
+
+            // ── ROW 2: COMPACT SYNCED LYRICS STRIP (26px) ──
+            Item {
+                width: parent.width
+                height: 26
+
+                Rectangle {
+                    id: lyricIconBadge
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 24
+                    height: 24
+                    radius: 12
+                    color: Qt.rgba(mediaWithLyricsGroup.accentCol.r, mediaWithLyricsGroup.accentCol.g, mediaWithLyricsGroup.accentCol.b, 0.16)
 
                     IconText {
                         anchors.centerIn: parent
                         text: "music_note"
-                        color: "#ffffff"
-                        font.pixelSize: 18
-                        visible: !spotLogo.visible && !ytBadge.visible
-                    }
-                }
-
-                // Last Played / Now Playing Tag (Visible when not multiple players)
-                Rectangle {
-                    id: statusTag
-                    height: 20
-                    radius: 6
-                    visible: !dashboardContent.hasMultiplePlayers
-                    color: (dashboardContent.curTitle === "" && root.lastMediaTitle !== "")
-                        ? Qt.rgba(1, 1, 1, 0.30)
-                        : (mprisSel.playing ? Qt.rgba(1, 1, 1, 0.22) : Qt.rgba(0, 0, 0, 0.30))
-                    border.color: Qt.rgba(1, 1, 1, 0.2)
-                    border.width: 1
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: statusTxt.implicitWidth + 12
-
-                    Text {
-                        id: statusTxt
-                        anchors.centerIn: parent
-                        text: {
-                            if (dashboardContent.curTitle === "" && root.lastMediaTitle !== "") return "LAST PLAYED"
-                            if (mprisSel.playing) return "NOW PLAYING"
-                            return "PAUSED"
-                        }
-                        color: "#ffffff"
-                        font.family: root.barFont
-                        font.pixelSize: 9
-                        font.weight: Font.DemiBold
-                        font.letterSpacing: 0.8
-                    }
-                }
-            }
-
-            // Right side controls
-            Row {
-                id: topRowRight
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 6
-
-                // Switch to Clock Widget Button
-                Rectangle {
-                    id: switchToClockBtn
-                    width: 22
-                    height: 22
-                    radius: 11
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: switchToClockMa.containsMouse ? root.fillHover : root.fillIdle
-                    border.color: root.sep
-                    border.width: 1
-                    Behavior on color { ColorAnimation { duration: 150 } }
-
-                    IconText {
-                        anchors.centerIn: parent
-                        text: "schedule"
                         font.pixelSize: 13
-                        color: switchToClockMa.containsMouse ? root.seal : (root ? root.ink : "#ffffff")
-                    }
-
-                    TooltipMixin {
-                        root: dashboardContent.root
-                        owner: switchToClockBtn
-                        text: "Show Clock"
-                    }
-
-                    SpringPress {}
-                    MouseArea {
-                        id: switchToClockMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            dashboardContent.showMediaManually = false
-                        }
-                    }
-                }
-
-                // Output Pill (e.g. "This device" / Audio Sink)
-                Rectangle {
-                    id: outputPill
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: 22
-                    radius: 11
-                    color: Qt.rgba(1, 1, 1, 0.22)
-                    border.color: Qt.rgba(1, 1, 1, 0.15)
-                    border.width: 1
-                    width: outRow.implicitWidth + 14
-
-                    Row {
-                        id: outRow
-                        anchors.centerIn: parent
-                        spacing: 5
-
-                        IconText {
-                            text: "speaker"
-                            font.pixelSize: 13
-                            color: "#ffffff"
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Text {
-                            text: {
-                                var desc = (audioData.sink && audioData.sink.description) ? audioData.sink.description : "This device"
-                                return desc.length > 18 ? desc.substring(0, 16) + "…" : desc
-                            }
-                            color: "#ffffff"
-                            font.family: root.barFont
-                            font.pixelSize: 10
-                            font.weight: Font.Medium
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-
-                    TooltipMixin {
-                        root: dashboardContent.root
-                        owner: outputPill
-                        text: audioData.sink ? (audioData.sink.description || "Audio Output") : "Audio Output"
-                    }
-                }
-            }
-        }
-
-        // MIDDLE ROW: Title & Artist (Left) + Pill Play/Pause Button (Right)
-        Item {
-            id: midRow
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.verticalCenterOffset: -1
-            anchors.leftMargin: 12
-            anchors.rightMargin: 12
-            height: 44
-
-            // Track Title & Artist
-            Column {
-                id: textCol
-                anchors.left: parent.left
-                anchors.right: playPill.left
-                anchors.rightMargin: 12
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 2
-
-                // Song Title with Marquee (only scrolls when title overflows container)
-                Item {
-                    id: marqueeTitleContainer
-                    width: parent.width
-                    height: 22
-                    clip: true
-
-                    readonly property bool shouldMarquee: marqueeTitleContainer.width > 20 && marqueeTitleText.implicitWidth > (marqueeTitleContainer.width + 4)
-
-                    function resetMarquee() {
-                        marqueeAnim.stop()
-                        marqueeTitleText.x = 0
-                        if (shouldMarquee) marqueeAnim.start()
-                    }
-
-                    onWidthChanged: resetMarquee()
-                    onShouldMarqueeChanged: resetMarquee()
-
-                    Text {
-                        id: marqueeTitleText
-                        text: root.lastMediaTitle || "No media"
-                        color: "#ffffff"
-                        font.family: root.barFont
-                        font.pixelSize: 17
-                        font.weight: Font.DemiBold
-                        anchors.verticalCenter: parent.verticalCenter
-
-                        onTextChanged: marqueeTitleContainer.resetMarquee()
-
-                        SequentialAnimation on x {
-                            id: marqueeAnim
-                            loops: Animation.Infinite
-                            running: marqueeTitleContainer.shouldMarquee
-                            onRunningChanged: {
-                                if (!running) marqueeTitleText.x = 0
-                            }
-                            PauseAnimation { duration: 2000 }
-                            NumberAnimation {
-                                from: 0
-                                to: -(marqueeTitleText.implicitWidth - marqueeTitleContainer.width + 16)
-                                duration: Math.max(1200, (marqueeTitleText.implicitWidth - marqueeTitleContainer.width) * 25)
-                                easing.type: Easing.Linear
-                            }
-                            PauseAnimation { duration: 1800 }
-                            NumberAnimation {
-                                to: 0
-                                duration: 400
-                                easing.type: Easing.OutQuad
-                            }
-                        }
+                        color: mediaWithLyricsGroup.accentCol
                     }
                 }
 
                 Text {
-                    text: root.lastMediaArtist || "Nothing in queue"
-                    color: Qt.rgba(1, 1, 1, 0.80)
-                    font.family: root.barFont
+                    anchors.left: lyricIconBadge.right
+                    anchors.leftMargin: 10
+                    anchors.right: floatTogglePill.left
+                    anchors.rightMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    horizontalAlignment: Text.AlignHCenter
+                    text: mediaWithLyricsGroup.currentLyricText !== ""
+                        ? mediaWithLyricsGroup.currentLyricText
+                        : "No synced lyrics"
+                    color: mediaWithLyricsGroup.currentLyricText !== ""
+                        ? mediaWithLyricsGroup.inkCol
+                        : Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.45)
+                    font.family: "Genova"
                     font.pixelSize: 12
+                    font.weight: mediaWithLyricsGroup.currentLyricText !== "" ? Font.DemiBold : Font.Normal
                     elide: Text.ElideRight
-                    width: parent.width
-                }
-            }
-
-            // Pill Play/Pause Button (Material You rectangle pill style)
-            Rectangle {
-                id: playPill
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                width: 54
-                height: 34
-                radius: 17
-                readonly property color iconCol: {
-                    var c = mediaCard.pillBg
-                    var luma = c.r * 0.299 + c.g * 0.587 + c.b * 0.114
-                    return luma > 0.55 ? "#1e1b18" : "#ffffff"
-                }
-                color: playMa.pressed ? Qt.darker(mediaCard.pillBg, 1.15) : (playMa.containsMouse ? Qt.lighter(mediaCard.pillBg, 1.08) : mediaCard.pillBg)
-                border.color: Qt.rgba(0, 0, 0, 0.08)
-                border.width: 1
-                Behavior on color { ColorAnimation { duration: 150 } }
-
-                // Geometric pause bars (100% mathematically centered)
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 4
-                    visible: mprisSel.playing
-
-                    Rectangle {
-                        width: 3.5
-                        height: 14
-                        radius: 1.75
-                        color: playPill.iconCol
-                    }
-                    Rectangle {
-                        width: 3.5
-                        height: 14
-                        radius: 1.75
-                        color: playPill.iconCol
-                    }
+                    maximumLineCount: 1
                 }
 
-                // Play arrow icon (when paused)
-                IconText {
-                    anchors.centerIn: parent
-                    anchors.horizontalCenterOffset: 1.5
-                    text: "play_arrow"
-                    font.pixelSize: 22
-                    color: playPill.iconCol
-                    visible: !mprisSel.playing
-                }
-
-                SpringPress {}
-                MouseArea {
-                    id: playMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: if (mprisSel.player) mprisSel.player.togglePlaying()
-                }
-            }
-        }
-
-        // BOTTOM ROW: Prev + Wavy Progress Bar + Next + Song Length
-        Row {
-            id: bottomRow
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            anchors.margins: 12
-            height: 24
-            spacing: 8
-
-            // Previous Button
-            Item {
-                width: 24; height: 24
-                anchors.verticalCenter: parent.verticalCenter
-
-                IconText {
-                    anchors.centerIn: parent
-                    text: "skip_previous"
-                    font.pixelSize: 22
-                    color: "#ffffff"
-                    opacity: (mprisSel.player && mprisSel.player.canGoPrevious) ? 0.95 : 0.4
-                }
-
-                SpringPress {}
-                MouseArea {
-                    id: prevMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    scale: pressed ? 0.88 : 1.0
-                    Behavior on scale { NumberAnimation { duration: 100 } }
-                    onClicked: if (mprisSel.player) mprisSel.player.previous()
-                }
-            }
-
-            // Wavy Seekable Progress Bar
-            Item {
-                id: wavyBarContainer
-                anchors.verticalCenter: parent.verticalCenter
-                width: Math.max(80, parent.width - 24 - 24 - (positionTxt ? positionTxt.implicitWidth : 36) - (8 * 3))
-                height: 24
-
-                property real progress: dashboardContent.curLen > 0 
-                    ? Math.max(0, Math.min(1, dashboardContent.curPos / dashboardContent.curLen)) 
-                    : 0
-
-                Canvas {
-                    id: waveCanvas
-                    anchors.fill: parent
-                    property real wavePhase: 0
-                    property real waveAmp: mprisSel.playing ? 3.5 : 0
-
-                    Behavior on waveAmp {
-                        NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
-                    }
-                    onWaveAmpChanged: requestPaint()
-
-                    onPaint: {
-                        var ctx = getContext("2d")
-                        ctx.clearRect(0, 0, width, height)
-                        var cy = height / 2
-                        var p = wavyBarContainer.progress
-                        var progressX = Math.max(0, Math.min(width, width * p))
-                        var scrubberW = 4
-                        var scrubberH = (seekArea.pressed || seekArea.containsMouse) ? 14 : 10
-                        var baseAmp = waveCanvas.waveAmp
-
-                        // 1. Unplayed straight horizontal line (from progressX to width)
-                        if (progressX < width) {
-                            ctx.beginPath()
-                            ctx.moveTo(progressX, cy)
-                            ctx.lineTo(width, cy)
-                            ctx.strokeStyle = Qt.rgba(1, 1, 1, 0.32)
-                            ctx.lineWidth = 3
-                            ctx.lineCap = "round"
-                            ctx.stroke()
-                        }
-
-                        // 2. Played portion: wavy sine line when playing, flat straight line when paused
-                        if (progressX > 0) {
-                            var wavelength = 34 // Slightly increased frequency
-                            ctx.beginPath()
-                            ctx.moveTo(0, cy)
-                            if (baseAmp > 0.05) {
-                                for (var x = 0; x <= progressX; x += 1.5) {
-                                    var distToEnd = progressX - x
-                                    var taper = distToEnd < 14 ? (distToEnd / 14) : 1.0
-                                    var y = cy + baseAmp * taper * Math.sin((x / wavelength) * 2 * Math.PI - wavePhase)
-                                    ctx.lineTo(x, y)
-                                }
-                            } else {
-                                ctx.lineTo(progressX, cy)
-                            }
-                            ctx.strokeStyle = "#ffffff"
-                            ctx.lineWidth = 3
-                            ctx.lineCap = "round"
-                            ctx.stroke()
-                        }
-
-                        // 3. Vertical pill scrubber head (fixed vertically in center: stationary at cy)
-                        ctx.beginPath()
-                        ctx.moveTo(progressX, cy - scrubberH / 2)
-                        ctx.lineTo(progressX, cy + scrubberH / 2)
-                        ctx.strokeStyle = "#ffffff"
-                        ctx.lineWidth = scrubberW
-                        ctx.lineCap = "round"
-                        ctx.stroke()
-                    }
-                }
-
-                Timer {
-                    interval: 33
-                    running: mprisSel.playing && panel.expanded
-                    repeat: true
-                    onTriggered: {
-                        waveCanvas.wavePhase += 0.08
-                        waveCanvas.requestPaint()
-                    }
-                }
-
-                Connections {
-                    target: dashboardContent
-                    function onCurPosChanged() { waveCanvas.requestPaint() }
-                    function onCurLenChanged() { waveCanvas.requestPaint() }
-                }
-
-                Connections {
-                    target: mprisSel
-                    function onPlayingChanged() { waveCanvas.requestPaint() }
-                }
-
-                // Floating Timestamp Tooltip during scrub / hover
                 Rectangle {
-                    anchors.bottom: parent.top
-                    anchors.bottomMargin: 4
-                    x: Math.max(0, Math.min(parent.width - width, wavyBarContainer.width * wavyBarContainer.progress - width / 2))
-                    width: timeTxt.implicitWidth + 12
-                    height: 18
-                    radius: 9
-                    color: Qt.rgba(0, 0, 0, 0.85)
-                    border.color: Qt.rgba(1, 1, 1, 0.25)
-                    border.width: 1
-                    visible: (seekArea.containsMouse || seekArea.pressed) && dashboardContent.curLen > 0
+                    id: floatTogglePill
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 24
+                    width: floatToggleRow.implicitWidth + 16
+                    radius: 12
+                    border.width: 0
+                    visible: Boolean(mediaWithLyricsGroup.mp)
+                    readonly property bool isFloating: Boolean(mediaWithLyricsGroup.mp && mediaWithLyricsGroup.mp.showingLyrics)
+                    color: isFloating
+                        ? mediaWithLyricsGroup.accentCol
+                        : (floatToggleMa.containsMouse
+                            ? Qt.rgba(mediaWithLyricsGroup.accentCol.r, mediaWithLyricsGroup.accentCol.g, mediaWithLyricsGroup.accentCol.b, 0.22)
+                            : Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.08))
+                    Behavior on color { ColorAnimation { duration: 150 } }
 
-                    Text {
-                        id: timeTxt
+                    Row {
+                        id: floatToggleRow
                         anchors.centerIn: parent
-                        text: dashboardContent.fmtTime(dashboardContent.curPos) + " / " + dashboardContent.fmtTime(dashboardContent.curLen)
-                        color: "#ffffff"
-                        font.family: root.barFont
-                        font.pixelSize: 10
-                        font.weight: Font.DemiBold
+                        spacing: 4
+                        IconText {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "lyrics"
+                            font.pixelSize: 12
+                            color: floatTogglePill.isFloating ? mediaWithLyricsGroup.onAccentCol : mediaWithLyricsGroup.accentCol
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: floatTogglePill.isFloating ? "Floating" : "Float"
+                            font.family: "Genova"
+                            font.pixelSize: 10
+                            font.weight: Font.Bold
+                            color: floatTogglePill.isFloating ? mediaWithLyricsGroup.onAccentCol : mediaWithLyricsGroup.inkCol
+                        }
                     }
-                }
 
-                MouseArea {
-                    id: seekArea
-                    anchors.fill: parent
-                    anchors.margins: -6
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: (mouse) => {
-                        dashboardContent.seekTo(mouse.x / width)
-                        waveCanvas.requestPaint()
-                    }
-                    onPositionChanged: (mouse) => {
-                        if (pressed) {
-                            dashboardContent.seekTo(mouse.x / width)
-                            waveCanvas.requestPaint()
+                    MouseArea {
+                        id: floatToggleMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (mediaWithLyricsGroup.mp) {
+                                mediaWithLyricsGroup.mp.showingLyrics = !mediaWithLyricsGroup.mp.showingLyrics
+                            }
                         }
                     }
                 }
             }
-
-            // Next Button
-            Item {
-                width: 24; height: 24
-                anchors.verticalCenter: parent.verticalCenter
-
-                IconText {
-                    anchors.centerIn: parent
-                    text: "skip_next"
-                    font.pixelSize: 22
-                    color: "#ffffff"
-                    opacity: (mprisSel.player && mprisSel.player.canGoNext) ? 0.95 : 0.4
-                }
-
-                SpringPress {}
-                MouseArea {
-                    id: nextMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    scale: pressed ? 0.88 : 1.0
-                    Behavior on scale { NumberAnimation { duration: 100 } }
-                    onClicked: if (mprisSel.player) mprisSel.player.next()
-                }
-            }
-
-            // Current Song Position Display
-            Text {
-                id: positionTxt
-                text: dashboardContent.fmtTime(dashboardContent.curPos)
-                color: Qt.rgba(1, 1, 1, 0.85)
-                font.family: root.barFont
-                font.pixelSize: 12
-                font.weight: Font.Medium
-                anchors.verticalCenter: parent.verticalCenter
-            }
         }
-    } // end mediaCard
-} // end mediaWithLyricsGroup
+    }
+}

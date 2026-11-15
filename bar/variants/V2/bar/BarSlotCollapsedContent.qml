@@ -39,7 +39,7 @@ Item {
         readonly property string lyricText: hasLyrics ? collapsedRoot.barSlot.mprisPanel.lyricsList[collapsedRoot.barSlot.mprisPanel.currentLyricIndex].text : ""
         
         readonly property string windowTitle: Hyprland && Hyprland.activeToplevel ? Hyprland.activeToplevel.title : ""
-        
+
         readonly property string displayText: hasLyrics ? lyricText : (windowTitle !== "" ? windowTitle : "Desktop")
         readonly property real maxTextWidth: hasLyrics ? (collapsedRoot.barSlot.width - 120) : 350
         

@@ -93,7 +93,7 @@ Item {
             anchors.centerIn: parent
             color: Theme.muted
             font.pixelSize: 36
-            font.family: "Genova"
+            font.family: "Plus Jakarta Sans"
             font.bold: true
             opacity: root.isHovered ? 1.0 : 0.5
         }
@@ -123,7 +123,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 color: root.isActive ? Theme.accent : Theme.foreground
                 font.pixelSize: 10
-                font.family: "Genova"
+                font.family: "Plus Jakarta Sans"
                 font.letterSpacing: 0.5
                 font.bold: true
                 elide: Text.ElideRight

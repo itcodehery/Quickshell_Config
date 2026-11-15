@@ -16,6 +16,7 @@ Item {
     property alias islandNotifPeekItem: islandOverlays.islandNotifPeekItem
     property alias islandDictationItem: islandOverlays.islandDictationItem
     property alias islandChargingItem: islandOverlays.islandChargingItem
+    property alias islandPowerPeekItem: islandOverlays.islandPowerPeekItem
     property alias hoverQuickPanel: hoverQuickPanel
 
     opacity: (island.barSlot.isDashboardActive || island.barSlot.isDashboardClosing) ? 0.0 : 1.0
@@ -86,7 +87,7 @@ Item {
     readonly property int fitRegionCount: 3
 
     // The base shell draws a black hole around the island when hovered.
-    property bool isIslandHidden: (!island.isHovered || island.osdActive || island.notifPeekActive) && !island.barSlot.root.anyPopupVisible
+    property bool isIslandHidden: (!island.isHovered || island.osdActive || island.notifPeekActive || island.powerPeekActive || island.chargingActive) && !island.barSlot.root.anyPopupVisible
     property real islandShrinkProgress: island.barSlot.isHoverExpanded ? 0.0 : 1.0
     Behavior on islandShrinkProgress {
         NumberAnimation { duration: island.barSlot.isHoverExpanded ? 240 : 200; easing.type: Easing.OutCubic }
@@ -150,6 +151,12 @@ Item {
     readonly property bool chargingActive: island.barSlot.root.chargingPopupActive
     property real chargingProgress: chargingActive ? 1.0 : 0.0
     Behavior on chargingProgress {
+        NumberAnimation { duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+    }
+
+    readonly property bool powerPeekActive: Boolean(island.barSlot && island.barSlot.isPowerPeekActive)
+    property real powerPeekProgress: powerPeekActive ? 1.0 : 0.0
+    Behavior on powerPeekProgress {
         NumberAnimation { duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
     }
 
@@ -218,8 +225,9 @@ Item {
         + (islandCollapsedRightSlot.implicitWidth > 0 ? (islandCollapsedRightSlot.implicitWidth + 4) : 0)
         + (islandTimerItem.active ? (islandTimerItem.targetWidth + 4) : 0)
     readonly property real defaultCollapsedCenterWidth: Math.max(60, collapsedItemsWidth)
-    readonly property real overlayProgress: Math.max(island.osdProgress, island.notifPeekProgress, island.dictationProgress, island.chargingProgress)
+    readonly property real overlayProgress: Math.max(island.osdProgress, island.notifPeekProgress, island.dictationProgress, island.chargingProgress, island.powerPeekProgress)
     readonly property real overlayTargetWidth: {
+        if (island.powerPeekProgress > 0) return islandPowerPeekItem.width
         if (island.dictationProgress > 0) return islandDictationItem.width
         if (island.chargingProgress > 0) return islandChargingItem.targetWidth
         if (island.notifPeekProgress > 0) return islandNotifPeekItem.width

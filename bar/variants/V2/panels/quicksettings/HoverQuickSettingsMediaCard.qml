@@ -181,6 +181,6 @@ Rectangle {
         anchors.fill: parent
         z: -1
         cursorShape: Qt.PointingHandCursor
-        onClicked: hoverPanel.root.mprisVisible = !hoverPanel.root.mprisVisible
+        onClicked: hoverPanel.root.dashboardExpanded = !hoverPanel.root.dashboardExpanded
     }
 }

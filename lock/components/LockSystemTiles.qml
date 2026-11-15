@@ -62,7 +62,7 @@ Row {
                     }
                     Text {
                         text: "Battery"
-                        font.family: "Genova"
+                        font.family: "Plus Jakarta Sans"
                         font.pixelSize: 11
                         font.weight: Font.Bold
                         color: root.seal
@@ -78,7 +78,7 @@ Row {
 
                     Text {
                         text: root.batteryPercent + "%"
-                        font.family: "Genova"
+                        font.family: "Plus Jakarta Sans"
                         font.pixelSize: 46
                         font.weight: Font.Bold
                         font.letterSpacing: -1.0
@@ -112,7 +112,7 @@ Row {
                     anchors.bottom: parent.bottom
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: root.isCharging ? "Charging" : "On Battery"
-                    font.family: "Genova"
+                    font.family: "Plus Jakarta Sans"
                     font.pixelSize: 10
                     font.weight: Font.Medium
                     color: root.ink
@@ -199,7 +199,7 @@ Row {
 
                                     Text {
                                         text: "CPU"
-                                        font.family: "Genova"
+                                        font.family: "Plus Jakarta Sans"
                                         font.pixelSize: 10
                                         font.weight: Font.Bold
                                         color: root.seal
@@ -212,7 +212,7 @@ Row {
                                     anchors.topMargin: 2
                                     anchors.left: parent.left
                                     text: root.cpuPercent + "%"
-                                    font.family: "Genova"
+                                    font.family: "Plus Jakarta Sans"
                                     font.pixelSize: 18
                                     font.weight: Font.Bold
                                     font.letterSpacing: -0.5
@@ -273,7 +273,7 @@ Row {
 
                                     Text {
                                         text: "RAM"
-                                        font.family: "Genova"
+                                        font.family: "Plus Jakarta Sans"
                                         font.pixelSize: 10
                                         font.weight: Font.Bold
                                         color: root.color06
@@ -286,7 +286,7 @@ Row {
                                     anchors.topMargin: 2
                                     anchors.left: parent.left
                                     text: root.memPercent + "%"
-                                    font.family: "Genova"
+                                    font.family: "Plus Jakarta Sans"
                                     font.pixelSize: 18
                                     font.weight: Font.Bold
                                     font.letterSpacing: -0.5
@@ -354,7 +354,7 @@ Row {
 
                                 Text {
                                     text: root.screentimeFormatted
-                                    font.family: "Genova"
+                                    font.family: "Plus Jakarta Sans"
                                     font.pixelSize: 18
                                     font.weight: Font.Bold
                                     font.letterSpacing: -0.4
@@ -363,7 +363,7 @@ Row {
 
                                 Text {
                                     text: "Screen Time Today"
-                                    font.family: "Genova"
+                                    font.family: "Plus Jakarta Sans"
                                     font.pixelSize: 10
                                     font.weight: Font.Medium
                                     color: root.ink

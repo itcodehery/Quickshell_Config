@@ -4,7 +4,6 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import "ThemePopupAndLayout.js" as PopupLayout
-import "ThemeTelemetry.js" as Telemetry
 
 Item {
     id: theme
@@ -203,8 +202,8 @@ Item {
         { id: "android17", name: "Android 17", desc: "Expressive split-pill track with tall vertical accent line", badge: "Expressive" },
         { id: "ios",       name: "iOS Style",  desc: "Continuous rounded capsule with fluid full-bleed fill", badge: "Fluid" },
         { id: "android12", name: "Android 12", desc: "Material You thick continuous track with inset circular thumb", badge: "Material" },
-        { id: "minimal",   name: "Minimal",    desc: "Slim hairline track with floating circular knob", badge: "Clean" },
-        { id: "blocky",    name: "Cyber Block", desc: "Industrial chamfered rail with geometric block thumb", badge: "Cyber" }
+        { id: "minimal",   name: "Comet Pulse",       desc: "Sweeping shimmer fill with a breathing halo & morphing pill thumb", badge: "Animated" },
+        { id: "blocky",    name: "Kinetic Equalizer", desc: "Spring-scaled capsule bars with a magnetic proximity wave", badge: "Expressive" }
     ]
 
     // ── dashboard tile shape styles (persisted per size: 1x1, 1x2, 2x2) ──
@@ -351,11 +350,6 @@ Item {
     property int calendarMonthOffset: 0
     property int calendarTick: 0
     property int selectedDay: 0
-
-    readonly property var calendarCells: Telemetry.computeCalendarCells(theme)
-    readonly property string calendarMonthName: Telemetry.computeCalendarMonthName(theme)
-    readonly property string calendarYear: Telemetry.computeCalendarYear(theme)
-    function openCalendar() { Telemetry.openCalendar(theme) }
 
     // ── CPU panel state ──
     property bool cpuVisible: false
@@ -531,9 +525,11 @@ Item {
         : cpuTemperatureC
     readonly property bool barTemperatureAvailable: barTemperatureC > 0
 
-    function barTemperatureSourceValid(source) { return Telemetry.barTemperatureSourceValid(source) }
-    function barTemperatureSourceLabel(source) { return Telemetry.barTemperatureSourceLabel(source) }
-    function barTemperatureSourceAvailable(source) { return Telemetry.barTemperatureSourceAvailable(theme, source) }
+    function barTemperatureSourceValid(source) {
+        return source === "cpu" || source === "core" || source === "gpu" || source === "nvme" || source === "memory"
+    }
+    function barTemperatureSourceLabel(source) { return String(source || "cpu").toUpperCase() }
+    function barTemperatureSourceAvailable(source) { return barTemperatureSourceValid(source) }
 
     property int storagePercent: 0
     property real storageUsedBytes: 0
@@ -543,16 +539,4 @@ Item {
     readonly property real storageTotalGiB: storageTotalBytes / 1073741824
     property var storageDrives: []
     property bool storageInventoryAvailable: false
-
-    function parseSystemCpu(text) { Telemetry.parseSystemCpu(theme, text) }
-    function parseCpuInfo(text) { Telemetry.parseCpuInfo(theme, text) }
-    function parseSystemLoad(text) { Telemetry.parseSystemLoad(theme, text) }
-    function parseCpuDetail(text) { Telemetry.parseCpuDetail(theme, text) }
-    function parseCpuTopProcesses(text) { Telemetry.parseCpuTopProcesses(theme, text) }
-    function parseSystemMem(text) { Telemetry.parseSystemMem(theme, text) }
-    function parseMemoryHardware(text) { Telemetry.parseMemoryHardware(theme, text) }
-    function parseGpuTelemetry(text) { Telemetry.parseGpuTelemetry(theme, text) }
-    function parseThermalTelemetry(text) { Telemetry.parseThermalTelemetry(theme, text) }
-    function parseStorageInventory(text) { Telemetry.parseStorageInventory(theme, text) }
-    function parseStorageTelemetry(text) { Telemetry.parseStorageTelemetry(theme, text) }
 }

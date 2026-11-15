@@ -280,7 +280,7 @@ ShellRoot {
                             text: root.activeWsId
                             color: Theme.accent
                             font.pixelSize: 28
-                            font.family: "Genova"
+                            font.family: "Plus Jakarta Sans"
                             font.bold: true
                             anchors.horizontalCenter: parent.horizontalCenter
                         }

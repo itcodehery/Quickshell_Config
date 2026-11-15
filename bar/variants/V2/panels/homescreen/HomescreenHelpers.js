@@ -1,16 +1,13 @@
 .pragma library
 
 function normalizeSpan(span) {
-    if (span === 4 || span === "2x2") return 4
-    if (span === 2 || span === "1x2") return 2
+    if (span === 2 || span === "1x2" || span === 4 || span === "2x2") return 2
     return 1
 }
 
 function cycleSpan(curSpan) {
     let s = normalizeSpan(curSpan)
-    if (s === 1) return 2
-    if (s === 2) return 4
-    return 1
+    return s === 1 ? 2 : 1
 }
 
 function recalculateGridLayout(dc, tilesModel, tilesPager, smoothScrollAnim) {
@@ -587,7 +584,6 @@ function handleKeyPressed(dc, event) {
     var root = dc.root
     var panel = dc.panel
     var mprisSel = dc.mprisSel
-    var sysDetailSection = dc.sysDetailSection
     var pluginsDetailSection = dc.pluginsDetailSection
     var themeDetailSection = dc.themeDetailSection
     var notesDetailSection = dc.notesDetailSection
@@ -629,23 +625,6 @@ function handleKeyPressed(dc, event) {
             event.accepted = true
             return
         }
-    }
-    if (dc.activeDetailView === "system") {
-        if (event.key === Qt.Key_Escape || event.key === Qt.Key_X) {
-            dc.activeDetailView = ""
-            if (root) root.dashboardDetail = ""
-            event.accepted = true
-        } else if (event.key === Qt.Key_J || event.key === Qt.Key_Down || event.key === Qt.Key_Right) {
-            if (sysDetailSection) sysDetailSection.focusedIndex = (sysDetailSection.focusedIndex + 1) % 4
-            event.accepted = true
-        } else if (event.key === Qt.Key_K || event.key === Qt.Key_Up || event.key === Qt.Key_Left) {
-            if (sysDetailSection) sysDetailSection.focusedIndex = (sysDetailSection.focusedIndex - 1 + 4) % 4
-            event.accepted = true
-        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
-            if (sysDetailSection) sysDetailSection.triggerOption(sysDetailSection.focusedIndex)
-            event.accepted = true
-        }
-        return
     }
     if (dc.activeDetailView === "plugins") {
         if (event.key === Qt.Key_Escape) {
@@ -886,12 +865,9 @@ function handleKeyPressed(dc, event) {
         if (panel && panel.searchOpen) {
             return;
         }
-        if (dc.activeDetailView === "system") {
-            dc.activeDetailView = ""
-            if (root) root.dashboardDetail = ""
-        } else {
-            dc.activeDetailView = "system"
-            if (root) root.dashboardDetail = "system"
+        if (root) {
+            root.dashboardExpanded = false
+            root.powerPeekActive = true
         }
         event.accepted = true
     } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {

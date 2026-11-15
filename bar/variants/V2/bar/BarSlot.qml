@@ -27,16 +27,24 @@ PanelWindow {
 
     readonly property bool isDashboardTargetScreen: !barSlot.root.activePopupScreenName || barSlot.root.isActivePopupScreenName(barSlot.screenName)
     readonly property bool isDashboardActive: barSlot.root.dashboardExpanded && isDashboardTargetScreen
+    readonly property bool isPowerPeekActive: !isDashboardActive && Boolean(barSlot.root && barSlot.root.powerPeekActive) && isDashboardTargetScreen
     property bool isDashboardClosing: false
     property bool dashboardEverActivated: false
 
     readonly property bool isPickerDetail: barSlot.root.dashboardDetail === "theme" || barSlot.root.dashboardDetail === "wallpaper"
     readonly property bool isSubPageOpen: barSlot.root.dashboardDetail !== "" && barSlot.root.dashboardDetail !== "workspaces"
-    readonly property real dashboardExpandedWidth: Math.min((isPickerDetail ? 960 : 840) + (isSubPageOpen ? 52 : 0), barSlot.width - 32)
-    readonly property real dashboardExpandedHeight: Math.min(barSlot.height - 40, isPickerDetail ? 430 : 314)
+    readonly property bool isHomescreenMediaShown: isDashboardActive && !isSubPageOpen && Boolean(expandedDashboardContainer && expandedDashboardContainer.isMediaShown)
+    readonly property real dashboardExpandedWidth: Math.min(
+        (barSlot.isPickerDetail ? 1180 : 1160) + (barSlot.isSubPageOpen ? 76 : 0),
+        barSlot.width - 40
+    )
+    readonly property real dashboardExpandedHeight: Math.min(
+        barSlot.height - 48,
+        (barSlot.isPickerDetail || barSlot.isSubPageOpen) ? 530 : 480
+    )
 
-    readonly property real dashboardTopRadius: 24
-    readonly property real dashboardBottomRadius: 24
+    readonly property real dashboardTopRadius: 28
+    readonly property real dashboardBottomRadius: 28
 
     readonly property var islandNotifPeekItem: island ? island.islandNotifPeekItem : null
     readonly property int notifTargetHeight: (island && island.notifPeekActive && typeof islandNotifPeekItem !== "undefined" && islandNotifPeekItem)
@@ -51,16 +59,20 @@ PanelWindow {
         ? Math.round(dashboardExpandedHeight)
         : (isHoverExpanded
             ? barExpandedHeight
-            : (island && island.chargingProgress > 0
-                ? Math.round(barSlot.root.v2BarHeight + (chargingTargetHeight - barSlot.root.v2BarHeight) * island.chargingProgress)
-                : (island && island.notifPeekActive
-                    ? Math.round(barSlot.root.v2BarHeight + (notifTargetHeight - barSlot.root.v2BarHeight) * island.notifPeekProgress)
-                    : barSlot.root.v2BarHeight)))
+            : (island && island.powerPeekProgress > 0
+                ? Math.round(barSlot.root.v2BarHeight + (152 - barSlot.root.v2BarHeight) * island.powerPeekProgress)
+                : (island && island.chargingProgress > 0
+                    ? Math.round(barSlot.root.v2BarHeight + (chargingTargetHeight - barSlot.root.v2BarHeight) * island.chargingProgress)
+                    : (island && island.notifPeekActive
+                        ? Math.round(barSlot.root.v2BarHeight + (notifTargetHeight - barSlot.root.v2BarHeight) * island.notifPeekProgress)
+                        : barSlot.root.v2BarHeight))))
     readonly property int shellRadius: isDashboardActive
-        ? 24
-        : ((island && island.notifPeekActive && island.notifPeekBody !== "")
-            ? 20
-            : (isHoverExpanded ? 24 : Math.round(shellVisibleHeight / 2)))
+        ? 28
+        : ((island && island.powerPeekProgress > 0)
+            ? 24
+            : ((island && island.notifPeekActive && island.notifPeekBody !== "")
+                ? 20
+                : (isHoverExpanded ? 24 : Math.round(shellVisibleHeight / 2))))
     readonly property real shellTargetWidth: isDashboardActive
         ? dashboardExpandedWidth
         : Math.max(80,
@@ -89,11 +101,11 @@ PanelWindow {
     readonly property int barEdgeOffset: barSlot.root.isBarNotch ? 0 : 4
 
     mask: Region {
-        x: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? 0
+        x: (barSlot.root.barUnlocked || barSlot.isDashboardActive || barSlot.isPowerPeekActive) ? 0
            : (barSlot.isHoverExpanded
                ? Math.round((barSlot.width - barSlot.hoverMaskWidth) / 2)
                : Math.round(continuousBarSurface.x))
-        y: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? 0
+        y: (barSlot.root.barUnlocked || barSlot.isDashboardActive || barSlot.isPowerPeekActive) ? 0
            : barSlot.effectivelyHidden
                ? (barSlot.root.barPosition === "bottom" ? barSlot.height - 1 : 0)
                : (barSlot.root.barPosition === "bottom"
@@ -101,14 +113,14 @@ PanelWindow {
                        ? barSlot.height - Math.round(barSlot.hoverMaskHeight) - barSlot.barEdgeOffset
                        : barSlot.height - Math.round(continuousBarSurface.height) - barSlot.barEdgeOffset)
                    : barSlot.barEdgeOffset)
-        width: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? barSlot.width
+        width: (barSlot.root.barUnlocked || barSlot.isDashboardActive || barSlot.isPowerPeekActive) ? barSlot.width
            : (barSlot.isHoverExpanded ? Math.round(barSlot.hoverMaskWidth) : Math.round(continuousBarSurface.width))
-        height: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? barSlot.height
+        height: (barSlot.root.barUnlocked || barSlot.isDashboardActive || barSlot.isPowerPeekActive) ? barSlot.height
            : barSlot.effectivelyHidden ? 1
            : (barSlot.isHoverExpanded ? Math.round(barSlot.hoverMaskHeight) : Math.round(continuousBarSurface.height))
     }
-    // grab keyboard while unlocked or dashboard is expanded so ESC / typing can work
-    WlrLayershell.keyboardFocus: (barSlot.root.barUnlocked || barSlot.isDashboardActive) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    // grab keyboard while unlocked, dashboard is expanded, or power peek is active
+    WlrLayershell.keyboardFocus: (barSlot.root.barUnlocked || barSlot.isDashboardActive || barSlot.isPowerPeekActive) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     HoverHandler {
         id: slotHover
@@ -290,7 +302,12 @@ PanelWindow {
         // out and mirrors the same negative-space geometry at the bottom edge.
         Shape {
             id: surfaceFill
-            anchors.fill: parent
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: barSlot.isHomescreenMediaShown ? 98 : 0
+            Behavior on anchors.bottomMargin { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
             antialiasing: true
             preferredRendererType: Shape.CurveRenderer
 
@@ -330,19 +347,25 @@ PanelWindow {
     // ── dim backdrop while unlocked (edit mode) or dashboard expanded; click empty → dismiss ──
     Rectangle {
         anchors.fill: parent
-        color: "#000000"
-        opacity: barSlot.root.barUnlocked ? 0.4 : (barSlot.isDashboardActive ? (barSlot.root.isLightMode ? 0.35 : 0.65) : 0.0)
+        color: barSlot.isDashboardActive
+            ? (barSlot.root.isLightMode
+                ? Qt.rgba(barSlot.root.paper.r, barSlot.root.paper.g, barSlot.root.paper.b, 0.50)
+                : Qt.rgba(barSlot.root.paper.r * 0.4, barSlot.root.paper.g * 0.4, barSlot.root.paper.b * 0.4, 0.72))
+            : "#000000"
+        opacity: barSlot.root.barUnlocked ? 0.4 : (barSlot.isDashboardActive ? 1.0 : (barSlot.isPowerPeekActive ? 0.35 : 0.0))
         visible: opacity > 0.001
         z: 10
         Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
         MouseArea {
             anchors.fill: parent
-            enabled: barSlot.root.barUnlocked || barSlot.isDashboardActive
+            enabled: barSlot.root.barUnlocked || barSlot.isDashboardActive || barSlot.isPowerPeekActive
             onClicked: {
                 if (barSlot.root.barUnlocked) {
                     barSlot.root.barUnlocked = false
                 } else if (barSlot.isDashboardActive) {
                     barSlot.root.dashboardExpanded = false
+                } else if (barSlot.isPowerPeekActive) {
+                    barSlot.root.powerPeekActive = false
                 }
             }
         }
@@ -672,7 +695,7 @@ PanelWindow {
         z: 22
     }
 
-    // ── In-place expanded Island Dock dashboard ──
+    // ── In-place expanded Island Dock dashboard (extension of the bar) ──
     BarSlotDashboard {
         id: expandedDashboardContainer
         barSlot: barSlot

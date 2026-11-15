@@ -279,9 +279,9 @@ Item {
             id: leftColContainer
             width: Math.round((columnsRow.width - columnsRow.spacing) / 2)
             height: columnsRow.height
-            radius: 20
-            color: root.fillIdle
-            border.width: root.isLightMode ? 1 : 0
+            radius: 28
+            color: "transparent"
+            border.width: 0
             border.color: root.cardBorderColor
             clip: true
 
@@ -308,7 +308,7 @@ Item {
                     Rectangle {
                         width: 56; height: 24; radius: 12
                         color: !wifiSection.statusObj.wifiBlocked ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                        border.width: 1
+                        border.width: 0
                         border.color: !wifiSection.statusObj.wifiBlocked ? root.seal : "transparent"
 
                         Row {
@@ -399,7 +399,7 @@ Item {
                             Rectangle {
                                 width: 40; height: 40; radius: 20
                                 color: wifiSection.statusObj.connected ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.2) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                                border.width: 1
+                                border.width: 0
                                 border.color: wifiSection.statusObj.connected ? root.seal : "transparent"
                                 anchors.verticalCenter: parent.verticalCenter
 
@@ -447,7 +447,7 @@ Item {
                             height: 26
                             radius: 13
                             color: discHeroMa.containsMouse ? Qt.rgba(0.92, 0.41, 0.38, 0.25) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
-                            border.width: 1
+                            border.width: 0
                             border.color: discHeroMa.containsMouse ? "#ea6962" : "transparent"
 
                             Row {
@@ -490,7 +490,7 @@ Item {
                     color: speedBtnMa.containsMouse
                         ? (speedTest.running ? Qt.rgba(0.92, 0.41, 0.38, 0.22) : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22))
                         : (speedTest.running ? Qt.rgba(root.warn.r, root.warn.g, root.warn.b, 0.14) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06))
-                    border.width: 1
+                    border.width: 0
                     border.color: speedBtnMa.containsMouse
                         ? (speedTest.running ? "#ea6962" : root.seal)
                         : (speedTest.running ? root.warn : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08))

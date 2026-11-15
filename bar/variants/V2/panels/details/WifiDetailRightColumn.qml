@@ -13,9 +13,9 @@ Rectangle {
     required property var wifiSection
     required property var availableModel
 
-    radius: 20
-    color: root.fillIdle
-    border.width: root.isLightMode ? 1 : 0
+    radius: 28
+            color: "transparent"
+    border.width: 0
     border.color: root.cardBorderColor
     clip: true
 
@@ -140,7 +140,7 @@ Rectangle {
         visible: height > 0
         radius: 8
         color: Qt.rgba(root.warn.r, root.warn.g, root.warn.b, 0.2)
-        border.width: 1
+        border.width: 0
         border.color: root.warn
 
         Row {
@@ -182,7 +182,7 @@ Rectangle {
             height: (wifiSection.selectedSsid === model.ssid && !isCurrentlyConnected && !isOpenNetwork) ? 72 : 36
             radius: 10
             color: netRowMa.containsMouse ? root.fillHover : (isCurrentlyConnected ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.12) : "transparent")
-            border.width: isCurrentlyConnected ? 1 : 0
+            border.width: 0
             border.color: root.seal
 
             readonly property bool isCurrentlyConnected: wifiSection.statusObj.connected && (wifiSection.statusObj.ssid === model.ssid)
@@ -311,7 +311,7 @@ Rectangle {
                         radius: 6
                         width: 60
                         color: connBtnMa.containsMouse ? root.fillHover : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.2)
-                        border.width: 1
+                        border.width: 0
                         border.color: root.seal
                         anchors.verticalCenter: parent.verticalCenter
 
@@ -348,7 +348,7 @@ Rectangle {
                         width: parent.width - 76 - 28
                         radius: 6
                         color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.1)
-                        border.width: 1
+                        border.width: 0
                         border.color: pwdInput.activeFocus ? root.seal : "transparent"
 
                         TextInput {

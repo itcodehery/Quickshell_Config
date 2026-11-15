@@ -62,7 +62,7 @@ Item {
 
                     Text {
                         text: root.months[root.selMonth] + " " + root.selDay
-                        font.family: "Genova"
+                        font.family: "Plus Jakarta Sans"
                         font.pixelSize: 12
                         font.weight: Font.Bold
                         color: root.ink
@@ -92,7 +92,7 @@ Item {
 
                         Text {
                             text: "Today"
-                            font.family: "Genova"
+                            font.family: "Plus Jakarta Sans"
                             font.pixelSize: 10
                             font.weight: Font.Bold
                             color: root.seal
@@ -272,7 +272,7 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                             y: Math.round(posY - (isCenter ? 30 : 28))
                             text: dayDelegate.itemData.dayName
-                            font.family: "Genova"
+                            font.family: "Plus Jakarta Sans"
                             font.pixelSize: 10
                             font.weight: isCenter ? Font.Bold : Font.Normal
                             color: isCenter ? root.ink : root.sumi
@@ -284,7 +284,7 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                             y: Math.round(posY - (height / 2))
                             text: dayDelegate.itemData.day
-                            font.family: "Genova"
+                            font.family: "Plus Jakarta Sans"
                             font.pixelSize: isCenter ? 12 : 11
                             font.weight: isCenter ? Font.Bold : Font.Medium
                             color: root.ink
@@ -348,7 +348,7 @@ Item {
                         var label = Qt.formatDate(selDate, "ddd, MMM d")
                         return root.isSelectedToday ? ("Today · " + label) : label
                     }
-                    font.family: "Genova"
+                    font.family: "Plus Jakarta Sans"
                     font.pixelSize: 10
                     font.weight: Font.DemiBold
                     color: root.ink

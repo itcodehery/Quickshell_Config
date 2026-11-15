@@ -147,6 +147,9 @@ function widgetHasFill(theme, gid) {
         return true
     }
     var style = theme.widgetColorStyle(gid)
+    if (gid === "G8") {
+        return style.mode !== "border"
+    }
     return style.color !== "inherit"
 }
 
@@ -185,9 +188,6 @@ function paletteContrastColor(theme, id) {
 }
 
 function widgetContrastColor(theme, gid) {
-    if (gid === "G9" && theme.mprisDominantColor.a > 0.01 && theme.mprisDominantColor != "#00000000" && theme.mprisDominantColor != "transparent") {
-        return theme.ink
-    }
     var fill = theme.widgetAssignedColor(gid)
     var tone = theme.widgetTone(gid)
     if (tone === "background") return theme.paper
@@ -201,8 +201,7 @@ function widgetContentColor(theme, gid, fallback) {
 
 function widgetFillColor(theme, gid) {
     if (gid === "G9" && theme.mprisDominantColor.a > 0.01 && theme.mprisDominantColor != "#00000000" && theme.mprisDominantColor != "transparent") {
-        var c = theme.mprisDominantColor
-        return Qt.rgba(c.r, c.g, c.b, 0.25)
+        return theme.mprisDominantColor
     }
     return theme.widgetHasFill(gid) ? theme.widgetAssignedColor(gid) : Qt.rgba(0, 0, 0, 0)
 }

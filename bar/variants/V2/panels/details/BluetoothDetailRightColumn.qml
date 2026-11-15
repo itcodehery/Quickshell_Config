@@ -13,9 +13,9 @@ Rectangle {
     required property var pairedModel
     required property var allModel
 
-    radius: 20
-    color: root.fillIdle
-    border.width: root.isLightMode ? 1 : 0
+    radius: 28
+            color: "transparent"
+    border.width: 0
     border.color: root.cardBorderColor
     clip: true
 
@@ -226,7 +226,7 @@ Rectangle {
                 color: model.connected 
                     ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.16)
                     : (devItemMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.03))
-                border.width: 1
+                border.width: 0
                 border.color: model.connected 
                     ? root.seal 
                     : (devItemMa.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.3) : Qt.rgba(1, 1, 1, 0.04))
@@ -318,7 +318,7 @@ Rectangle {
                             height: 24
                             radius: 12
                             color: devDiscMa.containsMouse ? Qt.rgba(0.92, 0.41, 0.38, 0.25) : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.35)
-                            border.width: devDiscMa.containsMouse ? 1 : 0
+                            border.width: 0
                             border.color: "#ea6962"
 
                             Text {

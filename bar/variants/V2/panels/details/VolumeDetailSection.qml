@@ -272,9 +272,9 @@ Item {
             id: leftColContainer
             width: Math.round((columnsRow.width - columnsRow.spacing) / 2)
             height: columnsRow.height
-            radius: 20
-            color: root.fillIdle
-            border.width: root.isLightMode ? 1 : 0
+            radius: 28
+            color: "transparent"
+            border.width: 0
             border.color: root.cardBorderColor
             clip: true
 
@@ -410,7 +410,7 @@ Item {
                     anchors.fill: parent
                     radius: 14
                     color: Qt.rgba(1, 1, 1, 0.03)
-                    border.width: 1
+                    border.width: 0
                     border.color: Qt.rgba(1, 1, 1, 0.05)
                     clip: true
 
@@ -426,7 +426,7 @@ Item {
                             height: 42
                             radius: 12
                             color: Qt.rgba(1, 1, 1, 0.04)
-                            border.width: 1
+                            border.width: 0
                             border.color: Qt.rgba(1, 1, 1, 0.06)
 
                             property int localVal: volSection.volume
@@ -586,7 +586,7 @@ Item {
                                     height: 36
                                     radius: 10
                                     color: Qt.rgba(1, 1, 1, 0.03)
-                                    border.width: 1
+                                    border.width: 0
                                     border.color: Qt.rgba(1, 1, 1, 0.05)
 
                                     Row {

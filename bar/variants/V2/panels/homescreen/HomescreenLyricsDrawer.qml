@@ -24,7 +24,7 @@ Rectangle {
     border.color: mediaCard.hasDominant
         ? Qt.rgba(mediaCard.domCol.r, mediaCard.domCol.g, mediaCard.domCol.b, lyricsMa.containsMouse ? 0.50 : 0.32)
         : (lyricsMa.containsMouse ? root.islandBorder : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.16))
-    border.width: 1
+    border.width: 0
 
     Behavior on color { ColorAnimation { duration: 250 } }
     Behavior on border.color { ColorAnimation { duration: 250 } }
@@ -111,7 +111,7 @@ Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 color: reloadLyricsMa.containsMouse ? (lyricsPillTag.isShowing ? Qt.rgba(1, 1, 1, 0.30) : root.fillHover) : Qt.rgba(1, 1, 1, 0.14)
                 border.color: Qt.rgba(1, 1, 1, 0.28)
-                border.width: 1
+                border.width: 0
                 Behavior on color { ColorAnimation { duration: 150 } }
 
                 IconText {
@@ -172,7 +172,7 @@ Rectangle {
                 border.color: isShowing
                     ? (mediaCard.hasVibrantDom ? Qt.rgba(mediaCard.domCol.r, mediaCard.domCol.g, mediaCard.domCol.b, 0.45) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.15))
                     : Qt.rgba(1, 1, 1, 0.28)
-                border.width: 1
+                border.width: 0
                 width: tagRow.implicitWidth + 14
 
                 Behavior on color { ColorAnimation { duration: 150 } }

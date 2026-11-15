@@ -1,32 +1,65 @@
 import QtQuick
 import ".."
+import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Pipewire
 
-// Default-sink volume / mute, read natively from PipeWire — event-driven, no
-// subprocess. Replaces the old 3s `pactl` bash poll (the bar's most frequent
-// idle fork). PipeWire pushes changes, so `volume`/`muted` update instantly.
-//
-// Public API kept identical so AudioWidget + VolumePanel need no changes:
-//   volume (0-100), muted, refresh(), poll, interval.
-// refresh()/poll/interval are now inert (event-driven, nothing to poll).
-// portType was dropped — both consumers read it but never rendered it.
+// Default-sink volume / mute, read natively from PipeWire with a wpctl fallback
+// when Pipewire.defaultAudioSink is unavailable or not yet ready.
 Item {
     id: audio
 
-    property bool poll:     false   // inert (kept for API compat)
-    property int  interval: 3000    // inert
+    property bool poll:     false
+    property int  interval: 2000
 
-    // the system default output; tracked live via PwObjectTracker below
     readonly property var sink: Pipewire.defaultAudioSink
+    readonly property bool pwReady: !!(sink && sink.ready && sink.audio && !isNaN(sink.audio.volume))
 
-    readonly property int  volume: (sink && sink.ready && sink.audio)
-                                   ? Math.round(sink.audio.volume * 100) : 0
-    readonly property bool muted:  (sink && sink.ready && sink.audio)
-                                   ? sink.audio.muted : false
+    property int _wpctlVolume: 0
+    property bool _wpctlMuted: false
 
-    // kept so callers don't break; PipeWire is event-driven so there's nothing to do
-    function refresh() {}
+    readonly property int volume: pwReady ? Math.round(sink.audio.volume * 100) : _wpctlVolume
+    readonly property bool muted: pwReady ? sink.audio.muted : _wpctlMuted
 
-    // binding a node here makes Quickshell track its audio props (volume/mute) live
     PwObjectTracker { objects: audio.sink ? [audio.sink] : [] }
+
+    Process {
+        id: wpctlReadProc
+        command: ["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var txt = String(this.text || "").trim()
+                var m = txt.match(/Volume:\s*([0-9]+(?:\.[0-9]+)?)/)
+                if (m) {
+                    audio._wpctlVolume = Math.max(0, Math.min(100, Math.round(parseFloat(m[1]) * 100)))
+                }
+                audio._wpctlMuted = txt.indexOf("[MUTED]") >= 0
+            }
+        }
+    }
+
+    function refresh() {
+        if (!wpctlReadProc.running) {
+            wpctlReadProc.running = true
+        }
+    }
+
+    function setVolume(pct) {
+        var clamped = Math.max(0, Math.min(100, Math.round(pct)))
+        _wpctlVolume = clamped
+        if (pwReady) {
+            sink.audio.volume = clamped / 100.0
+        }
+        Quickshell.execDetached(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", clamped + "%"])
+    }
+
+    Timer {
+        interval: 2000
+        repeat: true
+        running: !audio.pwReady
+        triggeredOnStart: true
+        onTriggered: audio.refresh()
+    }
+
+    Component.onCompleted: refresh()
 }

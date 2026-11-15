@@ -146,7 +146,7 @@ Item {
             anchors.fill: parent
             acceptedButtons: Qt.LeftButton
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.mprisVisible = !root.mprisVisible
+            onClicked: root.dashboardExpanded = !root.dashboardExpanded
         }
     }
 
@@ -154,47 +154,34 @@ Item {
         id: defaultRow
         visible: rootMod.active && !rootMod.fullMode && !rootMod.islandMode
         anchors.centerIn: parent
-        spacing: 4
+        spacing: 6
 
-        // ── prev ──
-        IconText {
+        // ── album art thumbnail ──
+        ClippingRectangle {
             anchors.verticalCenter: parent.verticalCenter
-            text: ""
-            font.pixelSize: 13
-            color: (rootMod.player && rootMod.player.canGoPrevious)
-                ? Qt.rgba(rootMod.contentColor.r, rootMod.contentColor.g, rootMod.contentColor.b, 0.7)
-                : Qt.rgba(rootMod.contentColor.r, rootMod.contentColor.g, rootMod.contentColor.b, 0.22)
-            Behavior on color { ColorAnimation { duration: 150 } }
-            MouseArea {
-                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                onClicked: if (rootMod.player) rootMod.player.previous()
+            width: 18
+            height: 18
+            radius: 5
+            color: Qt.rgba(rootMod.contentColor.r, rootMod.contentColor.g, rootMod.contentColor.b, 0.14)
+
+            Image {
+                id: defaultArtImg
+                anchors.fill: parent
+                source: artwork.source
+                fillMode: Image.PreserveAspectCrop
+                smooth: true
+                asynchronous: true
+                sourceSize.width: 36
+                sourceSize.height: 36
+                visible: artwork.source !== "" && status === Image.Ready
             }
-        }
 
-        // ── play / pause ──
-        IconText {
-            anchors.verticalCenter: parent.verticalCenter
-            text: rootMod.playing ? "" : ""
-            font.pixelSize: 13
-            color: rootMod.accentColor
-            MouseArea {
-                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                onClicked: if (rootMod.player) rootMod.player.togglePlaying()
-            }
-        }
-
-        // ── next ──
-        IconText {
-            anchors.verticalCenter: parent.verticalCenter
-            text: ""
-            font.pixelSize: 13
-            color: (rootMod.player && rootMod.player.canGoNext)
-                ? Qt.rgba(rootMod.contentColor.r, rootMod.contentColor.g, rootMod.contentColor.b, 0.7)
-                : Qt.rgba(rootMod.contentColor.r, rootMod.contentColor.g, rootMod.contentColor.b, 0.22)
-            Behavior on color { ColorAnimation { duration: 150 } }
-            MouseArea {
-                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                onClicked: if (rootMod.player) rootMod.player.next()
+            IconText {
+                anchors.centerIn: parent
+                visible: !defaultArtImg.visible
+                text: ""
+                font.pixelSize: 11
+                color: rootMod.contentColor
             }
         }
 
@@ -663,9 +650,10 @@ Item {
     MouseArea {
         anchors.fill: parent
         hoverEnabled: true
-        acceptedButtons: Qt.RightButton
+        cursorShape: Qt.PointingHandCursor
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
         onEntered: { if (rootMod.tooltipText) tip.show() }
         onExited:  { tip.hide() }
-        onClicked: { tip.hide(); root.mprisVisible = !root.mprisVisible }
+        onClicked: { tip.hide(); root.dashboardExpanded = !root.dashboardExpanded }
     }
 }

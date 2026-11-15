@@ -62,7 +62,17 @@ Item {
         }
         theme.dashboardExpanded = !theme.dashboardExpanded
     }
+    function togglePower() {
+        if (!theme.activePopupScreenName && barScreens.length > 0) {
+            theme.activatePopupScreen(barScreens[0])
+        }
+        theme.togglePower()
+    }
     function openDashboardDetail(detail) {
+        if (detail === "system") {
+            togglePower()
+            return
+        }
         if (!theme.activePopupScreenName && barScreens.length > 0) {
             theme.activatePopupScreen(barScreens[0])
         }
@@ -302,6 +312,9 @@ Item {
         }
     }
 
+    MprisService { id: theMprisPanel; root: theme }
+    LyricsPanel { root: theme; mprisPanel: theMprisPanel }
+
     Variants {
         model: root.barScreens
 
@@ -342,16 +355,12 @@ Item {
     }
 
     TooltipOverlay { root: theme }
-    ArchUpdaterPanel { root: theme }
-    MprisPanel { id: theMprisPanel; root: theme }
-    OnDemandPanel { trigger: theMprisPanel.showingLyrics && theMprisPanel.active; LyricsPanel        { root: theme; mprisPanel: theMprisPanel } }
     OnDemandPanel { trigger: theme.trayVisible;                                    TrayPanel          { root: theme } }
     OnDemandPanel { trigger: theme.weatherVisible;                                 WeatherPanel       { root: theme } }
     OnDemandPanel { trigger: theme.githubHeatmapVisible;                           GithubHeatmapPanel { root: theme } }
     OnDemandPanel { trigger: theme.workspaceVisible;                               WorkspacePanel     { root: theme } }
     OnDemandPanel { trigger: theme.controlVisible;                                 ControlPanel       { root: theme } }
     OnDemandPanel { trigger: theme.trayMenuVisible;                                TrayMenu           { root: theme } }
-    OnDemandPanel { trigger: theme.pluginsDrawerVisible;                           PluginsDrawer      { root: theme } }
 
     // Picker variants: only the selected pickerStyle is instantiated on demand.
     LazyLoader { active: theme.imagePickerVisible && (theme.pickerStyle === "tanzaku" || theme.pickerStyle === "");  ImageCarouselPanel       { root: theme } }

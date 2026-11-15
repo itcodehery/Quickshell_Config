@@ -16,11 +16,11 @@ Item {
         visible: switcher.currentPickerStyle === "tanzaku" || switcher.currentPickerStyle === ""
         anchors.fill: parent
 
-        readonly property int focusedW: 390
-        readonly property int focusedH: 220
-        readonly property int peekW: 68
-        readonly property int stripW: 22
-        readonly property int gap: 8
+        readonly property int focusedW: 480
+        readonly property int focusedH: 300
+        readonly property int peekW: 84
+        readonly property int stripW: 26
+        readonly property int gap: 10
 
         function stripWidthFor(d) {
             if (d <= 0) return focusedW
@@ -179,12 +179,12 @@ Item {
         visible: switcher.currentPickerStyle === "hearthstone"
         anchors.fill: parent
 
-        readonly property int cardW: 148
-        readonly property int cardH: 210
-        readonly property int stepX: 96
+        readonly property int cardW: 185
+        readonly property int cardH: 265
+        readonly property int stepX: 112
         readonly property real spreadDeg: 3.8
-        readonly property int focusLift: 28
-        readonly property real focusScale: 1.16
+        readonly property int focusLift: 24
+        readonly property real focusScale: 1.14
 
         Repeater {
             model: switcher.filtered.length
@@ -204,7 +204,7 @@ Item {
                 transformOrigin: Item.Bottom
 
                 x: (hsStage.width - hsStage.cardW) / 2 + relIdx * hsStage.stepX
-                y: (hsStage.height - hsStage.cardH) - (focused ? hsStage.focusLift : 0) - 8
+                y: (hsStage.height - hsStage.cardH) / 2 + 12 - (focused ? hsStage.focusLift : 0)
                 rotation: relIdx * hsStage.spreadDeg
                 scale: focused ? hsStage.focusScale : 1.0
                 z: focused ? 1000 : 500 - Math.min(Math.abs(relIdx), 40)
@@ -346,11 +346,11 @@ Item {
         visible: switcher.currentPickerStyle === "carousel"
         anchors.fill: parent
 
-        readonly property int expandedW: 380
-        readonly property int expandedH: 214
-        readonly property int sliceW: 84
-        readonly property int sliceH: 184
-        readonly property real itemStep: 68
+        readonly property int expandedW: 480
+        readonly property int expandedH: 290
+        readonly property int sliceW: 100
+        readonly property int sliceH: 240
+        readonly property real itemStep: 78
 
         readonly property real centerX: (width - expandedW) / 2
 
@@ -477,11 +477,11 @@ Item {
         visible: switcher.currentPickerStyle === "gravemind"
         anchors.fill: parent
 
-        readonly property int cardW: 200
-        readonly property int cardH: 200
+        readonly property int cardW: 260
+        readonly property int cardH: 260
         readonly property int cardRadius: 22
-        readonly property real itemStep: 46
-        readonly property real centerGap: 92
+        readonly property real itemStep: 56
+        readonly property real centerGap: 112
         readonly property real centerX: (width - cardW) / 2
         readonly property real centerY: (height - cardH) / 2
 
@@ -492,7 +492,7 @@ Item {
             radius: 24
             color: "#08080b"
             border.color: Qt.rgba(1, 1, 1, 0.10)
-            border.width: 1
+            border.width: 0
         }
 
         Repeater {

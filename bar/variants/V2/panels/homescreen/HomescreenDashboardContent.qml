@@ -43,8 +43,16 @@ Item {
     SpringPress {}
     MouseArea {
         anchors.fill: parent
-        // Prevent clicks anywhere on the dashboard background from closing the dashboard
-        onClicked: { dashboardContent.forceActiveFocus() }
+        // Click empty space on the cardless canvas to dismiss
+        onClicked: {
+            if (dashboardContent.editTilesMode) {
+                dashboardContent.editTilesMode = false
+            } else if (dashboardContent.activeDetailView !== "") {
+                dashboardContent.activeDetailView = ""
+            } else if (root) {
+                root.dashboardExpanded = false
+            }
+        }
     }
 
     // ── Resizable & Movable Tiles State ──
@@ -74,8 +82,8 @@ Item {
         { id: "settings", span: 1 }
     ]
 
-    readonly property real gridCardPadding: 10
-    readonly property real gridInnerWidth: leftCol.width - gridCardPadding * 2
+    readonly property real gridCardPadding: 8
+    readonly property real gridInnerWidth: leftWing.width - gridCardPadding * 2
     readonly property real tileUnitWidth: Math.floor((gridInnerWidth - 30) / 4)
     readonly property real tileDoubleWidth: tileUnitWidth * 2 + 10
     readonly property real pageStride: 122 + 12
@@ -201,7 +209,7 @@ Item {
         saveTilesLayout()
     }
 
-    readonly property var detailOrder: ["", "wifi", "bluetooth", "notifications", "screentime", "plugins", "updates", "notes", "battery", "calendar", "volume", "system", "theme", "wallpaper", "settings"]
+    readonly property var detailOrder: ["", "wifi", "bluetooth", "notifications", "screentime", "plugins", "updates", "notes", "battery", "calendar", "volume", "theme", "wallpaper", "settings"]
 
     function selectCategoryByIndex(idx) {
         if (idx < 0) idx = 0
@@ -239,10 +247,6 @@ Item {
             if (themeDetailSection && themeDetailSection.moveSel) themeDetailSection.moveSel(1)
             return
         }
-        if (dashboardContent.activeDetailView === "system") {
-            if (sysDetailSection) sysDetailSection.focusedIndex = (sysDetailSection.focusedIndex + 1) % 4
-            return
-        }
         jumpNextCategory()
     }
 
@@ -254,10 +258,6 @@ Item {
         }
         if (dashboardContent.activeDetailView === "theme" || dashboardContent.activeDetailView === "wallpaper") {
             if (themeDetailSection && themeDetailSection.moveSel) themeDetailSection.moveSel(-1)
-            return
-        }
-        if (dashboardContent.activeDetailView === "system") {
-            if (sysDetailSection) sysDetailSection.focusedIndex = (sysDetailSection.focusedIndex - 1 + 4) % 4
             return
         }
         jumpPrevCategory()
@@ -398,7 +398,6 @@ Item {
     readonly property var batDetailSection: detailOverlay.batDetailSection
     readonly property var stDetailSection: detailOverlay.stDetailSection
     readonly property var volDetailSection: detailOverlay.volDetailSection
-    readonly property var sysDetailSection: detailOverlay.sysDetailSection
     readonly property var calDetailSection: detailOverlay.calDetailSection
     readonly property var notifDetailSection: detailOverlay.notifDetailSection
     readonly property var updatesDetailSection: detailOverlay.updatesDetailSection
@@ -782,7 +781,7 @@ Item {
         }
     }
 
-    // ── MAIN CONTROLS (Two Columns: Controls on Left, Media Player on Right) ──
+    // ── MAIN CONTROLS (Cardless Three-Zone Orbital Constellation) ──
     Item {
         id: mainControls
         anchors.fill: parent
@@ -796,58 +795,85 @@ Item {
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
         Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
-        Row {
+        // ── UPPER STAGE (Left Wing + Center Chronometer + Right Wing above Media Dock) ──
+        Item {
+            id: upperStage
+            anchors.top: parent.top
+            anchors.topMargin: 6
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.top: parent.top
-            spacing: 14
+            anchors.bottom: mediaWithLyricsGroup.visible ? mediaWithLyricsGroup.top : parent.bottom
+            anchors.bottomMargin: mediaWithLyricsGroup.visible ? 22 : 8
+            z: 2
 
-            // ── LEFT COLUMN: Sliders & Quick Settings Tiles ──
+            // Ambient orbital rings radiating from center observatory (aligned with clock inside upperStage)
+            Canvas {
+                id: orbitalBackdropCanvas
+                anchors.fill: parent
+                enabled: false
+                z: 0
+                readonly property color inkC: (root && root.ink) ? root.ink : "#ffffff"
+                readonly property color sealC: (root && root.seal) ? root.seal : "#22d3ee"
+                onInkCChanged: requestPaint()
+                onSealCChanged: requestPaint()
+                onWidthChanged: requestPaint()
+                onHeightChanged: requestPaint()
+                onPaint: {
+                    var ctx = getContext("2d")
+                    ctx.reset()
+                    var cx = width / 2
+                    var cy = height / 2
+                    var radii = [148, 210, 290, 370]
+                    for (var i = 0; i < radii.length; i++) {
+                        ctx.beginPath()
+                        ctx.arc(cx, cy, radii[i], 0, Math.PI * 2)
+                        ctx.strokeStyle = i === 0
+                            ? Qt.rgba(sealC.r, sealC.g, sealC.b, 0.16)
+                            : Qt.rgba(inkC.r, inkC.g, inkC.b, 0.055 - i * 0.01)
+                        ctx.lineWidth = i === 0 ? 1.5 : 1
+                        ctx.setLineDash(i % 2 === 1 ? [4, 8] : [])
+                        ctx.stroke()
+                    }
+                    ctx.setLineDash([])
+                }
+            }
+
+            // ── LEFT WING: Restored Sliders & Cardless Watch Orbs ──
             Column {
-                id: leftCol
-                width: Math.round((parent.width - parent.spacing) / 2)
-                spacing: 10
+                id: leftWing
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                width: Math.min(360, Math.max(260, Math.round(parent.width * 0.31)))
+                spacing: 14
+                z: 2
 
-                // ── TOP CONTROL AREA (Sliders in Normal Mode, Edit Header in Edit Mode) ──
                 HomescreenTopControls {
                     id: topControlArea
                     width: parent.width
-                    height: 86
+                    height: 82
                     dashboardContent: dashboardContent
                     root: dashboardContent.root
                     audioData: audioData
                 }
 
-                // --- MATERIAL YOU TILES (Dynamic Pager with Resizable & Movable Tiles) ---
                 HomescreenTilesPager {
                     id: tilesPagerContainer
                     width: parent.width
-                    height: 142
+                    height: 140
                     dashboardContent: dashboardContent
                     tilesModel: tilesModel
                     smoothScrollAnim: smoothScrollAnim
                 }
-            } // end leftCol
+            }
 
-            // ── RIGHT COLUMN: Media Player & Lyrics Drawer ──
+            // ── CENTER OBSERVATORY: Always-On Circular Watch Chronometer ──
             Item {
-                id: rightCol
-                width: parent.width - leftCol.width - parent.spacing
-                height: leftCol.height
+                id: centerObservatory
+                anchors.centerIn: parent
+                width: Math.min(246, parent.height - 16)
+                height: width
+                z: 3
 
-                // --- MATERIAL YOU MEDIA PLAYER WITH EXTENDED LYRICS SECTION ---
-                HomescreenMediaLyricsCard {
-                    id: mediaWithLyricsGroup
-                    anchors.fill: parent
-                    dashboardContent: dashboardContent
-                    root: dashboardContent.root
-                    panel: dashboardContent.panel
-                    mprisSel: mprisSel
-                    mprisArt: mprisArt
-                    audioData: audioData
-                }
-
-                // --- COOL AESTHETIC TIME & DATE WIDGET (Zero borders, unified canvas) ---
                 HomescreenClockWidget {
                     id: timeDateWidget
                     anchors.fill: parent
@@ -856,8 +882,181 @@ Item {
                     mprisSel: mprisSel
                     biggerFont: biggerFont
                 }
-            } // end rightCol
-        } // end Row
+            }
+
+            // ── RIGHT WING: Pixel Watch Quick-Actions Cluster + Battery Pill ──
+            Column {
+                id: rightWing
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                width: Math.min(260, Math.max(200, Math.round(parent.width * 0.24)))
+                spacing: 10
+                z: 2
+
+                readonly property color inkC: (root && root.ink) ? root.ink : "#ffffff"
+                readonly property color sealC: (root && root.seal) ? root.seal : "#22d3ee"
+                readonly property color onSealC: {
+                    var luma = sealC.r * 0.299 + sealC.g * 0.587 + sealC.b * 0.114
+                    return luma > 0.55 ? "#121212" : "#ffffff"
+                }
+
+                // Top Row: 3 small capsule quick-action pills
+                Row {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: 8
+
+                    Repeater {
+                        model: [
+                            { icon: "calendar_today", view: "calendar" },
+                            { icon: "notifications", view: "notifications" },
+                            { icon: "edit_note", view: "notes" }
+                        ]
+                        delegate: Rectangle {
+                            required property var modelData
+                            width: 40
+                            height: 26
+                            radius: 13
+                            border.width: 0
+                            color: topPillMa.containsMouse
+                                ? rightWing.sealC
+                                : Qt.rgba(rightWing.inkC.r, rightWing.inkC.g, rightWing.inkC.b, 0.10)
+                            scale: topPillMa.pressed ? 0.90 : (topPillMa.containsMouse ? 1.06 : 1.0)
+                            Behavior on scale { NumberAnimation { duration: 120 } }
+                            Behavior on color { ColorAnimation { duration: 150 } }
+
+                            IconText {
+                                anchors.centerIn: parent
+                                text: parent.modelData.icon
+                                color: topPillMa.containsMouse ? rightWing.onSealC : rightWing.inkC
+                                font.pixelSize: 14
+                            }
+
+                            MouseArea {
+                                id: topPillMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: dashboardContent.activeDetailView = parent.modelData.view
+                            }
+                        }
+                    }
+                }
+
+                // Middle: 3x2 Uniform Circular Quick-Action Grid (Wear OS spacing & shape)
+                Grid {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    columns: 3
+                    columnSpacing: 8
+                    rowSpacing: 8
+
+                    Repeater {
+                        model: [
+                            { label: "Theme", icon: "palette", view: "theme", accent: false },
+                            { label: "Wall", icon: "wallpaper", view: "wallpaper", accent: true },
+                            { label: "Plugins", icon: "extension", view: "plugins", accent: false },
+                            { label: "Keys", icon: "keyboard", view: "keybinds", accent: false },
+                            { label: "Settings", icon: "tune", view: "settings", accent: false },
+                            { label: "Screen", icon: "hourglass_bottom", view: "screentime", accent: true }
+                        ]
+                        delegate: Rectangle {
+                            required property var modelData
+                            width: 60
+                            height: 48
+                            radius: portalMa.containsMouse ? 16 : 24
+                            border.width: 0
+                            color: portalMa.containsMouse
+                                ? rightWing.sealC
+                                : (modelData.accent
+                                    ? Qt.rgba(rightWing.sealC.r, rightWing.sealC.g, rightWing.sealC.b, 0.22)
+                                    : Qt.rgba(rightWing.inkC.r, rightWing.inkC.g, rightWing.inkC.b, 0.10))
+                            scale: portalMa.pressed ? 0.90 : (portalMa.containsMouse ? 1.05 : 1.0)
+                            Behavior on scale { NumberAnimation { duration: 120 } }
+                            Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                            Behavior on color { ColorAnimation { duration: 150 } }
+
+                            IconText {
+                                anchors.centerIn: parent
+                                text: parent.modelData.icon
+                                color: portalMa.containsMouse
+                                    ? rightWing.onSealC
+                                    : (parent.modelData.accent ? rightWing.sealC : rightWing.inkC)
+                                font.pixelSize: 22
+                            }
+
+                            MouseArea {
+                                id: portalMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    if (parent.modelData.view === "keybinds") {
+                                        Quickshell.execDetached(["/usr/share/omarchy/bin/omarchy-menu-keybindings"])
+                                        if (root) root.dashboardExpanded = false
+                                    } else {
+                                        dashboardContent.activeDetailView = parent.modelData.view
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Bottom: Moved Battery Pill (below main quick actions)
+                Rectangle {
+                    id: quickActionsBatteryPill
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    height: 30
+                    readonly property bool shouldShow: rightBattWidget.shown
+                    width: shouldShow ? (rightBattWidget.implicitWidth + 14) : 0
+                    opacity: shouldShow ? 1.0 : 0.0
+                    visible: width > 0.1 || opacity > 0.01
+                    radius: 15
+                    clip: true
+                    border.width: 0
+                    color: (root && root.dashboardDetail === "battery")
+                        ? Qt.rgba(rightWing.sealC.r, rightWing.sealC.g, rightWing.sealC.b, 0.22)
+                        : (quickBattMa.containsMouse
+                            ? Qt.rgba(rightWing.inkC.r, rightWing.inkC.g, rightWing.inkC.b, 0.16)
+                            : Qt.rgba(rightWing.inkC.r, rightWing.inkC.g, rightWing.inkC.b, 0.10))
+                    scale: quickBattMa.pressed ? 0.94 : 1.0
+                    Behavior on width { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+                    Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                    Behavior on color { ColorAnimation { duration: 140 } }
+                    Behavior on scale { NumberAnimation { duration: 120 } }
+
+                    BatteryWidget {
+                        id: rightBattWidget
+                        anchors.centerIn: parent
+                        root: dashboardContent.root
+                    }
+
+                    MouseArea {
+                        id: quickBattMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: dashboardContent.activeDetailView = "battery"
+                    }
+                }
+            }
+        } // end upperStage
+
+        // ── FULL-WIDTH BOTTOM MEDIA BAR + MATCHING LYRICS BAR ──
+        HomescreenMediaLyricsCard {
+            id: mediaWithLyricsGroup
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 0
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 84
+            z: 4
+            dashboardContent: dashboardContent
+            root: dashboardContent.root
+            panel: dashboardContent.panel
+            mprisSel: mprisSel
+            mprisArt: mprisArt
+            audioData: audioData
+        }
 
         // ── Dragged Tile Floating Preview (Follows mouse across any page) ──
         Item {

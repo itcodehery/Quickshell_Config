@@ -14,14 +14,10 @@ Item {
 
     property alias tilesPager: tilesPager
 
-    // ── Subtle Glass Card Background around Quick Settings Grid (matching Calendar ref) ──
-    Rectangle {
+    // ── Cardless Orbital Quick-Action Foundation ──
+    Item {
         id: gridCardBg
         anchors.fill: parent
-        radius: 24
-        color: dashboardContent.root ? Qt.rgba(dashboardContent.root.ink.r, dashboardContent.root.ink.g, dashboardContent.root.ink.b, 0.045) : Qt.rgba(1, 1, 1, 0.05)
-        border.color: dashboardContent.root ? Qt.rgba(dashboardContent.root.ink.r, dashboardContent.root.ink.g, dashboardContent.root.ink.b, 0.07) : Qt.rgba(1, 1, 1, 0.07)
-        border.width: 1
         z: 0
     }
 

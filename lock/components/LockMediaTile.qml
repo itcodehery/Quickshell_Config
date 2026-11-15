@@ -124,7 +124,7 @@ Item {
                             anchors.centerIn: parent
                             text: root.isMediaPlaying ? "NOW PLAYING" : "PAUSED"
                             color: "#ffffff"
-                            font.family: "Genova"
+                            font.family: "Plus Jakarta Sans"
                             font.pixelSize: 9
                             font.weight: Font.DemiBold
                             font.letterSpacing: 0.8
@@ -162,7 +162,7 @@ Item {
                                 var idn = (root.activePlayer && root.activePlayer.identity) ? root.activePlayer.identity : "This device"
                                 return idn.length > 16 ? idn.substring(0, 14) + "…" : idn
                             }
-                            font.family: "Genova"
+                            font.family: "Plus Jakarta Sans"
                             font.pixelSize: 11
                             font.weight: Font.Medium
                             color: "#ffffff"
@@ -214,7 +214,7 @@ Item {
                             id: marqueeTitleText
                             text: root.activePlayer ? (root.activePlayer.trackTitle || "No media") : "No media"
                             color: "#ffffff"
-                            font.family: "Genova"
+                            font.family: "Plus Jakarta Sans"
                             font.pixelSize: 16
                             font.weight: Font.DemiBold
                             anchors.verticalCenter: parent.verticalCenter
@@ -248,7 +248,7 @@ Item {
                     Text {
                         text: root.activePlayer ? (root.activePlayer.trackArtist || "Nothing in queue") : "Nothing in queue"
                         color: Qt.rgba(1, 1, 1, 0.80)
-                        font.family: "Genova"
+                        font.family: "Plus Jakarta Sans"
                         font.pixelSize: 12
                         elide: Text.ElideRight
                         width: parent.width
@@ -454,7 +454,7 @@ Item {
                             anchors.centerIn: parent
                             text: root.fmtTime(root.curPos) + " / " + root.fmtTime(root.curLen)
                             color: "#ffffff"
-                            font.family: "Genova"
+                            font.family: "Plus Jakarta Sans"
                             font.pixelSize: 10
                             font.weight: Font.DemiBold
                         }
@@ -509,7 +509,7 @@ Item {
                     id: positionTxt
                     text: root.fmtTime(root.curPos)
                     color: Qt.rgba(1, 1, 1, 0.85)
-                    font.family: "Genova"
+                    font.family: "Plus Jakarta Sans"
                     font.pixelSize: 12
                     font.weight: Font.Medium
                     anchors.verticalCenter: parent.verticalCenter
@@ -536,7 +536,7 @@ Item {
                 }
                 Text {
                     text: "No Media Playing"
-                    font.family: "Genova"
+                    font.family: "Plus Jakarta Sans"
                     font.pixelSize: 13
                     font.weight: Font.DemiBold
                     color: root.ink
@@ -544,7 +544,7 @@ Item {
                 }
                 Text {
                     text: "Play music from Spotify or browser"
-                    font.family: "Genova"
+                    font.family: "Plus Jakarta Sans"
                     font.pixelSize: 10
                     color: root.ink
                     opacity: 0.45

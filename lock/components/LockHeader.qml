@@ -25,7 +25,7 @@ Item {
     Text {
         id: greetingTxt
         text: root.greeting
-        font.family: "Genova"
+        font.family: "Plus Jakarta Sans"
         font.pixelSize: 12
         font.weight: Font.Medium
         font.letterSpacing: 0.5
@@ -147,7 +147,7 @@ Item {
                     id: textA
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    font.family: "Genova"
+                    font.family: "Plus Jakarta Sans"
                     font.pixelSize: 12
                     font.weight: Font.Medium
                     font.letterSpacing: 0.5
@@ -162,7 +162,7 @@ Item {
                     id: textB
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    font.family: "Genova"
+                    font.family: "Plus Jakarta Sans"
                     font.pixelSize: 12
                     font.weight: Font.Medium
                     font.letterSpacing: 0.5

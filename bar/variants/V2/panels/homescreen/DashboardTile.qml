@@ -40,7 +40,7 @@ Rectangle {
     readonly property bool isDropTarget: (dashContent && dashContent.dropTargetTileId === tileId && !isBeingDragged)
 
     height: is2x2 ? 122 : 56
-    radius: is1x1 ? (isTileActive ? 18 : 28) : 28
+    radius: is1x1 ? (isTileActive ? 15 : 28) : (is2x2 ? 26 : 28)
     Behavior on height { NumberAnimation { duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
     color: "transparent"
     border.width: 0
@@ -123,7 +123,7 @@ Rectangle {
         if (isActive) {
             return tileMa.containsMouse ? Qt.lighter(sealCol, 1.12) : sealCol
         }
-        return tileMa.containsMouse ? fillHoverCol : fillIdleCol
+        return tileMa.containsMouse ? Qt.rgba(inkCol.r, inkCol.g, inkCol.b, 0.14) : Qt.rgba(inkCol.r, inkCol.g, inkCol.b, 0.075)
     }
 
     readonly property color tileAccentCol: {
@@ -151,10 +151,10 @@ Rectangle {
         anchors.fill: parent
         root: tileRoot.root
         span: tileRoot.span
-        shapeType: tileRoot.tileShape
+        shapeType: ""
         fillColor: tileRoot.effectiveTileColor
         borderColor: tileRoot.isDropTarget ? tileRoot.sealCol : ((dashContent && dashContent.editTilesMode) ? Qt.rgba(tileRoot.tileAccentCol.r, tileRoot.tileAccentCol.g, tileRoot.tileAccentCol.b, 0.45) : (root && root.isLightMode && !isTileActive ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06) : "transparent"))
-        borderWidth: tileRoot.isDropTarget ? 2 : ((dashContent && dashContent.editTilesMode) ? 1.5 : (root && root.isLightMode && !isTileActive ? 1 : 0))
+        borderWidth: tileRoot.isDropTarget ? 2 : ((dashContent && dashContent.editTilesMode) ? 1.5 : 0)
         z: 0
     }
 
@@ -677,14 +677,16 @@ Rectangle {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // ── CORNER BEAN INDICATOR (Bottom-right highlight indicator) ─────────
+    // ── CORNER BEAN INDICATOR (Edit Mode tile-size toggle handle on all pills) ──
     // ══════════════════════════════════════════════════════════════════════
     Shape {
         id: cornerBean
         anchors.fill: parent
         visible: opacity > 0
-        opacity: tileRoot.isSelected ? 1.0 : 0.0
-        Behavior on opacity { NumberAnimation { duration: 120 } }
+        opacity: (dashContent && dashContent.editTilesMode) ? 1.0 : 0.0
+        scale: resizeMa.pressed ? 0.92 : (resizeMa.containsMouse ? 1.06 : 1.0)
+        Behavior on opacity { NumberAnimation { duration: 150 } }
+        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutBack } }
         z: 25
         preferredRendererType: Shape.CurveRenderer
 
@@ -711,80 +713,16 @@ Rectangle {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // ── SHAPE CYCLE BUTTON (Edit Mode - customize shape per individual tile)
-    // ══════════════════════════════════════════════════════════════════════
-    Item {
-        id: shapeIndicator
-        visible: dashContent && dashContent.editTilesMode
-        anchors.horizontalCenter: parent.left
-        anchors.verticalCenter: parent.verticalCenter
-        width: 28
-        height: 36
-        z: 35
-
-        Rectangle {
-            anchors.centerIn: parent
-            width: 18
-            height: 18
-            radius: 9
-            color: shapeMa.pressed ? tileRoot.tileAccentCol : (shapeMa.containsMouse ? Qt.rgba(tileRoot.tileAccentCol.r, tileRoot.tileAccentCol.g, tileRoot.tileAccentCol.b, 0.35) : tileRoot.paperCol)
-            border.color: tileRoot.tileAccentCol
-            border.width: 1.5
-
-            IconText {
-                anchors.centerIn: parent
-                text: "category"
-                font.pixelSize: 10
-                color: shapeMa.pressed ? "#ffffff" : tileRoot.tileAccentCol
-            }
-
-            scale: shapeMa.pressed ? 0.85 : (shapeMa.containsMouse ? 1.25 : 1.0)
-            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-            Behavior on color { ColorAnimation { duration: 150 } }
-        }
-
-        MouseArea {
-            id: shapeMa
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            acceptedButtons: Qt.LeftButton
-
-            onClicked: {
-                if (dashContent) {
-                    dashContent.selectedTileId = tileRoot.tileId
-                    dashContent.cycleTileShape(tileRoot.tileId)
-                }
-            }
-        }
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    // ── RESIZE INDICATOR HANDLE (Image 2 Border Rectangle Grabber) ───────
+    // ── CORNER BEAN SIZE-TOGGLE HIT AREA (Edit Mode only) ───────────────
     // ══════════════════════════════════════════════════════════════════════
     Item {
         id: resizeIndicator
         visible: dashContent && dashContent.editTilesMode
-        anchors.horizontalCenter: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        width: 28
-        height: 36
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        width: 30
+        height: 30
         z: 35
-
-        // Vertical pill handle hugging the right border (Image 2 style)
-        Rectangle {
-            anchors.centerIn: parent
-            width: 5
-            height: 18
-            radius: 2.5
-            color: tileRoot.isSelected ? tileRoot.paperCol : tileRoot.tileAccentCol
-            border.color: tileRoot.isSelected ? tileRoot.tileAccentCol : Qt.rgba(0, 0, 0, 0.25)
-            border.width: 1
-
-            scale: resizeMa.pressed ? 0.85 : (resizeMa.containsMouse ? 1.25 : 1.0)
-            Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
-            Behavior on color { ColorAnimation { duration: 150 } }
-        }
 
         MouseArea {
             id: resizeMa
@@ -812,16 +750,8 @@ Rectangle {
                     isResizingDrag = true
                     if (tileRoot.is1x1 && dx > 18) {
                         dashContent.setTileSpan(tileId, 2)
-                    } else if (tileRoot.is1x2) {
-                        if (dy > 18) {
-                            dashContent.setTileSpan(tileId, 4)
-                        } else if (dx < -18) {
-                            dashContent.setTileSpan(tileId, 1)
-                        }
-                    } else if (tileRoot.is2x2) {
-                        if (dy < -18 || dx < -18) {
-                            dashContent.setTileSpan(tileId, 2)
-                        }
+                    } else if (tileRoot.is1x2 && dx < -18) {
+                        dashContent.setTileSpan(tileId, 1)
                     }
                 }
             }

@@ -10,6 +10,7 @@ import "../motion"
 Item {
     id: expandedDashboardContainer
     required property var barSlot
+    readonly property bool isMediaShown: Boolean(dashboardLoader.item && dashboardLoader.item.showMediaPlayer)
 
     clip: true
     opacity: expandedDashboardContainer.barSlot.isDashboardActive ? 1.0 : 0.0
@@ -118,42 +119,41 @@ Item {
         }
     }
 
-    // ── WHOLE DASHBOARD SUB-PAGE NAVIGATION SIDEBAR ──
+    // ── FLOATING SUB-PAGE MATERIAL 3 EXPRESSIVE NAVIGATION RAIL ──
     Rectangle {
         id: subPageSidebar
         anchors.left: parent.left
+        anchors.leftMargin: expandedDashboardContainer.barSlot.isSubPageOpen ? 8 : 0
         anchors.top: parent.top
+        anchors.topMargin: 8
         anchors.bottom: parent.bottom
-        width: expandedDashboardContainer.barSlot.isSubPageOpen ? 46 : 0
+        anchors.bottomMargin: 8
+        width: expandedDashboardContainer.barSlot.isSubPageOpen ? 60 : 0
         clip: true
         visible: width > 0.5 || opacity > 0.01
         opacity: expandedDashboardContainer.barSlot.isSubPageOpen ? 1.0 : 0.0
         z: 30
 
-        topLeftRadius: expandedDashboardContainer.barSlot.dashboardTopRadius
-        bottomLeftRadius: expandedDashboardContainer.barSlot.dashboardBottomRadius
-        topRightRadius: 0
-        bottomRightRadius: 0
-
-        color: expandedDashboardContainer.barSlot.root.sidebarBg
+        radius: 28
+        border.width: 0
+        color: Qt.rgba(expandedDashboardContainer.barSlot.root.paper.r, expandedDashboardContainer.barSlot.root.paper.g, expandedDashboardContainer.barSlot.root.paper.b, expandedDashboardContainer.barSlot.root.isLightMode ? 0.88 : 0.72)
 
         Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
         readonly property var subPagesList: [
-            { id: "wifi",          name: "Wi-Fi & Network",    icon: "wifi" },
-            { id: "bluetooth",     name: "Bluetooth",         icon: "bluetooth" },
-            { id: "volume",        name: "Sound & Volume",    icon: "volume_up" },
-            { id: "battery",       name: "Battery & Power",   icon: "battery_charging_full" },
-            { id: "screentime",    name: "Screen Time",       icon: "schedule" },
-            { id: "notifications", name: "Notifications",     icon: "notifications" },
-            { id: "calendar",      name: "Calendar & Notes",  icon: "calendar_month" },
-            { id: "notes",         name: "Notes",             icon: "edit_note" },
-            { id: "theme",         name: "Themes",            icon: "palette" },
-            { id: "wallpaper",     name: "Wallpapers",        icon: "wallpaper" },
-            { id: "system",        name: "System & Power",    icon: "power_settings_new" },
-            { id: "plugins",       name: "Omarchy Plugins",   icon: "extension" },
-            { id: "updates",       name: "Software Updates",  icon: "system_update" }
+            { id: "wifi",          name: "Wi-Fi",          icon: "wifi" },
+            { id: "bluetooth",     name: "Bluetooth",      icon: "bluetooth" },
+            { id: "volume",        name: "Audio",          icon: "volume_up" },
+            { id: "battery",       name: "Battery",        icon: "battery_charging_full" },
+            { id: "screentime",    name: "Screen Time",    icon: "schedule" },
+            { id: "notifications", name: "Notifications",  icon: "notifications" },
+            { id: "calendar",      name: "Calendar",       icon: "calendar_month" },
+            { id: "notes",         name: "Notes",          icon: "edit_note" },
+            { id: "theme",         name: "Themes",         icon: "palette" },
+            { id: "wallpaper",     name: "Wallpapers",     icon: "wallpaper" },
+            { id: "plugins",       name: "Plugins",        icon: "extension" },
+            { id: "updates",       name: "Updates",        icon: "system_update" }
         ]
 
         function isSubPageActive(pageId) {
@@ -162,34 +162,28 @@ Item {
             return false
         }
 
-        // Top: Omarchy Logo Home Button
+        // Top: Compact Icon-Only Back to Watch Dashboard Pill
         Rectangle {
             id: sidebarHomeBtn
-            width: 34
-            height: 34
-            radius: 12
             anchors.top: parent.top
-            anchors.topMargin: 12
+            anchors.topMargin: 10
             anchors.horizontalCenter: parent.horizontalCenter
-            color: sidebarHomeMa.containsMouse ? expandedDashboardContainer.barSlot.root.fillHover : expandedDashboardContainer.barSlot.root.fillIdle
+            width: 40
+            height: 40
+            radius: 20
+            color: sidebarHomeMa.containsMouse
+                ? Qt.rgba(expandedDashboardContainer.barSlot.root.seal.r, expandedDashboardContainer.barSlot.root.seal.g, expandedDashboardContainer.barSlot.root.seal.b, 0.22)
+                : expandedDashboardContainer.barSlot.root.fillIdle
             Behavior on color { ColorAnimation { duration: 150 } }
 
-            Text {
+            IconText {
                 anchors.centerIn: parent
-                text: expandedDashboardContainer.barSlot.root.launcherLogoIconGlyph(expandedDashboardContainer.barSlot.root.launcherLogoIcon)
-                font.family: expandedDashboardContainer.barSlot.root.launcherLogoIconFont(expandedDashboardContainer.barSlot.root.launcherLogoIcon)
+                text: "arrow_back"
                 font.pixelSize: 18
                 color: sidebarHomeMa.containsMouse ? expandedDashboardContainer.barSlot.root.seal : expandedDashboardContainer.barSlot.root.ink
-                renderType: Text.QtRendering
             }
 
             SpringPress {}
-
-            TooltipMixin {
-                root: expandedDashboardContainer.barSlot.root
-                owner: parent
-                text: "Omarchy (Home)"
-            }
 
             MouseArea {
                 id: sidebarHomeMa
@@ -206,24 +200,15 @@ Item {
             }
         }
 
-        // Separator under back button
-        Rectangle {
-            id: sidebarSep
-            anchors.top: sidebarHomeBtn.bottom
-            anchors.topMargin: 8
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: 24
-            height: 1
-            color: Qt.rgba(expandedDashboardContainer.barSlot.root.ink.r, expandedDashboardContainer.barSlot.root.ink.g, expandedDashboardContainer.barSlot.root.ink.b, 0.14)
-        }
-
-        // Scrollable list of sub-pages
+        // Scrollable list of compact icon-only sub-page pills
         Flickable {
             id: sidebarFlick
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.top: sidebarSep.bottom
-            anchors.topMargin: 6
+            anchors.leftMargin: 10
+            anchors.rightMargin: 10
+            anchors.top: sidebarHomeBtn.bottom
+            anchors.topMargin: 10
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 10
             clip: true
@@ -239,8 +224,7 @@ Item {
 
             Column {
                 id: sidebarCol
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 4
+                spacing: 6
                 width: parent.width
 
                 Repeater {
@@ -249,39 +233,34 @@ Item {
                         id: subPageBtn
                         required property var modelData
                         required property int index
-                        width: 34
-                        height: 34
-                        radius: 10
                         anchors.horizontalCenter: parent.horizontalCenter
+                        width: 40
+                        height: 40
+                        radius: isSelected ? 20 : 12
 
                         readonly property bool isSelected: subPageSidebar.isSubPageActive(modelData.id)
+                        readonly property color onSealCol: {
+                            var luma = expandedDashboardContainer.barSlot.root.seal.r * 0.299 + expandedDashboardContainer.barSlot.root.seal.g * 0.587 + expandedDashboardContainer.barSlot.root.seal.b * 0.114
+                            return luma > 0.5 ? "#121212" : "#ffffff"
+                        }
 
                         color: isSelected
                             ? expandedDashboardContainer.barSlot.root.seal
                             : (subPageMa.containsMouse ? expandedDashboardContainer.barSlot.root.fillHover : "transparent")
                         Behavior on color { ColorAnimation { duration: 150 } }
+                        Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
                         IconText {
                             anchors.centerIn: parent
                             text: modelData.icon
-                            color: {
-                                if (subPageBtn.isSelected) {
-                                    var luma = expandedDashboardContainer.barSlot.root.seal.r * 0.299 + expandedDashboardContainer.barSlot.root.seal.g * 0.587 + expandedDashboardContainer.barSlot.root.seal.b * 0.114
-                                    return luma > 0.5 ? "#121212" : "#ffffff"
-                                }
-                                return subPageMa.containsMouse ? expandedDashboardContainer.barSlot.root.ink : Qt.rgba(expandedDashboardContainer.barSlot.root.ink.r, expandedDashboardContainer.barSlot.root.ink.g, expandedDashboardContainer.barSlot.root.ink.b, 0.72)
-                            }
-                            font.pixelSize: 18
+                            color: subPageBtn.isSelected
+                                ? subPageBtn.onSealCol
+                                : (subPageMa.containsMouse ? expandedDashboardContainer.barSlot.root.ink : Qt.rgba(expandedDashboardContainer.barSlot.root.ink.r, expandedDashboardContainer.barSlot.root.ink.g, expandedDashboardContainer.barSlot.root.ink.b, 0.72))
+                            font.pixelSize: 19
                             Behavior on color { ColorAnimation { duration: 150 } }
                         }
 
                         SpringPress {}
-
-                        TooltipMixin {
-                            root: expandedDashboardContainer.barSlot.root
-                            owner: parent
-                            text: modelData.name
-                        }
 
                         MouseArea {
                             id: subPageMa
@@ -308,12 +287,12 @@ Item {
         anchors.bottom: parent.bottom
         anchors.right: parent.right
         anchors.left: expandedDashboardContainer.barSlot.isSubPageOpen ? subPageSidebar.right : parent.left
-        anchors.leftMargin: 0
+        anchors.leftMargin: expandedDashboardContainer.barSlot.isSubPageOpen ? 16 : 0
 
-        topLeftRadius: expandedDashboardContainer.barSlot.isSubPageOpen ? 24 : expandedDashboardContainer.barSlot.dashboardTopRadius
-        bottomLeftRadius: expandedDashboardContainer.barSlot.isSubPageOpen ? 24 : expandedDashboardContainer.barSlot.dashboardBottomRadius
-        topRightRadius: expandedDashboardContainer.barSlot.dashboardTopRadius
-        bottomRightRadius: expandedDashboardContainer.barSlot.dashboardBottomRadius
+        topLeftRadius: 28
+        bottomLeftRadius: 28
+        topRightRadius: 28
+        bottomRightRadius: 28
 
         color: expandedDashboardContainer.barSlot.isSubPageOpen ? expandedDashboardContainer.barSlot.root.barBg : "transparent"
         border.width: 0
@@ -324,13 +303,14 @@ Item {
             id: topHeaderBar
             anchors.top: parent.top
             anchors.horizontalCenter: parent.horizontalCenter
-            width: parent.width - 28
-            anchors.topMargin: 14
+            width: parent.width - 40
+            anchors.topMargin: 16
             height: 32
             z: 10
 
-            // Left Side: System Pet + Cute Search Bar + Clock Pill + Battery Pill
+            // Left Side: System Pet + Battery Pill + DateTime Pill
             Row {
+                id: leftHeaderRow
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 6
@@ -344,71 +324,26 @@ Item {
                     onClicked: dashboardAdapter.toggleSearch()
                 }
 
-                Timer {
-                    id: searchCollapseTimer
-                    interval: 750
-                    onTriggered: expandedDashboardContainer.barSlot.root.dashboardExpanded = false
-                }
-
                 PetSearchBar {
                     id: petSearch
                     root: expandedDashboardContainer.barSlot.root
                     isOpen: dashboardAdapter.searchOpen
-                    maxContentWidth: Math.max(160, Math.min(290, topHeaderBar.width - systemPet.width - topHeaderRightRow.width - 24))
+                    contentHeight: 30
                     anchors.verticalCenter: parent.verticalCenter
                     onFocusLostOrClosed: {
                         dashboardAdapter.searchOpen = false
                         if (dashboardLoader.item) dashboardLoader.item.forceActiveFocus()
                     }
                     onSearchSubmitted: {
-                        // Let the cat celebrate for a moment before the dashboard collapses
                         systemPet.celebrate()
                         searchCollapseTimer.restart()
                     }
                 }
 
-                // Battery Pill
-                Rectangle {
-                    id: batteryPill
-                    height: 28
-                    readonly property bool shouldShow: !dashboardAdapter.searchOpen && battLoader.item && battLoader.item.shown
-                    width: shouldShow ? battLoader.item.implicitWidth : 0
-                    opacity: shouldShow ? 1.0 : 0.0
-                    radius: 14
-                    color: expandedDashboardContainer.barSlot.root.dashboardDetail === "battery"
-                        ? Qt.rgba(expandedDashboardContainer.barSlot.root.seal.r, expandedDashboardContainer.barSlot.root.seal.g, expandedDashboardContainer.barSlot.root.seal.b, 0.22)
-                        : (batteryPillMa.containsMouse ? expandedDashboardContainer.barSlot.root.fillHover : expandedDashboardContainer.barSlot.root.fillIdle)
-                    border.width: expandedDashboardContainer.barSlot.root.dashboardDetail === "battery" ? 1.5 : 0
-                    border.color: expandedDashboardContainer.barSlot.root.seal
-                    clip: true
-                    visible: width > 0.1 || opacity > 0.01
-                    anchors.verticalCenter: parent.verticalCenter
-
-                    Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.InOutCubic } }
-                    Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-                    Behavior on color { ColorAnimation { duration: 150 } }
-
-                    Loader {
-                        id: battLoader
-                        anchors.centerIn: parent
-                        active: expandedDashboardContainer.barSlot.dashboardEverActivated
-                        sourceComponent: BatteryWidget { root: expandedDashboardContainer.barSlot.root }
-                    }
-
-                    MouseArea {
-                        id: batteryPillMa
-                        anchors.fill: parent
-                        z: 10
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            if (expandedDashboardContainer.barSlot.root.dashboardDetail === "battery") {
-                                expandedDashboardContainer.barSlot.root.dashboardDetail = ""
-                            } else {
-                                expandedDashboardContainer.barSlot.root.dashboardDetail = "battery"
-                            }
-                        }
-                    }
+                Timer {
+                    id: searchCollapseTimer
+                    interval: 750
+                    onTriggered: expandedDashboardContainer.barSlot.root.dashboardExpanded = false
                 }
 
                 // DateTime Pill
@@ -416,14 +351,14 @@ Item {
                     id: dateTimePill
                     height: 28
                     readonly property bool displayClockActive: (dashboardLoader.item && !dashboardLoader.item.showMediaPlayer && expandedDashboardContainer.barSlot.root.dashboardDetail === "")
-                    readonly property bool shouldShow: !dashboardAdapter.searchOpen && !displayClockActive
+                    readonly property bool shouldShow: !displayClockActive
                     width: shouldShow ? dateTimeRow.implicitWidth + 20 : 0
                     opacity: shouldShow ? 1.0 : 0.0
                     radius: 14
                     color: expandedDashboardContainer.barSlot.root.dashboardDetail === "calendar"
                         ? Qt.rgba(expandedDashboardContainer.barSlot.root.seal.r, expandedDashboardContainer.barSlot.root.seal.g, expandedDashboardContainer.barSlot.root.seal.b, 0.22)
                         : (dateTimeMa.containsMouse ? expandedDashboardContainer.barSlot.root.fillHover : expandedDashboardContainer.barSlot.root.fillIdle)
-                    border.width: expandedDashboardContainer.barSlot.root.dashboardDetail === "calendar" ? 1.5 : 0
+                    border.width: 0
                     border.color: expandedDashboardContainer.barSlot.root.seal
                     clip: true
                     visible: width > 0.1 || opacity > 0.01
@@ -510,7 +445,7 @@ Item {
                         color: pinnedPlugMa.containsMouse
                             ? Qt.rgba(expandedDashboardContainer.barSlot.root.seal.r, expandedDashboardContainer.barSlot.root.seal.g, expandedDashboardContainer.barSlot.root.seal.b, 0.25)
                             : expandedDashboardContainer.barSlot.root.fillIdle
-                        border.width: pinnedPlugMa.containsMouse ? 1.5 : 0
+                        border.width: 0
                         border.color: expandedDashboardContainer.barSlot.root.seal
 
                         scale: pinnedPlugMa.pressed ? 0.92 : (pinnedPlugMa.containsMouse ? 1.06 : 1.0)
@@ -561,7 +496,7 @@ Item {
                     color: expandedDashboardContainer.barSlot.root.dashboardDetail === "screentime"
                         ? Qt.rgba(expandedDashboardContainer.barSlot.root.seal.r, expandedDashboardContainer.barSlot.root.seal.g, expandedDashboardContainer.barSlot.root.seal.b, 0.22)
                         : (uptimeMa.containsMouse ? expandedDashboardContainer.barSlot.root.fillHover : expandedDashboardContainer.barSlot.root.fillIdle)
-                    border.width: expandedDashboardContainer.barSlot.root.dashboardDetail === "screentime" ? 1.5 : 0
+                    border.width: 0
                     border.color: expandedDashboardContainer.barSlot.root.seal
                     Behavior on color { ColorAnimation { duration: 150 } }
 
@@ -615,7 +550,7 @@ Item {
                     color: expandedDashboardContainer.barSlot.root.dashboardDetail === "settings"
                         ? Qt.rgba(expandedDashboardContainer.barSlot.root.seal.r, expandedDashboardContainer.barSlot.root.seal.g, expandedDashboardContainer.barSlot.root.seal.b, 0.28)
                         : (settingsHeaderMa.containsMouse ? expandedDashboardContainer.barSlot.root.fillHover : expandedDashboardContainer.barSlot.root.fillIdle)
-                    border.width: expandedDashboardContainer.barSlot.root.dashboardDetail === "settings" ? 1.5 : 0
+                    border.width: 0
                     border.color: expandedDashboardContainer.barSlot.accent
                     scale: settingsHeaderMa.pressed ? 0.90 : (settingsHeaderMa.containsMouse ? 1.08 : 1.0)
                     Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack; easing.overshoot: 1.4 } }
@@ -653,7 +588,7 @@ Item {
                     color: expandedDashboardContainer.barSlot.root.dashboardDetail === "notifications"
                         ? Qt.rgba(expandedDashboardContainer.barSlot.root.seal.r, expandedDashboardContainer.barSlot.root.seal.g, expandedDashboardContainer.barSlot.root.seal.b, 0.22)
                         : (notifHeaderMa.containsMouse ? expandedDashboardContainer.barSlot.root.fillHover : expandedDashboardContainer.barSlot.root.fillIdle)
-                    border.width: expandedDashboardContainer.barSlot.root.dashboardDetail === "notifications" ? 1.5 : 0
+                    border.width: 0
                     border.color: expandedDashboardContainer.barSlot.root.seal
                     scale: notifHeaderMa.pressed ? 0.92 : (notifHeaderMa.containsMouse ? 1.06 : 1.0)
                     Behavior on scale { NumberAnimation { duration: 120 } }
@@ -702,18 +637,15 @@ Item {
                     }
                 }
 
-                // System / Power Settings Button
+                // Power Menu Button (closes dashboard and expands the bar power peek)
                 Rectangle {
                     id: systemBtn
                     height: 28
                     width: 28
                     radius: 14
                     anchors.verticalCenter: parent.verticalCenter
-                    color: expandedDashboardContainer.barSlot.root.dashboardDetail === "system"
-                        ? Qt.rgba(expandedDashboardContainer.barSlot.root.seal.r, expandedDashboardContainer.barSlot.root.seal.g, expandedDashboardContainer.barSlot.root.seal.b, 0.22)
-                        : (systemBtnMa.containsMouse ? expandedDashboardContainer.barSlot.root.fillHover : expandedDashboardContainer.barSlot.root.fillIdle)
-                    border.width: expandedDashboardContainer.barSlot.root.dashboardDetail === "system" ? 1.5 : 0
-                    border.color: expandedDashboardContainer.barSlot.root.seal
+                    color: systemBtnMa.containsMouse ? expandedDashboardContainer.barSlot.root.fillHover : expandedDashboardContainer.barSlot.root.fillIdle
+                    border.width: 0
                     scale: systemBtnMa.pressed ? 0.92 : (systemBtnMa.containsMouse ? 1.06 : 1.0)
                     Behavior on scale { NumberAnimation { duration: 120 } }
                     Behavior on color { ColorAnimation { duration: 150 } }
@@ -721,7 +653,7 @@ Item {
                     IconText {
                         anchors.centerIn: parent
                         text: "power_settings_new"
-                        color: expandedDashboardContainer.barSlot.root.dashboardDetail === "system" ? expandedDashboardContainer.barSlot.root.seal : expandedDashboardContainer.barSlot.root.ink
+                        color: expandedDashboardContainer.barSlot.root.ink
                         font.pixelSize: 15
                     }
 
@@ -731,11 +663,8 @@ Item {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            if (expandedDashboardContainer.barSlot.root.dashboardDetail === "system") {
-                                expandedDashboardContainer.barSlot.root.dashboardDetail = ""
-                            } else {
-                                expandedDashboardContainer.barSlot.root.dashboardDetail = "system"
-                            }
+                            expandedDashboardContainer.barSlot.root.dashboardExpanded = false
+                            expandedDashboardContainer.barSlot.root.powerPeekActive = true
                         }
                     }
                 }
@@ -747,10 +676,10 @@ Item {
             id: dashboardLoader
             anchors.top: topHeaderBar.bottom
             anchors.topMargin: 12
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 0
             anchors.horizontalCenter: parent.horizontalCenter
-            width: parent.width - 28
-            height: Math.round(expandedDashboardContainer.barSlot.dashboardExpandedHeight - 32 - 12 - 14 - 14)
-            Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+            width: parent.width - 48
             Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
             active: expandedDashboardContainer.barSlot.dashboardEverActivated
             focus: expandedDashboardContainer.barSlot.isDashboardActive

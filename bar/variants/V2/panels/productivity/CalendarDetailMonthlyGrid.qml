@@ -33,17 +33,17 @@ Item {
         // Weekday letter headers
         Row {
             width: parent.width
-            height: 14
+            height: 18
             Repeater {
                 model: ["M", "T", "W", "T", "F", "S", "S"]
                 delegate: Item {
                     width: parent.width / 7
-                    height: 14
+                    height: 18
                     UiText {
                         anchors.centerIn: parent
                         text: modelData
                         font.family: root.barFont
-                        font.pixelSize: 9
+                        font.pixelSize: 11
                         font.weight: Font.DemiBold
                         color: root.sumi
                         opacity: 0.7
@@ -55,10 +55,10 @@ Item {
         // 42-day complete month grid (6 rows of 7 days)
         Grid {
             width: parent.width
-            height: parent.height - 18
+            height: parent.height - 22
             columns: 7
-            rowSpacing: 2
-            columnSpacing: 1
+            rowSpacing: 4
+            columnSpacing: 4
 
             Repeater {
                 model: calSection.monthGridData
@@ -66,9 +66,9 @@ Item {
                     required property var modelData
                     readonly property bool isSelectedCell: (modelData.year === calSection.selYear && modelData.month === calSection.selMonth && modelData.day === calSection.selDay)
 
-                    width: Math.floor((monthlyGridView.width - 6) / 7)
-                    height: Math.floor((parent.height - (5 * 2)) / 6)
-                    radius: 5
+                    width: Math.floor((monthlyGridView.width - 24) / 7)
+                    height: Math.floor((parent.height - (5 * 4)) / 6)
+                    radius: 10
                     color: isSelectedCell 
                         ? root.seal
                         : (mCellMa.containsMouse ? root.fillHover : "transparent")
@@ -77,7 +77,7 @@ Item {
                         anchors.centerIn: parent
                         text: modelData.day
                         font.family: root.barFont
-                        font.pixelSize: 10
+                        font.pixelSize: 13
                         font.weight: (modelData.isToday || isSelectedCell) ? Font.Bold : Font.Normal
                         color: isSelectedCell
                             ? root.paper

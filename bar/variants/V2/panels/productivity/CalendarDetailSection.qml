@@ -61,7 +61,7 @@ Item {
 
     readonly property bool isSelectedToday: (selYear === now.getFullYear() && selMonth === now.getMonth() && selDay === now.getDate())
 
-    property string viewMode: "weekly" // "weekly" or "monthly"
+    property string viewMode: "monthly" // "weekly" or "monthly"
 
     readonly property bool isInputFocused: rightColContainer.isInputFocused
 
@@ -488,11 +488,11 @@ Item {
             // 3A. CURVED DAYS BAND (WEEKLY VIEW) WITH PHYSICAL GLIDE ANIMATION
             Item {
                 id: curvedWeekView
-                anchors.top: heroDateRow.bottom
-                anchors.topMargin: 2
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: 6
                 anchors.left: parent.left
                 anchors.right: parent.right
-                height: 86
+                height: 96
                 visible: calSection.viewMode === "weekly"
                 clip: true
 

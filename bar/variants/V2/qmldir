@@ -10,5 +10,4 @@ Theme 1.0 theme/Theme.qml
 ThemeBase 1.0 theme/ThemeBase.qml
 ThemeLiveActivities 1.0 theme/ThemeLiveActivities.qml
 ThemeStatusWorkers 1.0 theme/ThemeStatusWorkers.qml
-ThemeTelemetryWorkers 1.0 theme/ThemeTelemetryWorkers.qml
 ThemeUpdatesWorkers 1.0 theme/ThemeUpdatesWorkers.qml

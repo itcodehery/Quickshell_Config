@@ -493,7 +493,7 @@ Item {
         radius: 20
         color: Qt.rgba(0.04, 0.04, 0.07, 0.65)
         border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.12)
-        border.width: 1
+        border.width: 0
         clip: true
 
         MouseArea {

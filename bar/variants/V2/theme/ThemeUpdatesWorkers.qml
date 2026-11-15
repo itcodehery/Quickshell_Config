@@ -163,7 +163,8 @@ Item {
     function openShellProgressPanel() {
         root.theme.activatePopupScreenByName(root.theme.shellProgressScreenName)
         root.theme.activeUpdateTab = "shell"
-        root.theme.archVisible = true
+        root.theme.dashboardDetail = "updates"
+        root.theme.dashboardExpanded = true
     }
 
     function resetShellUpdateState() {
@@ -277,7 +278,8 @@ Item {
     function showShellUpdateTabFromWidget() {
         if (root.theme.shellUpdateProgressVisible) root.theme.setShellProgressPanelOpen(true)
         root.theme.activeUpdateTab = "shell"
-        root.theme.archVisible = true
+        root.theme.dashboardDetail = "updates"
+        root.theme.dashboardExpanded = true
     }
 
     function reloadShellUpdateState() {

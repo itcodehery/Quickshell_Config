@@ -94,10 +94,9 @@ Item {
 
     function extractColor() {
         if (!source || source === "") return
-        if (root && root._mprisColorCachedSource === source) return
-        if (root) root._mprisColorCachedSource = source
+        if (root && root._mprisColorCachedSource === source && root.mprisDominantColor != "transparent") return
         var s = source.replace(/"/g, "\\\"")
-        var script = "f=$(mktemp); u=\"" + s + "\"; if [[ \"$u\" == http* ]] || [[ \"$u\" == file://* ]]; then curl -sL \"$u\" -o \"$f\"; else cp \"$u\" \"$f\" 2>/dev/null; fi; if [ -s \"$f\" ]; then magick \"$f\" -resize 1x1\\! -format \"#%[hex:u]\" info:; fi; rm -f \"$f\""
+        var script = "f=$(mktemp); u=\"" + s + "\"; if [[ \"$u\" == http* ]]; then curl -sL \"$u\" -o \"$f\"; elif [[ \"$u\" == file://* ]]; then cp \"${u#file://}\" \"$f\" 2>/dev/null; else cp \"$u\" \"$f\" 2>/dev/null; fi; if [ -s \"$f\" ]; then magick \"$f\" -resize 1x1\\! -format \"#%[hex:u]\" info:; fi; rm -f \"$f\""
         colorExtractor.command = ["bash", "-c", script]
         colorExtractor.running = false
         colorExtractor.running = true

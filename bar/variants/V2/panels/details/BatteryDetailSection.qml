@@ -140,9 +140,9 @@ Item {
             id: leftColContainer
             width: Math.round((columnsRow.width - columnsRow.spacing) / 2)
             height: columnsRow.height
-            radius: 20
-            color: root.fillIdle
-            border.width: root.isLightMode ? 1 : 0
+            radius: 28
+            color: "transparent"
+            border.width: 0
             border.color: root.cardBorderColor
             clip: true
 
@@ -245,40 +245,40 @@ Item {
 
                     Column {
                         anchors.centerIn: parent
-                        width: parent.width - 24
-                        spacing: 7
+                        width: parent.width - 36
+                        spacing: 18
 
                         // ── 1. HERO POWER HUD: BOLD PERCENT DISPLAY & STATUS ──
                         Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: parent.width
-                            height: 38
+                            height: 64
 
                             // Left: Bold Display Percentage
                             Row {
                                 anchors.left: parent.left
                                 anchors.verticalCenter: parent.verticalCenter
-                                spacing: 3
+                                spacing: 5
 
                                 Text {
                                     text: batSection.batObj.percent
                                     font.family: biggerFont.name.length > 0 ? biggerFont.name : root.barFont
-                                    font.pixelSize: 38
+                                    font.pixelSize: 56
                                     font.weight: Font.Bold
                                     color: root.ink
                                     anchors.bottom: parent.bottom
-                                    anchors.bottomMargin: -3
+                                    anchors.bottomMargin: -5
                                 }
 
                                 Column {
                                     anchors.bottom: parent.bottom
-                                    anchors.bottomMargin: 2
-                                    spacing: 0
+                                    anchors.bottomMargin: 4
+                                    spacing: 1
 
                                     Text {
                                         text: "%"
                                         font.family: root.barFont
-                                        font.pixelSize: 15
+                                        font.pixelSize: 20
                                         font.weight: Font.Bold
                                         color: batSection.accentColor
                                     }
@@ -286,7 +286,7 @@ Item {
                                     Text {
                                         text: batSection.batObj.acOnline ? "AC POWER" : "BATTERY"
                                         font.family: root.barFont
-                                        font.pixelSize: 8
+                                        font.pixelSize: 10
                                         font.weight: Font.Bold
                                         font.letterSpacing: 0.6
                                         color: root.sumi
@@ -298,14 +298,14 @@ Item {
                             Rectangle {
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
-                                height: 24
-                                radius: 12
+                                height: 30
+                                radius: 15
                                 color: batSection.batObj.acOnline 
                                     ? Qt.rgba(batSection.accentColor.r, batSection.accentColor.g, batSection.accentColor.b, 0.16)
                                     : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                                border.width: batSection.batObj.acOnline ? 1 : 0
+                                border.width: 0
                                 border.color: Qt.rgba(batSection.accentColor.r, batSection.accentColor.g, batSection.accentColor.b, 0.35)
-                                width: statusRow.implicitWidth + 16
+                                width: statusRow.implicitWidth + 20
 
                                 Row {
                                     id: statusRow
@@ -345,15 +345,15 @@ Item {
                             id: railContainer
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: parent.width
-                            height: 14
+                            height: 22
 
                             Row {
                                 id: segmentsRow
                                 anchors.left: parent.left
                                 anchors.right: terminalCap.left
-                                anchors.rightMargin: 5
+                                anchors.rightMargin: 6
                                 anchors.verticalCenter: parent.verticalCenter
-                                spacing: 3
+                                spacing: 4
 
                                 Repeater {
                                     model: 10
@@ -366,8 +366,8 @@ Item {
                                         readonly property bool isPulseWave: batSection.batObj.acOnline && pulseDist < 0.16
 
                                         width: Math.floor((segmentsRow.width - (9 * segmentsRow.spacing)) / 10)
-                                        height: 12
-                                        radius: 3.5
+                                        height: 18
+                                        radius: 5
 
                                         // High-tech glow and color transitions
                                         color: {
@@ -383,7 +383,7 @@ Item {
                                             return Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
                                         }
 
-                                        border.width: isCurrentChargingHead ? 1 : 0
+                                        border.width: 0
                                         border.color: batSection.accentColor
                                         opacity: isEnergized ? (isPulseWave ? 1.0 : 0.88) : 0.45
 
@@ -396,7 +396,7 @@ Item {
                                             anchors.left: parent.left
                                             anchors.right: parent.right
                                             anchors.margins: 1
-                                            height: 1.5
+                                            height: 2
                                             radius: 1
                                             color: "white"
                                             opacity: segRect.isEnergized ? 0.35 : 0.06
@@ -410,9 +410,9 @@ Item {
                                 id: terminalCap
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 3.5
-                                height: 6
-                                radius: 1.5
+                                width: 4
+                                height: 10
+                                radius: 2
                                 color: batSection.batObj.percent >= 98 ? batSection.accentColor : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.25)
                             }
                         }
@@ -421,13 +421,13 @@ Item {
                         Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: parent.width
-                            height: 10
+                            height: 14
 
                             Text {
                                 anchors.left: parent.left
                                 text: "0%"
                                 font.family: root.barFont
-                                font.pixelSize: 8
+                                font.pixelSize: 10
                                 font.weight: Font.Bold
                                 color: root.sumi
                                 opacity: 0.6
@@ -437,7 +437,7 @@ Item {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 text: (batSection.batObj.energyNow_wh ? (batSection.batObj.energyNow_wh + " Wh / " + batSection.batObj.energyFull_wh + " Wh") : "")
                                 font.family: root.barFont
-                                font.pixelSize: 8
+                                font.pixelSize: 10
                                 font.weight: Font.DemiBold
                                 color: root.sumi
                                 opacity: 0.75
@@ -447,7 +447,7 @@ Item {
                                 anchors.right: parent.right
                                 text: "100%"
                                 font.family: root.barFont
-                                font.pixelSize: 8
+                                font.pixelSize: 10
                                 font.weight: Font.Bold
                                 color: root.sumi
                                 opacity: 0.6
@@ -460,8 +460,8 @@ Item {
                             width: parent.width - 4
                             fill: true
                             theme: root
-                            fontSize: 10
-                            tabHeight: 26
+                            fontSize: 11
+                            tabHeight: 38
                             model: [
                                 { id: "power-saver", label: "Saver" },
                                 { id: "balanced", label: "Balanced" },
@@ -474,29 +474,29 @@ Item {
                         // ── 4. TELEMETRY BADGES ROW ──
                         Row {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: 6
+                            spacing: 8
 
                             // Battery Health Badge
                             Rectangle {
-                                height: 22
-                                radius: 11
+                                height: 28
+                                radius: 14
                                 color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
-                                width: healthRow.implicitWidth + 12
+                                width: healthRow.implicitWidth + 16
 
                                 Row {
                                     id: healthRow
                                     anchors.centerIn: parent
-                                    spacing: 4
+                                    spacing: 5
                                     IconText {
                                         text: "favorite"
-                                        font.pixelSize: 10
+                                        font.pixelSize: 12
                                         color: root.seal
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
                                     Text {
                                         text: "Health " + (batSection.batObj.health_str || (batSection.batObj.health + "%"))
                                         font.family: root.barFont
-                                        font.pixelSize: 10
+                                        font.pixelSize: 11
                                         font.weight: Font.DemiBold
                                         color: root.ink
                                         anchors.verticalCenter: parent.verticalCenter
@@ -506,25 +506,25 @@ Item {
 
                             // Cycles Badge
                             Rectangle {
-                                height: 22
-                                radius: 11
+                                height: 28
+                                radius: 14
                                 color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
-                                width: cycleRow.implicitWidth + 12
+                                width: cycleRow.implicitWidth + 16
 
                                 Row {
                                     id: cycleRow
                                     anchors.centerIn: parent
-                                    spacing: 4
+                                    spacing: 5
                                     IconText {
                                         text: "sync"
-                                        font.pixelSize: 10
+                                        font.pixelSize: 12
                                         color: root.sumiHi
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
                                     Text {
                                         text: batSection.batObj.cycles + " Cycles"
                                         font.family: root.barFont
-                                        font.pixelSize: 10
+                                        font.pixelSize: 11
                                         font.weight: Font.DemiBold
                                         color: root.ink
                                         anchors.verticalCenter: parent.verticalCenter
@@ -534,20 +534,20 @@ Item {
 
                             // Voltage / Power Draw Rate Badge
                             Rectangle {
-                                height: 22
-                                radius: 11
+                                height: 28
+                                radius: 14
                                 color: Qt.rgba(batSection.accentColor.r, batSection.accentColor.g, batSection.accentColor.b, 0.14)
-                                border.width: 1
+                                border.width: 0
                                 border.color: Qt.rgba(batSection.accentColor.r, batSection.accentColor.g, batSection.accentColor.b, 0.25)
-                                width: rateRow.implicitWidth + 12
+                                width: rateRow.implicitWidth + 16
 
                                 Row {
                                     id: rateRow
                                     anchors.centerIn: parent
-                                    spacing: 4
+                                    spacing: 5
                                     IconText {
                                         text: "bolt"
-                                        font.pixelSize: 10
+                                        font.pixelSize: 12
                                         color: batSection.accentColor
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
@@ -556,7 +556,7 @@ Item {
                                             ? batSection.batObj.powerRate_str
                                             : (batSection.batObj.voltage_str || "12.8 V")
                                         font.family: root.barFont
-                                        font.pixelSize: 10
+                                        font.pixelSize: 11
                                         font.weight: Font.DemiBold
                                         color: batSection.accentColor
                                         anchors.verticalCenter: parent.verticalCenter
@@ -576,9 +576,9 @@ Item {
             id: rightColContainer
             width: columnsRow.width - leftColContainer.width - columnsRow.spacing
             height: columnsRow.height
-            radius: 20
-            color: root.fillIdle
-            border.width: root.isLightMode ? 1 : 0
+            radius: 28
+            color: "transparent"
+            border.width: 0
             border.color: root.cardBorderColor
             clip: true
 
@@ -670,7 +670,7 @@ Item {
                     height: 38
                     radius: 10
                     color: itemMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.03)
-                    border.width: 1
+                    border.width: 0
                     border.color: Qt.rgba(1, 1, 1, 0.05)
 
                     Row {

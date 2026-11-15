@@ -199,9 +199,9 @@ Item {
             id: leftColContainer
             width: Math.round((columnsRow.width - columnsRow.spacing) / 2)
             height: columnsRow.height
-            radius: 20
-            color: root.fillIdle
-            border.width: root.isLightMode ? 1 : 0
+            radius: 28
+            color: "transparent"
+            border.width: 0
             border.color: root.cardBorderColor
             clip: true
 
@@ -228,7 +228,7 @@ Item {
                     Rectangle {
                         width: 56; height: 24; radius: 12
                         color: btSection.btObj.powered ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                        border.width: 1
+                        border.width: 0
                         border.color: btSection.btObj.powered ? root.seal : "transparent"
 
                         Row {
@@ -349,7 +349,7 @@ Item {
                                     radius: 29
                                     visible: !singleDevSpotlight.isHeadphones
                                     color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.16)
-                                    border.width: 1
+                                    border.width: 0
                                     border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.3)
 
                                     IconText {
@@ -396,7 +396,7 @@ Item {
                                     height: 22
                                     radius: 11
                                     color: Qt.rgba(0.66, 0.71, 0.40, 0.16)
-                                    border.width: 1
+                                    border.width: 0
                                     border.color: Qt.rgba(0.66, 0.71, 0.40, 0.35)
                                     width: connRow.implicitWidth + 14
 
@@ -426,7 +426,7 @@ Item {
                                     height: 22
                                     radius: 11
                                     color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.07)
-                                    border.width: 1
+                                    border.width: 0
                                     border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.10)
                                     width: battPillRow.implicitWidth + 14
 
@@ -492,7 +492,7 @@ Item {
                                     height: 22
                                     radius: 11
                                     color: disconnMa.containsMouse ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.14) : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
-                                    border.width: 1
+                                    border.width: 0
                                     border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.10)
                                     width: disconnRow.implicitWidth + 14
 
@@ -549,7 +549,7 @@ Item {
                             height: 60
                             radius: 12
                             color: Qt.rgba(1, 1, 1, 0.03)
-                            border.width: 1
+                            border.width: 0
                             border.color: Qt.rgba(1, 1, 1, 0.06)
 
                             Row {
@@ -561,7 +561,7 @@ Item {
                                     width: 40; height: 40; radius: 20
                                     anchors.verticalCenter: parent.verticalCenter
                                     color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.18)
-                                    border.width: 1
+                                    border.width: 0
                                     border.color: root.seal
 
                                     IconText {

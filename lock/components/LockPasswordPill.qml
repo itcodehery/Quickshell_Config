@@ -77,7 +77,7 @@ Item {
 
         Text {
             text: "Type Password to Unlock"
-            font.family: "Genova"
+            font.family: "Plus Jakarta Sans"
             font.pixelSize: 12
             font.weight: Font.Medium
             font.letterSpacing: 0.2
@@ -148,7 +148,7 @@ Item {
 
         Text {
             text: "Verifying..."
-            font.family: "Genova"
+            font.family: "Plus Jakarta Sans"
             font.pixelSize: 12
             font.weight: Font.Medium
             color: root.seal
@@ -161,7 +161,7 @@ Item {
         id: errorText
         anchors.centerIn: parent
         text: root.failureMessage
-        font.family: "Genova"
+        font.family: "Plus Jakarta Sans"
         font.pixelSize: 12
         font.weight: Font.DemiBold
         color: root.color01

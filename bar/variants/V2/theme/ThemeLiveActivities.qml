@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Services.UPower
+import Quickshell.Services.Pipewire
 
 Item {
     id: root
@@ -14,6 +15,91 @@ Item {
         root.theme.islandOsdValue = Math.max(0, Math.min(100, value))
         root.theme.islandOsdTick++
         root.theme.islandOsdActive = true
+    }
+
+    // ── Reactive Audio (Volume / Mute) & Backlight OSD Watchers ──
+    readonly property var defaultSink: Pipewire.defaultAudioSink
+    readonly property var sinkAudio: defaultSink ? defaultSink.audio : null
+    property bool sinkInitialized: false
+    property real lastSinkVolume: -1
+    property bool lastSinkMuted: false
+
+    PwObjectTracker {
+        objects: root.defaultSink ? [root.defaultSink] : []
+    }
+
+    onDefaultSinkChanged: {
+        sinkInitialized = false
+    }
+
+    Connections {
+        target: root.sinkAudio
+        function onVolumeChanged() {
+            if (!root.sinkAudio) return
+            var pct = Math.round(root.sinkAudio.volume * 100)
+            if (!root.sinkInitialized) {
+                root.lastSinkVolume = pct
+                root.lastSinkMuted = root.sinkAudio.muted
+                root.sinkInitialized = true
+                return
+            }
+            if (pct !== root.lastSinkVolume) {
+                root.lastSinkVolume = pct
+                if (!root.theme.dashboardExpanded) {
+                    root.showIslandOsd(root.sinkAudio.muted ? "audio-muted" : "audio", pct)
+                }
+            }
+        }
+        function onMutedChanged() {
+            if (!root.sinkAudio) return
+            var pct = Math.round(root.sinkAudio.volume * 100)
+            if (!root.sinkInitialized) {
+                root.lastSinkVolume = pct
+                root.lastSinkMuted = root.sinkAudio.muted
+                root.sinkInitialized = true
+                return
+            }
+            if (root.sinkAudio.muted !== root.lastSinkMuted) {
+                root.lastSinkMuted = root.sinkAudio.muted
+                if (!root.theme.dashboardExpanded) {
+                    root.showIslandOsd(root.sinkAudio.muted ? "audio-muted" : "audio", pct)
+                }
+            }
+        }
+    }
+
+    property int maxBacklightVal: 255
+    property int lastBacklightPct: -1
+    FileView {
+        id: maxBacklightFile
+        path: "/sys/class/backlight/amdgpu_bl2/max_brightness"
+        printErrors: false
+        onLoaded: {
+            var v = parseInt(String(maxBacklightFile.text() || "").trim())
+            if (!isNaN(v) && v > 0) root.maxBacklightVal = v
+        }
+    }
+    FileView {
+        id: curBacklightFile
+        path: "/sys/class/backlight/amdgpu_bl2/brightness"
+        printErrors: false
+        watchChanges: true
+        onFileChanged: curBacklightFile.reload()
+        onLoaded: {
+            var v = parseInt(String(curBacklightFile.text() || "").trim())
+            if (isNaN(v) || root.maxBacklightVal <= 0) return
+            var pct = Math.max(0, Math.min(100, Math.round((v / root.maxBacklightVal) * 100)))
+            if (root.lastBacklightPct === -1) {
+                root.lastBacklightPct = pct
+                return
+            }
+            if (pct !== root.lastBacklightPct) {
+                root.lastBacklightPct = pct
+                if (!root.theme.dashboardExpanded) {
+                    root.showIslandOsd("brightness", pct)
+                }
+            }
+        }
     }
 
     // ── Dynamic Island Live Activities ──

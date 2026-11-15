@@ -6,14 +6,12 @@ import Quickshell.Hyprland
 import Quickshell.Services.UPower
 import "Palette.js" as Palette
 import "ThemePopupAndLayout.js" as PopupLayout
-import "ThemeTelemetry.js" as Telemetry
 import "ThemeWidgetsConfig.js" as WidgetsConfig
 
 ThemeBase {
     id: theme
 
     function reloadCurrentThemeFiles() { updatesWorkers.reloadCurrentThemeFiles() }
-    function refreshAiUsage(selectedOnly) { telemetryWorkers.refreshAiUsage(selectedOnly) }
 
     readonly property bool anyPopupVisible: calendarVisible || cpuVisible || gpuVisible
         || thermalVisible || aiUsageVisible
@@ -407,6 +405,13 @@ ThemeBase {
     onPowerProfileVisibleChanged: popupOpened("powerProfileVisible")
     property string powerProfileCurrent: ""
 
+    // ── Bar Power Peek state ──
+    property bool powerPeekActive: false
+    function togglePower() {
+        if (dashboardExpanded) dashboardExpanded = false
+        powerPeekActive = !powerPeekActive
+    }
+
     // ── Hyprland workspace dispatch (config-mode-aware) ──
     // Hyprland 0.55 added Lua configs but still supports classic hyprlang, and
     // BOTH ship the same version number — so the dispatch form depends on which
@@ -712,7 +717,6 @@ ThemeBase {
     function ipcReloadTheme() { updatesWorkers.ipcReloadTheme() }
     function ipcOpenPicker(mode) { updatesWorkers.ipcOpenPicker(mode) }
 
-    ThemeTelemetryWorkers { id: telemetryWorkers; theme: theme }
     ThemeStatusWorkers { id: statusWorkers; theme: theme }
     ThemeLiveActivities { id: liveActivities; theme: theme }
     ThemeUpdatesWorkers { id: updatesWorkers; theme: theme }

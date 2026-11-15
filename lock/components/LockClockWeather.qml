@@ -62,7 +62,7 @@ Row {
                     }
                     Text {
                         text: "Clock"
-                        font.family: "Genova"
+                        font.family: "Plus Jakarta Sans"
                         font.pixelSize: 11
                         font.weight: Font.Bold
                         color: root.seal
@@ -112,7 +112,7 @@ Row {
 
                     Text {
                         text: Qt.formatTime(root.now, "HH:mm")
-                        font.family: "Genova"
+                        font.family: "Plus Jakarta Sans"
                         font.pixelSize: 42
                         font.weight: Font.Bold
                         color: root.ink
@@ -120,7 +120,7 @@ Row {
                     }
                     Text {
                         text: ":" + Qt.formatTime(root.now, "ss")
-                        font.family: "Genova"
+                        font.family: "Plus Jakarta Sans"
                         font.pixelSize: 14
                         font.weight: Font.Bold
                         color: root.seal
@@ -136,7 +136,7 @@ Row {
 
                     Text {
                         text: root.now.getHours() < 12 ? "AM" : "PM"
-                        font.family: "Genova"
+                        font.family: "Plus Jakarta Sans"
                         font.pixelSize: 10
                         font.weight: Font.Bold
                         color: root.seal
@@ -148,7 +148,7 @@ Row {
                     }
                     Text {
                         text: Qt.formatDate(root.now, "ddd, d MMM")
-                        font.family: "Genova"
+                        font.family: "Plus Jakarta Sans"
                         font.pixelSize: 10
                         font.weight: Font.Medium
                         color: root.ink
@@ -205,7 +205,7 @@ Row {
                           "<span style='color:" + root.toHex(root.color07) + "'>Will be </span>" +
                           "<span style='color:" + root.toHex(root.ink) + "; font-weight:700'>" + root.weatherPhrase.cond1 + "</span><br>" +
                           "<span style='color:" + root.toHex(root.ink) + "; font-weight:700'>" + root.weatherPhrase.cond2 + ".</span>"
-                    font.family: "Genova"
+                    font.family: "Plus Jakarta Sans"
                     font.pixelSize: 20
                     font.weight: Font.Normal
                     lineHeight: 1.35

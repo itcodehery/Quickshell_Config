@@ -1,11 +1,11 @@
 import QtQuick
 import ".."
 import Quickshell
-import Quickshell.Widgets
+import Quickshell.Io
 import "../../modules"
 import "../../motion"
 
-// --- COOL AESTHETIC TIME & DATE WIDGET (Zero borders, unified canvas) ---
+// --- CIRCULAR WATCH CHRONOMETER FACE (Omarchy theme-aware, cardless) ---
 Item {
     id: timeDateWidget
     required property var dashboardContent
@@ -13,356 +13,207 @@ Item {
     required property var mprisSel
     required property var biggerFont
 
-    visible: opacity > 0.001
-    opacity: !dashboardContent.showMediaPlayer ? 1.0 : 0.0
-    scale: !dashboardContent.showMediaPlayer ? 1.0 : 0.96
-    Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
-    Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+    readonly property bool isClockVisible: true
+    readonly property bool isMediaPlaying: Boolean(dashboardContent && dashboardContent.isMediaPlaying)
 
-    // Seamless smoked glass foundation (Zero borders)
+    property var vizLevels: []
+    readonly property int vizBars: 60
+
+    Component.onCompleted: {
+        var init = []
+        for (var i = 0; i < vizBars; i++) init.push(0.0)
+        vizLevels = init
+    }
+
+    Process {
+        id: clockCavaProc
+        running: timeDateWidget.visible && Boolean(root && root.dashboardExpanded) && timeDateWidget.isMediaPlaying
+        command: ["bash", "-c",
+            "command -v cava >/dev/null 2>&1 || exit 0; " +
+            "exec cava -p <(printf '%s\\n' " +
+            "'[general]' 'bars = 60' 'framerate = 60' 'autosens = 1' 'sleep_timer = 0' " +
+            "'[input]' 'method = pipewire' 'source = auto' " +
+            "'[output]' 'method = raw' 'raw_target = /dev/stdout' " +
+            "'data_format = ascii' 'ascii_max_range = 100' " +
+            "'[smoothing]' 'monstercat = 1' 'waves = 0' 'noise_reduction = 25')"
+        ]
+        stdout: SplitParser {
+            splitMarker: "\n"
+            onRead: function(line) {
+                if (!timeDateWidget.isMediaPlaying) return
+                var parts = line.split(";")
+                var out = []
+                for (var i = 0; i < timeDateWidget.vizBars; i++) {
+                    var val = parseInt(parts[i])
+                    out.push(isNaN(val) ? 0.0 : Math.min(1.0, val / 100.0))
+                }
+                timeDateWidget.vizLevels = out
+            }
+        }
+    }
+
+    opacity: 1.0
+    scale: 1.0
+    visible: true
+    z: 5
+
+    Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+    Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+
+    readonly property color paperCol: (root && root.paper) ? root.paper : "#111318"
+    readonly property color inkCol: (root && root.ink) ? root.ink : "#ffffff"
+    readonly property color sealCol: (root && root.seal) ? root.seal : "#a3e635"
+    readonly property color color01Col: (root && root.color01) ? root.color01 : "#f59e0b"
+    readonly property color color03Col: (root && root.color03) ? root.color03 : "#10b981"
+    readonly property color borderCol: (root && root.cardBorderColor) ? root.cardBorderColor : Qt.rgba(1, 1, 1, 0.14)
+    readonly property bool isLight: (root && root.isLightMode) ? true : false
+
+    property date currentTime: new Date()
+    Timer {
+        interval: 1000
+        running: timeDateWidget.visible && root && root.dashboardExpanded
+        repeat: true
+        onTriggered: timeDateWidget.currentTime = new Date()
+    }
+
+    readonly property string timeHours: {
+        var h = currentTime.getHours()
+        if (root && root.clock12h) {
+            h = h % 12
+            if (h === 0) h = 12
+        }
+        return h < 10 ? "0" + h : "" + h
+    }
+    readonly property string timeMinutes: {
+        var m = currentTime.getMinutes()
+        return m < 10 ? "0" + m : "" + m
+    }
+    readonly property int timeSeconds: currentTime.getSeconds()
+    readonly property real dayProgress: (currentTime.getHours() * 60 + currentTime.getMinutes()) / 1440.0
+    readonly property real batteryPct: (root && typeof root.batteryPercent === "number") ? Math.max(0, Math.min(100, root.batteryPercent)) : 100
+    readonly property int cpuTempVal: dashboardContent.cpuTemp
+    readonly property int notifCount: (root && root.unreadNotifCount) ? root.unreadNotifCount : 0
+
+    // Circular Watch Dial (borderless)
     Rectangle {
-        id: timeCanvasBg
-        anchors.fill: parent
-        radius: 22
-        color: Qt.rgba(root.paper.r * 0.20 + 0.03, root.paper.g * 0.20 + 0.03, root.paper.b * 0.20 + 0.03, 0.72)
-
-        // Clipping container for smooth ambient gradient and edge lighting
-        ClippingRectangle {
-            anchors.fill: parent
-            radius: 22
-            color: "transparent"
-
-            // Top-right ambient aurora glow
-            Rectangle {
-                width: 240
-                height: 240
-                radius: 120
-                anchors.top: parent.top
-                anchors.topMargin: -60
-                anchors.right: parent.right
-                anchors.rightMargin: -40
-                opacity: 0.16
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: root.seal }
-                    GradientStop { position: 0.7; color: Qt.rgba(root.color06.r, root.color06.g, root.color06.b, 0.3) }
-                    GradientStop { position: 1.0; color: "transparent" }
-                }
-            }
-
-            // Bottom-left subtle warm secondary ambient tint
-            Rectangle {
-                width: 180
-                height: 180
-                radius: 90
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: -60
-                anchors.left: parent.left
-                anchors.leftMargin: -40
-                opacity: 0.09
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: root.color03 }
-                    GradientStop { position: 1.0; color: "transparent" }
-                }
-            }
-        }
-    }
-
-    // Breathing pulse item for colon
-    Item {
-        id: colonPulse
-        property real pulse: 0.9
-        SequentialAnimation {
-            running: timeDateWidget.visible
-            loops: Animation.Infinite
-            NumberAnimation { target: colonPulse; property: "pulse"; to: 0.35; duration: 1000; easing.type: Easing.InOutSine }
-            NumberAnimation { target: colonPulse; property: "pulse"; to: 0.95; duration: 1000; easing.type: Easing.InOutSine }
-        }
-    }
-
-    // Main Widget Layout Container
-    Item {
-        anchors.fill: parent
-        anchors.margins: 18
-
-        // ── TOP ROW: Date & Editorial Status Pill ──
-        Item {
-            id: topTimeRow
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: 24
-
-            Item {
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                height: parent.height
-                width: calRow.implicitWidth
-
-                Row {
-                    id: calRow
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 8
-
-                    IconText {
-                        text: "calendar_today"
-                        font.pixelSize: 14
-                        color: root.seal
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    Text {
-                        text: Qt.formatDate(dashboardContent.now, "dddd, MMMM d")
-                        font.family: root.barFont
-                        font.pixelSize: 13
-                        font.weight: Font.DemiBold
-                        color: root.ink
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        dashboardContent.activeDetailView = "calendar"
-                        if (root) root.dashboardDetail = "calendar"
-                    }
-                }
-            }
-
-            // Right Pill: Live Greeting Tag
-            Rectangle {
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                height: 22
-                radius: 11
-                color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-                width: greetingRow.implicitWidth + 16
-
-                Row {
-                    id: greetingRow
-                    anchors.centerIn: parent
-                    spacing: 4
-
-                    Text {
-                        text: dashboardContent.timeGreeting
-                        font.family: root.barFont
-                        font.pixelSize: 10
-                        font.weight: Font.Bold
-                        font.letterSpacing: 0.4
-                        color: root.seal
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-            }
-        }
-
-        // ── BOTTOM ROW: Day Progress or Resume Track ──
-        Item {
-            id: bottomTimeRow
-            anchors.bottom: parent.bottom
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: 26
-
-            // State A: Resume Track Chip (if a song was paused)
-            Rectangle {
-                anchors.fill: parent
-                radius: 13
-                visible: dashboardContent.curTitle !== ""
-                color: resumeMa.containsMouse ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.20) : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.09)
-                Behavior on color { ColorAnimation { duration: 150 } }
-
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 6
-
-                    IconText {
-                        text: "play_arrow"
-                        font.pixelSize: 16
-                        color: root.seal
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    Text {
-                        text: "Resume: " + dashboardContent.curTitle
-                        font.family: root.barFont
-                        font.pixelSize: 11
-                        font.weight: Font.Medium
-                        color: root.ink
-                        elide: Text.ElideRight
-                        width: Math.min(implicitWidth, timeDateWidget.width - 80)
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                MouseArea {
-                    id: resumeMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        dashboardContent.showMediaManually = true
-                        if (mprisSel.player) mprisSel.player.play()
-                    }
-                }
-            }
-
-            // State B: Day Completion Bar (when no media is paused/loaded)
-            Item {
-                anchors.fill: parent
-                visible: dashboardContent.curTitle === ""
-
-                Row {
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    spacing: 4
-
-                    IconText {
-                        text: "bedtime"
-                        font.pixelSize: 12
-                        color: root.sumiHi
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    Text {
-                        text: dashboardContent.dayProgressPercent + "% of day completed"
-                        font.family: root.barFont
-                        font.pixelSize: 10
-                        font.weight: Font.Medium
-                        color: root.sumiHi
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                Text {
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    text: dashboardContent.remainingHoursToday
-                    font.family: root.barFont
-                    font.pixelSize: 10
-                    font.weight: Font.Medium
-                    color: root.seal
-                    opacity: 0.85
-                }
-
-                // Sleek continuous micro-bar (borderless)
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: -4
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    height: 3
-                    radius: 1.5
-                    color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
-
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        width: Math.max(height, parent.width * (dashboardContent.dayProgressPercent / 100))
-                        radius: 1.5
-                        color: root.seal
-                    }
-                }
-            }
-        }
-    }
-
-    // ── CENTER HERO: Massive Display Clock (Dead Center of the Whole Pill) ──
-    Item {
-        id: heroClockContainer
+        id: watchDial
+        width: Math.min(parent.width, parent.height)
+        height: width
         anchors.centerIn: parent
-        anchors.verticalCenterOffset: 5
-        width: heroClockRow.implicitWidth
-        height: heroClockRow.implicitHeight
-        scale: clockMa.pressed ? 0.96 : (clockMa.containsMouse ? 1.02 : 1.0)
-        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+        radius: width / 2
+        color: Qt.rgba(paperCol.r, paperCol.g, paperCol.b, isLight ? 0.85 : 0.72)
+        border.width: 0
 
-        Row {
-            id: heroClockRow
-            anchors.centerIn: parent
-            spacing: 3
-
-            // Hour Digits
-            Text {
-                text: dashboardContent.clockHours
-                font.family: biggerFont.name.length > 0 ? biggerFont.name : root.barFont
-                font.pixelSize: 76
-                font.weight: Font.Bold
-                font.letterSpacing: 0.0
-                color: root.ink
-                anchors.verticalCenter: parent.verticalCenter
-            }
-
-            // Soft Breathing Colon
-            Text {
-                text: ":"
-                font.family: biggerFont.name.length > 0 ? biggerFont.name : root.barFont
-                font.pixelSize: 64
-                font.weight: Font.Light
-                color: root.seal
-                opacity: colonPulse.pulse
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: -4
-            }
-
-            // Minute Digits
-            Text {
-                text: dashboardContent.clockMinutes
-                font.family: biggerFont.name.length > 0 ? biggerFont.name : root.barFont
-                font.pixelSize: 76
-                font.weight: Font.Bold
-                font.letterSpacing: 0.0
-                color: root.seal
-                anchors.verticalCenter: parent.verticalCenter
-            }
-
-            // Right Metadata: AM/PM + Week Number
-            Column {
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: 2
-                spacing: 3
-                leftPadding: 8
-
-                Text {
-                    text: dashboardContent.clockAmPm
-                    font.family: root.barFont
-                    font.pixelSize: 14
-                    font.weight: Font.Bold
-                    font.letterSpacing: 0.5
-                    color: root.ink
-                    opacity: 0.75
-                    visible: text !== ""
-                }
-
-                Text {
-                    text: "W" + dashboardContent.getWeekNumber()
-                    font.family: root.barFont
-                    font.pixelSize: 11
-                    font.weight: Font.Bold
-                    font.letterSpacing: 0.5
-                    color: root.color03
-                    opacity: 0.85
-                }
-            }
-        }
-
-        MouseArea {
-            id: clockMa
+        // Perimeter Ticks (act as audio visualizer bars when media is playing) + Sweeping Seconds Arc
+        Canvas {
+            id: dialCanvas
             anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-                dashboardContent.activeDetailView = "calendar"
-                if (root) root.dashboardDetail = "calendar"
+            anchors.margins: -16
+            readonly property int curSec: timeDateWidget.timeSeconds
+            readonly property color sCol: timeDateWidget.sealCol
+            readonly property color iCol: timeDateWidget.inkCol
+            readonly property var vizLevels: timeDateWidget.vizLevels
+            readonly property bool vizActive: timeDateWidget.isMediaPlaying
+            onCurSecChanged: requestPaint()
+            onSColChanged: requestPaint()
+            onIColChanged: requestPaint()
+            onVizLevelsChanged: if (vizActive) requestPaint()
+            onVizActiveChanged: requestPaint()
+            onPaint: {
+                if (width <= 40 || height <= 40 || watchDial.width <= 20) return
+                var ctx = getContext("2d")
+                ctx.reset()
+                var cx = width / 2
+                var cy = height / 2
+                var outerR = (watchDial.width / 2) - 8
+                var lv = vizLevels || []
+
+                // 60 watch ticks (track passed seconds via brightness/thickness, and pulse outward when playing)
+                for (var i = 0; i < 60; i++) {
+                    var angle = (i / 60.0) * Math.PI * 2 - Math.PI / 2
+                    var isMajor = (i % 5 === 0)
+                    var isPassed = (i <= curSec)
+                    var isCurrent = (i === curSec)
+                    var amp = (vizActive && i < lv.length) ? lv[i] : 0.0
+                    var r1 = outerR - (isMajor ? 9 : 4)
+                    var r2 = outerR + (vizActive ? (amp * 18) : 0)
+                    ctx.beginPath()
+                    ctx.moveTo(cx + Math.cos(angle) * r1, cy + Math.sin(angle) * r1)
+                    ctx.lineTo(cx + Math.cos(angle) * r2, cy + Math.sin(angle) * r2)
+
+                    if (isCurrent) {
+                        ctx.strokeStyle = Qt.rgba(sCol.r, sCol.g, sCol.b, 1.0)
+                    } else if (isPassed) {
+                        var passedAlpha = vizActive ? Math.min(1.0, 0.72 + amp * 0.28) : (isMajor ? 0.90 : 0.72)
+                        ctx.strokeStyle = Qt.rgba(sCol.r, sCol.g, sCol.b, passedAlpha)
+                    } else if (vizActive && amp > 0.06) {
+                        var blend = Math.min(1.0, amp * 1.15)
+                        ctx.strokeStyle = Qt.rgba(
+                            iCol.r * (1 - blend) + sCol.r * blend,
+                            iCol.g * (1 - blend) + sCol.g * blend,
+                            iCol.b * (1 - blend) + sCol.b * blend,
+                            0.28 + blend * 0.50
+                        )
+                    } else {
+                        ctx.strokeStyle = isMajor
+                            ? Qt.rgba(iCol.r, iCol.g, iCol.b, 0.34)
+                            : Qt.rgba(iCol.r, iCol.g, iCol.b, 0.14)
+                    }
+
+                    var baseW = vizActive ? (isMajor ? 2.4 : 1.7) : (isMajor ? 1.8 : 1.1)
+                    ctx.lineWidth = isCurrent ? (baseW + 1.2) : (isPassed ? (baseW + 0.7) : baseW)
+                    ctx.lineCap = "round"
+                    ctx.stroke()
+                }
             }
         }
 
-        TooltipMixin {
-            root: dashboardContent.root
-            owner: heroClockContainer
-            text: "Open Calendar"
+        // Top Complication: Date
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: Math.round(watchDial.height * 0.13)
+            text: Qt.formatDate(timeDateWidget.currentTime, "ddd · MMM d").toUpperCase()
+            color: Qt.rgba(inkCol.r, inkCol.g, inkCol.b, 0.65)
+            font.family: "Genova"
+            font.pixelSize: 10
+            font.weight: Font.Bold
+            font.letterSpacing: 1.5
+        }
+
+        // Central 10:10 Time Pill (borderless, Bigger font)
+        Rectangle {
+            id: timePill
+            anchors.centerIn: parent
+            width: Math.round(watchDial.width * 0.60)
+            height: Math.round(watchDial.width * 0.25)
+            radius: height / 2
+            color: Qt.rgba(sealCol.r, sealCol.g, sealCol.b, isLight ? 0.18 : 0.14)
+            border.width: 0
+
+            Text {
+                anchors.centerIn: parent
+                anchors.verticalCenterOffset: 3
+                verticalAlignment: Text.AlignVCenter
+                text: timeDateWidget.timeHours + ":" + timeDateWidget.timeMinutes
+                color: isLight ? inkCol : sealCol
+                font.family: (biggerFont && biggerFont.status === FontLoader.Ready) ? biggerFont.name : "Genova"
+                font.pixelSize: Math.max(34, Math.round(watchDial.width * 0.17))
+                font.weight: Font.Bold
+                font.letterSpacing: 1
+            }
+        }
+
+        // Bottom Complication: Live Day Progress %
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: Math.round(watchDial.height * 0.12)
+            text: Math.round(timeDateWidget.dayProgress * 100) + "% OF DAY"
+            color: Qt.rgba(inkCol.r, inkCol.g, inkCol.b, 0.50)
+            font.family: "Genova"
+            font.pixelSize: 9
+            font.weight: Font.Bold
+            font.letterSpacing: 1.4
         }
     }
 }

@@ -251,8 +251,8 @@ Item {
                                         case "android17": return "Android 17"
                                         case "ios": return "iOS Capsule"
                                         case "android12": return "Android 12"
-                                        case "minimal": return "Minimal"
-                                        case "blocky": return "Cyber Block"
+                                        case "minimal": return "Comet Pulse"
+                                        case "blocky": return "Kinetic Equalizer"
                                         default: return "Android 17"
                                     }
                                 }
@@ -497,7 +497,7 @@ Item {
                             Rectangle {
                                 width: 70; height: 38; radius: 6
                                 color: Qt.rgba(settingsSection.inkCol.r, settingsSection.inkCol.g, settingsSection.inkCol.b, 0.08)
-                                border.width: 0; border.color: "transparent"
+                                border.width: 0
                                 clip: true
                                 Rectangle {
                                     anchors.top: parent.top; anchors.topMargin: 4
@@ -520,7 +520,7 @@ Item {
                             Rectangle {
                                 width: 70; height: 38; radius: 6
                                 color: Qt.rgba(settingsSection.inkCol.r, settingsSection.inkCol.g, settingsSection.inkCol.b, 0.08)
-                                border.width: 0; border.color: "transparent"
+                                border.width: 0
                                 clip: true
                                 Rectangle {
                                     anchors.top: parent.top
@@ -555,7 +555,7 @@ Item {
                             height: 82
                             radius: 14
                             color: Qt.rgba(settingsSection.inkCol.r, settingsSection.inkCol.g, settingsSection.inkCol.b, 0.05)
-                            border.width: 1
+                            border.width: 0
                             border.color: Qt.rgba(settingsSection.sealCol.r, settingsSection.sealCol.g, settingsSection.sealCol.b, 0.25)
 
                             Column {
@@ -699,11 +699,11 @@ Item {
                             }
                         }
 
-                        // ── Style 4: Minimal Hairline ──
+                        // ── Style 4: Comet Pulse ──
                         StyleOptionCard {
-                            title: "Minimal Hairline"
-                            subtitle: "Ultra-clean slim 4px track with a sleek floating circular thumb"
-                            badgeText: "Slim"
+                            title: "Comet Pulse"
+                            subtitle: "Sweeping energy shimmer fill with a breathing aura and morphing pill thumb"
+                            badgeText: "Animated"
                             isSelected: settingsSection.currentSliderStyle === "minimal"
                             onCardClicked: settingsSection.setSliderStyle("minimal")
 
@@ -722,11 +722,11 @@ Item {
                             }
                         }
 
-                        // ── Style 5: Cyber Block ──
+                        // ── Style 5: Kinetic Equalizer ──
                         StyleOptionCard {
-                            title: "Cyber Block"
-                            subtitle: "Industrial chamfered rail with geometric block handle and accent center core"
-                            badgeText: "Futuristic"
+                            title: "Kinetic Equalizer"
+                            subtitle: "Spring-scaled capsule bars with a magnetic proximity wave around the thumb"
+                            badgeText: "Expressive"
                             isSelected: settingsSection.currentSliderStyle === "blocky"
                             onCardClicked: settingsSection.setSliderStyle("blocky")
 
@@ -768,7 +768,7 @@ Item {
                             height: 100
                             radius: 16
                             color: Qt.rgba(settingsSection.inkCol.r, settingsSection.inkCol.g, settingsSection.inkCol.b, 0.05)
-                            border.width: 1
+                            border.width: 0
                             border.color: Qt.rgba(settingsSection.sealCol.r, settingsSection.sealCol.g, settingsSection.sealCol.b, 0.25)
 
                             Column {
@@ -796,7 +796,7 @@ Item {
                                     }
                                     Item { width: 8; height: 1 }
                                     Text {
-                                        text: "1x1: " + settingsSection.currentTileShape1x1 + "  •  1x2: " + settingsSection.currentTileShape1x2 + "  •  2x2: " + settingsSection.currentTileShape2x2
+                                        text: "1x1: " + settingsSection.currentTileShape1x1 + "  •  1x2: " + settingsSection.currentTileShape1x2
                                         font.family: settingsSection.fontFam
                                         font.pixelSize: 10
                                         color: settingsSection.inkCol
@@ -878,26 +878,6 @@ Item {
                                             }
                                         }
                                     }
-
-                                    // 2x2 Sample Mini Tile
-                                    Item {
-                                        width: 48
-                                        height: 48
-
-                                        StyledTileShape {
-                                            root: settingsSection.themeRoot
-                                            span: 4
-                                            shapeType: settingsSection.currentTileShape2x2
-                                            fillColor: Qt.rgba(settingsSection.sealCol.r, settingsSection.sealCol.g, settingsSection.sealCol.b, 0.22)
-                                        }
-
-                                        IconText {
-                                            anchors.centerIn: parent
-                                            text: "bolt"
-                                            font.pixelSize: 22
-                                            color: settingsSection.sealCol
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -909,7 +889,7 @@ Item {
 
                             // Presets Tab
                             Rectangle {
-                                width: (parent.width - 18) / 4
+                                width: (parent.width - 12) / 3
                                 height: 28
                                 radius: 14
                                 color: settingsSection.activeTileShapeTab === "presets"
@@ -919,7 +899,7 @@ Item {
 
                                 Text {
                                     anchors.centerIn: parent
-                                    text: "✨ Presets"
+                                    text: "Presets"
                                     font.family: settingsSection.fontFam
                                     font.pixelSize: 10
                                     font.weight: settingsSection.activeTileShapeTab === "presets" ? Font.Bold : Font.Normal
@@ -937,7 +917,7 @@ Item {
 
                             // 1x1 Tab
                             Rectangle {
-                                width: (parent.width - 18) / 4
+                                width: (parent.width - 12) / 3
                                 height: 28
                                 radius: 14
                                 color: settingsSection.activeTileShapeTab === "1x1"
@@ -965,7 +945,7 @@ Item {
 
                             // 1x2 Tab
                             Rectangle {
-                                width: (parent.width - 18) / 4
+                                width: (parent.width - 12) / 3
                                 height: 28
                                 radius: 14
                                 color: settingsSection.activeTileShapeTab === "1x2"
@@ -990,34 +970,6 @@ Item {
                                     onClicked: settingsSection.activeTileShapeTab = "1x2"
                                 }
                             }
-
-                            // 2x2 Tab
-                            Rectangle {
-                                width: (parent.width - 18) / 4
-                                height: 28
-                                radius: 14
-                                color: settingsSection.activeTileShapeTab === "2x2"
-                                    ? settingsSection.sealCol
-                                    : (tabMa4.containsMouse ? settingsSection.fillHoverCol : Qt.rgba(settingsSection.inkCol.r, settingsSection.inkCol.g, settingsSection.inkCol.b, 0.08))
-                                Behavior on color { ColorAnimation { duration: 150 } }
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "2x2 Tiles"
-                                    font.family: settingsSection.fontFam
-                                    font.pixelSize: 10
-                                    font.weight: settingsSection.activeTileShapeTab === "2x2" ? Font.Bold : Font.Normal
-                                    color: settingsSection.activeTileShapeTab === "2x2" ? "#ffffff" : settingsSection.inkCol
-                                }
-
-                                MouseArea {
-                                    id: tabMa4
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: settingsSection.activeTileShapeTab = "2x2"
-                                }
-                            }
                         }
 
                         // ═════════════════════════════════════════════════════
@@ -1030,9 +982,9 @@ Item {
 
                             StyleOptionCard {
                                 title: "Material You Classic"
-                                subtitle: "Circle (1x1), Stadium Capsule (1x2), Super-Card (2x2)"
+                                subtitle: "Circle (1x1) and Stadium Capsule (1x2)"
                                 badgeText: "Default"
-                                isSelected: settingsSection.currentTileShape1x1 === "circle" && settingsSection.currentTileShape1x2 === "capsule" && settingsSection.currentTileShape2x2 === "rounded"
+                                isSelected: settingsSection.currentTileShape1x1 === "circle" && settingsSection.currentTileShape1x2 === "capsule"
                                 onCardClicked: settingsSection.applyTilePreset("default")
 
                                 Item {
@@ -1045,7 +997,7 @@ Item {
                                 title: "Continuous Squircle"
                                 subtitle: "Unified modern Apple / Material 3 super-ellipse geometry"
                                 badgeText: "Unified"
-                                isSelected: settingsSection.currentTileShape1x1 === "squircle" && settingsSection.currentTileShape1x2 === "squircle" && settingsSection.currentTileShape2x2 === "squircle"
+                                isSelected: settingsSection.currentTileShape1x1 === "squircle" && settingsSection.currentTileShape1x2 === "squircle"
                                 onCardClicked: settingsSection.applyTilePreset("squircle")
 
                                 Item {
@@ -1058,7 +1010,7 @@ Item {
                                 title: "Organic Leaf"
                                 subtitle: "Fluid asymmetric diagonal curves with natural teardrop tension"
                                 badgeText: "Organic"
-                                isSelected: settingsSection.currentTileShape1x1 === "leaf" && settingsSection.currentTileShape1x2 === "leaf" && settingsSection.currentTileShape2x2 === "leaf"
+                                isSelected: settingsSection.currentTileShape1x1 === "leaf" && settingsSection.currentTileShape1x2 === "leaf"
                                 onCardClicked: settingsSection.applyTilePreset("leaf")
 
                                 Item {
@@ -1071,7 +1023,7 @@ Item {
                                 title: "Cyber Chamfer"
                                 subtitle: "Futuristic 45° cut corners with high-tech industrial aesthetic"
                                 badgeText: "Cyberpunk"
-                                isSelected: settingsSection.currentTileShape1x1 === "chamfer" && settingsSection.currentTileShape1x2 === "chamfer" && settingsSection.currentTileShape2x2 === "chamfer"
+                                isSelected: settingsSection.currentTileShape1x1 === "chamfer" && settingsSection.currentTileShape1x2 === "chamfer"
                                 onCardClicked: settingsSection.applyTilePreset("chamfer")
 
                                 Item {
@@ -1084,7 +1036,7 @@ Item {
                                 title: "Retro Ticket"
                                 subtitle: "Stylized transit pass with side notches and stamp corners"
                                 badgeText: "Retro"
-                                isSelected: settingsSection.currentTileShape1x1 === "ticket" && settingsSection.currentTileShape1x2 === "ticket" && settingsSection.currentTileShape2x2 === "ticket"
+                                isSelected: settingsSection.currentTileShape1x1 === "ticket" && settingsSection.currentTileShape1x2 === "ticket"
                                 onCardClicked: settingsSection.applyTilePreset("ticket")
 
                                 Item {
@@ -1097,7 +1049,7 @@ Item {
                                 title: "Neo-Block Minimal"
                                 subtitle: "Crisp Braun / Teenage Engineering tight 6px technical frames"
                                 badgeText: "Minimal"
-                                isSelected: settingsSection.currentTileShape1x1 === "block" && settingsSection.currentTileShape1x2 === "block" && settingsSection.currentTileShape2x2 === "block"
+                                isSelected: settingsSection.currentTileShape1x1 === "block" && settingsSection.currentTileShape1x2 === "block"
                                 onCardClicked: settingsSection.applyTilePreset("block")
 
                                 Item {
@@ -1108,9 +1060,9 @@ Item {
 
                             StyleOptionCard {
                                 title: "Geometric Crest"
-                                subtitle: "Diamond (1x1), Folder Tab (1x2), and Heraldic Shield (2x2)"
+                                subtitle: "Diamond (1x1) and Folder Tab (1x2)"
                                 badgeText: "Heraldic"
-                                isSelected: settingsSection.currentTileShape1x1 === "diamond" && settingsSection.currentTileShape1x2 === "tab" && settingsSection.currentTileShape2x2 === "shield"
+                                isSelected: settingsSection.currentTileShape1x1 === "diamond" && settingsSection.currentTileShape1x2 === "tab"
                                 onCardClicked: settingsSection.applyTilePreset("crest")
 
                                 Item {
@@ -1316,106 +1268,6 @@ Item {
                                 Item {
                                     anchors.centerIn: parent; width: 66; height: 28
                                     StyledTileShape { root: settingsSection.themeRoot; span: 2; shapeType: "block"; fillColor: settingsSection.sealCol }
-                                }
-                            }
-                        }
-
-                        // ═════════════════════════════════════════════════════
-                        // ── TAB VIEW 3: 2x2 TILE SHAPE OPTIONS ──────────────
-                        // ═════════════════════════════════════════════════════
-                        Column {
-                            width: parent.width
-                            spacing: 8
-                            visible: settingsSection.activeTileShapeTab === "2x2"
-
-                            StyleOptionCard {
-                                title: "Super-Card"
-                                subtitle: "Generous 28px modern rounded corner box"
-                                badgeText: "Default"
-                                isSelected: settingsSection.currentTileShape2x2 === "rounded"
-                                onCardClicked: settingsSection.setTileShape2x2("rounded")
-
-                                Item {
-                                    anchors.centerIn: parent; width: 38; height: 38
-                                    StyledTileShape { root: settingsSection.themeRoot; span: 4; shapeType: "rounded"; fillColor: settingsSection.sealCol }
-                                }
-                            }
-
-                            StyleOptionCard {
-                                title: "Continuous Squircle"
-                                subtitle: "Smooth continuous curvature super-ellipse container"
-                                badgeText: "Squircle"
-                                isSelected: settingsSection.currentTileShape2x2 === "squircle"
-                                onCardClicked: settingsSection.setTileShape2x2("squircle")
-
-                                Item {
-                                    anchors.centerIn: parent; width: 38; height: 38
-                                    StyledTileShape { root: settingsSection.themeRoot; span: 4; shapeType: "squircle"; fillColor: settingsSection.sealCol }
-                                }
-                            }
-
-                            StyleOptionCard {
-                                title: "Organic Pebble"
-                                subtitle: "Asymmetric diagonal curves creating natural organic flow"
-                                badgeText: "Pebble"
-                                isSelected: settingsSection.currentTileShape2x2 === "leaf"
-                                onCardClicked: settingsSection.setTileShape2x2("leaf")
-
-                                Item {
-                                    anchors.centerIn: parent; width: 38; height: 38
-                                    StyledTileShape { root: settingsSection.themeRoot; span: 4; shapeType: "leaf"; fillColor: settingsSection.sealCol }
-                                }
-                            }
-
-                            StyleOptionCard {
-                                title: "Cyber Fortress"
-                                subtitle: "Aggressive diagonal 45° cuts evoking reinforced plating"
-                                badgeText: "Cyber"
-                                isSelected: settingsSection.currentTileShape2x2 === "chamfer"
-                                onCardClicked: settingsSection.setTileShape2x2("chamfer")
-
-                                Item {
-                                    anchors.centerIn: parent; width: 38; height: 38
-                                    StyledTileShape { root: settingsSection.themeRoot; span: 4; shapeType: "chamfer"; fillColor: settingsSection.sealCol }
-                                }
-                            }
-
-                            StyleOptionCard {
-                                title: "Event Ticket"
-                                subtitle: "Decorative inward scallops on all four corner quadrants"
-                                badgeText: "Ticket"
-                                isSelected: settingsSection.currentTileShape2x2 === "ticket"
-                                onCardClicked: settingsSection.setTileShape2x2("ticket")
-
-                                Item {
-                                    anchors.centerIn: parent; width: 38; height: 38
-                                    StyledTileShape { root: settingsSection.themeRoot; span: 4; shapeType: "ticket"; fillColor: settingsSection.sealCol }
-                                }
-                            }
-
-                            StyleOptionCard {
-                                title: "Heraldic Shield"
-                                subtitle: "Curved heraldic crest profile tapering down toward the base"
-                                badgeText: "Shield"
-                                isSelected: settingsSection.currentTileShape2x2 === "shield"
-                                onCardClicked: settingsSection.setTileShape2x2("shield")
-
-                                Item {
-                                    anchors.centerIn: parent; width: 38; height: 38
-                                    StyledTileShape { root: settingsSection.themeRoot; span: 4; shapeType: "shield"; fillColor: settingsSection.sealCol }
-                                }
-                            }
-
-                            StyleOptionCard {
-                                title: "Neo-Block"
-                                subtitle: "Crisp 8px technical frame with clean industrial borders"
-                                badgeText: "Technical"
-                                isSelected: settingsSection.currentTileShape2x2 === "block"
-                                onCardClicked: settingsSection.setTileShape2x2("block")
-
-                                Item {
-                                    anchors.centerIn: parent; width: 38; height: 38
-                                    StyledTileShape { root: settingsSection.themeRoot; span: 4; shapeType: "block"; fillColor: settingsSection.sealCol }
                                 }
                             }
                         }

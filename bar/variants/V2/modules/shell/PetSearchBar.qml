@@ -13,7 +13,7 @@ Item {
     property bool isOpen: false
     property string engine: "ddg" // "ddg" | "youtube" | "claude" | "github"
     property real maxContentWidth: 250
-    readonly property real contentHeight: 28
+    property real contentHeight: 36
 
     signal focusLostOrClosed()
     signal searchSubmitted()

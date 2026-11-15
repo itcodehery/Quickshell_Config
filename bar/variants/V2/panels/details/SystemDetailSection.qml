@@ -152,9 +152,9 @@ Item {
             id: leftColContainer
             width: Math.round((columnsRow.width - columnsRow.spacing) / 2)
             height: columnsRow.height
-            radius: 20
-            color: root.fillIdle
-            border.width: root.isLightMode ? 1 : 0
+            radius: 28
+            color: "transparent"
+            border.width: 0
             border.color: root.cardBorderColor
             clip: true
 
@@ -247,20 +247,20 @@ Item {
                     anchors.fill: parent
                     radius: 14
                     color: Qt.rgba(1, 1, 1, 0.03)
-                    border.width: 1
+                    border.width: 0
                     border.color: Qt.rgba(1, 1, 1, 0.05)
                     clip: true
 
                     Column {
                         anchors.centerIn: parent
-                        width: parent.width - 16
-                        spacing: 12
+                        width: parent.width - 24
+                        spacing: 24
 
                         // Horizontal Row of the 4 Power Options Filling Width with M3 Custom Geometric Shapes
                         Row {
                             id: horizontalPowerRow
                             width: parent.width
-                            spacing: 6
+                            spacing: 10
 
                             Repeater {
                                 model: systemSection.options
@@ -274,18 +274,18 @@ Item {
                                     readonly property bool isHovered: cardMa.containsMouse
 
                                     width: Math.floor((horizontalPowerRow.width - 3 * horizontalPowerRow.spacing) / 4)
-                                    height: 104
+                                    height: 156
 
                                     Column {
                                         anchors.centerIn: parent
-                                        spacing: 8
+                                        spacing: 14
 
                                         // Material 3 Custom Geometric Shape Container
                                         Item {
                                             id: shapeContainer
                                             anchors.horizontalCenter: parent.horizontalCenter
-                                            width: 52
-                                            height: 52
+                                            width: 78
+                                            height: 78
                                             scale: (optionCard.isHovered || optionCard.isFocused) ? 1.08 : 1.0
                                             Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
 
@@ -293,7 +293,7 @@ Item {
                                                 width: 64
                                                 height: 64
                                                 anchors.centerIn: parent
-                                                scale: 52 / 64.0
+                                                scale: 78 / 64.0
                                                 transformOrigin: Item.Center
 
                                                 Shape {
@@ -331,7 +331,7 @@ Item {
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: optionCard.modelData.name
                                             font.family: (root && root.barFont) ? root.barFont : "Genova"
-                                            font.pixelSize: 11
+                                            font.pixelSize: 13
                                             font.weight: optionCard.isFocused ? Font.Bold : Font.DemiBold
                                             color: (root && root.ink) ? root.ink : "#ffffff"
                                             opacity: (optionCard.isHovered || optionCard.isFocused) ? 1.0 : 0.75
@@ -357,10 +357,10 @@ Item {
                         Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: parent.width
-                            height: 30
-                            radius: 15
+                            height: 36
+                            radius: 18
                             color: Qt.rgba(1, 1, 1, 0.04)
-                            border.width: 1
+                            border.width: 0
                             border.color: Qt.rgba(1, 1, 1, 0.06)
 
                             Row {
@@ -397,9 +397,9 @@ Item {
             id: rightColContainer
             width: columnsRow.width - leftColContainer.width - columnsRow.spacing
             height: columnsRow.height
-            radius: 20
-            color: root.fillIdle
-            border.width: root.isLightMode ? 1 : 0
+            radius: 28
+            color: "transparent"
+            border.width: 0
             border.color: root.cardBorderColor
             clip: true
 
@@ -517,38 +517,39 @@ Item {
                 anchors.bottomMargin: 10
 
                 Column {
-                    anchors.fill: parent
-                    spacing: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width
+                    spacing: 14
 
                     // ── 1. Machine & Host Identity Card ──
                     Rectangle {
                         width: parent.width
-                        height: 78
-                        radius: 16
+                        height: 118
+                        radius: 18
                         color: Qt.rgba(1, 1, 1, 0.03)
-                        border.width: 1
+                        border.width: 0
                         border.color: Qt.rgba(1, 1, 1, 0.05)
 
                         Row {
                             anchors.fill: parent
-                            anchors.leftMargin: 14
-                            anchors.rightMargin: 14
-                            spacing: 12
+                            anchors.leftMargin: 18
+                            anchors.rightMargin: 18
+                            spacing: 14
 
                             // Machine Icon Circle
                             Rectangle {
-                                width: 48
-                                height: 48
-                                radius: 24
+                                width: 58
+                                height: 58
+                                radius: 29
                                 color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.12)
-                                border.width: 1.5
+                                border.width: 0
                                 border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.28)
                                 anchors.verticalCenter: parent.verticalCenter
 
                                 IconText {
                                     anchors.centerIn: parent
                                     text: "computer"
-                                    font.pixelSize: 24
+                                    font.pixelSize: 28
                                     color: root.seal
                                 }
                             }
@@ -556,7 +557,7 @@ Item {
                             // Hostname in Bigger Font & Specs
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                spacing: 2
+                                spacing: 4
 
                                 Row {
                                     spacing: 8
@@ -564,7 +565,7 @@ Item {
                                         id: hostBigTxt
                                         text: systemSection.hostname.toUpperCase()
                                         font.family: biggerFont.name.length > 0 ? biggerFont.name : root.barFont
-                                        font.pixelSize: 26
+                                        font.pixelSize: 32
                                         font.weight: Font.Bold
                                         color: root.ink
                                         anchors.bottom: parent.bottom
@@ -609,16 +610,16 @@ Item {
                     // ── 2. Hero Uptime & Telemetry Card ──
                     Rectangle {
                         width: parent.width
-                        height: 74
-                        radius: 16
+                        height: 110
+                        radius: 18
                         color: Qt.rgba(1, 1, 1, 0.03)
-                        border.width: 1
+                        border.width: 0
                         border.color: Qt.rgba(1, 1, 1, 0.05)
 
                         Item {
                             anchors.fill: parent
-                            anchors.leftMargin: 14
-                            anchors.rightMargin: 14
+                            anchors.leftMargin: 18
+                            anchors.rightMargin: 18
 
                             // Left: Uptime in Bigger Font
                             Row {
@@ -653,21 +654,21 @@ Item {
                                     visible: uptimeHeroRow.parsed.hasH
                                     text: uptimeHeroRow.parsed.hVal
                                     font.family: biggerFont.name.length > 0 ? biggerFont.name : root.barFont
-                                    font.pixelSize: 30
+                                    font.pixelSize: 40
                                     font.weight: Font.Bold
                                     color: root.ink
                                     anchors.bottom: parent.bottom
-                                    anchors.bottomMargin: -2
+                                    anchors.bottomMargin: -3
                                 }
                                 Text {
                                     visible: uptimeHeroRow.parsed.hasH
                                     text: "h"
                                     font.family: root.barFont
-                                    font.pixelSize: 13
+                                    font.pixelSize: 15
                                     font.weight: Font.Bold
                                     color: root.seal
                                     anchors.bottom: parent.bottom
-                                    anchors.bottomMargin: 3
+                                    anchors.bottomMargin: 4
                                 }
 
                                 Item { width: 3; height: 1; visible: uptimeHeroRow.parsed.hasH && uptimeHeroRow.parsed.hasM }
@@ -676,21 +677,21 @@ Item {
                                     visible: uptimeHeroRow.parsed.hasM
                                     text: uptimeHeroRow.parsed.mVal
                                     font.family: biggerFont.name.length > 0 ? biggerFont.name : root.barFont
-                                    font.pixelSize: 30
+                                    font.pixelSize: 40
                                     font.weight: Font.Bold
                                     color: root.ink
                                     anchors.bottom: parent.bottom
-                                    anchors.bottomMargin: -2
+                                    anchors.bottomMargin: -3
                                 }
                                 Text {
                                     visible: uptimeHeroRow.parsed.hasM
                                     text: "m"
                                     font.family: root.barFont
-                                    font.pixelSize: 13
+                                    font.pixelSize: 15
                                     font.weight: Font.Bold
                                     color: root.seal
                                     anchors.bottom: parent.bottom
-                                    anchors.bottomMargin: 3
+                                    anchors.bottomMargin: 4
                                 }
 
                                 Text {
@@ -717,7 +718,7 @@ Item {
                                     anchors.fill: parent
                                     radius: 13
                                     color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.06)
-                                    border.width: 1
+                                    border.width: 0
                                     border.color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
 
                                     Row {

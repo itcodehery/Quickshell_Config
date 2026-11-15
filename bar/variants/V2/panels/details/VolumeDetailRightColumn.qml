@@ -11,9 +11,9 @@ Rectangle {
     required property var root
     required property var volSection
 
-    radius: 20
-    color: root.fillIdle
-    border.width: root.isLightMode ? 1 : 0
+    radius: 28
+            color: "transparent"
+    border.width: 0
     border.color: root.cardBorderColor
     clip: true
 
@@ -143,7 +143,7 @@ Rectangle {
             anchors.fill: parent
             radius: 14
             color: Qt.rgba(1, 1, 1, 0.03)
-            border.width: 1
+            border.width: 0
             border.color: Qt.rgba(1, 1, 1, 0.05)
             clip: true
 
@@ -158,7 +158,7 @@ Rectangle {
                     height: 48
                     radius: 10
                     color: Qt.rgba(1, 1, 1, 0.04)
-                    border.width: 1
+                    border.width: 0
                     border.color: Qt.rgba(1, 1, 1, 0.06)
 
                     Row {
@@ -218,7 +218,7 @@ Rectangle {
                         height: 22
                         radius: 11
                         color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.15)
-                        border.width: 1
+                        border.width: 0
                         border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25)
                         width: serverRow.implicitWidth + 12
 
@@ -279,7 +279,7 @@ Rectangle {
                     height: 48
                     radius: 10
                     color: Qt.rgba(1, 1, 1, 0.04)
-                    border.width: 1
+                    border.width: 0
                     border.color: Qt.rgba(1, 1, 1, 0.06)
 
                     Column {
@@ -360,7 +360,7 @@ Rectangle {
                             height: 24
                             radius: 12
                             color: isSelected ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.2) : (chipMa.containsMouse ? root.fillHover : Qt.rgba(1, 1, 1, 0.04))
-                            border.width: 1
+                            border.width: 0
                             border.color: isSelected ? root.seal : Qt.rgba(1, 1, 1, 0.06)
 
                             Row {

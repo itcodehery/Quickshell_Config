@@ -35,7 +35,7 @@ Item {
         radius: 20
         color: Qt.rgba(root.paper.r * 0.92 + 0.04, root.paper.g * 0.92 + 0.04, root.paper.b * 0.92 + 0.04, 0.97)
         border.color: root.islandBorder
-        border.width: 1
+        border.width: 0
 
         scale: dashboardContent.showPomodoroPopup ? 1.0 : 0.92
         Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack } }
@@ -155,7 +155,7 @@ Item {
                     radius: 19
                     color: (root && root.timerActive && !root.timerPaused) ? Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.22) : root.seal
                     border.color: root.seal
-                    border.width: 1
+                    border.width: 0
 
                     Row {
                         anchors.centerIn: parent
@@ -200,7 +200,7 @@ Item {
                     radius: 19
                     color: Qt.rgba(root.color01.r, root.color01.g, root.color01.b, 0.18)
                     border.color: root.color01
-                    border.width: 1
+                    border.width: 0
 
                     Row {
                         anchors.centerIn: parent

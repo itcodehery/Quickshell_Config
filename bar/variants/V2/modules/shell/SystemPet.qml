@@ -23,6 +23,13 @@ Item {
 
     readonly property int cpu: root.systemCpuPercent
     readonly property bool musicPlaying: mprisSel.playing
+    readonly property bool isSpotifyPlaying: {
+        if (!mprisSel.playing || !mprisSel.player) return false
+        var p = mprisSel.player
+        var combined = ((p.identity || "") + " " + (p.desktopEntry || "") + " " + (p.dbusName || "")).toLowerCase()
+        return combined.indexOf("spotify") !== -1
+    }
+    readonly property string spotifySongTitle: (mprisSel.player && mprisSel.player.trackTitle) ? mprisSel.player.trackTitle : ""
     property int idleSeconds: 0
 
     Timer {
@@ -47,7 +54,7 @@ Item {
     readonly property string stateTitle: {
         switch (displayMood) {
             case "curious": return "Curious"
-            case "vibing": return "Vibing"
+            case "vibing": return (isSpotifyPlaying && spotifySongTitle !== "") ? ("Vibing to " + spotifySongTitle) : "Vibing"
             case "sleeping": return "Sleeping"
             case "daydreaming": return "Daydreaming"
             case "bored": return "Bored"
@@ -632,11 +639,14 @@ Item {
 
             Text {
                 anchors.verticalCenter: parent.verticalCenter
+                width: Math.min(implicitWidth, 180)
                 text: pet.stateTitle
                 color: root.seal
                 font.family: root.barFont
                 font.pixelSize: 11
                 font.weight: Font.Bold
+                elide: Text.ElideRight
+                maximumLineCount: 1
             }
         }
     }

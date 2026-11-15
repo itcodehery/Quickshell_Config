@@ -17,7 +17,6 @@ Item {
     readonly property var batDetailSection: batDetailLoader.item
     readonly property var stDetailSection: stDetailLoader.item
     readonly property var volDetailSection: volDetailLoader.item
-    readonly property var sysDetailSection: sysDetailLoader.item
     readonly property var calDetailSection: calDetailLoader.item
     readonly property var notifDetailSection: notifDetailLoader.item
     readonly property var updatesDetailSection: updatesDetailLoader.item
@@ -99,7 +98,6 @@ Item {
                     case "battery": return "Battery & Power"
                     case "screentime": return "Screen Time"
                     case "volume": return "Sound & Volume"
-                    case "system": return "System & Power"
                     case "calendar": return "Calendar & Notes"
                     case "notifications": return "Notifications"
                     case "updates": return "Software Updates"
@@ -153,6 +151,7 @@ Item {
     Item {
         id: detailContentArea
         anchors.fill: parent
+        anchors.bottomMargin: 16
         clip: true
 
         component DetailLoader: Loader {
@@ -175,12 +174,6 @@ Item {
         DetailLoader { id: batDetailLoader;   viewName: "battery";       sourceComponent: BatteryDetailSection       { root: dashboardContent.root; panel: dashboardContent.panel } }
         DetailLoader { id: stDetailLoader;    viewName: "screentime";    sourceComponent: ScreentimeDetailSection    { root: dashboardContent.root; panel: dashboardContent.panel } }
         DetailLoader { id: volDetailLoader;   viewName: "volume";        sourceComponent: VolumeDetailSection        { root: dashboardContent.root; panel: dashboardContent.panel } }
-        DetailLoader {
-            id: sysDetailLoader
-            viewName: "system"
-            onLoaded: if (item) item.forceActiveFocus()
-            sourceComponent: SystemDetailSection { root: dashboardContent.root; panel: dashboardContent.panel }
-        }
         DetailLoader {
             id: pluginsDetailLoader
             viewName: "plugins"

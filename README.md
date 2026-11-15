@@ -239,4 +239,4 @@ Launched via `bin/qs-lock` (`qs -c lock`):
 - **Compositor**: [Hyprland](https://hyprland.org/)
 - **Audio & Visualizer**: PipeWire, WirePlumber, `pactl`, `wpctl`, `cava`
 - **Utilities**: `jq`, `inotify-tools`, `python3`, `grim`, `brightnessctl`, `upower`, `bluetoothctl`, `nmcli`
-- **Fonts**: `Genova`, `JetBrainsMono Nerd Font`, `Bigger Display`, Material Symbols Rounded
+- **Fonts**: `Plus Jakarta Sans`, `JetBrainsMono Nerd Font`, `Bigger Display`, Material Symbols Rounded
