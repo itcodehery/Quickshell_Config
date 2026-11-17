@@ -27,29 +27,34 @@ Item {
     Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
 
     readonly property color paperCol: (root && root.paper) ? root.paper : "#111318"
-    readonly property color inkCol: (root && root.ink) ? root.ink : "#ffffff"
+    readonly property color baseInkCol: (root && root.ink) ? root.ink : "#ffffff"
     readonly property color sealCol: (root && root.seal) ? root.seal : "#a3e635"
     readonly property bool isLight: (root && root.isLightMode) ? true : false
 
-    readonly property color domCol: (mprisArt && mprisArt.hasDominantColor) ? mprisArt.dominantColor : sealCol
-    readonly property bool hasVibrantDom: (mprisArt && mprisArt.hasDominantColor) ? true : false
+    readonly property bool hasVibrantDom: Boolean(
+        mprisArt && mprisArt.dominantColor
+        && String(mprisArt.dominantColor) !== "#00000000"
+        && String(mprisArt.dominantColor) !== "transparent"
+    )
+    readonly property color domCol: hasVibrantDom ? mprisArt.dominantColor : sealCol
 
+    // Richly tint the whole media card with the album art's dominant color
     readonly property color dockBg: hasVibrantDom
         ? Qt.rgba(
-            paperCol.r * 0.65 + domCol.r * 0.35,
-            paperCol.g * 0.65 + domCol.g * 0.35,
-            paperCol.b * 0.65 + domCol.b * 0.35,
-            isLight ? 0.94 : 0.88
+            paperCol.r * 0.35 + domCol.r * 0.65,
+            paperCol.g * 0.35 + domCol.g * 0.65,
+            paperCol.b * 0.35 + domCol.b * 0.65,
+            0.92
           )
         : Qt.rgba(paperCol.r, paperCol.g, paperCol.b, isLight ? 0.94 : 0.88)
 
+    readonly property bool isCardLight: (dockBg.r * 0.299 + dockBg.g * 0.587 + dockBg.b * 0.114) > 0.58
+    readonly property color inkCol: hasVibrantDom ? (isCardLight ? "#141414" : "#ffffff") : baseInkCol
+
     readonly property color accentCol: hasVibrantDom
-        ? Qt.rgba(
-            Math.min(1, domCol.r * 0.55 + 0.45),
-            Math.min(1, domCol.g * 0.55 + 0.45),
-            Math.min(1, domCol.b * 0.55 + 0.45),
-            1.0
-          )
+        ? (isCardLight
+            ? Qt.rgba(domCol.r * 0.45, domCol.g * 0.45, domCol.b * 0.45, 1.0)
+            : Qt.rgba(Math.min(1, domCol.r * 0.45 + 0.55), Math.min(1, domCol.g * 0.45 + 0.55), Math.min(1, domCol.b * 0.45 + 0.55), 1.0))
         : sealCol
 
     readonly property color onAccentCol: {
@@ -176,6 +181,7 @@ Item {
         radius: 22
         color: mediaWithLyricsGroup.dockBg
         border.width: 0
+        Behavior on color { ColorAnimation { duration: 350 } }
 
         // Left: Square Album Art spanning the combined height of the media bar + lyrics bar
         ClippingRectangle {
@@ -215,25 +221,169 @@ Item {
             anchors.right: parent.right
             anchors.rightMargin: 12
             anchors.top: parent.top
-            anchors.topMargin: 8
+            anchors.topMargin: 6
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 8
-            spacing: 6
+            anchors.bottomMargin: 6
+            spacing: 3
 
-            // ── ROW 1: COMPACT MEDIA PLAYER CONTROLS & SEEK BAR (36px) ──
+            // ── ROW 1: SONG TITLE + ARTIST CHIP & ACTION PILLS (26px) ──
             Item {
                 width: parent.width
-                height: 36
+                height: 26
 
-                // Left/Center: Compact Interactive Progress Pill
+                Row {
+                    id: trackInfoRow
+                    anchors.left: parent.left
+                    anchors.right: rightMetaCluster.left
+                    anchors.rightMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 6
+
+                    readonly property real chipReserve: mediaWithLyricsGroup.trackArtistOnly !== ""
+                        ? Math.min(artistBadgeText.implicitWidth + 14, width * 0.42)
+                        : 0
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Math.min(implicitWidth, Math.max(40, trackInfoRow.width - trackInfoRow.chipReserve - (trackInfoRow.chipReserve > 0 ? trackInfoRow.spacing : 0)))
+                        text: mediaWithLyricsGroup.trackTitleOnly
+                        color: mediaWithLyricsGroup.inkCol
+                        font.family: "Genova"
+                        font.pixelSize: 12
+                        font.weight: Font.Bold
+                        elide: Text.ElideRight
+                        maximumLineCount: 1
+                    }
+
+                    Rectangle {
+                        visible: mediaWithLyricsGroup.trackArtistOnly !== ""
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 18
+                        width: Math.min(artistBadgeText.implicitWidth + 12, trackInfoRow.width * 0.42)
+                        radius: 9
+                        color: Qt.rgba(mediaWithLyricsGroup.accentCol.r, mediaWithLyricsGroup.accentCol.g, mediaWithLyricsGroup.accentCol.b, 0.16)
+
+                        Text {
+                            id: artistBadgeText
+                            anchors.centerIn: parent
+                            width: parent.width - 10
+                            horizontalAlignment: Text.AlignHCenter
+                            text: mediaWithLyricsGroup.trackArtistOnly
+                            color: mediaWithLyricsGroup.accentCol
+                            font.family: "Genova"
+                            font.pixelSize: 10
+                            font.weight: Font.DemiBold
+                            elide: Text.ElideRight
+                            maximumLineCount: 1
+                        }
+                    }
+                }
+
+                // Right: "See on <Player>" + Audio Output Pill
+                Row {
+                    id: rightMetaCluster
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 5
+
+                    Rectangle {
+                        height: 22
+                        width: seeOnRow.implicitWidth + 14
+                        radius: 11
+                        visible: mediaWithLyricsGroup.playerDisplayName !== ""
+                        color: seeOnMa.containsMouse
+                            ? Qt.rgba(mediaWithLyricsGroup.accentCol.r, mediaWithLyricsGroup.accentCol.g, mediaWithLyricsGroup.accentCol.b, 0.26)
+                            : Qt.rgba(mediaWithLyricsGroup.accentCol.r, mediaWithLyricsGroup.accentCol.g, mediaWithLyricsGroup.accentCol.b, 0.14)
+                        scale: seeOnMa.pressed ? 0.94 : 1.0
+                        Behavior on color { ColorAnimation { duration: 140 } }
+                        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutBack } }
+
+                        Row {
+                            id: seeOnRow
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            IconText {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "open_in_new"
+                                color: mediaWithLyricsGroup.accentCol
+                                font.pixelSize: 12
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "See on " + mediaWithLyricsGroup.playerDisplayName
+                                color: mediaWithLyricsGroup.inkCol
+                                font.family: "Genova"
+                                font.pixelSize: 10
+                                font.weight: Font.DemiBold
+                            }
+                        }
+
+                        MouseArea {
+                            id: seeOnMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: mediaWithLyricsGroup.jumpToMediaWorkspace()
+                        }
+                    }
+
+                    Rectangle {
+                        height: 22
+                        width: audioPillRow.implicitWidth + 14
+                        radius: 11
+                        color: audioOutMa.containsMouse
+                            ? Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.14)
+                            : Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.08)
+                        Behavior on color { ColorAnimation { duration: 140 } }
+
+                        Row {
+                            id: audioPillRow
+                            anchors.centerIn: parent
+                            spacing: 4
+
+                            IconText {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: (audioData && audioData.isMuted) ? "volume_off" : ((audioData && audioData.isHeadphone) ? "headphones" : "volume_up")
+                                color: mediaWithLyricsGroup.inkCol
+                                font.pixelSize: 13
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: (audioData && audioData.volume !== undefined) ? (Math.round(audioData.volume) + "%") : "Audio"
+                                color: mediaWithLyricsGroup.inkCol
+                                font.family: "Genova"
+                                font.pixelSize: 10
+                                font.weight: Font.DemiBold
+                            }
+                        }
+
+                        MouseArea {
+                            id: audioOutMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: dashboardContent.activeDetailView = "volume"
+                        }
+                    }
+                }
+            }
+
+            // ── ROW 2: CLEAN PROGRESS BAR + TRANSPORT CONTROLS (24px) ──
+            Item {
+                width: parent.width
+                height: 24
+
                 Rectangle {
                     id: seekBarPill
                     anchors.left: parent.left
-                    anchors.right: rightControlsCluster.left
-                    anchors.rightMargin: 10
+                    anchors.right: transportCluster.left
+                    anchors.rightMargin: 8
                     anchors.verticalCenter: parent.verticalCenter
-                    height: 26
-                    radius: 13
+                    height: 20
+                    radius: 10
                     color: Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.08)
                     clip: true
 
@@ -245,82 +395,23 @@ Item {
                         ? ("-" + mediaWithLyricsGroup.fmtTime(Math.max(0, lenSecs - posSecs)))
                         : "0:00"
 
-                    Component {
-                        id: trackBadgeComp
-                        Row {
-                            id: badgeRow
-                            property color titleColor: mediaWithLyricsGroup.inkCol
-                            property color chipBg: Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.12)
-                            property color chipTextColor: Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.85)
-                            spacing: 6
-                            readonly property real maxTotalW: Math.max(80, seekBarPill.width - 116)
-                            readonly property real chipReserve: mediaWithLyricsGroup.trackArtistOnly !== "" ? Math.min(artistText.implicitWidth + 14, maxTotalW * 0.42) : 0
-
-                            Text {
-                                id: titleText
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: Math.min(implicitWidth, Math.max(40, badgeRow.maxTotalW - badgeRow.chipReserve - (badgeRow.chipReserve > 0 ? badgeRow.spacing : 0)))
-                                text: mediaWithLyricsGroup.trackTitleOnly
-                                color: badgeRow.titleColor
-                                font.family: "Genova"
-                                font.pixelSize: 12
-                                font.weight: Font.Bold
-                                elide: Text.ElideRight
-                                maximumLineCount: 1
-                            }
-
-                            Rectangle {
-                                visible: mediaWithLyricsGroup.trackArtistOnly !== ""
-                                anchors.verticalCenter: parent.verticalCenter
-                                height: 16
-                                width: Math.min(artistText.implicitWidth + 12, badgeRow.maxTotalW * 0.42)
-                                radius: 8
-                                color: badgeRow.chipBg
-
-                                Text {
-                                    id: artistText
-                                    anchors.centerIn: parent
-                                    width: parent.width - 10
-                                    horizontalAlignment: Text.AlignHCenter
-                                    text: mediaWithLyricsGroup.trackArtistOnly
-                                    color: badgeRow.chipTextColor
-                                    font.family: "Genova"
-                                    font.pixelSize: 10
-                                    font.weight: Font.DemiBold
-                                    elide: Text.ElideRight
-                                    maximumLineCount: 1
-                                }
-                            }
-                        }
-                    }
-
                     Text {
                         anchors.left: parent.left
-                        anchors.leftMargin: 12
+                        anchors.leftMargin: 10
                         anchors.verticalCenter: parent.verticalCenter
                         text: seekBarPill.elapsedStr
-                        color: Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.75)
+                        color: Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.78)
                         font.family: "Genova"
                         font.pixelSize: 10
                         font.weight: Font.DemiBold
                     }
 
-                    Loader {
-                        anchors.centerIn: parent
-                        sourceComponent: trackBadgeComp
-                        onLoaded: {
-                            item.titleColor = mediaWithLyricsGroup.inkCol
-                            item.chipBg = Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.12)
-                            item.chipTextColor = Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.85)
-                        }
-                    }
-
                     Text {
                         anchors.right: parent.right
-                        anchors.rightMargin: 12
+                        anchors.rightMargin: 10
                         anchors.verticalCenter: parent.verticalCenter
                         text: seekBarPill.remainingStr
-                        color: Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.75)
+                        color: Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.78)
                         font.family: "Genova"
                         font.pixelSize: 10
                         font.weight: Font.DemiBold
@@ -343,7 +434,7 @@ Item {
                         }
 
                         Text {
-                            x: 12
+                            x: 10
                             anchors.verticalCenter: parent.verticalCenter
                             text: seekBarPill.elapsedStr
                             color: mediaWithLyricsGroup.onAccentCol
@@ -352,19 +443,8 @@ Item {
                             font.weight: Font.DemiBold
                         }
 
-                        Loader {
-                            x: Math.round((seekBarPill.width - width) / 2)
-                            anchors.verticalCenter: parent.verticalCenter
-                            sourceComponent: trackBadgeComp
-                            onLoaded: {
-                                item.titleColor = mediaWithLyricsGroup.onAccentCol
-                                item.chipBg = Qt.rgba(mediaWithLyricsGroup.onAccentCol.r, mediaWithLyricsGroup.onAccentCol.g, mediaWithLyricsGroup.onAccentCol.b, 0.20)
-                                item.chipTextColor = mediaWithLyricsGroup.onAccentCol
-                            }
-                        }
-
                         Text {
-                            x: seekBarPill.width - width - 12
+                            x: seekBarPill.width - width - 10
                             anchors.verticalCenter: parent.verticalCenter
                             text: seekBarPill.remainingStr
                             color: mediaWithLyricsGroup.onAccentCol
@@ -389,15 +469,15 @@ Item {
                     }
                 }
 
-                // Right: Transport Controls + "See on <Player>" + Audio Output Pill
+                // Right: Prev, Rectangular Play/Pause, Next
                 Row {
-                    id: rightControlsCluster
+                    id: transportCluster
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 5
+                    spacing: 4
 
                     Rectangle {
-                        width: 28; height: 28; radius: 14
+                        width: 24; height: 24; radius: 12
                         anchors.verticalCenter: parent.verticalCenter
                         color: prevMa.containsMouse
                             ? Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.14)
@@ -410,7 +490,7 @@ Item {
                             anchors.centerIn: parent
                             text: "skip_previous"
                             color: mediaWithLyricsGroup.inkCol
-                            font.pixelSize: 16
+                            font.pixelSize: 15
                         }
                         MouseArea {
                             id: prevMa
@@ -422,7 +502,7 @@ Item {
                     }
 
                     Rectangle {
-                        width: 44; height: 28; radius: 10
+                        width: 38; height: 24; radius: 8
                         anchors.verticalCenter: parent.verticalCenter
                         color: mediaWithLyricsGroup.accentCol
                         scale: playMa.pressed ? 0.92 : (playMa.containsMouse ? 1.04 : 1.0)
@@ -433,7 +513,7 @@ Item {
                             anchors.centerIn: parent
                             text: mediaWithLyricsGroup.isPlaying ? "pause" : "play_arrow"
                             color: mediaWithLyricsGroup.onAccentCol
-                            font.pixelSize: 18
+                            font.pixelSize: 16
                         }
                         MouseArea {
                             id: playMa
@@ -445,7 +525,7 @@ Item {
                     }
 
                     Rectangle {
-                        width: 28; height: 28; radius: 14
+                        width: 24; height: 24; radius: 12
                         anchors.verticalCenter: parent.verticalCenter
                         color: nextMa.containsMouse
                             ? Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.14)
@@ -458,7 +538,7 @@ Item {
                             anchors.centerIn: parent
                             text: "skip_next"
                             color: mediaWithLyricsGroup.inkCol
-                            font.pixelSize: 16
+                            font.pixelSize: 15
                         }
                         MouseArea {
                             id: nextMa
@@ -468,104 +548,21 @@ Item {
                             onClicked: if (mprisSel.player && mprisSel.player.canGoNext) mprisSel.player.next()
                         }
                     }
-
-                    Rectangle {
-                        height: 26
-                        width: seeOnRow.implicitWidth + 16
-                        radius: 13
-                        visible: mediaWithLyricsGroup.playerDisplayName !== ""
-                        color: seeOnMa.containsMouse
-                            ? Qt.rgba(mediaWithLyricsGroup.accentCol.r, mediaWithLyricsGroup.accentCol.g, mediaWithLyricsGroup.accentCol.b, 0.26)
-                            : Qt.rgba(mediaWithLyricsGroup.accentCol.r, mediaWithLyricsGroup.accentCol.g, mediaWithLyricsGroup.accentCol.b, 0.14)
-                        scale: seeOnMa.pressed ? 0.94 : 1.0
-                        Behavior on color { ColorAnimation { duration: 140 } }
-                        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutBack } }
-
-                        Row {
-                            id: seeOnRow
-                            anchors.centerIn: parent
-                            spacing: 4
-
-                            IconText {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: "open_in_new"
-                                color: mediaWithLyricsGroup.accentCol
-                                font.pixelSize: 13
-                            }
-
-                            Text {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: "See on " + mediaWithLyricsGroup.playerDisplayName
-                                color: mediaWithLyricsGroup.inkCol
-                                font.family: "Genova"
-                                font.pixelSize: 10
-                                font.weight: Font.DemiBold
-                            }
-                        }
-
-                        MouseArea {
-                            id: seeOnMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: mediaWithLyricsGroup.jumpToMediaWorkspace()
-                        }
-                    }
-
-                    Rectangle {
-                        height: 26
-                        width: audioPillRow.implicitWidth + 16
-                        radius: 13
-                        color: audioOutMa.containsMouse
-                            ? Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.14)
-                            : Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.08)
-                        Behavior on color { ColorAnimation { duration: 140 } }
-
-                        Row {
-                            id: audioPillRow
-                            anchors.centerIn: parent
-                            spacing: 4
-
-                            IconText {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: (audioData && audioData.isMuted) ? "volume_off" : ((audioData && audioData.isHeadphone) ? "headphones" : "volume_up")
-                                color: mediaWithLyricsGroup.inkCol
-                                font.pixelSize: 14
-                            }
-
-                            Text {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: (audioData && audioData.volume !== undefined) ? (Math.round(audioData.volume) + "%") : "Audio"
-                                color: mediaWithLyricsGroup.inkCol
-                                font.family: "Genova"
-                                font.pixelSize: 10
-                                font.weight: Font.DemiBold
-                            }
-                        }
-
-                        MouseArea {
-                            id: audioOutMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: dashboardContent.activeDetailView = "volume"
-                        }
-                    }
                 }
             }
 
-            // ── ROW 2: COMPACT SYNCED LYRICS STRIP (26px) ──
+            // ── ROW 3: COMPACT SYNCED LYRICS STRIP (22px) ──
             Item {
                 width: parent.width
-                height: 26
+                height: 22
 
                 Rectangle {
                     id: lyricIconBadge
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 24
-                    height: 24
-                    radius: 12
+                    width: 20
+                    height: 20
+                    radius: 10
                     color: Qt.rgba(mediaWithLyricsGroup.accentCol.r, mediaWithLyricsGroup.accentCol.g, mediaWithLyricsGroup.accentCol.b, 0.16)
 
                     IconText {

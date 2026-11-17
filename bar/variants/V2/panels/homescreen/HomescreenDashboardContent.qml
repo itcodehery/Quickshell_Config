@@ -1041,14 +1041,14 @@ Item {
             }
         } // end upperStage
 
-        // ── FULL-WIDTH BOTTOM MEDIA BAR + MATCHING LYRICS BAR ──
+        // ── COMPACT CENTERED BOTTOM MEDIA BAR + MATCHING LYRICS BAR ──
         HomescreenMediaLyricsCard {
             id: mediaWithLyricsGroup
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 0
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: 84
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Math.round(parent.width * 0.5)
+            height: 88
             z: 4
             dashboardContent: dashboardContent
             root: dashboardContent.root
