@@ -2,40 +2,43 @@
 
 FILE="$HOME/.config/hypr/monitors.conf"
 LUA_FILE="$HOME/.config/hypr/monitors.lua"
+HYPRMONCFG_FILE="$HOME/.config/hypr/hyprmoncfg-monitors.lua"
 
-if grep -q "^monitor=eDP-1,1920x1080@120" "$FILE"; then
-    # Currently 120, switch to 60
-    sed -i 's/^monitor=eDP-1,1920x1080@120/# monitor=eDP-1,1920x1080@120/' "$FILE"
-    sed -i 's/^# monitor=eDP-1,1920x1080@60/monitor=eDP-1,1920x1080@60/' "$FILE"
-elif grep -q "^monitor=eDP-1,1920x1080@60" "$FILE"; then
-    # Currently 60, switch to 48
-    sed -i 's/^monitor=eDP-1,1920x1080@60/# monitor=eDP-1,1920x1080@60/' "$FILE"
-    sed -i 's/^# monitor=eDP-1,1920x1080@48/monitor=eDP-1,1920x1080@48/' "$FILE"
-elif grep -q "^monitor=eDP-1,1920x1080@48" "$FILE"; then
-    # Currently 48, switch to 120
-    sed -i 's/^monitor=eDP-1,1920x1080@48/# monitor=eDP-1,1920x1080@48/' "$FILE"
-    sed -i 's/^# monitor=eDP-1,1920x1080@120/monitor=eDP-1,1920x1080@120/' "$FILE"
-else
-    # Default fallback, enable 60
-    sed -i 's/^monitor=eDP-1,1920x1080@120/# monitor=eDP-1,1920x1080@120/' "$FILE"
-    sed -i 's/^monitor=eDP-1,1920x1080@48/# monitor=eDP-1,1920x1080@48/' "$FILE"
-    sed -i 's/^# monitor=eDP-1,1920x1080@60/monitor=eDP-1,1920x1080@60/' "$FILE"
+if [ -f "$HYPRMONCFG_FILE" ]; then
+    if grep -qE 'mode = "1920x1080@120(\.[0-9]+)?"' "$HYPRMONCFG_FILE"; then
+        NEXT_RATE="60"
+        NEXT_HYPRMONCFG_MODE="1920x1080@60"
+    else
+        NEXT_RATE="120"
+        NEXT_HYPRMONCFG_MODE="1920x1080@120.21"
+    fi
+
+    sed -i -E "s/mode = \"1920x1080@[^\"]*\"/mode = \"$NEXT_HYPRMONCFG_MODE\"/" "$HYPRMONCFG_FILE"
+fi
+
+if [ -f "$FILE" ]; then
+    if [ "${NEXT_RATE:-}" = "60" ] || { [ -z "${NEXT_RATE:-}" ] && grep -q "^monitor=eDP-1,1920x1080@120" "$FILE"; }; then
+        # Switch to 60
+        sed -i 's/^monitor=eDP-1,1920x1080@120/# monitor=eDP-1,1920x1080@120/' "$FILE"
+        sed -i 's/^monitor=eDP-1,1920x1080@48/# monitor=eDP-1,1920x1080@48/' "$FILE"
+        sed -i 's/^# monitor=eDP-1,1920x1080@60/monitor=eDP-1,1920x1080@60/' "$FILE"
+    else
+        # Switch to 120
+        sed -i 's/^monitor=eDP-1,1920x1080@60/# monitor=eDP-1,1920x1080@60/' "$FILE"
+        sed -i 's/^monitor=eDP-1,1920x1080@48/# monitor=eDP-1,1920x1080@48/' "$FILE"
+        sed -i 's/^# monitor=eDP-1,1920x1080@120/monitor=eDP-1,1920x1080@120/' "$FILE"
+    fi
 fi
 
 if [ -f "$LUA_FILE" ]; then
-    if grep -q '^hl.monitor({ output = "", mode = "1920x1080@120"' "$LUA_FILE"; then
+    if [ "${NEXT_RATE:-}" = "60" ] || { [ -z "${NEXT_RATE:-}" ] && grep -q '^hl.monitor({ output = "", mode = "1920x1080@120"' "$LUA_FILE"; }; then
         sed -i 's/^hl.monitor({ output = "", mode = "1920x1080@120"/-- hl.monitor({ output = "", mode = "1920x1080@120"/' "$LUA_FILE"
+        sed -i 's/^hl.monitor({ output = "", mode = "1920x1080@48"/-- hl.monitor({ output = "", mode = "1920x1080@48"/' "$LUA_FILE"
         sed -i 's/^-- hl.monitor({ output = "", mode = "1920x1080@60"/hl.monitor({ output = "", mode = "1920x1080@60"/' "$LUA_FILE"
-    elif grep -q '^hl.monitor({ output = "", mode = "1920x1080@60"' "$LUA_FILE"; then
+    else
         sed -i 's/^hl.monitor({ output = "", mode = "1920x1080@60"/-- hl.monitor({ output = "", mode = "1920x1080@60"/' "$LUA_FILE"
-        sed -i 's/^-- hl.monitor({ output = "", mode = "1920x1080@48"/hl.monitor({ output = "", mode = "1920x1080@48"/' "$LUA_FILE"
-    elif grep -q '^hl.monitor({ output = "", mode = "1920x1080@48"' "$LUA_FILE"; then
         sed -i 's/^hl.monitor({ output = "", mode = "1920x1080@48"/-- hl.monitor({ output = "", mode = "1920x1080@48"/' "$LUA_FILE"
         sed -i 's/^-- hl.monitor({ output = "", mode = "1920x1080@120"/hl.monitor({ output = "", mode = "1920x1080@120"/' "$LUA_FILE"
-    else
-        sed -i 's/^hl.monitor({ output = "", mode = "1920x1080@120"/-- hl.monitor({ output = "", mode = "1920x1080@120"/' "$LUA_FILE"
-        sed -i 's/^hl.monitor({ output = "", mode = "1920x1080@48"/-- hl.monitor({ output = "", mode = "1920x1080@48"/' "$LUA_FILE"
-        sed -i 's/^-- hl.monitor({ output = "", mode = "1920x1080@60"/hl.monitor({ output = "", mode = "1920x1080@60"/' "$LUA_FILE"
     fi
 fi
 
