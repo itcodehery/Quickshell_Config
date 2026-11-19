@@ -64,7 +64,8 @@ function fetchLyrics(root) {
         return
     }
 
-    if (root._isFetchingLyrics) return
+    if (root._isFetchingLyrics || root._lyricsRetryCount >= root.maxLyricsRetries) return
+    root._lastAttemptedTrackId = trackId
     root._isFetchingLyrics = true
     var seq = ++root._lyricsFetchSeq
     root._lyricsRetryCount++

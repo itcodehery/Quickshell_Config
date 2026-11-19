@@ -16,6 +16,13 @@ Item {
     readonly property bool isClockVisible: true
     readonly property bool isMediaPlaying: Boolean(dashboardContent && dashboardContent.isMediaPlaying)
 
+    // Jarvis M3 boot-up progress drivers (1.0 = settled)
+    property real pillProgress: 1.0
+    property real pillTextProgress: 1.0
+    property real dateProgress: 1.0
+    property real dayPctProgress: 1.0
+    property real ticksProgress: 1.0
+
     property var vizLevels: []
     readonly property int vizBars: 60
 
@@ -114,22 +121,28 @@ Item {
             readonly property color iCol: timeDateWidget.inkCol
             readonly property var vizLevels: timeDateWidget.vizLevels
             readonly property bool vizActive: timeDateWidget.isMediaPlaying
+            readonly property real ticksProg: timeDateWidget.ticksProgress
             onCurSecChanged: requestPaint()
             onSColChanged: requestPaint()
             onIColChanged: requestPaint()
             onVizLevelsChanged: if (vizActive) requestPaint()
             onVizActiveChanged: requestPaint()
+            onTicksProgChanged: requestPaint()
             onPaint: {
                 if (width <= 40 || height <= 40 || watchDial.width <= 20) return
                 var ctx = getContext("2d")
                 ctx.reset()
+                if (ticksProg <= 0.005) return
                 var cx = width / 2
                 var cy = height / 2
                 var outerR = (watchDial.width / 2) - 8
                 var lv = vizLevels || []
 
-                // 60 watch ticks (track passed seconds via brightness/thickness, and pulse outward when playing)
+                // 60 watch ticks (fade in clockwise one by one on boot, track passed seconds, and pulse outward when playing)
                 for (var i = 0; i < 60; i++) {
+                    var tickT = Math.max(0.0, Math.min(1.0, (ticksProg * 62.0 - i) / 3.0))
+                    if (tickT <= 0.01) continue
+
                     var angle = (i / 60.0) * Math.PI * 2 - Math.PI / 2
                     var isMajor = (i % 5 === 0)
                     var isPassed = (i <= curSec)
@@ -142,22 +155,22 @@ Item {
                     ctx.lineTo(cx + Math.cos(angle) * r2, cy + Math.sin(angle) * r2)
 
                     if (isCurrent) {
-                        ctx.strokeStyle = Qt.rgba(sCol.r, sCol.g, sCol.b, 1.0)
+                        ctx.strokeStyle = Qt.rgba(sCol.r, sCol.g, sCol.b, 1.0 * tickT)
                     } else if (isPassed) {
                         var passedAlpha = vizActive ? Math.min(1.0, 0.72 + amp * 0.28) : (isMajor ? 0.90 : 0.72)
-                        ctx.strokeStyle = Qt.rgba(sCol.r, sCol.g, sCol.b, passedAlpha)
+                        ctx.strokeStyle = Qt.rgba(sCol.r, sCol.g, sCol.b, passedAlpha * tickT)
                     } else if (vizActive && amp > 0.06) {
                         var blend = Math.min(1.0, amp * 1.15)
                         ctx.strokeStyle = Qt.rgba(
                             iCol.r * (1 - blend) + sCol.r * blend,
                             iCol.g * (1 - blend) + sCol.g * blend,
                             iCol.b * (1 - blend) + sCol.b * blend,
-                            0.28 + blend * 0.50
+                            (0.28 + blend * 0.50) * tickT
                         )
                     } else {
                         ctx.strokeStyle = isMajor
-                            ? Qt.rgba(iCol.r, iCol.g, iCol.b, 0.34)
-                            : Qt.rgba(iCol.r, iCol.g, iCol.b, 0.14)
+                            ? Qt.rgba(iCol.r, iCol.g, iCol.b, 0.34 * tickT)
+                            : Qt.rgba(iCol.r, iCol.g, iCol.b, 0.14 * tickT)
                     }
 
                     var baseW = vizActive ? (isMajor ? 2.4 : 1.7) : (isMajor ? 1.8 : 1.1)
@@ -171,7 +184,8 @@ Item {
         // Top Complication: Date
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            y: Math.round(watchDial.height * 0.13)
+            y: Math.round(watchDial.height * 0.13) - (1.0 - timeDateWidget.dateProgress) * 6
+            opacity: timeDateWidget.dateProgress
             text: Qt.formatDate(timeDateWidget.currentTime, "ddd · MMM d").toUpperCase()
             color: Qt.rgba(inkCol.r, inkCol.g, inkCol.b, 0.65)
             font.family: "Genova"
@@ -189,13 +203,17 @@ Item {
             radius: height / 2
             color: Qt.rgba(sealCol.r, sealCol.g, sealCol.b, isLight ? 0.18 : 0.14)
             border.width: 0
+            scale: 0.55 + 0.45 * timeDateWidget.pillProgress
+            opacity: Math.max(0.0, Math.min(1.0, timeDateWidget.pillProgress * 1.4))
 
             Text {
                 anchors.centerIn: parent
-                anchors.verticalCenterOffset: 3
+                anchors.verticalCenterOffset: 3 + (1.0 - timeDateWidget.pillTextProgress) * 6
                 verticalAlignment: Text.AlignVCenter
                 text: timeDateWidget.timeHours + ":" + timeDateWidget.timeMinutes
                 color: isLight ? inkCol : sealCol
+                opacity: timeDateWidget.pillTextProgress
+                scale: 0.85 + 0.15 * timeDateWidget.pillTextProgress
                 font.family: (biggerFont && biggerFont.status === FontLoader.Ready) ? biggerFont.name : "Genova"
                 font.pixelSize: Math.max(34, Math.round(watchDial.width * 0.17))
                 font.weight: Font.Bold
@@ -207,7 +225,8 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: Math.round(watchDial.height * 0.12)
+            anchors.bottomMargin: Math.round(watchDial.height * 0.12) - (1.0 - timeDateWidget.dayPctProgress) * 6
+            opacity: timeDateWidget.dayPctProgress
             text: Math.round(timeDateWidget.dayProgress * 100) + "% OF DAY"
             color: Qt.rgba(inkCol.r, inkCol.g, inkCol.b, 0.50)
             font.family: "Genova"

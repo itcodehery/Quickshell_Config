@@ -306,7 +306,7 @@ PanelWindow {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: barSlot.isHomescreenMediaShown ? 98 : 0
+            anchors.bottomMargin: barSlot.isHomescreenMediaShown ? 90 : 0
             Behavior on anchors.bottomMargin { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
             antialiasing: true
             preferredRendererType: Shape.CurveRenderer

@@ -25,10 +25,12 @@ Item {
     }
 
     // ── lyrics state ────────────────────────────────────────────────
+    readonly property int maxLyricsRetries: 4
     property var lyricsList: []
     property int currentLyricIndex: -1
     property bool showingLyrics: false
     property string lyricsTrackId: ""
+    property string _lastAttemptedTrackId: ""
     property int _lyricsFetchSeq: 0
     property bool _isFetchingLyrics: false
     property int _lyricsRetryCount: 0
@@ -61,22 +63,25 @@ Item {
             lyricsList = []
             currentLyricIndex = -1
             lyricsTrackId = ""
+            _lastAttemptedTrackId = ""
             _lyricsRetryCount = 0
             _isFetchingLyrics = false
             return
         }
         if (_lyricsCache[trackId]) {
             lyricsTrackId = trackId
+            _lastAttemptedTrackId = trackId
             lyricsList = _lyricsCache[trackId]
             syncLyricIndex()
             _lyricsRetryCount = 0
             _isFetchingLyrics = false
             return
         }
-        if (lyricsTrackId !== trackId) {
+        if (_lastAttemptedTrackId !== trackId) {
             lyricsList = []
             currentLyricIndex = -1
             lyricsTrackId = ""
+            _lastAttemptedTrackId = trackId
             _lyricsRetryCount = 0
             _isFetchingLyrics = false
         }
@@ -85,9 +90,12 @@ Item {
 
     Timer {
         id: lyricsPollTimer
-        interval: mprisService._lyricsRetryCount < 4 ? 3000 : (mprisService._lyricsRetryCount < 10 ? 6000 : 12000)
+        interval: mprisService._lyricsRetryCount < 4 ? 3000 : 6000
         repeat: true
-        running: mprisService.active && mprisService.currentTrackId !== "" && mprisService.lyricsTrackId !== mprisService.currentTrackId
+        running: mprisService.active
+                 && mprisService.currentTrackId !== ""
+                 && mprisService.lyricsTrackId !== mprisService.currentTrackId
+                 && mprisService._lyricsRetryCount < mprisService.maxLyricsRetries
         onTriggered: {
             if (!mprisService._isFetchingLyrics) {
                 mprisService.fetchLyrics()
@@ -178,7 +186,8 @@ Item {
             return
         }
 
-        if (_isFetchingLyrics) return
+        if (_isFetchingLyrics || _lyricsRetryCount >= maxLyricsRetries) return
+        _lastAttemptedTrackId = trackId
         _isFetchingLyrics = true
         var seq = ++_lyricsFetchSeq
         _lyricsRetryCount++

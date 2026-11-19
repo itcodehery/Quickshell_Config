@@ -38,6 +38,148 @@ Item {
             selectedTileId = tilesModel.get(0).id
         }
         recalculateGridLayout()
+        if (root && root.dashboardExpanded) {
+            startJarvisBoot()
+        }
+    }
+
+    // ── Jarvis M3 Expressive Boot-Up Choreography ──
+    property real orbitalBootProgress: 1.0
+    property real leftSlidersBoot: 1.0
+    property real leftTilesBoot: 1.0
+    property real rightBoot: 1.0
+    property real mediaBoot: 1.0
+
+    function startJarvisBoot() {
+        jarvisBootAnim.stop()
+        timeDateWidget.pillProgress = 0.0
+        timeDateWidget.pillTextProgress = 0.0
+        timeDateWidget.dateProgress = 0.0
+        timeDateWidget.dayPctProgress = 0.0
+        timeDateWidget.ticksProgress = 0.0
+        orbitalBootProgress = 0.0
+        leftSlidersBoot = 0.0
+        leftTilesBoot = 0.0
+        rightBoot = 0.0
+        mediaBoot = 0.0
+        jarvisBootAnim.start()
+    }
+
+    ParallelAnimation {
+        id: jarvisBootAnim
+
+        // 1a. Clock Pill appears first (0ms)
+        NumberAnimation {
+            target: timeDateWidget
+            property: "pillProgress"
+            from: 0.0; to: 1.0
+            duration: 300
+            easing.type: Easing.OutBack
+            easing.overshoot: 1.12
+        }
+
+        // 1b. Clock time inside the pill appears next (180ms)
+        SequentialAnimation {
+            PauseAnimation { duration: 180 }
+            NumberAnimation {
+                target: timeDateWidget
+                property: "pillTextProgress"
+                from: 0.0; to: 1.0
+                duration: 280
+                easing.type: Easing.OutQuint
+            }
+        }
+
+        // 2a. Date fades in (350ms)
+        SequentialAnimation {
+            PauseAnimation { duration: 350 }
+            NumberAnimation {
+                target: timeDateWidget
+                property: "dateProgress"
+                from: 0.0; to: 1.0
+                duration: 260
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        // 2b. Percent of day fades in next (490ms)
+        SequentialAnimation {
+            PauseAnimation { duration: 490 }
+            NumberAnimation {
+                target: timeDateWidget
+                property: "dayPctProgress"
+                from: 0.0; to: 1.0
+                duration: 260
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        // 3. Clock second lines fade in clockwise one by one + orbital rings (620ms)
+        SequentialAnimation {
+            PauseAnimation { duration: 620 }
+            ParallelAnimation {
+                NumberAnimation {
+                    target: timeDateWidget
+                    property: "ticksProgress"
+                    from: 0.0; to: 1.0
+                    duration: 680
+                    easing.type: Easing.OutCubic
+                }
+                NumberAnimation {
+                    target: dashboardContent
+                    property: "orbitalBootProgress"
+                    from: 0.0; to: 1.0
+                    duration: 720
+                    easing.type: Easing.OutQuint
+                }
+            }
+        }
+
+        // 4. Left wing (sliders + pills/tiles) cascade in (1050ms, 1180ms)
+        SequentialAnimation {
+            PauseAnimation { duration: 1050 }
+            NumberAnimation {
+                target: dashboardContent
+                property: "leftSlidersBoot"
+                from: 0.0; to: 1.0
+                duration: 460
+                easing.type: Easing.OutQuint
+            }
+        }
+        SequentialAnimation {
+            PauseAnimation { duration: 1180 }
+            NumberAnimation {
+                target: dashboardContent
+                property: "leftTilesBoot"
+                from: 0.0; to: 1.0
+                duration: 460
+                easing.type: Easing.OutQuint
+            }
+        }
+
+        // 5. Right wing quick actions appear next (1380ms)
+        SequentialAnimation {
+            PauseAnimation { duration: 1380 }
+            NumberAnimation {
+                target: dashboardContent
+                property: "rightBoot"
+                from: 0.0; to: 1.0
+                duration: 460
+                easing.type: Easing.OutQuint
+            }
+        }
+
+        // 6. Media player shoots down from the back of the dashboard last (1640ms)
+        SequentialAnimation {
+            PauseAnimation { duration: 1640 }
+            NumberAnimation {
+                target: dashboardContent
+                property: "mediaBoot"
+                from: 0.0; to: 1.0
+                duration: 480
+                easing.type: Easing.OutQuint
+            }
+        }
     }
 
     SpringPress {}
@@ -412,6 +554,11 @@ Item {
         function onDashboardDetailChanged() {
             if (dashboardContent.root && dashboardContent.activeDetailView !== dashboardContent.root.dashboardDetail) {
                 dashboardContent.activeDetailView = dashboardContent.root.dashboardDetail || ""
+            }
+        }
+        function onDashboardExpandedChanged() {
+            if (dashboardContent.root && dashboardContent.root.dashboardExpanded) {
+                dashboardContent.startJarvisBoot()
             }
         }
     }
@@ -802,9 +949,9 @@ Item {
             anchors.topMargin: 6
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.bottom: mediaWithLyricsGroup.visible ? mediaWithLyricsGroup.top : parent.bottom
-            anchors.bottomMargin: mediaWithLyricsGroup.visible ? 22 : 8
-            z: 2
+            anchors.bottom: mediaWithLyricsGroup.isMediaVisible ? mediaWithLyricsGroup.top : parent.bottom
+            anchors.bottomMargin: mediaWithLyricsGroup.isMediaVisible ? 22 : 8
+            z: 5
 
             // Ambient orbital rings radiating from center observatory (aligned with clock inside upperStage)
             Canvas {
@@ -814,22 +961,28 @@ Item {
                 z: 0
                 readonly property color inkC: (root && root.ink) ? root.ink : "#ffffff"
                 readonly property color sealC: (root && root.seal) ? root.seal : "#22d3ee"
+                readonly property real bootProg: dashboardContent.orbitalBootProgress
                 onInkCChanged: requestPaint()
                 onSealCChanged: requestPaint()
                 onWidthChanged: requestPaint()
                 onHeightChanged: requestPaint()
+                onBootProgChanged: requestPaint()
                 onPaint: {
                     var ctx = getContext("2d")
                     ctx.reset()
+                    if (bootProg <= 0.005) return
                     var cx = width / 2
                     var cy = height / 2
                     var radii = [148, 210, 290, 370]
+                    var startAng = -Math.PI / 2
                     for (var i = 0; i < radii.length; i++) {
+                        var ringT = Math.max(0.0, Math.min(1.0, (bootProg * 1.30) - i * 0.10))
+                        if (ringT <= 0.01) continue
                         ctx.beginPath()
-                        ctx.arc(cx, cy, radii[i], 0, Math.PI * 2)
+                        ctx.arc(cx, cy, radii[i], startAng, startAng + Math.PI * 2 * ringT)
                         ctx.strokeStyle = i === 0
-                            ? Qt.rgba(sealC.r, sealC.g, sealC.b, 0.16)
-                            : Qt.rgba(inkC.r, inkC.g, inkC.b, 0.055 - i * 0.01)
+                            ? Qt.rgba(sealC.r, sealC.g, sealC.b, 0.16 * ringT)
+                            : Qt.rgba(inkC.r, inkC.g, inkC.b, (0.055 - i * 0.01) * ringT)
                         ctx.lineWidth = i === 0 ? 1.5 : 1
                         ctx.setLineDash(i % 2 === 1 ? [4, 8] : [])
                         ctx.stroke()
@@ -851,6 +1004,12 @@ Item {
                     id: topControlArea
                     width: parent.width
                     height: 82
+                    opacity: dashboardContent.leftSlidersBoot
+                    scale: 0.90 + 0.10 * dashboardContent.leftSlidersBoot
+                    transform: Translate {
+                        x: -28 * (1.0 - dashboardContent.leftSlidersBoot)
+                        y: -6 * (1.0 - dashboardContent.leftSlidersBoot)
+                    }
                     dashboardContent: dashboardContent
                     root: dashboardContent.root
                     audioData: audioData
@@ -860,6 +1019,12 @@ Item {
                     id: tilesPagerContainer
                     width: parent.width
                     height: 140
+                    opacity: dashboardContent.leftTilesBoot
+                    scale: 0.92 + 0.08 * dashboardContent.leftTilesBoot
+                    transform: Translate {
+                        x: -20 * (1.0 - dashboardContent.leftTilesBoot)
+                        y: 14 * (1.0 - dashboardContent.leftTilesBoot)
+                    }
                     dashboardContent: dashboardContent
                     tilesModel: tilesModel
                     smoothScrollAnim: smoothScrollAnim
@@ -892,6 +1057,12 @@ Item {
                 width: Math.min(260, Math.max(200, Math.round(parent.width * 0.24)))
                 spacing: 10
                 z: 2
+                opacity: dashboardContent.rightBoot
+                scale: 0.92 + 0.08 * dashboardContent.rightBoot
+                transform: Translate {
+                    x: 24 * (1.0 - dashboardContent.rightBoot)
+                    y: 10 * (1.0 - dashboardContent.rightBoot)
+                }
 
                 readonly property color inkC: (root && root.ink) ? root.ink : "#ffffff"
                 readonly property color sealC: (root && root.seal) ? root.seal : "#22d3ee"
@@ -1041,15 +1212,20 @@ Item {
             }
         } // end upperStage
 
-        // ── COMPACT CENTERED BOTTOM MEDIA BAR + MATCHING LYRICS BAR ──
+        // ── COMPACT BOTTOM-RIGHT MEDIA LISTTILE (Expands on hover to reveal controls) ──
         HomescreenMediaLyricsCard {
             id: mediaWithLyricsGroup
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 0
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: Math.round(parent.width * 0.5)
-            height: 88
-            z: 4
+            anchors.bottomMargin: isExpanded ? 0 : 8
+            anchors.right: parent.right
+            anchors.rightMargin: -24
+            width: isExpanded ? Math.min(480, Math.round(parent.width * 0.46)) : Math.min(280, Math.round(parent.width * 0.28))
+            height: isExpanded ? 80 : 72
+            z: 1
+            transform: Translate { y: -76 * (1.0 - dashboardContent.mediaBoot) }
+            Behavior on width { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+            Behavior on height { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+            Behavior on anchors.bottomMargin { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
             dashboardContent: dashboardContent
             root: dashboardContent.root
             panel: dashboardContent.panel

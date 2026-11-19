@@ -17,13 +17,13 @@ Item {
     required property var audioData
 
     readonly property bool isMediaVisible: mprisSel && mprisSel.player !== null
+    readonly property bool isExpanded: unifiedMediaCard.isHovered
 
-    opacity: isMediaVisible ? 1.0 : 0.0
+    opacity: isMediaVisible ? (dashboardContent ? dashboardContent.mediaBoot : 1.0) : 0.0
     scale: isMediaVisible ? 1.0 : 0.96
     visible: opacity > 0.01
-    z: 5
+    z: 1
 
-    Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
     Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
 
     readonly property color paperCol: (root && root.paper) ? root.paper : "#111318"
@@ -80,18 +80,11 @@ Item {
         dashboardContent && dashboardContent.hasSyncedLyrics && dashboardContent.activeLyricsList && dashboardContent.activeLyricsList.length > 0
     )
     readonly property bool hasLyrics: hasMprisLyrics || hasDashLyrics
+    readonly property var activeLyricsList: hasMprisLyrics ? mp.lyricsList : (hasDashLyrics ? dashboardContent.activeLyricsList : [])
+    readonly property int activeLyricIndex: hasMprisLyrics ? Math.max(0, mp.currentLyricIndex) : (hasDashLyrics ? Math.max(0, dashboardContent.activeLyricIndex) : -1)
     readonly property string currentLyricText: {
-        if (hasMprisLyrics) {
-            var mIdx = Math.max(0, mp.currentLyricIndex)
-            if (mIdx < mp.lyricsList.length) {
-                return mp.lyricsList[mIdx].text || "♪"
-            }
-        }
-        if (hasDashLyrics) {
-            var dIdx = Math.max(0, dashboardContent.currentLyricIndex)
-            if (dIdx < dashboardContent.activeLyricsList.length) {
-                return dashboardContent.activeLyricsList[dIdx].text || "♪"
-            }
+        if (hasLyrics && activeLyricIndex >= 0 && activeLyricIndex < activeLyricsList.length) {
+            return activeLyricsList[activeLyricIndex].text || "♪"
         }
         if (mp && mp._isFetchingLyrics) return "Searching lyrics..."
         return ""
@@ -174,14 +167,20 @@ Item {
         return m + ":" + (rem < 10 ? "0" + rem : rem)
     }
 
-    // Single Unified Compact Card for both Media Player & Lyrics
+    // Single Unified Compact Card for Media Player
     Rectangle {
         id: unifiedMediaCard
         anchors.fill: parent
-        radius: 22
+        radius: isHovered ? 20 : 16
+        Behavior on radius { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
         color: mediaWithLyricsGroup.dockBg
         border.width: 0
         Behavior on color { ColorAnimation { duration: 350 } }
+
+        HoverHandler {
+            id: cardHover
+        }
+        readonly property bool isHovered: cardHover.hovered
 
         // Left: Square Album Art spanning the combined height of the media bar + lyrics bar
         ClippingRectangle {
@@ -215,7 +214,8 @@ Item {
             }
         }
 
-        Column {
+        Item {
+            id: rightStage
             anchors.left: cardAlbumArt.right
             anchors.leftMargin: 10
             anchors.right: parent.right
@@ -224,7 +224,75 @@ Item {
             anchors.topMargin: 6
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 6
-            spacing: 3
+            clip: true
+
+            // ── DEFAULT (NON-HOVERED) VIEW: Compact listtile (Song Name, Artist Name, optional Synced Lyric) ──
+            Column {
+                id: minimalView
+                readonly property bool showLyricLine: mediaWithLyricsGroup.currentLyricText !== ""
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: showLyricLine ? 1 : 2
+                opacity: unifiedMediaCard.isHovered ? 0.0 : 1.0
+                scale: unifiedMediaCard.isHovered ? 0.98 : 1.0
+                visible: opacity > 0.01
+                enabled: !unifiedMediaCard.isHovered
+
+                Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+                Text {
+                    width: parent.width
+                    text: mediaWithLyricsGroup.trackTitleOnly
+                    color: mediaWithLyricsGroup.inkCol
+                    font.family: "Genova"
+                    font.pixelSize: minimalView.showLyricLine ? 14 : 15
+                    font.weight: Font.Bold
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                }
+
+                Text {
+                    width: parent.width
+                    visible: mediaWithLyricsGroup.trackArtistOnly !== ""
+                    text: mediaWithLyricsGroup.trackArtistOnly
+                    color: Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.72)
+                    font.family: "Genova"
+                    font.pixelSize: minimalView.showLyricLine ? 11 : 12
+                    font.weight: Font.DemiBold
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                }
+
+                Text {
+                    width: parent.width
+                    visible: minimalView.showLyricLine
+                    text: mediaWithLyricsGroup.currentLyricText
+                    color: mediaWithLyricsGroup.accentCol
+                    font.family: "Genova"
+                    font.pixelSize: 11
+                    font.weight: Font.Bold
+                    wrapMode: Text.WordWrap
+                    elide: Text.ElideRight
+                    maximumLineCount: 2
+                }
+            }
+
+            // ── HOVERED VIEW: Progress bar, transport controls & action pills (no lyrics) ──
+            Column {
+                id: controlsView
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
+                opacity: unifiedMediaCard.isHovered ? 1.0 : 0.0
+                scale: unifiedMediaCard.isHovered ? 1.0 : 0.98
+                visible: opacity > 0.01
+                enabled: unifiedMediaCard.isHovered
+
+                Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
             // ── ROW 1: SONG TITLE + ARTIST CHIP & ACTION PILLS (26px) ──
             Item {
@@ -279,7 +347,7 @@ Item {
                     }
                 }
 
-                // Right: "See on <Player>" + Audio Output Pill
+                // Right: Floating Lyrics Toggle + Audio Output Pill
                 Row {
                     id: rightMetaCluster
                     anchors.right: parent.right
@@ -287,33 +355,37 @@ Item {
                     spacing: 5
 
                     Rectangle {
+                        id: floatTogglePill
                         height: 22
-                        width: seeOnRow.implicitWidth + 14
+                        width: floatToggleRow.implicitWidth + 14
                         radius: 11
-                        visible: mediaWithLyricsGroup.playerDisplayName !== ""
-                        color: seeOnMa.containsMouse
-                            ? Qt.rgba(mediaWithLyricsGroup.accentCol.r, mediaWithLyricsGroup.accentCol.g, mediaWithLyricsGroup.accentCol.b, 0.26)
-                            : Qt.rgba(mediaWithLyricsGroup.accentCol.r, mediaWithLyricsGroup.accentCol.g, mediaWithLyricsGroup.accentCol.b, 0.14)
-                        scale: seeOnMa.pressed ? 0.94 : 1.0
+                        visible: Boolean(mediaWithLyricsGroup.mp)
+                        readonly property bool isFloating: Boolean(mediaWithLyricsGroup.mp && mediaWithLyricsGroup.mp.showingLyrics)
+                        color: isFloating
+                            ? mediaWithLyricsGroup.accentCol
+                            : (floatToggleMa.containsMouse
+                                ? Qt.rgba(mediaWithLyricsGroup.accentCol.r, mediaWithLyricsGroup.accentCol.g, mediaWithLyricsGroup.accentCol.b, 0.26)
+                                : Qt.rgba(mediaWithLyricsGroup.accentCol.r, mediaWithLyricsGroup.accentCol.g, mediaWithLyricsGroup.accentCol.b, 0.14))
+                        scale: floatToggleMa.pressed ? 0.94 : 1.0
                         Behavior on color { ColorAnimation { duration: 140 } }
                         Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutBack } }
 
                         Row {
-                            id: seeOnRow
+                            id: floatToggleRow
                             anchors.centerIn: parent
                             spacing: 4
 
                             IconText {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: "open_in_new"
-                                color: mediaWithLyricsGroup.accentCol
+                                text: "lyrics"
+                                color: floatTogglePill.isFloating ? mediaWithLyricsGroup.onAccentCol : mediaWithLyricsGroup.accentCol
                                 font.pixelSize: 12
                             }
 
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: "See on " + mediaWithLyricsGroup.playerDisplayName
-                                color: mediaWithLyricsGroup.inkCol
+                                text: floatTogglePill.isFloating ? "Floating" : "Float"
+                                color: floatTogglePill.isFloating ? mediaWithLyricsGroup.onAccentCol : mediaWithLyricsGroup.inkCol
                                 font.family: "Genova"
                                 font.pixelSize: 10
                                 font.weight: Font.DemiBold
@@ -321,11 +393,15 @@ Item {
                         }
 
                         MouseArea {
-                            id: seeOnMa
+                            id: floatToggleMa
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: mediaWithLyricsGroup.jumpToMediaWorkspace()
+                            onClicked: {
+                                if (mediaWithLyricsGroup.mp) {
+                                    mediaWithLyricsGroup.mp.showingLyrics = !mediaWithLyricsGroup.mp.showingLyrics
+                                }
+                            }
                         }
                     }
 
@@ -550,98 +626,6 @@ Item {
                     }
                 }
             }
-
-            // ── ROW 3: COMPACT SYNCED LYRICS STRIP (22px) ──
-            Item {
-                width: parent.width
-                height: 22
-
-                Rectangle {
-                    id: lyricIconBadge
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 20
-                    height: 20
-                    radius: 10
-                    color: Qt.rgba(mediaWithLyricsGroup.accentCol.r, mediaWithLyricsGroup.accentCol.g, mediaWithLyricsGroup.accentCol.b, 0.16)
-
-                    IconText {
-                        anchors.centerIn: parent
-                        text: "music_note"
-                        font.pixelSize: 13
-                        color: mediaWithLyricsGroup.accentCol
-                    }
-                }
-
-                Text {
-                    anchors.left: lyricIconBadge.right
-                    anchors.leftMargin: 10
-                    anchors.right: floatTogglePill.left
-                    anchors.rightMargin: 10
-                    anchors.verticalCenter: parent.verticalCenter
-                    horizontalAlignment: Text.AlignHCenter
-                    text: mediaWithLyricsGroup.currentLyricText !== ""
-                        ? mediaWithLyricsGroup.currentLyricText
-                        : "No synced lyrics"
-                    color: mediaWithLyricsGroup.currentLyricText !== ""
-                        ? mediaWithLyricsGroup.inkCol
-                        : Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.45)
-                    font.family: "Genova"
-                    font.pixelSize: 12
-                    font.weight: mediaWithLyricsGroup.currentLyricText !== "" ? Font.DemiBold : Font.Normal
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                }
-
-                Rectangle {
-                    id: floatTogglePill
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: 24
-                    width: floatToggleRow.implicitWidth + 16
-                    radius: 12
-                    border.width: 0
-                    visible: Boolean(mediaWithLyricsGroup.mp)
-                    readonly property bool isFloating: Boolean(mediaWithLyricsGroup.mp && mediaWithLyricsGroup.mp.showingLyrics)
-                    color: isFloating
-                        ? mediaWithLyricsGroup.accentCol
-                        : (floatToggleMa.containsMouse
-                            ? Qt.rgba(mediaWithLyricsGroup.accentCol.r, mediaWithLyricsGroup.accentCol.g, mediaWithLyricsGroup.accentCol.b, 0.22)
-                            : Qt.rgba(mediaWithLyricsGroup.inkCol.r, mediaWithLyricsGroup.inkCol.g, mediaWithLyricsGroup.inkCol.b, 0.08))
-                    Behavior on color { ColorAnimation { duration: 150 } }
-
-                    Row {
-                        id: floatToggleRow
-                        anchors.centerIn: parent
-                        spacing: 4
-                        IconText {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "lyrics"
-                            font.pixelSize: 12
-                            color: floatTogglePill.isFloating ? mediaWithLyricsGroup.onAccentCol : mediaWithLyricsGroup.accentCol
-                        }
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: floatTogglePill.isFloating ? "Floating" : "Float"
-                            font.family: "Genova"
-                            font.pixelSize: 10
-                            font.weight: Font.Bold
-                            color: floatTogglePill.isFloating ? mediaWithLyricsGroup.onAccentCol : mediaWithLyricsGroup.inkCol
-                        }
-                    }
-
-                    MouseArea {
-                        id: floatToggleMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            if (mediaWithLyricsGroup.mp) {
-                                mediaWithLyricsGroup.mp.showingLyrics = !mediaWithLyricsGroup.mp.showingLyrics
-                            }
-                        }
-                    }
-                }
             }
         }
     }

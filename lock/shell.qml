@@ -288,16 +288,18 @@ ShellRoot {
             } else if (root.isMediaPlaying) {
                 root.curPos = Math.min(root.curLen, root.curPos + 0.25)
             }
-            if (root.hasMedia && root.currentTrackId !== "" && root.lyricsTrackId !== root.currentTrackId && !root._isFetchingLyrics) {
+            if (root.hasMedia && root.currentTrackId !== "" && root.lyricsTrackId !== root.currentTrackId && !root._isFetchingLyrics && (root._lastAttemptedTrackId !== root.currentTrackId || root._lyricsRetryCount < root.maxLyricsRetries)) {
                 root.triggerLyricsRefresh()
             }
         }
     }
 
     // ── MPRIS Live Synced Lyrics System ──
+    readonly property int maxLyricsRetries: 4
     property var lyricsList: []
     property int currentLyricIndex: -1
     property string lyricsTrackId: ""
+    property string _lastAttemptedTrackId: ""
     property int _lyricsFetchSeq: 0
     property bool _isFetchingLyrics: false
     property int _lyricsRetryCount: 0
@@ -344,22 +346,25 @@ ShellRoot {
             lyricsList = []
             currentLyricIndex = -1
             lyricsTrackId = ""
+            _lastAttemptedTrackId = ""
             _lyricsRetryCount = 0
             _isFetchingLyrics = false
             return
         }
         if (_lyricsCache[trackId]) {
             lyricsTrackId = trackId
+            _lastAttemptedTrackId = trackId
             lyricsList = _lyricsCache[trackId]
             syncLyricIndex()
             _lyricsRetryCount = 0
             _isFetchingLyrics = false
             return
         }
-        if (lyricsTrackId !== trackId) {
+        if (_lastAttemptedTrackId !== trackId) {
             lyricsList = []
             currentLyricIndex = -1
             lyricsTrackId = ""
+            _lastAttemptedTrackId = trackId
             _lyricsRetryCount = 0
             _isFetchingLyrics = false
         }
@@ -368,9 +373,12 @@ ShellRoot {
 
     Timer {
         id: lyricsPollTimer
-        interval: root._lyricsRetryCount < 4 ? 3000 : (root._lyricsRetryCount < 10 ? 6000 : 12000)
+        interval: root._lyricsRetryCount < 4 ? 3000 : 6000
         repeat: true
-        running: root.hasMedia && root.currentTrackId !== "" && root.lyricsTrackId !== root.currentTrackId
+        running: root.hasMedia
+                 && root.currentTrackId !== ""
+                 && root.lyricsTrackId !== root.currentTrackId
+                 && root._lyricsRetryCount < root.maxLyricsRetries
         onTriggered: {
             if (!root._isFetchingLyrics) {
                 root.fetchLyrics()
