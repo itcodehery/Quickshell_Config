@@ -12,6 +12,8 @@ Item {
     required property var barSlot
     readonly property bool isMediaShown: Boolean(dashboardLoader.item && dashboardLoader.item.showMediaPlayer)
     readonly property bool isMediaExpanded: Boolean(dashboardLoader.item && dashboardLoader.item.isMediaExpanded)
+    readonly property bool isPomodoroShown: Boolean(dashboardLoader.item && dashboardLoader.item.showPomodoroDock)
+    readonly property bool isPomodoroExpanded: Boolean(dashboardLoader.item && dashboardLoader.item.isPomodoroExpanded)
 
     clip: true
     opacity: expandedDashboardContainer.barSlot.isDashboardActive ? 1.0 : 0.0

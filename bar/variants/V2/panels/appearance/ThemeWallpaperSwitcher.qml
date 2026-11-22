@@ -19,7 +19,7 @@ Item {
     signal closeRequested()
 
     readonly property bool isThemeMode: activeMode === "theme"
-    readonly property string currentPickerStyle: (root && root.pickerStyle) ? root.pickerStyle : "carousel"
+    readonly property string currentPickerStyle: (root && root.pickerStyle && root.pickerStyle !== "carousel") ? root.pickerStyle : "tanzaku"
 
     property var imageArray: []
     property var filtered: []
@@ -394,7 +394,7 @@ Item {
                 onActivated: (id) => switcher.setMode(id)
             }
 
-            // Style Selector: [ 3D Fan | Hearthstone | Coverflow ]
+            // Style Selector: [ 3D Fan | Hearthstone | Gravemind ]
             PillTabs {
                 anchors.verticalCenter: parent.verticalCenter
                 theme: root
@@ -404,7 +404,6 @@ Item {
                 model: [
                     { id: "tanzaku", label: "3D Fan", icon: "view_carousel" },
                     { id: "hearthstone", label: "Hearthstone", icon: "style" },
-                    { id: "carousel", label: "Coverflow", icon: "view_array" },
                     { id: "gravemind", label: "Gravemind", icon: "layers" }
                 ]
                 current: switcher.currentPickerStyle === "" ? "tanzaku" : switcher.currentPickerStyle
@@ -420,9 +419,7 @@ Item {
             width: Math.min(220, Math.max(140, filterRow.implicitWidth + 24))
             radius: 14
             color: root.fillIdle
-            border.color: switcher.filterText ? root.seal : root.frameWeak
-            border.width: 1
-            Behavior on border.color { ColorAnimation { duration: 150 } }
+            border.width: 0
 
             Row {
                 id: filterRow

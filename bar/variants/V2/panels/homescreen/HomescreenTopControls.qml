@@ -12,75 +12,91 @@ Item {
     required property var root
     required property var audioData
 
-    // --- SLIDERS (Thinner bar with taller drag line matching reference design) ---
+    readonly property color inkCol: (root && root.ink) ? root.ink : "#ffffff"
+    readonly property color paperCol: (root && root.paper) ? root.paper : "#111318"
+    readonly property color sealCol: (root && root.seal) ? root.seal : "#22d3ee"
+    readonly property color color01Col: (root && root.color01) ? root.color01 : "#f59e0b"
+    readonly property color color03Col: (root && root.color03) ? root.color03 : "#10b981"
+    readonly property string barFontFam: (root && root.barFont) ? root.barFont : "Google Sans"
+
+    // ── SLIDERS (Original StyledSliderTrack paired with M3E Morphing Orbs) ──
     Column {
         id: slidersCol
         anchors.fill: parent
         spacing: 10
         visible: opacity > 0.001
         opacity: dashboardContent.editTilesMode ? 0.0 : 1.0
-        Behavior on opacity { NumberAnimation { duration: 180 } }
-    
+        Behavior on opacity { SpringAnimation { spring: Motion.effectsSpring; damping: Motion.effectsDamping; epsilon: 0.01 } }
+
         // ── Brightness Row ──
         Row {
             width: parent.width
-            height: 38
-            spacing: 10
-            
+            height: 36
+            spacing: 12
+
             // Brightness Slider Container
             Item {
                 id: briSlider
-                width: parent.width - 38 - 10
-                height: 38
-                
+                width: parent.width - 36 - 12
+                height: 36
+
                 property bool sliding: false
                 property int localValue: dashboardContent.currentBrightness
                 readonly property real effectiveVal: sliding ? localValue : dashboardContent.currentBrightness
-                
-                // Brightness Icon on Left
-                IconText {
-                    id: briIcon
+
+                // Left Brightness Orb (matches HUD orbs below)
+                Rectangle {
+                    id: briIconWrap
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "light_mode"
-                    color: root.ink
-                    font.pixelSize: 20
+                    width: 36; height: 36
+                    radius: 18
+                    border.width: 0
+                    antialiasing: true
+                    color: Qt.rgba(topControlArea.inkCol.r, topControlArea.inkCol.g, topControlArea.inkCol.b, 0.08)
+
+                    IconText {
+                        anchors.centerIn: parent
+                        text: "light_mode"
+                        color: topControlArea.sealCol
+                        font.pixelSize: 18
+                    }
                 }
-                
+
                 // Value indicator (visible when sliding)
                 Text {
-                    anchors.left: briIcon.right
-                    anchors.leftMargin: 6
+                    anchors.left: briIconWrap.right
+                    anchors.leftMargin: 8
                     anchors.verticalCenter: parent.verticalCenter
                     text: Math.round(briSlider.effectiveVal) + "%"
-                    color: root.ink
+                    color: topControlArea.inkCol
                     font.pixelSize: 11
-                    font.family: root.barFont
+                    font.family: topControlArea.barFontFam
                     font.weight: Font.DemiBold
                     opacity: briSlider.sliding ? 0.9 : 0.0
                     visible: opacity > 0
-                    Behavior on opacity { NumberAnimation { duration: 150 } }
+                    Behavior on opacity { SpringAnimation { spring: Motion.effectsSpring; damping: Motion.effectsDamping; epsilon: 0.01 } }
                 }
 
-                // Slider Track Item
+                // Slider Track Item (original StyledSliderTrack)
                 Item {
                     id: briTrack
-                    anchors.left: briIcon.right
-                    anchors.leftMargin: briSlider.sliding ? 36 : 14
+                    anchors.left: briIconWrap.right
+                    anchors.leftMargin: briSlider.sliding ? 40 : 12
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     height: 28
-                    Behavior on anchors.leftMargin { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                    Behavior on anchors.leftMargin { SpringAnimation { spring: Motion.spatialFastSpring; damping: Motion.spatialFastDamping; epsilon: 0.5 } }
 
                     StyledSliderTrack {
                         anchors.fill: parent
                         root: topControlArea.root
                         value: briSlider.effectiveVal
                         sliding: briSlider.sliding
-                        accentColor: root.seal
+                        accentColor: topControlArea.sealCol
                     }
                 }
-                
+
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
@@ -108,67 +124,57 @@ Item {
                     }
                 }
             }
-            
-            // Night Light Toggle (38x38, dual-mode: Soft / Intense)
+
+            // Night Light Morphing Orb (36x36)
             Rectangle {
                 id: localNightToggle
-                width: 38
-                height: 38
-                radius: 19
-                
+                anchors.verticalCenter: parent.verticalCenter
+                width: 36; height: 36
                 readonly property int mode: dashboardContent.nightMode
-                
-                color: mode === 2 ? root.color01 : (mode === 1 ? root.color03 : root.fillIdle)
-                
-                Behavior on color { ColorAnimation { duration: 200 } }
-                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                radius: mode > 0 ? 18 : (localNightMa.containsMouse ? 14 : 12)
+                border.width: 0
+                antialiasing: true
 
-                HoverHandler {
-                    id: localNightHov
-                }
-                
-                IconText { 
+                color: mode === 2
+                    ? topControlArea.color01Col
+                    : (mode === 1 ? topControlArea.color03Col : Qt.rgba(topControlArea.inkCol.r, topControlArea.inkCol.g, topControlArea.inkCol.b, localNightMa.containsMouse ? 0.16 : 0.08))
+
+                Behavior on radius { SpringAnimation { spring: Motion.spatialFastSpring; damping: Motion.spatialFastDamping; epsilon: 0.1 } }
+                Behavior on color { ColorAnimation { duration: 180 } }
+
+                SpringPress { pressScale: 0.84; pushReach: 100; pushDistance: 6 }
+
+                IconText {
                     anchors.centerIn: parent
                     anchors.verticalCenterOffset: -2
                     text: "nightlight_round"
-                    color: localNightToggle.mode > 0 ? root.paper : root.ink
-                    opacity: localNightToggle.mode > 0 ? 1.0 : 0.6
+                    color: localNightToggle.mode > 0 ? topControlArea.paperCol : topControlArea.inkCol
+                    opacity: localNightToggle.mode > 0 ? 1.0 : 0.72
                     font.pixelSize: 16
-                    Behavior on color { ColorAnimation { duration: 200 } }
-                    Behavior on opacity { NumberAnimation { duration: 200 } }
                 }
 
-                // Dual toggle indicator dashes
                 Row {
                     anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 6
+                    anchors.bottomMargin: 5
                     anchors.horizontalCenter: parent.horizontalCenter
                     spacing: 3
 
                     Rectangle {
-                        width: 5
-                        height: 3
-                        radius: 1.5
-                        color: localNightToggle.mode > 0 ? root.paper : root.ink
-                        opacity: localNightToggle.mode >= 1 ? 0.95 : 0.25
-                        Behavior on color { ColorAnimation { duration: 200 } }
-                        Behavior on opacity { NumberAnimation { duration: 200 } }
+                        width: 5; height: 2.5; radius: 1.25
+                        color: localNightToggle.mode > 0 ? topControlArea.paperCol : topControlArea.inkCol
+                        opacity: localNightToggle.mode >= 1 ? 0.95 : 0.28
                     }
-
                     Rectangle {
-                        width: 5
-                        height: 3
-                        radius: 1.5
-                        color: localNightToggle.mode > 0 ? root.paper : root.ink
-                        opacity: localNightToggle.mode === 2 ? 0.95 : 0.25
-                        Behavior on color { ColorAnimation { duration: 200 } }
-                        Behavior on opacity { NumberAnimation { duration: 200 } }
+                        width: 5; height: 2.5; radius: 1.25
+                        color: localNightToggle.mode > 0 ? topControlArea.paperCol : topControlArea.inkCol
+                        opacity: localNightToggle.mode === 2 ? 0.95 : 0.28
                     }
                 }
-                
+
                 MouseArea {
                     id: localNightMa
                     anchors.fill: parent
+                    hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     onClicked: (mouse) => {
@@ -193,80 +199,88 @@ Item {
         // ── Audio / Volume Row ──
         Row {
             width: parent.width
-            height: 38
-            spacing: 10
-            
+            height: 36
+            spacing: 12
+
             // Audio Slider Container
             Item {
                 id: audSlider
-                width: parent.width - 38 - 10
-                height: 38
-                
+                width: parent.width - 36 - 12
+                height: 36
+
                 property bool sliding: false
                 property int localValue: audioData.volume
                 readonly property real effectiveVal: sliding ? localValue : audioData.volume
-                
-                // Speaker Icon on Left (clickable to toggle mute)
+
+                // Left Speaker Mute Orb (matches HUD orbs below)
                 Rectangle {
                     id: audIconWrap
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 24
-                    height: 24
-                    radius: 12
-                    color: "transparent"
+                    width: 36; height: 36
+                    radius: audioData.muted ? 12 : 18
+                    border.width: 0
+                    antialiasing: true
+                    color: audioData.muted
+                        ? topControlArea.color01Col
+                        : Qt.rgba(topControlArea.inkCol.r, topControlArea.inkCol.g, topControlArea.inkCol.b, muteMa.containsMouse ? 0.16 : 0.08)
 
-                    IconText { 
+                    Behavior on radius { SpringAnimation { spring: Motion.spatialFastSpring; damping: Motion.spatialFastDamping; epsilon: 0.1 } }
+                    Behavior on color { ColorAnimation { duration: 160 } }
+
+                    SpringPress { pressScale: 0.84; pushReach: 100; pushDistance: 6 }
+
+                    IconText {
                         anchors.centerIn: parent
                         text: audioData.muted ? "volume_off" : (audSlider.effectiveVal > 50 ? "volume_up" : (audSlider.effectiveVal > 0 ? "volume_down" : "volume_mute"))
-                        color: audioData.muted ? root.color01 : root.ink
-                        font.pixelSize: 20 
+                        color: audioData.muted ? "#121212" : topControlArea.sealCol
+                        font.pixelSize: 18
                     }
 
                     MouseArea {
+                        id: muteMa
                         anchors.fill: parent
+                        hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"])
-                        }
+                        onClicked: Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"])
                     }
                 }
 
                 // Value indicator (visible when sliding)
                 Text {
                     anchors.left: audIconWrap.right
-                    anchors.leftMargin: 6
+                    anchors.leftMargin: 8
                     anchors.verticalCenter: parent.verticalCenter
                     text: Math.round(audSlider.effectiveVal) + "%"
-                    color: root.ink
+                    color: topControlArea.inkCol
                     font.pixelSize: 11
-                    font.family: root.barFont
+                    font.family: topControlArea.barFontFam
                     font.weight: Font.DemiBold
                     opacity: audSlider.sliding ? 0.9 : 0.0
                     visible: opacity > 0
-                    Behavior on opacity { NumberAnimation { duration: 150 } }
+                    Behavior on opacity { SpringAnimation { spring: Motion.effectsSpring; damping: Motion.effectsDamping; epsilon: 0.01 } }
                 }
 
-                // Slider Track Item
+                // Slider Track Item (original StyledSliderTrack)
                 Item {
                     id: audTrack
                     anchors.left: audIconWrap.right
-                    anchors.leftMargin: audSlider.sliding ? 36 : 14
+                    anchors.leftMargin: audSlider.sliding ? 40 : 12
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     height: 28
-                    Behavior on anchors.leftMargin { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                    Behavior on anchors.leftMargin { SpringAnimation { spring: Motion.spatialFastSpring; damping: Motion.spatialFastDamping; epsilon: 0.5 } }
 
                     StyledSliderTrack {
                         anchors.fill: parent
                         root: topControlArea.root
                         value: audSlider.effectiveVal
                         sliding: audSlider.sliding
-                        accentColor: audioData.muted ? root.fillHover : root.seal
-                        unfilledColor: audioData.muted ? root.fillIdle : (root.isLightMode ? Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08) : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.25))
+                        accentColor: audioData.muted ? root.fillHover : topControlArea.sealCol
+                        unfilledColor: audioData.muted ? root.fillIdle : (root.isLightMode ? Qt.rgba(topControlArea.inkCol.r, topControlArea.inkCol.g, topControlArea.inkCol.b, 0.08) : Qt.rgba(topControlArea.sealCol.r, topControlArea.sealCol.g, topControlArea.sealCol.b, 0.25))
                     }
                 }
-                
+
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
@@ -293,33 +307,36 @@ Item {
                     }
                 }
             }
-            
-            // Audio Settings / Detail Toggle (38x38)
+
+            // Audio Settings / Detail Orb (36x36)
             Rectangle {
                 id: audSettingsToggle
-                width: 38
-                height: 38
-                radius: 19
-                color: dashboardContent.activeDetailView === "volume" ? root.seal : root.fillIdle
-                
-                Behavior on color { ColorAnimation { duration: 200 } }
-                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                anchors.verticalCenter: parent.verticalCenter
+                width: 36; height: 36
+                readonly property bool isSel: dashboardContent.activeDetailView === "volume"
+                radius: isSel ? 18 : (audTuneMa.containsMouse ? 14 : 12)
+                border.width: 0
+                antialiasing: true
+                color: isSel
+                    ? topControlArea.sealCol
+                    : Qt.rgba(topControlArea.inkCol.r, topControlArea.inkCol.g, topControlArea.inkCol.b, audTuneMa.containsMouse ? 0.16 : 0.08)
 
-                HoverHandler {
-                    id: audTuneHov
-                }
-                
-                IconText { 
+                Behavior on radius { SpringAnimation { spring: Motion.spatialFastSpring; damping: Motion.spatialFastDamping; epsilon: 0.1 } }
+                Behavior on color { ColorAnimation { duration: 160 } }
+
+                SpringPress { pressScale: 0.84; pushReach: 100; pushDistance: 6 }
+
+                IconText {
                     anchors.centerIn: parent
                     text: "tune"
-                    color: dashboardContent.activeDetailView === "volume" ? root.paper : root.ink
+                    color: audSettingsToggle.isSel ? topControlArea.paperCol : topControlArea.inkCol
                     font.pixelSize: 16
-                    Behavior on color { ColorAnimation { duration: 200 } }
                 }
-                SpringPress {}
+
                 MouseArea {
                     id: audTuneMa
                     anchors.fill: parent
+                    hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         if (dashboardContent.activeDetailView === "volume") {
@@ -331,285 +348,6 @@ Item {
                         }
                     }
                 }
-            }
-        }
-    } // end slidersCol
-
-    // ── EDIT TILES HEADER (Direct copy of UI from image) ──
-    Item {
-        id: editTilesHeader
-        anchors.fill: parent
-        visible: opacity > 0.001
-        opacity: dashboardContent.editTilesMode ? 1.0 : 0.0
-        Behavior on opacity { NumberAnimation { duration: 180 } }
-
-        // Top Action Bar
-        Row {
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: 32
-
-            // Back arrow button (<-)
-            Rectangle {
-                width: 32
-                height: 32
-                radius: 16
-                color: backMa.containsMouse ? root.fillHover : "transparent"
-                Behavior on color { ColorAnimation { duration: 150 } }
-
-                IconText {
-                    anchors.centerIn: parent
-                    text: "arrow_back"
-                    color: root.ink
-                    font.pixelSize: 20
-                }
-
-                TooltipMixin {
-                    id: backTip
-                    root: dashboardContent.root
-                    owner: parent
-                    text: "Exit tile editing"
-                }
-
-                MouseArea {
-                    id: backMa
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    hoverEnabled: true
-                    onEntered: backTip.show()
-                    onExited: backTip.hide()
-                    onClicked: {
-                        backTip.hide()
-                        dashboardContent.editTilesMode = false
-                        dashboardContent.saveTilesLayout()
-                    }
-                }
-            }
-
-            Item { width: Math.max(10, parent.width - 32 - rightBtns.width - 10); height: 1 }
-
-            Row {
-                id: rightBtns
-                spacing: 8
-                anchors.verticalCenter: parent.verticalCenter
-
-                // Move Earlier / Left button
-                Rectangle {
-                    width: 32
-                    height: 32
-                    radius: 16
-                    visible: dashboardContent.selectedTileId !== ""
-                    color: movePrevMa.containsMouse ? root.fillHover : "transparent"
-                    Behavior on color { ColorAnimation { duration: 150 } }
-
-                    IconText {
-                        anchors.centerIn: parent
-                        text: "chevron_left"
-                        color: root.ink
-                        font.pixelSize: 22
-                    }
-
-                    TooltipMixin {
-                        id: movePrevTip
-                        root: dashboardContent.root
-                        owner: parent
-                        text: "Move selected tile left/earlier"
-                    }
-
-                    MouseArea {
-                        id: movePrevMa
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-                        onEntered: movePrevTip.show()
-                        onExited: movePrevTip.hide()
-                        onClicked: {
-                            dashboardContent.moveSelectedTile(-1)
-                        }
-                    }
-                }
-
-                // Move Later / Right button
-                Rectangle {
-                    width: 32
-                    height: 32
-                    radius: 16
-                    visible: dashboardContent.selectedTileId !== ""
-                    color: moveNextMa.containsMouse ? root.fillHover : "transparent"
-                    Behavior on color { ColorAnimation { duration: 150 } }
-
-                    IconText {
-                        anchors.centerIn: parent
-                        text: "chevron_right"
-                        color: root.ink
-                        font.pixelSize: 22
-                    }
-
-                    TooltipMixin {
-                        id: moveNextTip
-                        root: dashboardContent.root
-                        owner: parent
-                        text: "Move selected tile right/later"
-                    }
-
-                    MouseArea {
-                        id: moveNextMa
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-                        onEntered: moveNextTip.show()
-                        onExited: moveNextTip.hide()
-                        onClicked: {
-                            dashboardContent.moveSelectedTile(1)
-                        }
-                    }
-                }
-
-                // Cycle Size button (1x1 -> 1x2 -> 2x2)
-                Rectangle {
-                    width: sizeRow.implicitWidth + 14
-                    height: 32
-                    radius: 16
-                    visible: dashboardContent.selectedTileId !== ""
-                    color: sizeBtnMa.containsMouse ? root.fillHover : Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.14)
-                    Behavior on color { ColorAnimation { duration: 150 } }
-
-                    Row {
-                        id: sizeRow
-                        anchors.centerIn: parent
-                        spacing: 4
-
-                        IconText {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "aspect_ratio"
-                            color: root.seal
-                            font.pixelSize: 15
-                        }
-
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            readonly property var curSpan: dashboardContent.selectedTileId ? dashboardContent.getTileSpan(dashboardContent.selectedTileId) : 1
-                            text: curSpan === 4 ? "2x2" : (curSpan === 2 ? "1x2" : "1x1")
-                            color: root.ink
-                            font.pixelSize: 11
-                            font.family: root.barFont
-                            font.weight: Font.DemiBold
-                        }
-                    }
-
-                    TooltipMixin {
-                        id: sizeTip
-                        root: dashboardContent.root
-                        owner: parent
-                        text: "Cycle tile size: 1x1, 1x2, 2x2"
-                    }
-
-                    MouseArea {
-                        id: sizeBtnMa
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-                        onEntered: sizeTip.show()
-                        onExited: sizeTip.hide()
-                        onClicked: {
-                            if (dashboardContent.selectedTileId) {
-                                dashboardContent.cycleTileSpan(dashboardContent.selectedTileId)
-                            }
-                        }
-                    }
-                }
-
-                // Undo / Reset button
-                Rectangle {
-                    width: 32
-                    height: 32
-                    radius: 16
-                    color: undoMa.containsMouse ? root.fillHover : "transparent"
-                    Behavior on color { ColorAnimation { duration: 150 } }
-
-                    IconText {
-                        anchors.centerIn: parent
-                        text: "undo"
-                        color: root.ink
-                        font.pixelSize: 20
-                    }
-
-                    TooltipMixin {
-                        id: undoTip
-                        root: dashboardContent.root
-                        owner: parent
-                        text: "Reset tiles to default"
-                    }
-
-                    MouseArea {
-                        id: undoMa
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-                        onEntered: undoTip.show()
-                        onExited: undoTip.hide()
-                        onClicked: {
-                            undoTip.hide()
-                            dashboardContent.resetTilesLayout()
-                        }
-                    }
-                }
-
-                // "Done" pill button (styled like the pill in the screenshot)
-                Rectangle {
-                    height: 32
-                    width: doneText.implicitWidth + 24
-                    radius: 16
-                    color: doneMa.containsMouse ? Qt.lighter(root.seal, 1.1) : root.seal
-                    Behavior on color { ColorAnimation { duration: 150 } }
-
-                    Text {
-                        id: doneText
-                        anchors.centerIn: parent
-                        text: "Done"
-                        color: root.paper
-                        font.pixelSize: 12
-                        font.family: root.barFont
-                        font.weight: Font.DemiBold
-                    }
-
-                    MouseArea {
-                        id: doneMa
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-                        onClicked: {
-                            dashboardContent.editTilesMode = false
-                            dashboardContent.saveTilesLayout()
-                        }
-                    }
-                }
-            }
-        }
-
-        // Title & Subtitle: "Edit tiles" / "Select tiles to rearrange and resize"
-        Column {
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 2
-            anchors.left: parent.left
-            anchors.leftMargin: 4
-            spacing: 2
-
-            Text {
-                text: "Edit tiles"
-                color: root.ink
-                font.pixelSize: 18
-                font.family: root.barFont
-                font.weight: Font.DemiBold
-            }
-
-            Text {
-                text: "Select tiles to rearrange and resize"
-                color: root.ink
-                opacity: 0.65
-                font.pixelSize: 11
-                font.family: root.barFont
             }
         }
     }

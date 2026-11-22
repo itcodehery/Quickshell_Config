@@ -33,14 +33,14 @@ PanelWindow {
 
     readonly property bool isPickerDetail: barSlot.root.dashboardDetail === "theme" || barSlot.root.dashboardDetail === "wallpaper"
     readonly property bool isSubPageOpen: barSlot.root.dashboardDetail !== "" && barSlot.root.dashboardDetail !== "workspaces"
-    readonly property bool isHomescreenMediaShown: isDashboardActive && !isSubPageOpen && Boolean(expandedDashboardContainer && expandedDashboardContainer.isMediaShown)
-    readonly property bool isHomescreenMediaExpanded: isHomescreenMediaShown && Boolean(expandedDashboardContainer && expandedDashboardContainer.isMediaExpanded)
+    readonly property bool isHomescreenMediaShown: isDashboardActive && !isSubPageOpen && Boolean(expandedDashboardContainer && (expandedDashboardContainer.isMediaShown || expandedDashboardContainer.isPomodoroShown))
+    readonly property bool isHomescreenMediaExpanded: isHomescreenMediaShown && Boolean(expandedDashboardContainer && (expandedDashboardContainer.isMediaExpanded || expandedDashboardContainer.isPomodoroExpanded))
     readonly property real dashboardCardBaseHeight: 376
     readonly property real dashboardMediaExtraHeight: isHomescreenMediaShown ? (isHomescreenMediaExpanded ? 140 : 88) : 0
     readonly property real dashboardExpandedWidth: Math.min(
         barSlot.isSubPageOpen
             ? ((barSlot.isPickerDetail ? 900 : 840) + 76)
-            : 820,
+            : 900,
         barSlot.width - 40
     )
     readonly property real dashboardExpandedHeight: Math.min(

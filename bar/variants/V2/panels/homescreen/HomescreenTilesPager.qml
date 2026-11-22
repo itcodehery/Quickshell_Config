@@ -5,7 +5,7 @@ import Quickshell.Widgets
 import "../../modules"
 import "../../motion"
 
-// --- MATERIAL YOU TILES (Dynamic Pager with Resizable & Movable Tiles) ---
+// --- MATERIAL 3 EXPRESSIVE DASHBOARD TILES (Spring-Driven Pager) ---
 Item {
     id: tilesPagerContainer
     required property var dashboardContent
@@ -14,18 +14,19 @@ Item {
 
     property alias tilesPager: tilesPager
 
-    // ── Cardless Orbital Quick-Action Foundation ──
-    Item {
-        id: gridCardBg
-        anchors.fill: parent
-        z: 0
-    }
+    readonly property var rootObj: dashboardContent ? dashboardContent.root : null
+    readonly property color inkCol: (rootObj && rootObj.ink) ? rootObj.ink : "#ffffff"
+    readonly property color sealCol: (rootObj && rootObj.seal) ? rootObj.seal : "#22d3ee"
+    readonly property bool showPageDots: dashboardContent && dashboardContent.totalPageCount > 1
 
     Flickable {
         id: tilesPager
-        anchors.fill: parent
-        anchors.leftMargin: 8
-        anchors.rightMargin: 8
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: pageIndicatorCol.visible ? pageIndicatorCol.left : parent.right
+        anchors.leftMargin: 4
+        anchors.rightMargin: pageIndicatorCol.visible ? 6 : 4
         anchors.topMargin: 8
         anchors.bottomMargin: 8
         clip: true
@@ -121,24 +122,50 @@ Item {
                     width: (span === 1 || span === "1x1") ? dashboardContent.tileUnitWidth : dashboardContent.tileDoubleWidth
                     height: (span === 4 || span === "2x2") ? 122 : 56
 
-                    Behavior on x { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
-                    Behavior on y { NumberAnimation { duration: 320; easing.type: Easing.OutCubic } }
-                    Behavior on width {
-                        NumberAnimation {
-                            duration: 380
-                            easing.type: Easing.OutBack
-                            easing.overshoot: 1.35
-                        }
-                    }
-                    Behavior on height {
-                        NumberAnimation {
-                            duration: 380
-                            easing.type: Easing.OutBack
-                            easing.overshoot: 1.35
-                        }
-                    }
+                    Behavior on x { SpringAnimation { spring: Motion.spatialSpring; damping: Motion.spatialDamping; epsilon: 0.25 } }
+                    Behavior on y { SpringAnimation { spring: Motion.spatialSpring; damping: Motion.spatialDamping; epsilon: 0.25 } }
+                    Behavior on width { SpringAnimation { spring: Motion.spatialSpring; damping: Motion.spatialDamping; epsilon: 0.25 } }
+                    Behavior on height { SpringAnimation { spring: Motion.spatialSpring; damping: Motion.spatialDamping; epsilon: 0.25 } }
                 }
             }
         }
     } // end tilesPager
+
+    // ── M3 Expressive Morphing Page Indicator (Borderless) ──
+    Column {
+        id: pageIndicatorCol
+        visible: tilesPagerContainer.showPageDots
+        anchors.right: parent.right
+        anchors.rightMargin: 2
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: 5
+        z: 2
+
+        Repeater {
+            model: dashboardContent ? dashboardContent.totalPageCount : 1
+            delegate: Rectangle {
+                required property int index
+                readonly property bool isCurrent: dashboardContent && dashboardContent.targetPageIndex === index
+                width: 5
+                height: isCurrent ? 18 : 5
+                radius: 2.5
+                border.width: 0
+                color: isCurrent
+                    ? tilesPagerContainer.sealCol
+                    : Qt.rgba(tilesPagerContainer.inkCol.r, tilesPagerContainer.inkCol.g, tilesPagerContainer.inkCol.b, dotMa.containsMouse ? 0.50 : 0.22)
+
+                Behavior on height { SpringAnimation { spring: Motion.spatialFastSpring; damping: Motion.spatialFastDamping; epsilon: 0.1 } }
+                Behavior on color { ColorAnimation { duration: 160 } }
+
+                MouseArea {
+                    id: dotMa
+                    anchors.fill: parent
+                    anchors.margins: -4
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: if (dashboardContent) dashboardContent.goToPage(parent.index)
+                }
+            }
+        }
+    }
 } // end tilesPagerContainer

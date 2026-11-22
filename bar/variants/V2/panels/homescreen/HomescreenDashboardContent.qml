@@ -48,6 +48,7 @@ Item {
     property real leftSlidersBoot: 1.0
     property real leftTilesBoot: 1.0
     property real mediaBoot: 1.0
+    property real pomodoroBoot: 1.0
 
     function startJarvisBoot() {
         jarvisBootAnim.stop()
@@ -60,6 +61,7 @@ Item {
         leftSlidersBoot = 0.0
         leftTilesBoot = 0.0
         mediaBoot = 0.0
+        pomodoroBoot = 0.0
         jarvisBootAnim.start()
     }
 
@@ -155,12 +157,24 @@ Item {
             }
         }
 
-        // 5. Media player shoots down from the back of the dashboard last (1380ms)
+        // 5. Media player shoots down from the back of the dashboard (1380ms)
         SequentialAnimation {
             PauseAnimation { duration: 1380 }
             NumberAnimation {
                 target: dashboardContent
                 property: "mediaBoot"
+                from: 0.0; to: 1.0
+                duration: 480
+                easing.type: Easing.OutQuint
+            }
+        }
+
+        // 6. Pomodoro card appears last in the intro choreography (1620ms)
+        SequentialAnimation {
+            PauseAnimation { duration: 1620 }
+            NumberAnimation {
+                target: dashboardContent
+                property: "pomodoroBoot"
                 from: 0.0; to: 1.0
                 duration: 480
                 easing.type: Easing.OutQuint
@@ -397,20 +411,27 @@ Item {
     
     property int targetPageIndex: 0
 
-    NumberAnimation {
+    SpringAnimation {
         id: smoothScrollAnim
-        target: tilesPager
+        target: tilesPager ? tilesPager : dummyScrollTarget
         property: "contentY"
-        duration: 260
-        easing.type: Easing.OutCubic
-        onFinished: {
-            if (tilesPager) {
+        spring: Motion.spatialSpring
+        damping: Motion.spatialDamping
+        epsilon: 0.5
+        onRunningChanged: {
+            if (!running && tilesPager) {
                 tilesPager.contentY = targetPageIndex * pageStride
             }
         }
     }
+
+    QtObject {
+        id: dummyScrollTarget
+        property real contentY: 0
+    }
     
     function pageUp() {
+        if (!tilesPager) return
         let cur = smoothScrollAnim.running ? targetPageIndex : Math.round(tilesPager.contentY / pageStride)
         if (cur > 0) {
             goToPage(cur - 1)
@@ -420,6 +441,7 @@ Item {
     }
     
     function pageDown() {
+        if (!tilesPager) return
         let cur = smoothScrollAnim.running ? targetPageIndex : Math.round(tilesPager.contentY / pageStride)
         if (cur < totalPageCount - 1) {
             goToPage(cur + 1)
@@ -794,6 +816,8 @@ Item {
     readonly property bool isMediaPlaying: mprisSel.playing && curTitle !== ""
     readonly property bool showMediaPlayer: isMediaPlaying || (showMediaManually && curTitle !== "")
     readonly property bool isMediaExpanded: Boolean(mediaWithLyricsGroup && mediaWithLyricsGroup.isExpanded)
+    readonly property bool showPomodoroDock: Boolean(pomodoroDockCard && pomodoroDockCard.isPomodoroVisible)
+    readonly property bool isPomodoroExpanded: Boolean(pomodoroDockCard && pomodoroDockCard.isExpanded)
 
     Connections {
         target: mprisSel
@@ -929,14 +953,14 @@ Item {
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
         Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
-        // ── UPPER STAGE (Left Controls Wing + Right Chronometer above Media Dock) ──
+        // ── UPPER STAGE (Left Controls Wing + Right Chronometer above Bottom Dock Cards) ──
         Item {
             id: upperStage
             anchors.top: parent.top
             anchors.topMargin: 4
             anchors.left: parent.left
             anchors.right: parent.right
-            height: mediaWithLyricsGroup.isMediaVisible ? 304 : Math.max(0, parent.height - 12)
+            height: (mediaWithLyricsGroup.isMediaVisible || pomodoroDockCard.isPomodoroVisible) ? 304 : Math.max(0, parent.height - 12)
             z: 5
 
             // Ambient orbital rings radiating from the right-hand clock observatory
@@ -985,43 +1009,71 @@ Item {
                 }
             }
 
-            // ── LEFT WING: Sliders & Action Pills ──
-            Column {
-                id: leftWing
+            // ── LEFT WING CARD: Sliders + HUD Telemetry & Controls ──
+            Rectangle {
+                id: leftWingCard
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                width: Math.min(370, Math.max(300, Math.round(parent.width * 0.48)))
-                spacing: 12
+                width: Math.min(440, Math.max(350, Math.round(parent.width * 0.54)))
+                height: leftWing.implicitHeight + 32
+                radius: 22
+                border.width: 0
+                antialiasing: true
                 z: 2
-
-                HomescreenTopControls {
-                    id: topControlArea
-                    width: parent.width
-                    height: 82
-                    opacity: dashboardContent.leftSlidersBoot
-                    scale: 0.90 + 0.10 * dashboardContent.leftSlidersBoot
-                    transform: Translate {
-                        x: -28 * (1.0 - dashboardContent.leftSlidersBoot)
-                        y: -6 * (1.0 - dashboardContent.leftSlidersBoot)
-                    }
-                    dashboardContent: dashboardContent
-                    root: dashboardContent.root
-                    audioData: audioData
+                readonly property color inkC: (root && root.ink) ? root.ink : "#ffffff"
+                color: Qt.rgba(inkC.r, inkC.g, inkC.b, 0.05)
+                opacity: dashboardContent.leftSlidersBoot
+                scale: 0.94 + 0.06 * dashboardContent.leftSlidersBoot
+                transform: Translate {
+                    x: -20 * (1.0 - dashboardContent.leftSlidersBoot)
                 }
 
-                HomescreenTilesPager {
-                    id: tilesPagerContainer
-                    width: parent.width
-                    height: 140
-                    opacity: dashboardContent.leftTilesBoot
-                    scale: 0.92 + 0.08 * dashboardContent.leftTilesBoot
-                    transform: Translate {
-                        x: -20 * (1.0 - dashboardContent.leftTilesBoot)
-                        y: 14 * (1.0 - dashboardContent.leftTilesBoot)
+                Column {
+                    id: leftWing
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: 18
+                    anchors.rightMargin: 18
+                    spacing: 14
+
+                    HomescreenTopControls {
+                        id: topControlArea
+                        width: parent.width
+                        height: 82
+                        opacity: dashboardContent.leftSlidersBoot
+                        scale: 0.90 + 0.10 * dashboardContent.leftSlidersBoot
+                        transform: Translate {
+                            x: -28 * (1.0 - dashboardContent.leftSlidersBoot)
+                            y: -6 * (1.0 - dashboardContent.leftSlidersBoot)
+                        }
+                        dashboardContent: dashboardContent
+                        root: dashboardContent.root
+                        audioData: audioData
                     }
-                    dashboardContent: dashboardContent
-                    tilesModel: tilesModel
-                    smoothScrollAnim: smoothScrollAnim
+
+                    HomescreenCommandDeck {
+                        id: commandDeckArea
+                        width: parent.width
+                        height: 106
+                        opacity: dashboardContent.leftTilesBoot
+                        scale: 0.92 + 0.08 * dashboardContent.leftTilesBoot
+                        transform: Translate {
+                            x: -20 * (1.0 - dashboardContent.leftTilesBoot)
+                            y: 14 * (1.0 - dashboardContent.leftTilesBoot)
+                        }
+                        dashboardContent: dashboardContent
+                        root: dashboardContent.root
+                    }
+
+                    // Keep tilesPagerContainer alias target alive invisibly so existing helper refs remain safe
+                    Item {
+                        id: tilesPagerContainer
+                        visible: false
+                        width: 0
+                        height: 0
+                        property var tilesPager: null
+                    }
                 }
             }
 
@@ -1045,6 +1097,24 @@ Item {
                 }
             }
         } // end upperStage
+
+        // ── DETACHED BOTTOM-LEFT POMODORO CARD (Appears last in intro, expands downward on hover) ──
+        HomescreenPomodoroCard {
+            id: pomodoroDockCard
+            anchors.top: upperStage.bottom
+            anchors.topMargin: 18
+            anchors.left: parent.left
+            anchors.leftMargin: -24
+            width: isExpanded ? 310 : 230
+            height: isExpanded ? 124 : 72
+            z: 1
+            bootProgress: dashboardContent.pomodoroBoot
+            transform: Translate { y: -76 * (1.0 - dashboardContent.pomodoroBoot) }
+            Behavior on width { SpringAnimation { spring: Motion.spatialSpring; damping: Motion.spatialDamping; epsilon: 0.25 } }
+            Behavior on height { SpringAnimation { spring: Motion.spatialSpring; damping: Motion.spatialDamping; epsilon: 0.25 } }
+            dashboardContent: dashboardContent
+            root: dashboardContent.root
+        }
 
         // ── COMPACT BOTTOM-RIGHT MEDIA LISTTILE (Expands downward on hover to reveal controls) ──
         HomescreenMediaLyricsCard {
@@ -1104,14 +1174,6 @@ Item {
         dashboardContent: dashboardContent
         root: (dashboardContent && dashboardContent.root) ? dashboardContent.root : null
         panel: (dashboardContent && dashboardContent.panel) ? dashboardContent.panel : null
-    }
-
-    // ── POMODORO TIMER POPUP (Sleek Material You modal to view, pause, or disable the timer) ──
-    HomescreenPomodoroPopup {
-        id: pomodoroPopupBackdrop
-        anchors.fill: parent
-        dashboardContent: dashboardContent
-        root: dashboardContent.root
     }
 
     // ── NIGHT LIGHT INTENSITY POPUP ──

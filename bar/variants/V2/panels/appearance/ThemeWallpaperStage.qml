@@ -16,10 +16,10 @@ Item {
         visible: switcher.currentPickerStyle === "tanzaku" || switcher.currentPickerStyle === ""
         anchors.fill: parent
 
-        readonly property int focusedW: 480
-        readonly property int focusedH: 300
-        readonly property int peekW: 84
-        readonly property int stripW: 26
+        readonly property int focusedH: Math.max(150, Math.min(240, stageRoot.height - 20))
+        readonly property int focusedW: Math.min(460, Math.round(focusedH * 1.6))
+        readonly property int peekW: Math.round(focusedW * 0.18)
+        readonly property int stripW: 24
         readonly property int gap: 10
 
         function stripWidthFor(d) {
@@ -71,14 +71,13 @@ Item {
                     anchors.fill: parent
                     radius: 16
                     color: "#16161c"
-                    border.width: focused ? 2.5 : 1
-                    border.color: focused ? "#ffffff" : Qt.rgba(1, 1, 1, 0.15)
+                    border.width: 0
 
                     // Strict rounded clipping masks images & overlays cleanly
                     ClippingRectangle {
                         anchors.fill: parent
-                        anchors.margins: focused ? 2.5 : 1
-                        radius: 14
+                        anchors.margins: 0
+                        radius: 16
                         color: "#16161c"
 
                         Image {
@@ -179,12 +178,12 @@ Item {
         visible: switcher.currentPickerStyle === "hearthstone"
         anchors.fill: parent
 
-        readonly property int cardW: 185
-        readonly property int cardH: 265
-        readonly property int stepX: 112
+        readonly property int cardH: Math.max(140, Math.min(210, stageRoot.height - 38))
+        readonly property int cardW: Math.round(cardH * 0.70)
+        readonly property int stepX: Math.round(cardW * 0.62)
         readonly property real spreadDeg: 3.8
-        readonly property int focusLift: 24
-        readonly property real focusScale: 1.14
+        readonly property int focusLift: 16
+        readonly property real focusScale: 1.12
 
         Repeater {
             model: switcher.filtered.length
@@ -339,149 +338,18 @@ Item {
     }
 
     // ═════════════════════════════════════════════════════
-    // STYLE 3: CAROUSEL (Coverflow with Dead-Center Hero Card)
-    // ═════════════════════════════════════════════════════
-    Item {
-        id: cfStage
-        visible: switcher.currentPickerStyle === "carousel"
-        anchors.fill: parent
-
-        readonly property int expandedW: 480
-        readonly property int expandedH: 290
-        readonly property int sliceW: 100
-        readonly property int sliceH: 240
-        readonly property real itemStep: 78
-
-        readonly property real centerX: (width - expandedW) / 2
-
-        Repeater {
-            model: switcher.filtered.length
-
-            delegate: Item {
-                id: cfSlice
-                required property int index
-                readonly property var entry: switcher.filtered[index] || null
-                readonly property int relIdx: index - switcher.selFilt
-                readonly property bool selected: relIdx === 0
-                readonly property bool nearby: Math.abs(relIdx) <= 7
-
-                visible: nearby
-                width: selected ? cfStage.expandedW : cfStage.sliceW
-                height: selected ? cfStage.expandedH : cfStage.sliceH
-
-                // Dead-center vertically:
-                y: (cfStage.height - height) / 2
-
-                // Dead-center horizontally for selected card, cascading out for side cards:
-                x: selected
-                    ? cfStage.centerX
-                    : (relIdx < 0
-                        ? (cfStage.centerX - 20 - cfStage.sliceW - (Math.abs(relIdx) - 1) * cfStage.itemStep)
-                        : (cfStage.centerX + cfStage.expandedW + 20 + (relIdx - 1) * cfStage.itemStep))
-                z: selected ? 100 : 50 - Math.min(Math.abs(relIdx), 30)
-
-                Behavior on x      { NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
-                Behavior on y      { NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
-                Behavior on width  { NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
-                Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.OutBack; easing.overshoot: 1.15 } }
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: selected ? 16 : 10
-                    color: "#16161c"
-                    border.width: selected ? 2.5 : 1
-                    border.color: selected ? "#ffffff" : Qt.rgba(1, 1, 1, 0.15)
-
-                    // Strict rounded clipping masks image and overlays cleanly
-                    ClippingRectangle {
-                        anchors.fill: parent
-                        anchors.margins: selected ? 2.5 : 1
-                        radius: selected ? 14 : 9
-                        color: "#16161c"
-
-                        Image {
-                            anchors.fill: parent
-                            source: (cfSlice.nearby && cfSlice.entry && cfSlice.entry.thumb) ? cfSlice.entry.thumb : ""
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
-                            cache: true
-                            smooth: true
-                        }
-
-                        // Dim overlay on side slices
-                        Rectangle {
-                            anchors.fill: parent
-                            color: "black"
-                            opacity: cfSlice.selected ? 0 : 0.50
-                            Behavior on opacity { NumberAnimation { duration: 180 } }
-                        }
-
-                        // Gradient shadow on selected card
-                        Rectangle {
-                            visible: cfSlice.selected
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.bottom: parent.bottom
-                            height: 56
-                            gradient: Gradient {
-                                GradientStop { position: 0.0; color: "transparent" }
-                                GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.82) }
-                            }
-                        }
-
-                        // Theme/Wallpaper title on selected card
-                        Text {
-                            visible: cfSlice.selected
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.bottom: parent.bottom
-                            anchors.margins: 10
-                            text: cfSlice.entry ? cfSlice.entry.label : ""
-                            color: "#ECECEE"
-                            font.family: root.barFont
-                            font.pixelSize: 13
-                            font.weight: Font.Medium
-                            horizontalAlignment: Text.AlignHCenter
-                            elide: Text.ElideRight
-                        }
-                    }
-                }
-
-                // Red seal stroke under selected card
-                Rectangle {
-                    visible: cfSlice.selected
-                    anchors.top: parent.bottom
-                    anchors.topMargin: 4
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: 52; height: 3; radius: 1.5
-                    color: root.seal
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (cfSlice.selected) switcher.applySelected()
-                        else switcher.selFilt = index
-                    }
-                }
-            }
-        }
-    }
-
-    // ═════════════════════════════════════════════════════
-    // STYLE 4: GRAVEMIND (Spatial 3D Capsule Coverflow)
+    // STYLE 3: GRAVEMIND (Spatial 3D Capsule Stack)
     // ═════════════════════════════════════════════════════
     Item {
         id: gravemindStage
         visible: switcher.currentPickerStyle === "gravemind"
         anchors.fill: parent
 
-        readonly property int cardW: 260
-        readonly property int cardH: 260
+        readonly property int cardH: Math.max(140, Math.min(215, stageRoot.height - 28))
+        readonly property int cardW: cardH
         readonly property int cardRadius: 22
-        readonly property real itemStep: 56
-        readonly property real centerGap: 112
+        readonly property real itemStep: Math.round(cardW * 0.22)
+        readonly property real centerGap: Math.round(cardW * 0.44)
         readonly property real centerX: (width - cardW) / 2
         readonly property real centerY: (height - cardH) / 2
 
