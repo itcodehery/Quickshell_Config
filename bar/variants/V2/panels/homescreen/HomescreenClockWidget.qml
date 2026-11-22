@@ -188,7 +188,7 @@ Item {
             opacity: timeDateWidget.dateProgress
             text: Qt.formatDate(timeDateWidget.currentTime, "ddd · MMM d").toUpperCase()
             color: Qt.rgba(inkCol.r, inkCol.g, inkCol.b, 0.65)
-            font.family: "Genova"
+            font.family: "Google Sans"
             font.pixelSize: 10
             font.weight: Font.Bold
             font.letterSpacing: 1.5
@@ -214,7 +214,7 @@ Item {
                 color: isLight ? inkCol : sealCol
                 opacity: timeDateWidget.pillTextProgress
                 scale: 0.85 + 0.15 * timeDateWidget.pillTextProgress
-                font.family: (biggerFont && biggerFont.status === FontLoader.Ready) ? biggerFont.name : "Genova"
+                font.family: (biggerFont && biggerFont.status === FontLoader.Ready) ? biggerFont.name : "Google Sans"
                 font.pixelSize: Math.max(34, Math.round(watchDial.width * 0.17))
                 font.weight: Font.Bold
                 font.letterSpacing: 1
@@ -229,7 +229,7 @@ Item {
             opacity: timeDateWidget.dayPctProgress
             text: Math.round(timeDateWidget.dayProgress * 100) + "% OF DAY"
             color: Qt.rgba(inkCol.r, inkCol.g, inkCol.b, 0.50)
-            font.family: "Genova"
+            font.family: "Google Sans"
             font.pixelSize: 9
             font.weight: Font.Bold
             font.letterSpacing: 1.4

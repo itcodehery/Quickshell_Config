@@ -11,6 +11,7 @@ Item {
     id: expandedDashboardContainer
     required property var barSlot
     readonly property bool isMediaShown: Boolean(dashboardLoader.item && dashboardLoader.item.showMediaPlayer)
+    readonly property bool isMediaExpanded: Boolean(dashboardLoader.item && dashboardLoader.item.isMediaExpanded)
 
     clip: true
     opacity: expandedDashboardContainer.barSlot.isDashboardActive ? 1.0 : 0.0
@@ -289,10 +290,10 @@ Item {
         anchors.left: expandedDashboardContainer.barSlot.isSubPageOpen ? subPageSidebar.right : parent.left
         anchors.leftMargin: expandedDashboardContainer.barSlot.isSubPageOpen ? 16 : 0
 
-        topLeftRadius: 28
-        bottomLeftRadius: 28
-        topRightRadius: 28
-        bottomRightRadius: 28
+        topLeftRadius: expandedDashboardContainer.barSlot.dashboardTopRadius
+        bottomLeftRadius: expandedDashboardContainer.barSlot.dashboardBottomRadius
+        topRightRadius: expandedDashboardContainer.barSlot.dashboardTopRadius
+        bottomRightRadius: expandedDashboardContainer.barSlot.dashboardBottomRadius
 
         color: expandedDashboardContainer.barSlot.isSubPageOpen ? expandedDashboardContainer.barSlot.root.barBg : "transparent"
         border.width: 0

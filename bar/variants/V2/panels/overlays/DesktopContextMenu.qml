@@ -182,7 +182,7 @@ PanelWindow {
                     id: titleText
                     text: mprisSel.active ? (mprisSel.player.trackTitle || "Unknown Track") : desktopMenu.currentGreeting
                     color: root.ink
-                    font.family: "Genova"
+                    font.family: "Google Sans"
                     font.pixelSize: 13
                     font.weight: Font.DemiBold
                     width: mprisSel.active ? implicitWidth : parent.width
@@ -222,7 +222,7 @@ PanelWindow {
                     id: artistText
                     text: mprisSel.active ? (mprisSel.player.trackArtist || "Unknown Artist") : desktopMenu.currentQuote
                     color: root.sumiHi
-                    font.family: "Genova"
+                    font.family: "Google Sans"
                     font.pixelSize: 11
                     font.weight: Font.Medium
                     width: mprisSel.active ? implicitWidth : parent.width
@@ -440,7 +440,7 @@ PanelWindow {
                 text: parent.centerText
                 visible: text !== ""
                 color: root.ink
-                font.family: "Genova"
+                font.family: "Google Sans"
                 font.pixelSize: 10
                 font.weight: Font.DemiBold
                 width: parent.width - 4

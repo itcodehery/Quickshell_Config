@@ -47,7 +47,6 @@ Item {
     property real orbitalBootProgress: 1.0
     property real leftSlidersBoot: 1.0
     property real leftTilesBoot: 1.0
-    property real rightBoot: 1.0
     property real mediaBoot: 1.0
 
     function startJarvisBoot() {
@@ -60,7 +59,6 @@ Item {
         orbitalBootProgress = 0.0
         leftSlidersBoot = 0.0
         leftTilesBoot = 0.0
-        rightBoot = 0.0
         mediaBoot = 0.0
         jarvisBootAnim.start()
     }
@@ -157,21 +155,9 @@ Item {
             }
         }
 
-        // 5. Right wing quick actions appear next (1380ms)
+        // 5. Media player shoots down from the back of the dashboard last (1380ms)
         SequentialAnimation {
             PauseAnimation { duration: 1380 }
-            NumberAnimation {
-                target: dashboardContent
-                property: "rightBoot"
-                from: 0.0; to: 1.0
-                duration: 460
-                easing.type: Easing.OutQuint
-            }
-        }
-
-        // 6. Media player shoots down from the back of the dashboard last (1640ms)
-        SequentialAnimation {
-            PauseAnimation { duration: 1640 }
             NumberAnimation {
                 target: dashboardContent
                 property: "mediaBoot"
@@ -807,6 +793,7 @@ Item {
     property bool showMediaManually: false
     readonly property bool isMediaPlaying: mprisSel.playing && curTitle !== ""
     readonly property bool showMediaPlayer: isMediaPlaying || (showMediaManually && curTitle !== "")
+    readonly property bool isMediaExpanded: Boolean(mediaWithLyricsGroup && mediaWithLyricsGroup.isExpanded)
 
     Connections {
         target: mprisSel
@@ -928,7 +915,7 @@ Item {
         }
     }
 
-    // ── MAIN CONTROLS (Cardless Three-Zone Orbital Constellation) ──
+    // ── MAIN CONTROLS (Compact Two-Zone Layout: Controls Left + Chronometer Right) ──
     Item {
         id: mainControls
         anchors.fill: parent
@@ -942,18 +929,17 @@ Item {
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
         Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
-        // ── UPPER STAGE (Left Wing + Center Chronometer + Right Wing above Media Dock) ──
+        // ── UPPER STAGE (Left Controls Wing + Right Chronometer above Media Dock) ──
         Item {
             id: upperStage
             anchors.top: parent.top
-            anchors.topMargin: 6
+            anchors.topMargin: 4
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.bottom: mediaWithLyricsGroup.isMediaVisible ? mediaWithLyricsGroup.top : parent.bottom
-            anchors.bottomMargin: mediaWithLyricsGroup.isMediaVisible ? 22 : 8
+            height: mediaWithLyricsGroup.isMediaVisible ? 304 : Math.max(0, parent.height - 12)
             z: 5
 
-            // Ambient orbital rings radiating from center observatory (aligned with clock inside upperStage)
+            // Ambient orbital rings radiating from the right-hand clock observatory
             Canvas {
                 id: orbitalBackdropCanvas
                 anchors.fill: parent
@@ -962,20 +948,28 @@ Item {
                 readonly property color inkC: (root && root.ink) ? root.ink : "#ffffff"
                 readonly property color sealC: (root && root.seal) ? root.seal : "#22d3ee"
                 readonly property real bootProg: dashboardContent.orbitalBootProgress
+                readonly property real clockCx: centerObservatory.x + centerObservatory.width / 2
+                readonly property real clockCy: centerObservatory.y + centerObservatory.height / 2
+                readonly property real baseRingR: Math.round(centerObservatory.width / 2) + 14
                 onInkCChanged: requestPaint()
                 onSealCChanged: requestPaint()
                 onWidthChanged: requestPaint()
                 onHeightChanged: requestPaint()
                 onBootProgChanged: requestPaint()
+                onClockCxChanged: requestPaint()
+                onClockCyChanged: requestPaint()
+                onBaseRingRChanged: requestPaint()
                 onPaint: {
                     var ctx = getContext("2d")
                     ctx.reset()
                     if (bootProg <= 0.005) return
-                    var cx = width / 2
-                    var cy = height / 2
-                    var radii = [148, 210, 290, 370]
+                    var cx = clockCx
+                    var cy = clockCy
+                    if (baseRingR <= 16) return
+                    var radii = [baseRingR, baseRingR + 54, baseRingR + 124, baseRingR + 196]
                     var startAng = -Math.PI / 2
                     for (var i = 0; i < radii.length; i++) {
+                        if (radii[i] <= 0) continue
                         var ringT = Math.max(0.0, Math.min(1.0, (bootProg * 1.30) - i * 0.10))
                         if (ringT <= 0.01) continue
                         ctx.beginPath()
@@ -991,13 +985,13 @@ Item {
                 }
             }
 
-            // ── LEFT WING: Restored Sliders & Cardless Watch Orbs ──
+            // ── LEFT WING: Sliders & Action Pills ──
             Column {
                 id: leftWing
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                width: Math.min(360, Math.max(260, Math.round(parent.width * 0.31)))
-                spacing: 14
+                width: Math.min(370, Math.max(300, Math.round(parent.width * 0.48)))
+                spacing: 12
                 z: 2
 
                 HomescreenTopControls {
@@ -1031,11 +1025,13 @@ Item {
                 }
             }
 
-            // ── CENTER OBSERVATORY: Always-On Circular Watch Chronometer ──
+            // ── RIGHT OBSERVATORY: Circular Watch Chronometer ──
             Item {
                 id: centerObservatory
-                anchors.centerIn: parent
-                width: Math.min(246, parent.height - 16)
+                anchors.right: parent.right
+                anchors.rightMargin: 28
+                anchors.verticalCenter: parent.verticalCenter
+                width: Math.max(0, Math.min(224, parent.height - 56))
                 height: width
                 z: 3
 
@@ -1048,184 +1044,25 @@ Item {
                     biggerFont: biggerFont
                 }
             }
-
-            // ── RIGHT WING: Pixel Watch Quick-Actions Cluster + Battery Pill ──
-            Column {
-                id: rightWing
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                width: Math.min(260, Math.max(200, Math.round(parent.width * 0.24)))
-                spacing: 10
-                z: 2
-                opacity: dashboardContent.rightBoot
-                scale: 0.92 + 0.08 * dashboardContent.rightBoot
-                transform: Translate {
-                    x: 24 * (1.0 - dashboardContent.rightBoot)
-                    y: 10 * (1.0 - dashboardContent.rightBoot)
-                }
-
-                readonly property color inkC: (root && root.ink) ? root.ink : "#ffffff"
-                readonly property color sealC: (root && root.seal) ? root.seal : "#22d3ee"
-                readonly property color onSealC: {
-                    var luma = sealC.r * 0.299 + sealC.g * 0.587 + sealC.b * 0.114
-                    return luma > 0.55 ? "#121212" : "#ffffff"
-                }
-
-                // Top Row: 3 small capsule quick-action pills
-                Row {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: 8
-
-                    Repeater {
-                        model: [
-                            { icon: "calendar_today", view: "calendar" },
-                            { icon: "notifications", view: "notifications" },
-                            { icon: "edit_note", view: "notes" }
-                        ]
-                        delegate: Rectangle {
-                            required property var modelData
-                            width: 40
-                            height: 26
-                            radius: 13
-                            border.width: 0
-                            color: topPillMa.containsMouse
-                                ? rightWing.sealC
-                                : Qt.rgba(rightWing.inkC.r, rightWing.inkC.g, rightWing.inkC.b, 0.10)
-                            scale: topPillMa.pressed ? 0.90 : (topPillMa.containsMouse ? 1.06 : 1.0)
-                            Behavior on scale { NumberAnimation { duration: 120 } }
-                            Behavior on color { ColorAnimation { duration: 150 } }
-
-                            IconText {
-                                anchors.centerIn: parent
-                                text: parent.modelData.icon
-                                color: topPillMa.containsMouse ? rightWing.onSealC : rightWing.inkC
-                                font.pixelSize: 14
-                            }
-
-                            MouseArea {
-                                id: topPillMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: dashboardContent.activeDetailView = parent.modelData.view
-                            }
-                        }
-                    }
-                }
-
-                // Middle: 3x2 Uniform Circular Quick-Action Grid (Wear OS spacing & shape)
-                Grid {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    columns: 3
-                    columnSpacing: 8
-                    rowSpacing: 8
-
-                    Repeater {
-                        model: [
-                            { label: "Theme", icon: "palette", view: "theme", accent: false },
-                            { label: "Wall", icon: "wallpaper", view: "wallpaper", accent: true },
-                            { label: "Plugins", icon: "extension", view: "plugins", accent: false },
-                            { label: "Keys", icon: "keyboard", view: "keybinds", accent: false },
-                            { label: "Settings", icon: "tune", view: "settings", accent: false },
-                            { label: "Screen", icon: "hourglass_bottom", view: "screentime", accent: true }
-                        ]
-                        delegate: Rectangle {
-                            required property var modelData
-                            width: 60
-                            height: 48
-                            radius: portalMa.containsMouse ? 16 : 24
-                            border.width: 0
-                            color: portalMa.containsMouse
-                                ? rightWing.sealC
-                                : (modelData.accent
-                                    ? Qt.rgba(rightWing.sealC.r, rightWing.sealC.g, rightWing.sealC.b, 0.22)
-                                    : Qt.rgba(rightWing.inkC.r, rightWing.inkC.g, rightWing.inkC.b, 0.10))
-                            scale: portalMa.pressed ? 0.90 : (portalMa.containsMouse ? 1.05 : 1.0)
-                            Behavior on scale { NumberAnimation { duration: 120 } }
-                            Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-                            Behavior on color { ColorAnimation { duration: 150 } }
-
-                            IconText {
-                                anchors.centerIn: parent
-                                text: parent.modelData.icon
-                                color: portalMa.containsMouse
-                                    ? rightWing.onSealC
-                                    : (parent.modelData.accent ? rightWing.sealC : rightWing.inkC)
-                                font.pixelSize: 22
-                            }
-
-                            MouseArea {
-                                id: portalMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (parent.modelData.view === "keybinds") {
-                                        Quickshell.execDetached(["/usr/share/omarchy/bin/omarchy-menu-keybindings"])
-                                        if (root) root.dashboardExpanded = false
-                                    } else {
-                                        dashboardContent.activeDetailView = parent.modelData.view
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Bottom: Moved Battery Pill (below main quick actions)
-                Rectangle {
-                    id: quickActionsBatteryPill
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    height: 30
-                    readonly property bool shouldShow: rightBattWidget.shown
-                    width: shouldShow ? (rightBattWidget.implicitWidth + 14) : 0
-                    opacity: shouldShow ? 1.0 : 0.0
-                    visible: width > 0.1 || opacity > 0.01
-                    radius: 15
-                    clip: true
-                    border.width: 0
-                    color: (root && root.dashboardDetail === "battery")
-                        ? Qt.rgba(rightWing.sealC.r, rightWing.sealC.g, rightWing.sealC.b, 0.22)
-                        : (quickBattMa.containsMouse
-                            ? Qt.rgba(rightWing.inkC.r, rightWing.inkC.g, rightWing.inkC.b, 0.16)
-                            : Qt.rgba(rightWing.inkC.r, rightWing.inkC.g, rightWing.inkC.b, 0.10))
-                    scale: quickBattMa.pressed ? 0.94 : 1.0
-                    Behavior on width { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
-                    Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-                    Behavior on color { ColorAnimation { duration: 140 } }
-                    Behavior on scale { NumberAnimation { duration: 120 } }
-
-                    BatteryWidget {
-                        id: rightBattWidget
-                        anchors.centerIn: parent
-                        root: dashboardContent.root
-                    }
-
-                    MouseArea {
-                        id: quickBattMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: dashboardContent.activeDetailView = "battery"
-                    }
-                }
-            }
         } // end upperStage
 
-        // ── COMPACT BOTTOM-RIGHT MEDIA LISTTILE (Expands on hover to reveal controls) ──
+        // ── COMPACT BOTTOM-RIGHT MEDIA LISTTILE (Expands downward on hover to reveal controls) ──
         HomescreenMediaLyricsCard {
             id: mediaWithLyricsGroup
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: isExpanded ? 0 : 8
+            anchors.top: upperStage.bottom
+            anchors.topMargin: 18
             anchors.right: parent.right
             anchors.rightMargin: -24
-            width: isExpanded ? Math.min(480, Math.round(parent.width * 0.46)) : Math.min(280, Math.round(parent.width * 0.28))
-            height: isExpanded ? 80 : 72
+            readonly property real baseCollapsedWidth: Math.min(280, Math.round(parent.width * 0.42))
+            readonly property real maxCollapsedWidth: Math.min(480, Math.round(parent.width * 0.70))
+            width: isExpanded
+                ? Math.min(520, Math.round(parent.width * 0.72))
+                : Math.min(maxCollapsedWidth, Math.max(baseCollapsedWidth, preferredCollapsedWidth))
+            height: isExpanded ? 124 : 72
             z: 1
             transform: Translate { y: -76 * (1.0 - dashboardContent.mediaBoot) }
             Behavior on width { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
             Behavior on height { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
-            Behavior on anchors.bottomMargin { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
             dashboardContent: dashboardContent
             root: dashboardContent.root
             panel: dashboardContent.panel

@@ -34,16 +34,23 @@ PanelWindow {
     readonly property bool isPickerDetail: barSlot.root.dashboardDetail === "theme" || barSlot.root.dashboardDetail === "wallpaper"
     readonly property bool isSubPageOpen: barSlot.root.dashboardDetail !== "" && barSlot.root.dashboardDetail !== "workspaces"
     readonly property bool isHomescreenMediaShown: isDashboardActive && !isSubPageOpen && Boolean(expandedDashboardContainer && expandedDashboardContainer.isMediaShown)
+    readonly property bool isHomescreenMediaExpanded: isHomescreenMediaShown && Boolean(expandedDashboardContainer && expandedDashboardContainer.isMediaExpanded)
+    readonly property real dashboardCardBaseHeight: 376
+    readonly property real dashboardMediaExtraHeight: isHomescreenMediaShown ? (isHomescreenMediaExpanded ? 140 : 88) : 0
     readonly property real dashboardExpandedWidth: Math.min(
-        (barSlot.isPickerDetail ? 1180 : 1160) + (barSlot.isSubPageOpen ? 76 : 0),
+        barSlot.isSubPageOpen
+            ? ((barSlot.isPickerDetail ? 900 : 840) + 76)
+            : 820,
         barSlot.width - 40
     )
     readonly property real dashboardExpandedHeight: Math.min(
         barSlot.height - 48,
-        (barSlot.isPickerDetail || barSlot.isSubPageOpen) ? 530 : 480
+        (barSlot.isPickerDetail || barSlot.isSubPageOpen)
+            ? 440
+            : (dashboardCardBaseHeight + dashboardMediaExtraHeight)
     )
 
-    readonly property real dashboardTopRadius: 28
+    readonly property real dashboardTopRadius: 12
     readonly property real dashboardBottomRadius: 28
 
     readonly property var islandNotifPeekItem: island ? island.islandNotifPeekItem : null
@@ -305,9 +312,9 @@ PanelWindow {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: barSlot.isHomescreenMediaShown ? 90 : 0
-            Behavior on anchors.bottomMargin { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+            height: barSlot.isHomescreenMediaShown
+                ? Math.min(parent.height, barSlot.dashboardCardBaseHeight)
+                : parent.height
             antialiasing: true
             preferredRendererType: Shape.CurveRenderer
 

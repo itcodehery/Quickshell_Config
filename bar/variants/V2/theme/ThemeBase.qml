@@ -83,7 +83,7 @@ Item {
     function barColorLabel(id) { return PopupLayout.barColorLabel(id) }
 
     readonly property string mono:  "JetBrainsMono Nerd Font"
-    readonly property string barFont: "Genova"
+    readonly property string barFont: "Google Sans"
 
     // ── transparency knobs (0.0 = fully transparent, 1.0 = opaque) ──
     property real barOpacity:  1.0   // durchgehende V2-Leiste

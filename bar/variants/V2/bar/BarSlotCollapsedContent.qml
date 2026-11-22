@@ -209,7 +209,7 @@ Item {
             anchors.centerIn: parent
             text: ""
             color: collapsedRoot.barSlot.root.ink
-            font.family: collapsedRoot.barSlot.root.barFont || "Genova"
+            font.family: collapsedRoot.barSlot.root.barFont || "Google Sans"
             font.pixelSize: 12
             font.weight: Font.Medium
             elide: islandCollapsedItem.hasLyrics ? Text.ElideNone : Text.ElideRight
@@ -222,7 +222,7 @@ Item {
             anchors.centerIn: parent
             text: ""
             color: collapsedRoot.barSlot.root.ink
-            font.family: collapsedRoot.barSlot.root.barFont || "Genova"
+            font.family: collapsedRoot.barSlot.root.barFont || "Google Sans"
             font.pixelSize: 12
             font.weight: Font.Medium
             elide: islandCollapsedItem.hasLyrics ? Text.ElideNone : Text.ElideRight
@@ -330,7 +330,7 @@ Item {
                     function pad(n) { return n < 10 ? "0" + n : String(n) }
                     return h > 0 ? (h + ":" + pad(m) + ":" + pad(s)) : (pad(m) + ":" + pad(s))
                 }
-                font.family: "Genova"
+                font.family: "Google Sans"
                 font.pixelSize: 11
                 font.weight: Font.DemiBold
                 color: collapsedRoot.barSlot.root.timerPaused ? Qt.rgba(collapsedRoot.barSlot.root.ink.r, collapsedRoot.barSlot.root.ink.g, collapsedRoot.barSlot.root.ink.b, 0.6) : collapsedRoot.barSlot.accent

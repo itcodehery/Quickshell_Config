@@ -95,7 +95,7 @@ PanelWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 text: lyricsPanel.activeLine
                 color: root ? root.ink : "#ffffff"
-                font.family: root ? root.barFont : "Genova"
+                font.family: root ? root.barFont : "Google Sans"
                 font.pixelSize: 11
                 font.weight: Font.DemiBold
                 elide: Text.ElideRight

@@ -98,7 +98,7 @@ Item {
                 UiText {
                     text: mprisSel.active ? (mprisSel.player.trackTitle || "Unknown Track") : desktopMenu.currentGreeting
                     color: root.ink
-                    font.family: "Genova"
+                    font.family: "Google Sans"
                     font.pixelSize: 11
                     font.weight: Font.DemiBold
                     width: parent.width
@@ -109,7 +109,7 @@ Item {
                 UiText {
                     text: mprisSel.active ? (mprisSel.player.trackArtist || "Unknown Artist") : desktopMenu.currentQuote
                     color: root.sumiHi
-                    font.family: "Genova"
+                    font.family: "Google Sans"
                     font.pixelSize: 10
                     font.weight: Font.Medium
                     width: parent.width
@@ -229,7 +229,7 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: aiBtn.appName
                                 color: root.ink
-                                font.family: "Genova"
+                                font.family: "Google Sans"
                                 font.pixelSize: 11
                                 font.weight: Font.Medium
                             }
@@ -538,7 +538,7 @@ Item {
                                 }
                             }
                             UiText { 
-                                anchors.verticalCenter: parent.verticalCenter; color: root.ink; font.family: "Genova"; font.pixelSize: 11; font.weight: Font.Medium 
+                                anchors.verticalCenter: parent.verticalCenter; color: root.ink; font.family: "Google Sans"; font.pixelSize: 11; font.weight: Font.Medium 
                                 text: idx === 3 ? "Theme" : (idx === 8 ? "Refresh Rate" : "Radial Menu")
                             }
                         }
@@ -560,7 +560,7 @@ Item {
                                     return str.replace(/[-_]+/g, " ").replace(/\b\w/g, function(l){ return l.toUpperCase(); });
                                 })(root.currentThemeName) : "")
                                 color: root.ink
-                                font.family: "Genova"
+                                font.family: "Google Sans"
                                 font.pixelSize: 10
                                 font.weight: Font.Medium
                             }

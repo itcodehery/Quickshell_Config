@@ -330,7 +330,7 @@ Item {
                                         Text {
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: optionCard.modelData.name
-                                            font.family: (root && root.barFont) ? root.barFont : "Genova"
+                                            font.family: (root && root.barFont) ? root.barFont : "Google Sans"
                                             font.pixelSize: 13
                                             font.weight: optionCard.isFocused ? Font.Bold : Font.DemiBold
                                             color: (root && root.ink) ? root.ink : "#ffffff"

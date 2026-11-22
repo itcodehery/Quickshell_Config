@@ -25,7 +25,7 @@ Item {
     readonly property color fillHoverCol: (themeRoot && themeRoot.fillHover) ? themeRoot.fillHover : Qt.rgba(sealCol.r, sealCol.g, sealCol.b, 0.16)
     readonly property color cardBgCol: Qt.rgba(paperCol.r, paperCol.g, paperCol.b, 0.75)
     readonly property color cardBorderCol: "transparent"
-    readonly property string fontFam: (themeRoot && themeRoot.barFont) ? themeRoot.barFont : "Genova"
+    readonly property string fontFam: (themeRoot && themeRoot.barFont) ? themeRoot.barFont : "Google Sans"
 
     readonly property bool isBarPill: themeRoot ? themeRoot.isBarPill : true
     readonly property bool isBarNotch: themeRoot ? themeRoot.isBarNotch : false

@@ -290,7 +290,7 @@ Item {
 
                     Text {
                         text: overlaysRoot.barSlot.formatTitleCase(overlaysRoot.island.notifPeekApp.replace(/[-_]/g, " "))
-                        font.family: overlaysRoot.barSlot.root.barFont || "Genova"
+                        font.family: overlaysRoot.barSlot.root.barFont || "Google Sans"
                         font.pixelSize: 10
                         font.weight: Font.DemiBold
                         color: overlaysRoot.barSlot.accent
@@ -299,14 +299,14 @@ Item {
 
                     Text {
                         text: "·"
-                        font.family: overlaysRoot.barSlot.root.barFont || "Genova"
+                        font.family: overlaysRoot.barSlot.root.barFont || "Google Sans"
                         font.pixelSize: 10
                         color: Qt.rgba(overlaysRoot.barSlot.root.ink.r, overlaysRoot.barSlot.root.ink.g, overlaysRoot.barSlot.root.ink.b, 0.4)
                     }
 
                     Text {
                         text: "Just now"
-                        font.family: overlaysRoot.barSlot.root.barFont || "Genova"
+                        font.family: overlaysRoot.barSlot.root.barFont || "Google Sans"
                         font.pixelSize: 10
                         font.weight: Font.Medium
                         color: Qt.rgba(overlaysRoot.barSlot.root.ink.r, overlaysRoot.barSlot.root.ink.g, overlaysRoot.barSlot.root.ink.b, 0.5)
@@ -317,7 +317,7 @@ Item {
                 Text {
                     id: summaryText
                     text: overlaysRoot.barSlot.formatTitleCase(overlaysRoot.island.notifPeekSummary !== "" ? overlaysRoot.island.notifPeekSummary : overlaysRoot.island.notifPeekApp)
-                    font.family: overlaysRoot.barSlot.root.barFont || "Genova"
+                    font.family: overlaysRoot.barSlot.root.barFont || "Google Sans"
                     font.pixelSize: islandNotifPeekItem.hasBody ? 13 : 12
                     font.weight: Font.Bold
                     color: overlaysRoot.barSlot.root.ink
@@ -332,7 +332,7 @@ Item {
                     id: bodyText
                     visible: islandNotifPeekItem.hasBody
                     text: overlaysRoot.barSlot.formatNotificationBody(overlaysRoot.island.notifPeekBody)
-                    font.family: overlaysRoot.barSlot.root.barFont || "Genova"
+                    font.family: overlaysRoot.barSlot.root.barFont || "Google Sans"
                     font.pixelSize: 11
                     font.weight: Font.Normal
                     lineHeight: 1.2
