@@ -192,6 +192,7 @@ ThemeBase {
     property string notifPeekBody: ""
     property string notifPeekIcon: ""
     property int notifPeekId: 0
+    property var notifPeekStack: []
     property int notifPeekTick: 0
     property int notifPeekDismissTick: 0
     function triggerNotifPeek(app, summary, body, icon, notifId) { liveActivities.triggerNotifPeek(app, summary, body, icon, notifId) }

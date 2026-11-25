@@ -24,3 +24,5 @@ __pycache__/
 
 # Zip
 *.zip
+
+google_calendar_credentials.json

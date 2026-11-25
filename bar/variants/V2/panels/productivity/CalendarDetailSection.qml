@@ -76,6 +76,8 @@ Item {
                 curvedWeekView.targetOffset = 0;
             }
             notesFile.reload();
+            googleCalFile.reload();
+            syncGoogleCalendar(false);
         }
     }
 
@@ -189,6 +191,90 @@ Item {
 
     readonly property var currentDayNotes: (notesMap && notesMap[selectedKey]) ? notesMap[selectedKey] : []
 
+    // ── Read-Only Google Calendar & Tasks Cache ──────────────────────────
+    property var googleEventsMap: ({})
+    property string googleSyncStatus: "unknown"
+    property string googleSyncError: ""
+    property bool googleSyncing: false
+    property double lastGoogleSyncMs: 0
+
+    FileView {
+        id: googleCalFile
+        path: Quickshell.env("HOME") + "/.local/state/quickshell_google_calendar.json"
+        watchChanges: true
+        onLoaded: {
+            try {
+                var txt = googleCalFile.text().trim();
+                if (txt.length > 0) {
+                    var parsed = JSON.parse(txt);
+                    calSection.googleEventsMap = parsed.byDate || {};
+                    calSection.googleSyncStatus = parsed.status || "unknown";
+                    calSection.googleSyncError = parsed.error || "";
+                } else {
+                    calSection.googleEventsMap = {};
+                }
+            } catch(e) {
+                calSection.googleEventsMap = {};
+            }
+        }
+    }
+
+    Process {
+        id: googleSyncProc
+        command: ["python3", Quickshell.env("HOME") + "/.config/quickshell/bar/scripts/google_calendar_sync.py", "--sync"]
+        onExited: (exitCode, exitStatus) => {
+            calSection.googleSyncing = false;
+            calSection.lastGoogleSyncMs = Date.now();
+            googleCalFile.reload();
+        }
+    }
+
+    Process {
+        id: googleAuthProc
+        command: ["python3", Quickshell.env("HOME") + "/.config/quickshell/bar/scripts/google_calendar_sync.py", "--auth"]
+        onExited: (exitCode, exitStatus) => {
+            calSection.googleSyncing = false;
+            calSection.lastGoogleSyncMs = Date.now();
+            googleCalFile.reload();
+        }
+    }
+
+    Timer {
+        interval: 15 * 60 * 1000
+        running: true
+        repeat: true
+        onTriggered: calSection.syncGoogleCalendar(true)
+    }
+
+    function syncGoogleCalendar(force) {
+        if (googleSyncProc.running || googleAuthProc.running) return;
+        var nowMs = Date.now();
+        if (!force && lastGoogleSyncMs > 0 && (nowMs - lastGoogleSyncMs) < 5 * 60 * 1000) return;
+        googleSyncing = true;
+        googleSyncProc.running = true;
+    }
+
+    function connectGoogleCalendar() {
+        if (googleSyncProc.running || googleAuthProc.running) return;
+        googleSyncing = true;
+        Quickshell.execDetached(["python3", Quickshell.env("HOME") + "/.config/quickshell/bar/scripts/google_calendar_sync.py", "--auth"]);
+    }
+
+    function getDayGoogleItems(key) {
+        if (!key || !googleEventsMap) return [];
+        return googleEventsMap[key] || [];
+    }
+
+    function dayHasKind(key, kindList) {
+        var items = getDayGoogleItems(key);
+        for (var i = 0; i < items.length; i++) {
+            if (kindList.indexOf(items[i].kind) !== -1) return true;
+        }
+        return false;
+    }
+
+    readonly property var currentDayGoogleItems: (googleEventsMap && googleEventsMap[selectedKey]) ? googleEventsMap[selectedKey] : []
+
     // ── Helper to retrieve dates for the curved day positions ──
     function getWeekDayItem(offset) {
         var d = new Date(selYear, selMonth, selDay + offset);
@@ -206,6 +292,9 @@ Item {
             key: key,
             isToday: isToday,
             hasNotes: hasNotes(key),
+            hasEvents: dayHasKind(key, ["event", "ooo", "focus", "holiday"]),
+            hasBirthdays: dayHasKind(key, ["birthday"]),
+            hasTasks: dayHasKind(key, ["task"]),
             offset: offset
         };
     }
@@ -237,7 +326,10 @@ Item {
                 isCurrentMonth: false,
                 isToday: (pY === tY && pM === tM && dPrev === tD),
                 key: pKey,
-                hasNotes: hasNotes(pKey)
+                hasNotes: hasNotes(pKey),
+                hasEvents: dayHasKind(pKey, ["event", "ooo", "focus", "holiday"]),
+                hasBirthdays: dayHasKind(pKey, ["birthday"]),
+                hasTasks: dayHasKind(pKey, ["task"])
             });
         }
         for (var d = 1; d <= daysInMonth; d++) {
@@ -249,7 +341,10 @@ Item {
                 isCurrentMonth: true,
                 isToday: (y === tY && m === tM && d === tD),
                 key: cKey,
-                hasNotes: hasNotes(cKey)
+                hasNotes: hasNotes(cKey),
+                hasEvents: dayHasKind(cKey, ["event", "ooo", "focus", "holiday"]),
+                hasBirthdays: dayHasKind(cKey, ["birthday"]),
+                hasTasks: dayHasKind(cKey, ["task"])
             });
         }
         var nextD = 1;
@@ -265,7 +360,10 @@ Item {
                 isCurrentMonth: false,
                 isToday: (nY === tY && nM === tM && nextD === tD),
                 key: nKey,
-                hasNotes: hasNotes(nKey)
+                hasNotes: hasNotes(nKey),
+                hasEvents: dayHasKind(nKey, ["event", "ooo", "focus", "holiday"]),
+                hasBirthdays: dayHasKind(nKey, ["birthday"]),
+                hasTasks: dayHasKind(nKey, ["task"])
             });
             nextD++;
         }
@@ -392,6 +490,44 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 6
 
+                    // Sync / Connect Google Calendar Button
+                    Rectangle {
+                        width: 26; height: 26; radius: 13
+                        color: syncBtnMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                        border.width: 0
+                        Behavior on color { ColorAnimation { duration: 120 } }
+
+                        IconText {
+                            anchors.centerIn: parent
+                            text: calSection.googleSyncStatus === "needs_auth" ? "login" : "sync"
+                            color: calSection.googleSyncing ? root.seal : root.ink
+                            opacity: calSection.googleSyncing ? 1.0 : 0.85
+                            font.pixelSize: 14
+
+                            RotationAnimation on rotation {
+                                running: calSection.googleSyncing
+                                from: 0; to: 360
+                                duration: 900
+                                loops: Animation.Infinite
+                            }
+                        }
+
+                        SpringPress {}
+                        MouseArea {
+                            id: syncBtnMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (calSection.googleSyncStatus === "needs_auth") {
+                                    calSection.connectGoogleCalendar();
+                                } else {
+                                    calSection.syncGoogleCalendar(true);
+                                }
+                            }
+                        }
+                    }
+
                     // Jump to Today Button
                     Rectangle {
                         width: 26; height: 26; radius: 13
@@ -489,15 +625,15 @@ Item {
             Item {
                 id: curvedWeekView
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: 6
+                anchors.verticalCenterOffset: 8
                 anchors.left: parent.left
                 anchors.right: parent.right
-                height: 96
+                height: 118
                 visible: calSection.viewMode === "weekly"
                 clip: true
 
-                readonly property real archHeight: 12.0
-                readonly property real ribbonBaseY: 42.0
+                readonly property real archHeight: 28.0
+                readonly property real ribbonBaseY: 58.0
                 readonly property real ribbonThickness: 32.0
                 readonly property real sidePad: 10.0
                 readonly property real trackWidth: width - (sidePad * 2)
@@ -668,16 +804,34 @@ Item {
                             opacity: dayDelegate.itemOpacity
                         }
 
-                        // Marker dot for days with active notes / reminders
-                        Rectangle {
-                            visible: itemData.hasNotes && dayDelegate.itemOpacity > 0.1
-                            width: 4
-                            height: 4
-                            radius: 2
+                        // Marker dots for days with notes, events, birthdays, or tasks
+                        Row {
+                            visible: (itemData.hasNotes || itemData.hasEvents || itemData.hasBirthdays || itemData.hasTasks) && dayDelegate.itemOpacity > 0.1
+                            spacing: 2
                             anchors.horizontalCenter: parent.horizontalCenter
                             y: Math.round(posY + (isCenter ? 17 : 14))
-                            color: root.seal
                             opacity: dayDelegate.itemOpacity
+
+                            Rectangle {
+                                visible: itemData.hasEvents
+                                width: 4; height: 4; radius: 2
+                                color: "#4285f4"
+                            }
+                            Rectangle {
+                                visible: itemData.hasBirthdays
+                                width: 4; height: 4; radius: 2
+                                color: "#f06292"
+                            }
+                            Rectangle {
+                                visible: itemData.hasTasks
+                                width: 4; height: 4; radius: 2
+                                color: "#34a853"
+                            }
+                            Rectangle {
+                                visible: itemData.hasNotes
+                                width: 4; height: 4; radius: 2
+                                color: root.seal
+                            }
                         }
 
                         // Click to slide date to center & scroll to step dates

@@ -107,20 +107,71 @@ Item {
     // 1. Notification Peek Banner
     function triggerNotifPeek(app, summary, body, icon, notifId) {
         if (!app && !summary && !body) return
+        var newId = Number(notifId || 0)
+        if (root.theme.notifPeekActive && (root.theme.notifPeekSummary !== "" || root.theme.notifPeekApp !== "")) {
+            var prev = {
+                app: root.theme.notifPeekApp,
+                summary: root.theme.notifPeekSummary,
+                body: root.theme.notifPeekBody,
+                icon: root.theme.notifPeekIcon,
+                id: root.theme.notifPeekId
+            }
+            var nextStack = [prev]
+            var curStack = root.theme.notifPeekStack || []
+            for (var i = 0; i < curStack.length && nextStack.length < 5; i++) {
+                var item = curStack[i]
+                if (!item) continue
+                if (newId > 0 && item.id === newId) continue
+                if (prev.id > 0 && item.id === prev.id) continue
+                nextStack.push(item)
+            }
+            root.theme.notifPeekStack = nextStack
+        } else {
+            root.theme.notifPeekStack = []
+        }
         root.theme.notifPeekApp = app || "Notification"
         root.theme.notifPeekSummary = summary || ""
         root.theme.notifPeekBody = body || ""
         root.theme.notifPeekIcon = icon || ""
-        root.theme.notifPeekId = Number(notifId || 0)
+        root.theme.notifPeekId = newId
         root.theme.notifPeekActive = true
         root.theme.notifPeekTick++
     }
 
     function dismissNotifPeek(notifId) {
         var nid = Number(notifId || 0)
-        if (nid === 0 || root.theme.notifPeekId === 0 || nid === root.theme.notifPeekId) {
+        if (nid === 0) {
+            root.theme.notifPeekStack = []
             root.theme.notifPeekActive = false
             root.theme.notifPeekDismissTick++
+            return
+        }
+        var curStack = root.theme.notifPeekStack || []
+        var filtered = []
+        for (var i = 0; i < curStack.length; i++) {
+            if (curStack[i] && Number(curStack[i].id || 0) !== nid) {
+                filtered.push(curStack[i])
+            }
+        }
+        if (nid === root.theme.notifPeekId) {
+            if (filtered.length > 0) {
+                var promoted = filtered[0]
+                root.theme.notifPeekStack = filtered.slice(1)
+                root.theme.notifPeekApp = promoted.app || "Notification"
+                root.theme.notifPeekSummary = promoted.summary || ""
+                root.theme.notifPeekBody = promoted.body || ""
+                root.theme.notifPeekIcon = promoted.icon || ""
+                root.theme.notifPeekId = Number(promoted.id || 0)
+                root.theme.notifPeekActive = true
+                root.theme.notifPeekTick++
+            } else {
+                root.theme.notifPeekStack = []
+                root.theme.notifPeekActive = false
+                root.theme.notifPeekDismissTick++
+            }
+        } else if (filtered.length !== curStack.length) {
+            root.theme.notifPeekStack = filtered
+            root.theme.notifPeekTick++
         }
     }
 
@@ -258,6 +309,21 @@ Item {
         onTriggered: {
             notifStreamProc.running = true
         }
+    }
+
+    // Startup Today's Calendar & Tasks Notifications (once per boot)
+    Process {
+        id: bootCalendarNotifProc
+        command: ["python3", Quickshell.env("HOME") + "/.config/quickshell/bar/scripts/google_calendar_sync.py", "--notify-today"]
+        running: false
+    }
+
+    Timer {
+        id: bootCalendarNotifTimer
+        interval: 6000
+        repeat: false
+        running: true
+        onTriggered: bootCalendarNotifProc.running = true
     }
 
     // ── 4. Voice Dictation (voxtype) ──────────────────────────────────

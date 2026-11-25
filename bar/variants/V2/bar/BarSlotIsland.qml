@@ -15,6 +15,7 @@ Item {
     property alias islandTimerItem: collapsedContent.islandTimerItem
     property alias islandOsdItem: islandOverlays.islandOsdItem
     property alias islandNotifPeekItem: islandOverlays.islandNotifPeekItem
+    property alias notifPeekTimer: notifPeekTimer
     property alias islandDictationItem: islandOverlays.islandDictationItem
     property alias islandChargingItem: islandOverlays.islandChargingItem
     property alias islandPowerPeekItem: islandOverlays.islandPowerPeekItem
@@ -97,9 +98,14 @@ Item {
     property string notifPeekBody: ""
     property string notifPeekIcon: ""
     property int notifPeekId: 0
+    property var notifPeekStack: []
 
     Behavior on notifPeekProgress {
-        NumberAnimation { duration: 320; easing.type: Easing.OutBack; easing.overshoot: 1.15 }
+        SpringAnimation {
+            spring: Motion.spatialSpring
+            damping: Motion.spatialDamping
+            epsilon: 0.005
+        }
     }
 
     readonly property bool dictationActive: island.barSlot.root.dictationActive
@@ -126,6 +132,11 @@ Item {
         onTriggered: {
             island.notifPeekActive = false
             island.notifPeekProgress = 0.0
+            island.notifPeekStack = []
+            if (island.barSlot && island.barSlot.root) {
+                island.barSlot.root.notifPeekActive = false
+                island.barSlot.root.notifPeekStack = []
+            }
         }
     }
 
@@ -149,6 +160,9 @@ Item {
         if (a.indexOf("browser") !== -1 || a.indexOf("zen") !== -1 || a.indexOf("firefox") !== -1 || a.indexOf("chrome") !== -1) return "language"
         if (a.indexOf("whatsie") !== -1 || a.indexOf("whatsapp") !== -1 || a.indexOf("telegram") !== -1 || a.indexOf("signal") !== -1 || a.indexOf("discord") !== -1 || a.indexOf("slack") !== -1 || a.indexOf("chat") !== -1 || a.indexOf("message") !== -1) return "chat"
         if (a.indexOf("mail") !== -1) return "mail"
+        if (a.indexOf("birthday") !== -1 || a.indexOf("cake") !== -1) return "cake"
+        if (a.indexOf("task") !== -1) return "task_alt"
+        if (a.indexOf("calendar") !== -1 || a.indexOf("event") !== -1) return "event"
         if (a.indexOf("timer") !== -1 || a.indexOf("clock") !== -1) return "schedule"
         if (a.indexOf("update") !== -1 || a.indexOf("arch") !== -1 || a.indexOf("pacman") !== -1) return "system_update"
         return "notifications"
@@ -162,6 +176,7 @@ Item {
             island.notifPeekBody = island.barSlot.root.notifPeekBody
             island.notifPeekIcon = island.barSlot.root.notifPeekIcon
             island.notifPeekId = island.barSlot.root.notifPeekId
+            island.notifPeekStack = island.barSlot.root.notifPeekStack || []
             island.notifPeekActive = true
             island.notifPeekProgress = 1.0
             notifPeekTimer.restart()
@@ -170,6 +185,7 @@ Item {
             notifPeekTimer.stop()
             island.notifPeekActive = false
             island.notifPeekProgress = 0.0
+            island.notifPeekStack = []
         }
     }
 

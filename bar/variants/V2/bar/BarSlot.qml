@@ -54,9 +54,12 @@ PanelWindow {
     readonly property real dashboardBottomRadius: 28
 
     readonly property var islandNotifPeekItem: island ? island.islandNotifPeekItem : null
-    readonly property int notifTargetHeight: (island && island.notifPeekActive && typeof islandNotifPeekItem !== "undefined" && islandNotifPeekItem)
+    readonly property int notifStackCount: (island && island.notifPeekStack) ? island.notifPeekStack.length : 0
+    readonly property int notifStackVisualHeight: (island && island.notifPeekActive && notifStackCount > 0) ? (notifStackCount * 36 + (notifStackCount - 1) * 6 + 6) : 0
+    readonly property int notifMainHeight: (island && island.notifPeekActive && typeof islandNotifPeekItem !== "undefined" && islandNotifPeekItem)
         ? (island.notifPeekBody !== "" ? Math.min(94, Math.max(70, islandNotifPeekItem.desiredCardHeight)) : 46)
         : barSlot.root.v2BarHeight
+    readonly property int notifTargetHeight: notifMainHeight
     readonly property int chargingTargetHeight: barSlot.root.v2BarHeight
     readonly property int shellVisibleHeight: isDashboardActive
         ? Math.round(dashboardExpandedHeight)
@@ -109,13 +112,13 @@ PanelWindow {
            : barSlot.effectivelyHidden
                ? (barSlot.root.barPosition === "bottom" ? barSlot.height - 1 : 0)
                : (barSlot.root.barPosition === "bottom"
-                   ? (barSlot.height - Math.round(continuousBarSurface.height) - barSlot.barEdgeOffset)
+                   ? (barSlot.height - Math.round(continuousBarSurface.height) - barSlot.barEdgeOffset - barSlot.notifStackVisualHeight)
                    : barSlot.barEdgeOffset)
         width: (barSlot.root.barUnlocked || barSlot.isDashboardActive || barSlot.isPowerPeekActive) ? barSlot.width
            : Math.round(continuousBarSurface.width)
         height: (barSlot.root.barUnlocked || barSlot.isDashboardActive || barSlot.isPowerPeekActive) ? barSlot.height
            : barSlot.effectivelyHidden ? 1
-           : Math.round(continuousBarSurface.height)
+           : (Math.round(continuousBarSurface.height) + barSlot.notifStackVisualHeight)
     }
     // grab keyboard while unlocked, dashboard is expanded, or power peek is active
     WlrLayershell.keyboardFocus: (barSlot.root.barUnlocked || barSlot.isDashboardActive || barSlot.isPowerPeekActive) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
@@ -736,6 +739,222 @@ PanelWindow {
         height: continuousBarSurface.height
         y: continuousBarSurface.y
         z: 22
+    }
+
+    // ── Stacked Notification Pills below the main Dynamic Island pill (M3 Expressive) ──
+    Item {
+        id: notifStackContainer
+        visible: opacity > 0.01 && !barSlot.isDashboardActive
+        opacity: (island && island.notifPeekActive && barSlot.notifStackCount > 0) ? island.notifPeekProgress : 0.0
+        width: continuousBarSurface.width
+        height: notifStackCol.implicitHeight
+        x: continuousBarSurface.x
+        y: barSlot.root.barPosition === "bottom"
+            ? (continuousBarSurface.y - height - 6)
+            : (continuousBarSurface.y + continuousBarSurface.height + 6)
+        z: 21
+
+        Behavior on opacity {
+            SpringAnimation {
+                spring: Motion.effectsSpring
+                damping: Motion.effectsDamping
+                epsilon: 0.01
+            }
+        }
+
+        Column {
+            id: notifStackCol
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: parent.width
+            spacing: 6
+
+            Repeater {
+                model: (island && island.notifPeekStack) ? island.notifPeekStack : []
+
+                delegate: Rectangle {
+                    id: stackPill
+                    required property var modelData
+                    required property int index
+
+                    property real enterProgress: 0.0
+                    Component.onCompleted: enterProgress = 1.0
+                    Behavior on enterProgress {
+                        SpringAnimation {
+                            spring: Motion.spatialSpring
+                            damping: Motion.spatialDamping
+                            epsilon: 0.005
+                        }
+                    }
+
+                    readonly property real targetW: Math.max(220, continuousBarSurface.width - (index + 1) * 28)
+                    width: targetW
+                    Behavior on width {
+                        SpringAnimation {
+                            spring: Motion.spatialFastSpring
+                            damping: Motion.spatialFastDamping
+                            epsilon: 0.5
+                        }
+                    }
+
+                    height: 36
+                    radius: height / 2
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    color: stackPillHov.hovered ? barSlot.root.fillHover : barSlot.root.barBg
+                    border.width: 1
+                    border.color: barSlot.root.islandBorder
+                    opacity: Math.max(0.0, Math.min(1.0, enterProgress)) * (1.0 - index * 0.06)
+                    scale: (0.86 + 0.14 * enterProgress) * (stackPillMa.pressed ? 0.96 : (stackPillHov.hovered ? 1.02 : 1.0))
+
+                    Behavior on color {
+                        SpringAnimation {
+                            spring: Motion.effectsSpring
+                            damping: Motion.effectsDamping
+                            epsilon: 0.01
+                        }
+                    }
+                    Behavior on scale {
+                        SpringAnimation {
+                            spring: Motion.spatialFastSpring
+                            damping: Motion.spatialFastDamping
+                            epsilon: 0.005
+                        }
+                    }
+
+                    transform: Translate {
+                        y: (1.0 - stackPill.enterProgress) * (barSlot.root.barPosition === "bottom" ? 14 : -14)
+                    }
+
+                    HoverHandler {
+                        id: stackPillHov
+                        onHoveredChanged: {
+                            if (hovered) {
+                                island.notifPeekTimer.stop()
+                            } else if (island.notifPeekActive) {
+                                island.notifPeekTimer.interval = 2200
+                                island.notifPeekTimer.restart()
+                            }
+                        }
+                    }
+
+                    MouseArea {
+                        id: stackPillMa
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            island.notifPeekActive = false
+                            island.notifPeekProgress = 0.0
+                            island.notifPeekStack = []
+                            if (barSlot.root) {
+                                barSlot.root.notifPeekActive = false
+                                barSlot.root.notifPeekStack = []
+                                barSlot.root.invokeNotification(stackPill.modelData.id || 0, stackPill.modelData.app || "")
+                            }
+                        }
+                    }
+
+                    Row {
+                        anchors.fill: parent
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 8
+                        spacing: 8
+
+                        // Small circular icon badge
+                        Rectangle {
+                            width: 22
+                            height: 22
+                            radius: 11
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.08)
+
+                            IconText {
+                                anchors.centerIn: parent
+                                font.pixelSize: 12
+                                color: barSlot.accent
+                                text: island.getNotifIcon(stackPill.modelData.app || "", stackPill.modelData.icon || "")
+                            }
+                        }
+
+                        // Summary / Title
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width - 22 - (stackSubPill.visible ? stackSubPill.width + 8 : 0) - 20 - 24
+                            text: barSlot.formatTitleCase(
+                                (stackPill.modelData.summary && stackPill.modelData.summary !== "")
+                                    ? stackPill.modelData.summary
+                                    : (stackPill.modelData.app || "Notification")
+                            )
+                            font.family: barSlot.root.barFont || "Google Sans"
+                            font.pixelSize: 11
+                            font.weight: Font.DemiBold
+                            color: barSlot.root.ink
+                            elide: Text.ElideRight
+                        }
+
+                        // Compact tag / time / body preview pill
+                        Rectangle {
+                            id: stackSubPill
+                            visible: stackSubTxt.text !== ""
+                            height: 20
+                            width: Math.min(120, stackSubTxt.implicitWidth + 14)
+                            radius: 10
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: Qt.rgba(barSlot.accent.r, barSlot.accent.g, barSlot.accent.b, 0.16)
+
+                            Text {
+                                id: stackSubTxt
+                                anchors.centerIn: parent
+                                width: Math.min(106, implicitWidth)
+                                text: {
+                                    var b = (stackPill.modelData.body || "").replace(/\s+/g, " ").trim()
+                                    if (b.length > 0) return b
+                                    return stackPill.modelData.app || ""
+                                }
+                                font.family: barSlot.root.barFont || "Google Sans"
+                                font.pixelSize: 10
+                                font.weight: Font.Medium
+                                color: barSlot.accent
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        // Dismiss button
+                        Rectangle {
+                            width: 20
+                            height: 20
+                            radius: 10
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: stackCloseHov.hovered
+                                ? Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, 0.14)
+                                : "transparent"
+
+                            IconText {
+                                anchors.centerIn: parent
+                                text: "close"
+                                font.pixelSize: 12
+                                color: Qt.rgba(barSlot.root.ink.r, barSlot.root.ink.g, barSlot.root.ink.b, stackCloseHov.hovered ? 0.95 : 0.5)
+                            }
+
+                            HoverHandler { id: stackCloseHov }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    var nid = Number(stackPill.modelData.id || 0)
+                                    var arr = (island.notifPeekStack || []).slice()
+                                    arr.splice(stackPill.index, 1)
+                                    island.notifPeekStack = arr
+                                    if (barSlot.root) {
+                                        barSlot.root.notifPeekStack = arr
+                                        if (nid > 0) barSlot.root.dismissNotifPeek(nid)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // ── In-place expanded Island Dock dashboard (extension of the bar) ──

@@ -233,6 +233,11 @@ Item {
             onClicked: {
                 overlaysRoot.island.notifPeekActive = false
                 overlaysRoot.island.notifPeekProgress = 0.0
+                overlaysRoot.island.notifPeekStack = []
+                if (overlaysRoot.barSlot && overlaysRoot.barSlot.root) {
+                    overlaysRoot.barSlot.root.notifPeekActive = false
+                    overlaysRoot.barSlot.root.notifPeekStack = []
+                }
                 overlaysRoot.barSlot.root.invokeNotification(overlaysRoot.island.notifPeekId, overlaysRoot.island.notifPeekApp)
             }
         }
@@ -373,6 +378,11 @@ Item {
                     onClicked: {
                         overlaysRoot.island.notifPeekActive = false
                         overlaysRoot.island.notifPeekProgress = 0.0
+                        overlaysRoot.island.notifPeekStack = []
+                        if (overlaysRoot.barSlot && overlaysRoot.barSlot.root) {
+                            overlaysRoot.barSlot.root.notifPeekActive = false
+                            overlaysRoot.barSlot.root.notifPeekStack = []
+                        }
                     }
                 }
             }

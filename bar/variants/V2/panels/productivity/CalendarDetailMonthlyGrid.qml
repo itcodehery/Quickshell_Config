@@ -85,16 +85,34 @@ Item {
                         opacity: isSelectedCell ? 1.0 : (modelData.isCurrentMonth ? 1.0 : 0.35)
                     }
 
-                    // Dot for days with notes
-                    Rectangle {
-                        visible: modelData.hasNotes
-                        width: 3
-                        height: 3
-                        radius: 1.5
+                    // Dots for days with events, birthdays, tasks, and notes
+                    Row {
+                        visible: modelData.hasNotes || modelData.hasEvents || modelData.hasBirthdays || modelData.hasTasks
+                        spacing: 2
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottom: parent.bottom
-                        anchors.bottomMargin: 1
-                        color: isSelectedCell ? root.paper : root.seal
+                        anchors.bottomMargin: 2
+
+                        Rectangle {
+                            visible: modelData.hasEvents
+                            width: 3; height: 3; radius: 1.5
+                            color: isSelectedCell ? root.paper : "#4285f4"
+                        }
+                        Rectangle {
+                            visible: modelData.hasBirthdays
+                            width: 3; height: 3; radius: 1.5
+                            color: isSelectedCell ? root.paper : "#f06292"
+                        }
+                        Rectangle {
+                            visible: modelData.hasTasks
+                            width: 3; height: 3; radius: 1.5
+                            color: isSelectedCell ? root.paper : "#34a853"
+                        }
+                        Rectangle {
+                            visible: modelData.hasNotes
+                            width: 3; height: 3; radius: 1.5
+                            color: isSelectedCell ? root.paper : root.seal
+                        }
                     }
 
                     SpringPress {}

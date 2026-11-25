@@ -78,7 +78,7 @@ Rectangle {
                     }
                 }
 
-                // Notes count badge
+                // Events & Notes count badge
                 Rectangle {
                     height: 18
                     width: noteCountBadgeTxt.implicitWidth + 10
@@ -88,7 +88,15 @@ Rectangle {
                     UiText {
                         id: noteCountBadgeTxt
                         anchors.centerIn: parent
-                        text: calSection.currentDayNotes.length + (calSection.currentDayNotes.length === 1 ? " note" : " notes")
+                        text: {
+                            var gCount = calSection.currentDayGoogleItems.length;
+                            var nCount = calSection.currentDayNotes.length;
+                            if (gCount === 0 && nCount === 0) return "0 items";
+                            var parts = [];
+                            if (gCount > 0) parts.push(gCount + (gCount === 1 ? " event" : " events"));
+                            if (nCount > 0) parts.push(nCount + (nCount === 1 ? " note" : " notes"));
+                            return parts.join(" • ");
+                        }
                         font.family: root.barFont
                         font.pixelSize: 9
                         font.weight: Font.Medium
@@ -193,106 +201,356 @@ Rectangle {
             }
         }
 
-        // 3. Scrollable List of Notes / Events for Selected Date
+        // 3. Scrollable List of Google Events/Tasks/Birthdays + Local Notes
         Item {
+            id: agendaContainer
             width: parent.width
             height: parent.height - 24 - 8 - 28 - 8
             clip: true
 
-            ListView {
-                id: notesListView
+            readonly property bool showStatusBanner: calSection.googleSyncStatus === "needs_auth"
+                || calSection.googleSyncStatus === "needs_credentials"
+                || calSection.googleSyncStatus === "error"
+
+            Flickable {
+                id: agendaFlickable
                 anchors.fill: parent
-                spacing: 4
+                contentWidth: width
+                contentHeight: agendaCol.implicitHeight
+                clip: true
                 boundsBehavior: Flickable.StopAtBounds
-                model: calSection.currentDayNotes
 
-                delegate: Rectangle {
-                    id: noteDelegateItem
-                    width: notesListView.width
-                    height: 28
-                    radius: 8
-                    color: noteItemMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.04)
-                    Behavior on color { ColorAnimation { duration: 100 } }
+                Column {
+                    id: agendaCol
+                    width: agendaFlickable.width
+                    spacing: 5
 
-                    MouseArea {
-                        id: noteItemMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                    }
+                    // Optional Google Calendar Connection / Setup Banner
+                    Rectangle {
+                        visible: agendaContainer.showStatusBanner
+                        width: parent.width
+                        height: statusRow.implicitHeight + 10
+                        radius: 10
+                        color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.12)
+                        border.width: 1
+                        border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.30)
 
-                    Row {
-                        anchors.fill: parent
-                        anchors.leftMargin: 8
-                        anchors.rightMargin: 8
-                        spacing: 8
+                        Row {
+                            id: statusRow
+                            anchors.fill: parent
+                            anchors.margins: 6
+                            spacing: 6
 
-                        // Custom Checkbox (Toggle Done)
-                        Rectangle {
-                            width: 16
-                            height: 16
-                            radius: 5
-                            anchors.verticalCenter: parent.verticalCenter
-                            border.width: 1
-                            border.color: modelData.done ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.25)
-                            color: modelData.done ? root.seal : "transparent"
+                            IconText {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: calSection.googleSyncStatus === "error" ? "warning" : "calendar_add_on"
+                                font.pixelSize: 14
+                                color: root.seal
+                            }
 
                             UiText {
-                                anchors.centerIn: parent
-                                text: "✓"
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width - 20 - (connectBtn.visible ? connectBtn.width + 6 : 0)
+                                text: {
+                                    if (calSection.googleSyncStatus === "needs_credentials")
+                                        return "Add google_calendar_credentials.json in ~/.config/quickshell/ to sync Google Calendar.";
+                                    if (calSection.googleSyncStatus === "needs_auth")
+                                        return "Google credentials found. Connect your account to view events.";
+                                    return "Google sync error: " + calSection.googleSyncError;
+                                }
                                 font.family: root.barFont
                                 font.pixelSize: 10
-                                font.weight: Font.Bold
-                                color: root.paper
-                                visible: modelData.done
+                                color: root.ink
+                                wrapMode: Text.Wrap
                             }
 
-                            SpringPress {}
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: calSection.toggleNote(calSection.selectedKey, modelData.id)
+                            Rectangle {
+                                id: connectBtn
+                                visible: calSection.googleSyncStatus === "needs_auth"
+                                width: connectBtnTxt.implicitWidth + 12
+                                height: 20
+                                radius: 10
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: connectBtnMa.containsMouse ? Qt.lighter(root.seal, 1.1) : root.seal
+
+                                UiText {
+                                    id: connectBtnTxt
+                                    anchors.centerIn: parent
+                                    text: calSection.googleSyncing ? "..." : "Connect"
+                                    font.family: root.barFont
+                                    font.pixelSize: 9
+                                    font.weight: Font.Bold
+                                    color: root.paper
+                                }
+
+                                MouseArea {
+                                    id: connectBtnMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: calSection.connectGoogleCalendar()
+                                }
                             }
                         }
+                    }
 
-                        // Note Text (Strikethrough when done)
-                        UiText {
-                            text: modelData.text
-                            font.family: root.barFont
-                            font.pixelSize: 11
-                            font.strikeout: modelData.done
-                            color: modelData.done ? root.sumi : root.ink
-                            opacity: modelData.done ? 0.50 : 1.0
-                            elide: Text.ElideRight
-                            width: parent.width - 56
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
+                    // Google Calendar Items (Read-Only, Distinctly Styled by Kind)
+                    Repeater {
+                        model: calSection.currentDayGoogleItems
 
-                        // Delete Button
-                        IconText {
-                            text: "close"
-                            color: root.sumi
-                            font.pixelSize: 13
-                            opacity: delNoteMa.containsMouse ? 1.0 : 0.6
-                            anchors.verticalCenter: parent.verticalCenter
-                            visible: noteItemMa.containsMouse
+                        delegate: Rectangle {
+                            id: gItemCard
+                            required property var modelData
+                            readonly property string itemKind: modelData.kind || "event"
+                            readonly property color accentColor: {
+                                if (itemKind === "birthday") return "#f06292";
+                                if (itemKind === "task") return "#34a853";
+                                if (itemKind === "ooo") return "#fbbc04";
+                                if (itemKind === "focus") return "#a142f4";
+                                if (itemKind === "holiday") return "#24c1e0";
+                                return modelData.color || "#4285f4";
+                            }
+                            readonly property string kindIcon: {
+                                if (itemKind === "birthday") return "cake";
+                                if (itemKind === "task") return modelData.done ? "task_alt" : "radio_button_unchecked";
+                                if (itemKind === "ooo") return "beach_access";
+                                if (itemKind === "focus") return "psychology";
+                                if (itemKind === "holiday") return "celebration";
+                                return "event";
+                            }
+                            readonly property string kindBadge: {
+                                if (itemKind === "birthday") return "Birthday";
+                                if (itemKind === "task") return "Task";
+                                if (itemKind === "ooo") return "OOO";
+                                if (itemKind === "focus") return "Focus";
+                                if (itemKind === "holiday") return "Holiday";
+                                return "";
+                            }
 
-                            SpringPress {}
+                            width: agendaCol.width
+                            height: gItemContent.implicitHeight + 10
+                            radius: 9
+                            color: gItemMa.containsMouse
+                                ? Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.16)
+                                : Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.08)
+                            border.width: 1
+                            border.color: Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.22)
+                            Behavior on color { ColorAnimation { duration: 100 } }
+
+                            // Left color stripe
+                            Rectangle {
+                                width: 3
+                                height: parent.height - 8
+                                radius: 1.5
+                                anchors.left: parent.left
+                                anchors.leftMargin: 4
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: gItemCard.accentColor
+                            }
+
+                            Column {
+                                id: gItemContent
+                                anchors.left: parent.left
+                                anchors.leftMargin: 12
+                                anchors.right: parent.right
+                                anchors.rightMargin: 8
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 2
+
+                                Row {
+                                    width: parent.width
+                                    spacing: 6
+
+                                    IconText {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: gItemCard.kindIcon
+                                        font.pixelSize: 13
+                                        color: gItemCard.accentColor
+                                    }
+
+                                    UiText {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: parent.width - 19 - (kindPill.visible ? kindPill.width + 6 : 0)
+                                        text: gItemCard.modelData.title || ""
+                                        font.family: root.barFont
+                                        font.pixelSize: 11
+                                        font.weight: Font.Medium
+                                        font.strikeout: gItemCard.itemKind === "task" && Boolean(gItemCard.modelData.done)
+                                        color: root.ink
+                                        opacity: (gItemCard.itemKind === "task" && Boolean(gItemCard.modelData.done)) ? 0.5 : 1.0
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Rectangle {
+                                        id: kindPill
+                                        visible: gItemCard.kindBadge !== ""
+                                        height: 15
+                                        width: kindPillTxt.implicitWidth + 8
+                                        radius: 7.5
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        color: Qt.rgba(gItemCard.accentColor.r, gItemCard.accentColor.g, gItemCard.accentColor.b, 0.20)
+
+                                        UiText {
+                                            id: kindPillTxt
+                                            anchors.centerIn: parent
+                                            text: gItemCard.kindBadge
+                                            font.family: root.barFont
+                                            font.pixelSize: 9
+                                            font.weight: Font.Bold
+                                            color: gItemCard.accentColor
+                                        }
+                                    }
+                                }
+
+                                // Subtitle row: time / all-day + calendar name or location
+                                UiText {
+                                    width: parent.width
+                                    leftPadding: 19
+                                    text: {
+                                        var d = gItemCard.modelData;
+                                        var parts = [];
+                                        if (gItemCard.itemKind === "task") {
+                                            parts.push(d.calendarName || "Tasks");
+                                        } else if (d.allDay) {
+                                            parts.push("All day");
+                                        } else if (d.startTime) {
+                                            parts.push(d.endTime ? (d.startTime + " – " + d.endTime) : d.startTime);
+                                        }
+                                        if (d.location) parts.push(d.location);
+                                        else if (gItemCard.itemKind !== "task" && d.calendarName && gItemCard.itemKind !== "birthday")
+                                            parts.push(d.calendarName);
+                                        return parts.join("  •  ");
+                                    }
+                                    font.family: root.barFont
+                                    font.pixelSize: 10
+                                    color: root.sumi
+                                    opacity: 0.78
+                                    elide: Text.ElideRight
+                                }
+                            }
+
                             MouseArea {
-                                id: delNoteMa
+                                id: gItemMa
                                 anchors.fill: parent
                                 hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: calSection.deleteNote(calSection.selectedKey, modelData.id)
+                                cursorShape: gItemCard.modelData.htmlLink ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                onClicked: {
+                                    if (gItemCard.modelData.htmlLink) {
+                                        Qt.openUrlExternally(gItemCard.modelData.htmlLink);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Divider label when both Google items and local notes are present
+                    UiText {
+                        visible: calSection.currentDayGoogleItems.length > 0 && calSection.currentDayNotes.length > 0
+                        text: "LOCAL NOTES"
+                        font.family: root.barFont
+                        font.pixelSize: 9
+                        font.weight: Font.Bold
+                        font.letterSpacing: 0.8
+                        color: root.sumi
+                        opacity: 0.55
+                        topPadding: 3
+                        leftPadding: 2
+                    }
+
+                    // Local Notes (Editable)
+                    Repeater {
+                        model: calSection.currentDayNotes
+
+                        delegate: Rectangle {
+                            id: noteDelegateItem
+                            required property var modelData
+                            width: agendaCol.width
+                            height: 28
+                            radius: 8
+                            color: noteItemMa.containsMouse ? root.fillHover : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.04)
+                            Behavior on color { ColorAnimation { duration: 100 } }
+
+                            MouseArea {
+                                id: noteItemMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                            }
+
+                            Row {
+                                anchors.fill: parent
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 8
+                                spacing: 8
+
+                                // Custom Checkbox (Toggle Done)
+                                Rectangle {
+                                    width: 16
+                                    height: 16
+                                    radius: 5
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    border.width: 1
+                                    border.color: modelData.done ? root.seal : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.25)
+                                    color: modelData.done ? root.seal : "transparent"
+
+                                    UiText {
+                                        anchors.centerIn: parent
+                                        text: "✓"
+                                        font.family: root.barFont
+                                        font.pixelSize: 10
+                                        font.weight: Font.Bold
+                                        color: root.paper
+                                        visible: modelData.done
+                                    }
+
+                                    SpringPress {}
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: calSection.toggleNote(calSection.selectedKey, modelData.id)
+                                    }
+                                }
+
+                                // Note Text (Strikethrough when done)
+                                UiText {
+                                    text: modelData.text
+                                    font.family: root.barFont
+                                    font.pixelSize: 11
+                                    font.strikeout: modelData.done
+                                    color: modelData.done ? root.sumi : root.ink
+                                    opacity: modelData.done ? 0.50 : 1.0
+                                    elide: Text.ElideRight
+                                    width: parent.width - 56
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+
+                                // Delete Button
+                                IconText {
+                                    text: "close"
+                                    color: root.sumi
+                                    font.pixelSize: 13
+                                    opacity: delNoteMa.containsMouse ? 1.0 : 0.6
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    visible: noteItemMa.containsMouse
+
+                                    SpringPress {}
+                                    MouseArea {
+                                        id: delNoteMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: calSection.deleteNote(calSection.selectedKey, modelData.id)
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
 
-            // Empty State when no notes for selected date
+            // Empty State when no Google items and no local notes for selected date
             Item {
                 anchors.fill: parent
-                visible: calSection.currentDayNotes.length === 0
+                visible: calSection.currentDayGoogleItems.length === 0 && calSection.currentDayNotes.length === 0 && !agendaContainer.showStatusBanner
 
                 Column {
                     anchors.centerIn: parent
@@ -308,7 +566,7 @@ Rectangle {
 
                     UiText {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "No notes for " + calSection.monthsShort[calSection.selMonth] + " " + calSection.selDay
+                        text: "No events or notes for " + calSection.monthsShort[calSection.selMonth] + " " + calSection.selDay
                         font.family: root.barFont
                         font.pixelSize: 11
                         font.weight: Font.Medium
@@ -318,7 +576,7 @@ Rectangle {
 
                     UiText {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "Type above and press Enter to save"
+                        text: "Type above and press Enter to save a note"
                         font.family: root.barFont
                         font.pixelSize: 10
                         color: root.sumi

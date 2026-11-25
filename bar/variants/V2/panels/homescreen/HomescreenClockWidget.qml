@@ -300,17 +300,22 @@ Item {
             font.letterSpacing: 1.5
         }
 
-        // Central 10:10 Time Pill (borderless, Bigger font)
+        // Central 10:10 Time Pill (borderless, Bigger font, clickable -> opens calendar)
         Rectangle {
             id: timePill
             anchors.centerIn: parent
             width: Math.round(watchDial.width * 0.60)
             height: Math.round(watchDial.width * 0.25)
             radius: height / 2
-            color: Qt.rgba(sealCol.r, sealCol.g, sealCol.b, isLight ? 0.18 : 0.14)
+            color: timePillMa.containsMouse
+                ? Qt.rgba(sealCol.r, sealCol.g, sealCol.b, isLight ? 0.28 : 0.24)
+                : Qt.rgba(sealCol.r, sealCol.g, sealCol.b, isLight ? 0.18 : 0.14)
             border.width: 0
-            scale: 0.55 + 0.45 * timeDateWidget.pillProgress
+            scale: (0.55 + 0.45 * timeDateWidget.pillProgress) * (timePillMa.pressed ? 0.95 : (timePillMa.containsMouse ? 1.03 : 1.0))
             opacity: Math.max(0.0, Math.min(1.0, timeDateWidget.pillProgress * 1.4))
+
+            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on scale { SpringAnimation { spring: Motion.spatialFastSpring; damping: Motion.spatialFastDamping; epsilon: 0.005 } }
 
             Text {
                 anchors.centerIn: parent
@@ -324,6 +329,18 @@ Item {
                 font.pixelSize: Math.max(34, Math.round(watchDial.width * 0.17))
                 font.weight: Font.Bold
                 font.letterSpacing: 1
+            }
+
+            MouseArea {
+                id: timePillMa
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    if (timeDateWidget.dashboardContent) {
+                        timeDateWidget.dashboardContent.activeDetailView = "calendar"
+                    }
+                }
             }
         }
 
