@@ -811,10 +811,10 @@ Item {
         return remH + "h " + remM + "m left"
     }
 
-    // Media Display Mode: Show Media Player only if actively playing or manually requested while paused
+    // Media Display Mode: Keep Media Player visible whenever an active MPRIS player exists (playing or paused)
     property bool showMediaManually: false
     readonly property bool isMediaPlaying: mprisSel.playing && curTitle !== ""
-    readonly property bool showMediaPlayer: isMediaPlaying || (showMediaManually && curTitle !== "")
+    readonly property bool showMediaPlayer: Boolean(mprisSel && mprisSel.player !== null)
     readonly property bool isMediaExpanded: Boolean(mediaWithLyricsGroup && mediaWithLyricsGroup.isExpanded)
     readonly property bool showPomodoroDock: Boolean(pomodoroDockCard && pomodoroDockCard.isPomodoroVisible)
     readonly property bool isPomodoroExpanded: Boolean(pomodoroDockCard && pomodoroDockCard.isExpanded)

@@ -3,6 +3,7 @@ import ".."
 import QtQuick.Shapes
 import Quickshell.Hyprland
 import "../modules"
+import "../motion"
 
 Item {
     id: collapsedRoot
@@ -21,7 +22,7 @@ Item {
         island: collapsedRoot.island
         height: 24
         anchors.verticalCenter: parent.verticalCenter
-        x: collapsedRoot.island.fitPadding
+        x: collapsedRoot.island.fitPadding + ((collapsedRoot.barSlot.root && collapsedRoot.barSlot.root.isBarNotch) ? 22 : 0)
         rmodel: collapsedRoot.barSlot.centerModel
         baseCount: collapsedRoot.barSlot.centerBaseSlotCount
         maxExtraCount: collapsedRoot.barSlot.centerExtraSlotLimit
@@ -32,7 +33,7 @@ Item {
     Rectangle {
         id: islandCollapsedItem
         anchors.verticalCenter: parent.verticalCenter
-        x: centerRowItem.x + centerRowItem.implicitWidth + 4
+        x: centerRowItem.x + centerRowItem.implicitWidth + (centerRowItem.implicitWidth > 0.5 ? 6 : 4)
         
         readonly property bool mediaActive: collapsedRoot.barSlot.mprisPanel && collapsedRoot.barSlot.mprisPanel.active
         readonly property bool hasLyrics: (!collapsedRoot.barSlot.mprisPanel || !collapsedRoot.barSlot.mprisPanel.showingLyrics) && mediaActive && collapsedRoot.barSlot.mprisPanel.lyricsTrackId !== "" && collapsedRoot.barSlot.mprisPanel.lyricsTrackId === collapsedRoot.barSlot.mprisPanel.currentTrackId && collapsedRoot.barSlot.mprisPanel.lyricsList && collapsedRoot.barSlot.mprisPanel.lyricsList.length > 0 && collapsedRoot.barSlot.mprisPanel.currentLyricIndex >= 0
@@ -48,17 +49,35 @@ Item {
         property bool useB: false
 
         readonly property real activeTextWidth: useB ? textB.implicitWidth : textA.implicitWidth
-        readonly property real visibleWidth: Math.min(Math.max(activeTextWidth + 20, 56), maxTextWidth + 20)
+        readonly property real leftPrefixWidth: hasLyrics ? 24 : 12
+        readonly property real visibleWidth: Math.min(Math.max(activeTextWidth + leftPrefixWidth + 12, 56), maxTextWidth + leftPrefixWidth + 12)
         width: visibleWidth
         Behavior on width {
             NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
         }
         height: 24
         radius: height / 2
-        color: "transparent"
+        border.width: 0
+        color: (collapsedRoot.barSlot.root && collapsedRoot.barSlot.root.isBarVignette)
+            ? "transparent"
+            : (hasLyrics
+                ? Qt.rgba(collapsedRoot.barSlot.accent.r, collapsedRoot.barSlot.accent.g, collapsedRoot.barSlot.accent.b, 0.14)
+                : Qt.rgba(collapsedRoot.barSlot.root.ink.r, collapsedRoot.barSlot.root.ink.g, collapsedRoot.barSlot.root.ink.b, 0.065))
+        Behavior on color { ColorAnimation { duration: 200 } }
         clip: true
         opacity: collapsedRoot.island.islandCollapsedOpacity * (1.0 - collapsedRoot.island.overlayProgress)
         visible: opacity > 0.001
+
+        IconText {
+            id: lyricNoteIcon
+            visible: islandCollapsedItem.hasLyrics
+            anchors.left: parent.left
+            anchors.leftMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
+            text: "music_note"
+            font.pixelSize: 12
+            color: collapsedRoot.barSlot.accent
+        }
 
         property bool initialized: false
 
@@ -206,12 +225,16 @@ Item {
 
         Text {
             id: textA
-            anchors.centerIn: parent
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.leftMargin: islandCollapsedItem.leftPrefixWidth
             text: ""
-            color: collapsedRoot.barSlot.root.ink
+            color: islandCollapsedItem.hasLyrics
+                ? collapsedRoot.barSlot.accent
+                : Qt.rgba(collapsedRoot.barSlot.root.ink.r, collapsedRoot.barSlot.root.ink.g, collapsedRoot.barSlot.root.ink.b, 0.88)
             font.family: collapsedRoot.barSlot.root.barFont || "Google Sans"
             font.pixelSize: 12
-            font.weight: Font.Medium
+            font.weight: islandCollapsedItem.hasLyrics ? Font.DemiBold : Font.Medium
             elide: islandCollapsedItem.hasLyrics ? Text.ElideNone : Text.ElideRight
             width: Math.min(implicitWidth, islandCollapsedItem.maxTextWidth)
             transform: Translate { id: transA; y: 0 }
@@ -219,12 +242,16 @@ Item {
 
         Text {
             id: textB
-            anchors.centerIn: parent
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.leftMargin: islandCollapsedItem.leftPrefixWidth
             text: ""
-            color: collapsedRoot.barSlot.root.ink
+            color: islandCollapsedItem.hasLyrics
+                ? collapsedRoot.barSlot.accent
+                : Qt.rgba(collapsedRoot.barSlot.root.ink.r, collapsedRoot.barSlot.root.ink.g, collapsedRoot.barSlot.root.ink.b, 0.88)
             font.family: collapsedRoot.barSlot.root.barFont || "Google Sans"
             font.pixelSize: 12
-            font.weight: Font.Medium
+            font.weight: islandCollapsedItem.hasLyrics ? Font.DemiBold : Font.Medium
             elide: islandCollapsedItem.hasLyrics ? Text.ElideNone : Text.ElideRight
             width: Math.min(implicitWidth, islandCollapsedItem.maxTextWidth)
             opacity: 0.0
@@ -246,7 +273,7 @@ Item {
         barSlot: collapsedRoot.barSlot
         island: collapsedRoot.island
         anchors.verticalCenter: parent.verticalCenter
-        x: islandCollapsedItem.x + islandCollapsedItem.width + (islandCollapsedRightSlot.width > 0 ? 4 : 0)
+        x: islandCollapsedItem.x + islandCollapsedItem.width + (islandCollapsedRightSlot.width > 0 ? 6 : 0)
         visible: opacity > 0.001
         opacity: collapsedRoot.island.islandCollapsedOpacity * (1.0 - collapsedRoot.island.overlayProgress)
         rmodel: islandCollapsedItem.mediaActive ? islandMediaModel : islandBatteryModel
@@ -266,9 +293,10 @@ Item {
 
         height: 24
         radius: height / 2
-        color: Qt.rgba(collapsedRoot.barSlot.accent.r, collapsedRoot.barSlot.accent.g, collapsedRoot.barSlot.accent.b, 0.14)
-        border.color: Qt.rgba(collapsedRoot.barSlot.accent.r, collapsedRoot.barSlot.accent.g, collapsedRoot.barSlot.accent.b, 0.32)
-        border.width: 1
+        color: (collapsedRoot.barSlot.root && collapsedRoot.barSlot.root.isBarVignette)
+            ? "transparent"
+            : Qt.rgba(collapsedRoot.barSlot.accent.r, collapsedRoot.barSlot.accent.g, collapsedRoot.barSlot.accent.b, 0.16)
+        border.width: 0
         clip: true
         opacity: (active ? 1.0 : 0.0) * collapsedRoot.island.islandCollapsedOpacity * (1.0 - collapsedRoot.island.overlayProgress)
         visible: opacity > 0.001

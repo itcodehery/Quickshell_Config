@@ -1,5 +1,6 @@
 import QtQuick
 import ".."
+import "../motion"
 
 // ───────────────────── reusable region row of slots ─────────────────────
 Row {
@@ -108,9 +109,10 @@ Row {
                 anchors.centerIn: parent
                 width: isButton ? buttonWidth : buttonContentWidth
                 height: isButton ? 30 : 24
-                radius: isButton ? 12 : (height / 2)
+                radius: isButton ? (btnHover.hovered ? 14 : 12) : (height / 2)
                 clip: true
                 visible: slot.occupied && slot.hasContent && slot.autoShown
+                    && !(slotRow.barSlot.root.isBarVignette && !isButton)
                     && (isButton || slotRow.barSlot.root.widgetHasFill(slot.gid) || slotRow.barSlot.root.widgetHasBorder(slot.gid))
 
                 color: {
@@ -120,38 +122,22 @@ Row {
                     if (isButton) {
                         if (isPriority) {
                             return btnHover.hovered
-                                ? Qt.rgba(slotRow.barSlot.accent.r, slotRow.barSlot.accent.g, slotRow.barSlot.accent.b, 0.32)
+                                ? Qt.rgba(slotRow.barSlot.accent.r, slotRow.barSlot.accent.g, slotRow.barSlot.accent.b, 0.28)
                                 : Qt.rgba(slotRow.barSlot.accent.r, slotRow.barSlot.accent.g, slotRow.barSlot.accent.b, 0.16)
                         }
                         return btnHover.hovered
-                            ? Qt.rgba(slotRow.barSlot.root.ink.r, slotRow.barSlot.root.ink.g, slotRow.barSlot.root.ink.b, 0.16)
+                            ? Qt.rgba(slotRow.barSlot.root.ink.r, slotRow.barSlot.root.ink.g, slotRow.barSlot.root.ink.b, 0.15)
                             : Qt.rgba(slotRow.barSlot.root.ink.r, slotRow.barSlot.root.ink.g, slotRow.barSlot.root.ink.b, 0.08)
                     }
                     return "transparent"
                 }
 
-                border.width: (isButton || slotRow.barSlot.root.widgetHasBorder(slot.gid)) ? 1 : 0
-                border.color: {
-                    if (isButton) {
-                        if (isPriority) {
-                            return btnHover.hovered
-                                ? Qt.rgba(slotRow.barSlot.accent.r, slotRow.barSlot.accent.g, slotRow.barSlot.accent.b, 0.65)
-                                : Qt.rgba(slotRow.barSlot.accent.r, slotRow.barSlot.accent.g, slotRow.barSlot.accent.b, 0.28)
-                        }
-                        return btnHover.hovered
-                            ? Qt.rgba(slotRow.barSlot.accent.r, slotRow.barSlot.accent.g, slotRow.barSlot.accent.b, 0.35)
-                            : Qt.rgba(255, 255, 255, 0.04)
-                    }
-                    if (slotRow.barSlot.root.widgetHasBorder(slot.gid)) {
-                        return slotRow.barSlot.root.widgetBorderColor(slot.gid)
-                    }
-                    return "transparent"
-                }
+                border.width: 0
 
                 scale: (isButton && btnHover.hovered && !slotRow.barSlot.dragging) ? 1.05 : 1.0
                 Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+                Behavior on radius { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
                 Behavior on color { ColorAnimation { duration: 140 } }
-                Behavior on border.color { ColorAnimation { duration: 140 } }
 
                 HoverHandler {
                     id: btnHover

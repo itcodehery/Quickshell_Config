@@ -85,8 +85,8 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            height: iosStyle.capsuleH
-            radius: height / 2
+            height: iosStyle.capsuleH + 8
+            radius: height / 3
             color: trackRoot.unfilledColor
             border.width: (root && root.isLightMode) ? 1 : 0
             border.color: (root && root.cardBorderColor) ? root.cardBorderColor : "transparent"

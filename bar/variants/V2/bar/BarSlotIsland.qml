@@ -3,6 +3,7 @@ import ".."
 import Quickshell.Hyprland
 import "../modules"
 import "../panels"
+import "../motion"
 
 Item {
     id: island
@@ -17,7 +18,6 @@ Item {
     property alias islandDictationItem: islandOverlays.islandDictationItem
     property alias islandChargingItem: islandOverlays.islandChargingItem
     property alias islandPowerPeekItem: islandOverlays.islandPowerPeekItem
-    property alias hoverQuickPanel: hoverQuickPanel
 
     opacity: (island.barSlot.isDashboardActive || island.barSlot.isDashboardClosing) ? 0.0 : 1.0
     visible: opacity > 0.001
@@ -31,34 +31,6 @@ Item {
     }
 
     clip: true
-
-    property bool rawHovered: islandHover.hovered || (island.barSlot.root && island.barSlot.root.hoverForce)
-    property bool isHovered: false
-
-    Timer {
-        id: unhoverDebounceTimer
-        interval: 180
-        repeat: false
-        onTriggered: {
-            if (!island.rawHovered) {
-                island.isHovered = false
-            }
-        }
-    }
-
-    onRawHoveredChanged: {
-        if (rawHovered) {
-            unhoverDebounceTimer.stop()
-            island.isHovered = true
-        } else {
-            unhoverDebounceTimer.restart()
-        }
-    }
-
-    HoverHandler {
-        id: islandHover
-        acceptedDevices: PointerDevice.AllDevices
-    }
 
     property int prevNotifCount: 0
     property real blackHoleStrength: 0
@@ -86,20 +58,8 @@ Item {
     readonly property int fitRegionGap: 12
     readonly property int fitRegionCount: 3
 
-    // The base shell draws a black hole around the island when hovered.
-    property bool isIslandHidden: (!island.isHovered || island.osdActive || island.notifPeekActive || island.powerPeekActive || island.chargingActive) && !island.barSlot.root.anyPopupVisible
-    property real islandShrinkProgress: island.barSlot.isHoverExpanded ? 0.0 : 1.0
-    Behavior on islandShrinkProgress {
-        NumberAnimation { duration: island.barSlot.isHoverExpanded ? 240 : 200; easing.type: Easing.OutCubic }
-    }
-    property real islandElementsOpacity: island.barSlot.isHoverExpanded ? 1.0 : 0.0
-    Behavior on islandElementsOpacity {
-        NumberAnimation { duration: island.barSlot.isHoverExpanded ? 200 : 120; easing.type: Easing.OutCubic }
-    }
-    property real islandCollapsedOpacity: island.barSlot.isHoverExpanded ? 0.0 : 1.0
-    Behavior on islandCollapsedOpacity {
-        NumberAnimation { duration: island.barSlot.isHoverExpanded ? 100 : 180; easing.type: Easing.OutCubic }
-    }
+    readonly property real islandShrinkProgress: 1.0
+    readonly property real islandCollapsedOpacity: 1.0
 
     property bool osdActive: false
     property real osdProgress: 0.0
@@ -213,18 +173,12 @@ Item {
         }
     }
 
-    onIsIslandHiddenChanged: {
-        if (!isIslandHidden) {
-            island.syncExpandedModels()
-        }
-    }
-
     property real leftVisibleWidth: 0
     property real rightVisibleWidth: 0
-    readonly property real collapsedItemsWidth: centerRowItem.implicitWidth + 4
+    readonly property real collapsedItemsWidth: centerRowItem.implicitWidth + (centerRowItem.implicitWidth > 0.5 ? 6 : 4)
         + islandCollapsedItem.visibleWidth
-        + (islandCollapsedRightSlot.implicitWidth > 0 ? (islandCollapsedRightSlot.implicitWidth + 4) : 0)
-        + (islandTimerItem.active ? (islandTimerItem.targetWidth + 4) : 0)
+        + (islandCollapsedRightSlot.implicitWidth > 0 ? (islandCollapsedRightSlot.implicitWidth + 6) : 0)
+        + (islandTimerItem.active ? (islandTimerItem.targetWidth + 6) : 0)
     readonly property real defaultCollapsedCenterWidth: Math.max(60, collapsedItemsWidth)
     readonly property real overlayProgress: Math.max(island.osdProgress, island.notifPeekProgress, island.dictationProgress, island.chargingProgress, island.powerPeekProgress)
     readonly property real overlayTargetWidth: {
@@ -238,18 +192,7 @@ Item {
         ? (islandChargingItem.targetWidth)
         : (2 * fitPadding + ((1.0 - overlayProgress) * defaultCollapsedCenterWidth + overlayProgress * overlayTargetWidth))
 
-    readonly property real leftCardWidth: 140
-    readonly property real rightCardWidth: 204
-    readonly property real middleGap: 8
-    readonly property real middleWidth: (hoverQuickPanel && hoverQuickPanel.omarchyMenuOpen) ? 530 : 440
-    readonly property real expandedContainerWidth: Math.min(
-        island.barSlot.width - 24,
-        leftCardWidth + middleGap + middleWidth + rightCardWidth + 24
-    )
-
-    readonly property real fitNaturalWidth: island.barSlot.isHoverExpanded
-        ? expandedContainerWidth
-        : collapsedIslandWidth
+    readonly property real fitNaturalWidth: collapsedIslandWidth
 
     // edit-mode frame around the bar while unlocked (gentle pulse)
     Rectangle {
@@ -465,33 +408,9 @@ Item {
         id: barAudioShared
     }
 
-    // ── Extracted Modular Hover Quick Settings Panel ──
-    HoverQuickSettingsPanel {
-        id: hoverQuickPanel
-        barSlot: island.barSlot
-        island: island
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: (island.barSlot.root.barPosition === "bottom") ? (island.height - height) : 0
-        opacity: island.islandElementsOpacity
-        scale: island.barSlot.isHoverExpanded ? 1.0 : 0.96
-        transform: Translate {
-            y: island.barSlot.isHoverExpanded ? 0 : (island.barSlot.root.barPosition === "bottom" ? 12 : -12)
-            Behavior on y { NumberAnimation { duration: island.barSlot.isHoverExpanded ? 240 : 160; easing.type: Easing.OutCubic } }
-        }
-        visible: opacity > 0.001
-        enabled: island.barSlot.isHoverExpanded
-        Behavior on scale { NumberAnimation { duration: island.barSlot.isHoverExpanded ? 240 : 160; easing.type: Easing.OutCubic } }
-    }
-
     // ── slot-aware panel X positions: publish per-screen anchors ──
     // find a group's slot and map its (frac·width) to window/screen X.
     function groupX(gid, frac) {
-        if (gid === "G8" && island.islandShrinkProgress < 0.5) {
-            return island.x + 8 + island.leftCardWidth * frac
-        }
-        if (gid === "G9" && island.islandShrinkProgress < 0.5) {
-            return island.x + (island.width - island.rightCardWidth - 8) + island.rightCardWidth * frac
-        }
         var row = centerRowItem
         if (row && row.rep) {
             for (var k = 0; k < row.rep.count; k++) {
@@ -508,12 +427,6 @@ Item {
     // Read their exact local center instead of pointing every panel at the
     // center of the entire group.
     function groupContentX(gid, propertyName, fallbackFrac) {
-        if (gid === "G8" && island.islandShrinkProgress < 0.5) {
-            return island.x + 8 + island.leftCardWidth * 0.5
-        }
-        if (gid === "G9" && island.islandShrinkProgress < 0.5) {
-            return island.x + (island.width - island.rightCardWidth - 8) + island.rightCardWidth * 0.5
-        }
         var row = centerRowItem
         if (row && row.rep) {
             for (var k = 0; k < row.rep.count; k++) {

@@ -180,16 +180,15 @@ Item {
     readonly property bool v2AutoHide: false
     property string barShellStyle: "pill"
     onBarShellStyleChanged: {
-        if (barShellStyle !== "notch" && barShellStyle !== "pill" && barShellStyle !== "island") {
+        if (barShellStyle !== "notch" && barShellStyle !== "pill" && barShellStyle !== "island" && barShellStyle !== "vignette") {
             barShellStyle = "pill"
         }
     }
     readonly property bool isBarPill: barShellStyle === "pill" || barShellStyle === "island"
     readonly property bool isBarNotch: barShellStyle === "notch"
+    readonly property bool isBarVignette: barShellStyle === "vignette"
     property bool barBorderEnabled: true
     property bool panelTooltipBorderEnabled: true
-    // ── desktop context menu presentation mode (radial vs list, persisted) ──
-    property bool desktopMenuListMode: false
     // ── slider presentation style (persisted) ──
     property string sliderStyle: "android17"
     onSliderStyleChanged: {
@@ -250,7 +249,7 @@ Item {
         }
     }
     function barShellStyleValid(value) {
-        return value === "pill" || value === "island" || value === "notch"
+        return value === "pill" || value === "island" || value === "notch" || value === "vignette"
     }
 
     // ── pill/card border (default, non-borderless mode) ──

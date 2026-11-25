@@ -755,12 +755,12 @@ Item {
         }
     }
 
-    // ── Expanded Bar Power Peek (4 Material 3 Geometric Options) ──
+    // ── Expanded Bar Power Peek (M3 Expressive Cards) ──
     Item {
         id: islandPowerPeekItem
         anchors.centerIn: parent
-        width: 440
-        height: 132
+        width: 492
+        height: 174
         opacity: overlaysRoot.island.islandCollapsedOpacity * overlaysRoot.island.powerPeekProgress
         visible: opacity > 0.001
 
@@ -772,10 +772,10 @@ Item {
         readonly property string pathStar: "M 48.0 32.0 L 48.5 33.6 L 49.8 35.5 L 51.7 38.0 L 53.7 41.0 L 55.3 44.4 L 55.9 48.0 L 55.5 51.3 L 53.9 53.9 L 51.3 55.5 L 48.0 55.9 L 44.4 55.3 L 41.0 53.7 L 38.0 51.7 L 35.5 49.8 L 33.6 48.5 L 32.0 48.0 L 30.4 48.5 L 28.5 49.8 L 26.0 51.7 L 23.0 53.7 L 19.6 55.3 L 16.0 55.9 L 12.7 55.5 L 10.1 53.9 L 8.5 51.3 L 8.1 48.0 L 8.7 44.4 L 10.3 41.0 L 12.3 38.0 L 14.2 35.5 L 15.5 33.6 L 16.0 32.0 L 15.5 30.4 L 14.2 28.5 L 12.3 26.0 L 10.3 23.0 L 8.7 19.6 L 8.1 16.0 L 8.5 12.7 L 10.1 10.1 L 12.7 8.5 L 16.0 8.1 L 19.6 8.7 L 23.0 10.3 L 26.0 12.3 L 28.5 14.2 L 30.4 15.5 L 32.0 16.0 L 33.6 15.5 L 35.5 14.2 L 38.0 12.3 L 41.0 10.3 L 44.4 8.7 L 48.0 8.1 L 51.3 8.5 L 53.9 10.1 L 55.5 12.7 L 55.9 16.0 L 55.3 19.6 L 53.7 23.0 L 51.7 26.0 L 49.8 28.5 L 48.5 30.4 Z"
 
         readonly property var options: [
-            { name: "Screensaver", icon: "wallpaper", accent: (overlaysRoot.barSlot.root && overlaysRoot.barSlot.root.color06) ? overlaysRoot.barSlot.root.color06 : "#7aa89f", path: pathFlower },
-            { name: "Lock", icon: "lock", accent: (overlaysRoot.barSlot.root && overlaysRoot.barSlot.root.color04) ? overlaysRoot.barSlot.root.color04 : "#658594", path: pathArch },
-            { name: "Shutdown", icon: "power_settings_new", accent: (overlaysRoot.barSlot.root && overlaysRoot.barSlot.root.color01) ? overlaysRoot.barSlot.root.color01 : "#c4746e", path: pathScallop },
-            { name: "Reboot", icon: "restart_alt", accent: (overlaysRoot.barSlot.root && overlaysRoot.barSlot.root.color03) ? overlaysRoot.barSlot.root.color03 : "#c8b36a", path: pathStar }
+            { name: "Screensaver", sub: "Idle display", icon: "wallpaper", key: "1", accent: (overlaysRoot.barSlot.root && overlaysRoot.barSlot.root.color06) ? overlaysRoot.barSlot.root.color06 : "#7aa89f", path: pathFlower },
+            { name: "Lock", sub: "Lock screen", icon: "lock", key: "2", accent: (overlaysRoot.barSlot.root && overlaysRoot.barSlot.root.color04) ? overlaysRoot.barSlot.root.color04 : "#658594", path: pathArch },
+            { name: "Shutdown", sub: "Power off", icon: "power_settings_new", key: "3", accent: (overlaysRoot.barSlot.root && overlaysRoot.barSlot.root.color01) ? overlaysRoot.barSlot.root.color01 : "#c4746e", path: pathScallop },
+            { name: "Reboot", sub: "Restart OS", icon: "restart_alt", key: "4", accent: (overlaysRoot.barSlot.root && overlaysRoot.barSlot.root.color03) ? overlaysRoot.barSlot.root.color03 : "#c8b36a", path: pathStar }
         ]
 
         function triggerOption(idx) {
@@ -809,6 +809,14 @@ Item {
             } else if (event.key === Qt.Key_Left || event.key === Qt.Key_H || event.key === Qt.Key_Up || event.key === Qt.Key_K) {
                 focusedIndex = (focusedIndex - 1 + 4) % 4
                 event.accepted = true
+            } else if (event.key === Qt.Key_1) {
+                triggerOption(0); event.accepted = true
+            } else if (event.key === Qt.Key_2) {
+                triggerOption(1); event.accepted = true
+            } else if (event.key === Qt.Key_3) {
+                triggerOption(2); event.accepted = true
+            } else if (event.key === Qt.Key_4) {
+                triggerOption(3); event.accepted = true
             } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
                 triggerOption(focusedIndex)
                 event.accepted = true
@@ -819,82 +827,230 @@ Item {
             y: (1.0 - overlaysRoot.island.powerPeekProgress) * (overlaysRoot.barSlot.root.barPosition === "bottom" ? 10 : -10)
         }
 
-        Row {
-            anchors.centerIn: parent
-            spacing: 12
+        Column {
+            anchors.fill: parent
+            anchors.leftMargin: 12
+            anchors.rightMargin: 12
+            anchors.topMargin: 8
+            anchors.bottomMargin: 8
+            spacing: 10
 
-            Repeater {
-                model: islandPowerPeekItem.options
+            // ── Header Strip ──
+            Item {
+                width: parent.width
+                height: 22
 
-                Item {
-                    id: pOptCard
-                    required property var modelData
-                    required property int index
-                    readonly property bool isFocused: islandPowerPeekItem.focusedIndex === index
-                    readonly property bool isHovered: pOptMa.containsMouse
+                Row {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 6
 
-                    width: 96
-                    height: 112
-
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 10
-
-                        Item {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: 64
-                            height: 64
-                            scale: (pOptCard.isHovered || pOptCard.isFocused) ? 1.08 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
-
-                            Shape {
-                                anchors.fill: parent
-                                preferredRendererType: Shape.CurveRenderer
-
-                                ShapePath {
-                                    strokeWidth: 0
-                                    strokeColor: "transparent"
-                                    fillColor: (pOptCard.isHovered || pOptCard.isFocused)
-                                        ? pOptCard.modelData.accent
-                                        : Qt.rgba(pOptCard.modelData.accent.r, pOptCard.modelData.accent.g, pOptCard.modelData.accent.b, 0.22)
-                                    Behavior on fillColor { ColorAnimation { duration: 160 } }
-
-                                    PathSvg { path: pOptCard.modelData.path }
-                                }
-                            }
-
-                            IconText {
-                                anchors.centerIn: parent
-                                text: pOptCard.modelData.icon
-                                font.pixelSize: 26
-                                color: (pOptCard.isHovered || pOptCard.isFocused)
-                                    ? overlaysRoot.barSlot.root.paper
-                                    : pOptCard.modelData.accent
-                                Behavior on color { ColorAnimation { duration: 160 } }
-                            }
-                        }
-
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: pOptCard.modelData.name
-                            font.family: overlaysRoot.barSlot.root.barFont
-                            font.pixelSize: 12
-                            font.weight: pOptCard.isFocused ? Font.Bold : Font.DemiBold
-                            color: overlaysRoot.barSlot.root.ink
-                            opacity: (pOptCard.isHovered || pOptCard.isFocused) ? 1.0 : 0.75
-                        }
+                    Rectangle {
+                        width: 6
+                        height: 6
+                        radius: 3
+                        border.width: 0
+                        color: islandPowerPeekItem.options[islandPowerPeekItem.focusedIndex].accent
+                        anchors.verticalCenter: parent.verticalCenter
+                        Behavior on color { ColorAnimation { duration: 160 } }
                     }
 
-                    SpringPress {}
+                    Text {
+                        text: "POWER & SESSION"
+                        font.family: overlaysRoot.barSlot.root.barFont
+                        font.pixelSize: 10
+                        font.weight: Font.Bold
+                        font.letterSpacing: 1.4
+                        color: overlaysRoot.barSlot.root.ink
+                        opacity: 0.55
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+
+                Rectangle {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 20
+                    width: escTxt.implicitWidth + 14
+                    radius: 10
+                    border.width: 0
+                    color: escMa.containsMouse
+                        ? overlaysRoot.barSlot.root.fillHover
+                        : overlaysRoot.barSlot.root.fillIdle
+                    Behavior on color { ColorAnimation { duration: 120 } }
+
+                    Text {
+                        id: escTxt
+                        anchors.centerIn: parent
+                        text: "ESC"
+                        font.family: overlaysRoot.barSlot.root.barFont
+                        font.pixelSize: 9
+                        font.weight: Font.Bold
+                        font.letterSpacing: 0.8
+                        color: overlaysRoot.barSlot.root.ink
+                        opacity: escMa.containsMouse ? 0.9 : 0.55
+                    }
+
                     MouseArea {
-                        id: pOptMa
+                        id: escMa
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onEntered: islandPowerPeekItem.focusedIndex = pOptCard.index
-                        onClicked: islandPowerPeekItem.triggerOption(pOptCard.index)
+                        onClicked: if (overlaysRoot.barSlot.root) overlaysRoot.barSlot.root.powerPeekActive = false
                     }
                 }
+            }
+
+            // ── 4 M3 Expressive Action Cards ──
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 8
+
+                Repeater {
+                    model: islandPowerPeekItem.options
+
+                    Rectangle {
+                        id: pOptCard
+                        required property var modelData
+                        required property int index
+                        readonly property bool isFocused: islandPowerPeekItem.focusedIndex === index
+                        readonly property bool isHovered: pOptMa.containsMouse
+                        readonly property bool isActive: isFocused || isHovered
+                        readonly property color accentCol: modelData.accent
+                        readonly property color onAccentCol: {
+                            var l = 0.299 * accentCol.r + 0.587 * accentCol.g + 0.114 * accentCol.b
+                            return l > 0.55 ? "#121212" : "#ffffff"
+                        }
+
+                        width: 111
+                        height: 104
+                        radius: isActive ? 22 : 18
+                        border.width: 0
+                        antialiasing: true
+                        color: isActive
+                            ? Qt.rgba(accentCol.r, accentCol.g, accentCol.b, 0.16)
+                            : Qt.rgba(overlaysRoot.barSlot.root.ink.r, overlaysRoot.barSlot.root.ink.g, overlaysRoot.barSlot.root.ink.b, 0.05)
+                        scale: pOptMa.pressed ? 0.94 : (isActive ? 1.03 : 1.0)
+                        Behavior on color { ColorAnimation { duration: 160 } }
+                        Behavior on radius { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                        Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+
+                        // Top-right shortcut keycap
+                        Rectangle {
+                            anchors.top: parent.top
+                            anchors.right: parent.right
+                            anchors.topMargin: 7
+                            anchors.rightMargin: 7
+                            width: 16
+                            height: 16
+                            radius: 8
+                            border.width: 0
+                            color: pOptCard.isActive
+                                ? Qt.rgba(pOptCard.accentCol.r, pOptCard.accentCol.g, pOptCard.accentCol.b, 0.28)
+                                : Qt.rgba(overlaysRoot.barSlot.root.ink.r, overlaysRoot.barSlot.root.ink.g, overlaysRoot.barSlot.root.ink.b, 0.08)
+                            Behavior on color { ColorAnimation { duration: 160 } }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: pOptCard.modelData.key
+                                font.family: overlaysRoot.barSlot.root.barFont
+                                font.pixelSize: 9
+                                font.weight: Font.Bold
+                                color: pOptCard.isActive ? pOptCard.accentCol : overlaysRoot.barSlot.root.ink
+                                opacity: pOptCard.isActive ? 1.0 : 0.45
+                            }
+                        }
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 6
+
+                            Item {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: 48
+                                height: 48
+                                scale: pOptCard.isActive ? 1.06 : 1.0
+                                rotation: pOptCard.isActive ? 10 : 0
+                                Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                                Behavior on rotation { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+
+                                Shape {
+                                    width: 64
+                                    height: 64
+                                    anchors.centerIn: parent
+                                    scale: 48.0 / 64.0
+                                    preferredRendererType: Shape.CurveRenderer
+
+                                    ShapePath {
+                                        strokeWidth: 0
+                                        strokeColor: "transparent"
+                                        fillColor: pOptCard.isActive
+                                            ? pOptCard.accentCol
+                                            : Qt.rgba(pOptCard.accentCol.r, pOptCard.accentCol.g, pOptCard.accentCol.b, 0.20)
+                                        Behavior on fillColor { ColorAnimation { duration: 160 } }
+
+                                        PathSvg { path: pOptCard.modelData.path }
+                                    }
+                                }
+
+                                IconText {
+                                    anchors.centerIn: parent
+                                    text: pOptCard.modelData.icon
+                                    font.pixelSize: 21
+                                    color: pOptCard.isActive ? pOptCard.onAccentCol : pOptCard.accentCol
+                                    Behavior on color { ColorAnimation { duration: 160 } }
+                                }
+                            }
+
+                            Column {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                spacing: 1
+
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: pOptCard.modelData.name
+                                    font.family: overlaysRoot.barSlot.root.barFont
+                                    font.pixelSize: 12
+                                    font.weight: pOptCard.isActive ? Font.Bold : Font.DemiBold
+                                    color: overlaysRoot.barSlot.root.ink
+                                    opacity: pOptCard.isActive ? 1.0 : 0.85
+                                }
+
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: pOptCard.modelData.sub
+                                    font.family: overlaysRoot.barSlot.root.barFont
+                                    font.pixelSize: 9
+                                    font.weight: Font.Medium
+                                    color: pOptCard.isActive ? pOptCard.accentCol : overlaysRoot.barSlot.root.ink
+                                    opacity: pOptCard.isActive ? 0.92 : 0.45
+                                    Behavior on color { ColorAnimation { duration: 160 } }
+                                }
+                            }
+                        }
+
+                        SpringPress {}
+                        MouseArea {
+                            id: pOptMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: islandPowerPeekItem.focusedIndex = pOptCard.index
+                            onClicked: islandPowerPeekItem.triggerOption(pOptCard.index)
+                        }
+                    }
+                }
+            }
+
+            // ── Footer Shortcut Hint ──
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "← → Navigate  ·  Enter Confirm  ·  1–4 Quick Select"
+                font.family: overlaysRoot.barSlot.root.barFont
+                font.pixelSize: 10
+                font.weight: Font.Medium
+                color: overlaysRoot.barSlot.root.ink
+                opacity: 0.42
             }
         }
     }

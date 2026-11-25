@@ -29,6 +29,7 @@ Item {
 
     readonly property bool isBarPill: themeRoot ? themeRoot.isBarPill : true
     readonly property bool isBarNotch: themeRoot ? themeRoot.isBarNotch : false
+    readonly property bool isBarVignette: themeRoot ? themeRoot.isBarVignette : false
     readonly property string currentSliderStyle: (themeRoot && themeRoot.sliderStyle) ? themeRoot.sliderStyle : "android17"
     property real demoSliderVal: 65
 
@@ -103,6 +104,13 @@ Item {
     function setClock12h(val) {
         if (themeRoot) {
             themeRoot.clock12h = val
+            if (typeof themeRoot.saveWidgets === "function") themeRoot.saveWidgets()
+        }
+    }
+
+    function setClockVisualizerStyle(style) {
+        if (themeRoot) {
+            themeRoot.clockVisualizerStyle = style
             if (typeof themeRoot.saveWidgets === "function") themeRoot.saveWidgets()
         }
     }
@@ -233,7 +241,7 @@ Item {
                             CategoryTile {
                                 catId: "bar_style"
                                 catTitle: "Bar Style"
-                                catSubtitle: settingsSection.isBarNotch ? "Notch" : "Pill"
+                                catSubtitle: settingsSection.isBarVignette ? "Vignette" : (settingsSection.isBarNotch ? "Notch" : "Pill")
                                 catIcon: "view_quilt"
                                 iconTint: settingsSection.sealCol
                                 isFirstInGroup: true
@@ -511,7 +519,7 @@ Item {
                         // ── Notch Card (Attached Bezel) ──
                         StyleOptionCard {
                             title: "Notch (Attached Bezel)"
-                            subtitle: "Flush against monitor edge with rounded bottom curves"
+                            subtitle: "Flush against monitor edge with slanted bottom curves"
                             badgeText: "Bezel"
                             isSelected: settingsSection.isBarNotch
                             onCardClicked: settingsSection.setShellStyle("notch")
@@ -528,6 +536,41 @@ Item {
                                     width: 44; height: 9
                                     color: settingsSection.isBarNotch ? settingsSection.sealCol : settingsSection.inkCol
                                     bottomLeftRadius: 5; bottomRightRadius: 5
+                                }
+                            }
+                        }
+
+                        // ── Vignette Card (Cardless Edge Fade) ──
+                        StyleOptionCard {
+                            title: "Vignette (Cardless Edge)"
+                            subtitle: "Dark edge gradient with floating cardless elements"
+                            badgeText: "Cardless"
+                            isSelected: settingsSection.isBarVignette
+                            onCardClicked: settingsSection.setShellStyle("vignette")
+
+                            // Preview box: dark top gradient with floating element dots
+                            Rectangle {
+                                width: 70; height: 38; radius: 6
+                                color: Qt.rgba(settingsSection.inkCol.r, settingsSection.inkCol.g, settingsSection.inkCol.b, 0.08)
+                                border.width: 0
+                                clip: true
+                                Rectangle {
+                                    anchors.top: parent.top
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    height: 16
+                                    gradient: Gradient {
+                                        GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.72) }
+                                        GradientStop { position: 1.0; color: "transparent" }
+                                    }
+                                }
+                                Row {
+                                    anchors.top: parent.top; anchors.topMargin: 4
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    spacing: 6
+                                    Rectangle { width: 10; height: 3; radius: 1.5; color: settingsSection.isBarVignette ? settingsSection.sealCol : settingsSection.inkCol }
+                                    Rectangle { width: 14; height: 3; radius: 1.5; color: settingsSection.isBarVignette ? settingsSection.sealCol : settingsSection.inkCol }
+                                    Rectangle { width: 8; height: 3; radius: 1.5; color: settingsSection.isBarVignette ? settingsSection.sealCol : settingsSection.inkCol }
                                 }
                             }
                         }
@@ -1454,6 +1497,36 @@ Item {
                             }
                         }
 
+                        // Setting: Clock Visualizer Style
+                        SettingsOptionRow {
+                            title: "Clock Visualizer Style"
+                            description: "Audio visualizer style around the dashboard watch face"
+                            Row {
+                                spacing: 4
+
+                                BouncyPillButton {
+                                    label: "Ticks"
+                                    isActive: !settingsSection.themeRoot || settingsSection.themeRoot.clockVisualizerStyle === "ticks"
+                                    onClicked: settingsSection.setClockVisualizerStyle("ticks")
+                                }
+                                BouncyPillButton {
+                                    label: "Wave"
+                                    isActive: settingsSection.themeRoot && settingsSection.themeRoot.clockVisualizerStyle === "waveform"
+                                    onClicked: settingsSection.setClockVisualizerStyle("waveform")
+                                }
+                                BouncyPillButton {
+                                    label: "Orbit"
+                                    isActive: settingsSection.themeRoot && settingsSection.themeRoot.clockVisualizerStyle === "orbit"
+                                    onClicked: settingsSection.setClockVisualizerStyle("orbit")
+                                }
+                                BouncyPillButton {
+                                    label: "Starweb"
+                                    isActive: settingsSection.themeRoot && (settingsSection.themeRoot.clockVisualizerStyle === "constellation" || settingsSection.themeRoot.clockVisualizerStyle === "aurora")
+                                    onClicked: settingsSection.setClockVisualizerStyle("constellation")
+                                }
+                            }
+                        }
+
                         // Setting: Temperature Unit
                         SettingsOptionRow {
                             title: "Temperature Scale"
@@ -1553,7 +1626,7 @@ Item {
                                 Row {
                                     width: parent.width
                                     Text { width: 140; text: "Active Bar Style"; font.family: settingsSection.fontFam; font.pixelSize: 11; font.weight: Font.DemiBold; color: settingsSection.inkCol }
-                                    Text { text: settingsSection.isBarNotch ? "Notch (Attached Bezel)" : "Pill (Floating Island)"; font.family: settingsSection.fontFam; font.pixelSize: 11; font.weight: Font.Bold; color: settingsSection.sealCol }
+                                    Text { text: settingsSection.isBarVignette ? "Vignette (Cardless Edge)" : (settingsSection.isBarNotch ? "Notch (Attached Bezel)" : "Pill (Floating Island)"); font.family: settingsSection.fontFam; font.pixelSize: 11; font.weight: Font.Bold; color: settingsSection.sealCol }
                                 }
                                 Rectangle { width: parent.width; height: 1; color: Qt.rgba(settingsSection.inkCol.r, settingsSection.inkCol.g, settingsSection.inkCol.b, 0.08) }
 

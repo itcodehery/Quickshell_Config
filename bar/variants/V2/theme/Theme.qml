@@ -238,6 +238,7 @@ ThemeBase {
     property string launcherLogoIcon: "omarchy"  // see launcherLogoIconGlyph()
     property bool   weatherImperial: false   // false = °C / km·h, true = °F / mph
     property bool   clock12h:        false   // false = 24h, true = 12h (AM/PM)
+    property string clockVisualizerStyle: "ticks"  // "ticks", "waveform", "orbit", "constellation"
 
     // ── widget/workspace state persistence ──
     property var barSeps: []
@@ -284,8 +285,6 @@ ThemeBase {
     function parseLoadedWidgets(rawText) { WidgetsConfig.parseLoadedWidgets(theme, rawText) }
 
     readonly property string widgetsCachePath: Quickshell.env("HOME") + "/.cache/quickshell_widgets_v2"
-    readonly property string desktopMenuModeCachePath: Quickshell.env("HOME") + "/.cache/quickshell_desktop_menu_mode"
-    property bool _desktopMenuModeLoaded: false
     property bool _widgetsLoaded: false
 
     onModMemoryChanged:     if (_widgetsLoaded) saveWidgets()
@@ -323,10 +322,6 @@ ThemeBase {
     onBarColorChanged:         if (_widgetsLoaded) saveWidgets()
     onWidgetIconsForegroundChanged: if (_widgetsLoaded) saveWidgets()
     onBarTemperatureSourceChanged: if (_widgetsLoaded) saveWidgets()
-    onDesktopMenuListModeChanged: {
-        if (_widgetsLoaded) saveWidgets()
-        updatesWorkers.saveDesktopMenuMode()
-    }
     onSliderStyleChanged: if (_widgetsLoaded) saveWidgets()
     onTileShape1x1Changed: if (_widgetsLoaded) saveWidgets()
     onTileShape1x2Changed: if (_widgetsLoaded) saveWidgets()

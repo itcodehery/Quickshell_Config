@@ -200,14 +200,15 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         text: {
                             clock.now;
-                            var days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+                            var days = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
                             var d = new Date();
                             return days[d.getDay()] + " " + d.getDate();
                         }
-                        color: Qt.rgba(g8.contentColor.r, g8.contentColor.g, g8.contentColor.b, 0.5)
+                        color: Qt.rgba(registryRoot.barSlot.root.seal.r, registryRoot.barSlot.root.seal.g, registryRoot.barSlot.root.seal.b, 0.88)
                         font.family: registryRoot.barSlot.root.barFont
-                        font.pixelSize: 10
-                        font.letterSpacing: 0.5
+                        font.pixelSize: 9
+                        font.weight: Font.Bold
+                        font.letterSpacing: 1.0
                     }
                     MouseArea {
                         anchors.fill: parent

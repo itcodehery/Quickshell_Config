@@ -12,13 +12,14 @@ Item {
 
     function pad(n) { return n < 10 ? "0" + n : String(n) }
 
-    readonly property string timeStr: {
+    readonly property string timeCore: {
         if (root.clock12h) {
             var h = now.getHours() % 12; if (h === 0) h = 12
-            return h + ":" + pad(now.getMinutes()) + " " + (now.getHours() < 12 ? "AM" : "PM")
+            return h + ":" + pad(now.getMinutes())
         }
         return pad(now.getHours()) + ":" + pad(now.getMinutes())
     }
+    readonly property string amPmStr: root.clock12h ? (now.getHours() < 12 ? "AM" : "PM") : ""
 
     readonly property var months: ["January","February","March","April","May","June",
                                     "July","August","September","October","November","December"]
@@ -26,7 +27,7 @@ Item {
 
     readonly property string tooltipText: days[now.getDay()] + ", " + now.getDate() + " " + months[now.getMonth()] + " " + now.getFullYear()
 
-    implicitWidth: label.implicitWidth
+    implicitWidth: timeRow.implicitWidth
     implicitHeight: 24
     width: implicitWidth
     height: implicitHeight
@@ -38,14 +39,32 @@ Item {
         onTriggered: rootMod.now = new Date()
     }
 
-    UiText {
-        id: label
+    Row {
+        id: timeRow
         anchors.centerIn: parent
-        text: rootMod.timeStr
-        color: rootMod.contentColor
-        font.family: root.barFont
-        font.pixelSize: 12
-        font.letterSpacing: 1
+        spacing: 3
+
+        UiText {
+            anchors.verticalCenter: parent.verticalCenter
+            text: rootMod.timeCore
+            color: rootMod.contentColor
+            font.family: root.barFont
+            font.pixelSize: 13
+            font.weight: Font.Bold
+            font.letterSpacing: 0.4
+        }
+
+        UiText {
+            visible: rootMod.amPmStr !== ""
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: 1
+            text: rootMod.amPmStr
+            color: Qt.rgba(rootMod.contentColor.r, rootMod.contentColor.g, rootMod.contentColor.b, 0.55)
+            font.family: root.barFont
+            font.pixelSize: 9
+            font.weight: Font.Bold
+            font.letterSpacing: 0.6
+        }
     }
 
     TooltipMixin { id: tip; root: rootMod.root; owner: rootMod; text: rootMod.tooltipText }

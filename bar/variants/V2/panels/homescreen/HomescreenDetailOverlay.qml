@@ -21,6 +21,7 @@ Item {
     readonly property var notifDetailSection: notifDetailLoader.item
     readonly property var updatesDetailSection: updatesDetailLoader.item
     readonly property var notesDetailSection: notesDetailLoader.item
+    readonly property var githubDetailSection: githubDetailLoader.item
     readonly property var pluginsDetailSection: pluginsDetailLoader.item
     readonly property var themeDetailSection: themeLoader.item
     readonly property var settingsDetailSection: settingsDetailLoader.item
@@ -106,6 +107,7 @@ Item {
                     case "wallpaper": return "Wallpapers"
                     case "plugins": return "Omarchy Plugins"
                     case "notes": return "Notes"
+                    case "github": return "GitHub Contributions"
                     case "settings": return "Dashboard & Shell Settings"
                     default: return ""
                 }
@@ -209,6 +211,14 @@ Item {
                     dashboardContent.activeDetailView = ""
                     if (dashboardContent.root) dashboardContent.root.dashboardDetail = ""
                 }
+            }
+        }
+        DetailLoader {
+            id: githubDetailLoader
+            viewName: "github"
+            sourceComponent: GithubDetailSection {
+                root: dashboardContent.root
+                panel: dashboardContent.panel
             }
         }
         DetailLoader {

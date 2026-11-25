@@ -10,18 +10,22 @@ Item {
 
     height: 32
     readonly property real baseWidth: height
-    property bool isHovered: petMa.containsMouse
+    property bool isHovered: petMa.containsMouse || actionsHovered
+    property bool actionsOpen: false
+    property bool actionsHovered: false
     property bool showCuteWord: Math.random() < 0.5
-    readonly property real cuteWordWidth: (showCuteWord && currentCuteWord !== "") ? (cuteWordLabel.implicitWidth + 4) : 0
-    readonly property real pillTargetWidth: isHovered ? (6 + moodPill.implicitWidth) : 0
-    readonly property real cuteWordTargetWidth: (showCuteWord && currentCuteWord !== "") ? (6 + cuteWordWidth) : 0
+    readonly property real cuteWordWidth: (!actionsOpen && showCuteWord && currentCuteWord !== "") ? (cuteWordLabel.implicitWidth + 4) : 0
+    readonly property real pillTargetWidth: actionsOpen ? (6 + actionsPill.implicitWidth) : (isHovered ? (6 + moodPill.implicitWidth) : 0)
+    readonly property real cuteWordTargetWidth: (!actionsOpen && showCuteWord && currentCuteWord !== "") ? (6 + cuteWordWidth) : 0
     width: baseWidth + pillTargetWidth + cuteWordTargetWidth
     Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
 
     // ── State detection ─────────────────────────────────────────────
     MprisSelect { id: mprisSel }
 
-    readonly property int cpu: root.systemCpuPercent
+    readonly property int cpu: root.systemCpuPercent || 0
+    readonly property int battPct: (root && typeof root.systemBatteryPercent === "number") ? root.systemBatteryPercent : 100
+    readonly property bool battCharging: Boolean(root && root.systemBatteryCharging)
     readonly property bool musicPlaying: mprisSel.playing
     readonly property bool isSpotifyPlaying: {
         if (!mprisSel.playing || !mprisSel.player) return false
@@ -40,10 +44,22 @@ Item {
         }
     }
 
-    // Priority: curious (search bar open) > vibing > sleeping > daydreaming > bored > happy
+    Connections {
+        target: pet.root ? pet.root : null
+        ignoreUnknownSignals: true
+        function onDashboardExpandedChanged() {
+            if (pet.root && !pet.root.dashboardExpanded) {
+                pet.actionsOpen = false
+            }
+        }
+    }
+
+    // Priority: curious (search bar open) > working (high CPU) > hungry (low batt) > vibing > sleeping > daydreaming > bored > happy
     property bool curious: false
     readonly property string mood: {
         if (curious) return "curious"
+        if (cpu >= 75) return "working"
+        if (!battCharging && battPct <= 20) return "hungry"
         if (musicPlaying) return "vibing"
         if (idleSeconds > 120) return "sleeping"
         if (idleSeconds > 60) return "daydreaming"
@@ -54,18 +70,22 @@ Item {
     readonly property string stateTitle: {
         switch (displayMood) {
             case "curious": return "Curious"
-            case "vibing": return (isSpotifyPlaying && spotifySongTitle !== "") ? ("Vibing to " + spotifySongTitle) : "Vibing"
+            case "working": return "Busy · CPU " + cpu + "%"
+            case "hungry": return "Low Battery · " + battPct + "%"
+            case "vibing": return (isSpotifyPlaying && spotifySongTitle !== "") ? ("Vibing · " + spotifySongTitle) : "Vibing"
             case "sleeping": return "Sleeping"
             case "daydreaming": return "Daydreaming"
             case "bored": return "Bored"
             case "happy":
-            default: return "Happy"
+            default: return "Happy · " + cpu + "% CPU"
         }
     }
 
     readonly property string stateDescription: {
         switch (displayMood) {
             case "curious": return "Search bar is open"
+            case "working": return "System working hard (" + cpu + "% CPU)"
+            case "hungry": return "Needs charger (" + battPct + "% left)"
             case "vibing": return "Purring along to the music"
             case "sleeping": return "System idle for " + Math.round(idleSeconds / 60) + "m"
             case "daydreaming": return "System idle for over 1 minute"
@@ -78,6 +98,8 @@ Item {
     readonly property string stateIcon: {
         switch (displayMood) {
             case "curious": return "search"
+            case "working": return "bolt"
+            case "hungry": return "battery_alert"
             case "vibing": return "music_note"
             case "sleeping": return "bedtime"
             case "daydreaming": return "cloud"
@@ -581,22 +603,142 @@ Item {
         }
     }
     
-    // Hitbox for poke & hover detection
+    // Hitbox for poke, right-click companion tools, middle-click pet/media, and scroll wheel
     MouseArea {
         id: petMa
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: isHovered ? parent.width : pet.baseWidth
+        width: (isHovered && !actionsOpen) ? parent.width : pet.baseWidth
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
                 pet.shrug()
+                pet.actionsOpen = !pet.actionsOpen
+            } else if (mouse.button === Qt.MiddleButton) {
+                pet.celebrate()
+                if (mprisSel.player) {
+                    mprisSel.player.togglePlaying()
+                } else if (pet.root) {
+                    pet.root.notifSilenced = !pet.root.notifSilenced
+                    pet.currentCuteWord = pet.root.notifSilenced ? "shh!" : "listening"
+                }
             } else {
+                pet.actionsOpen = false
                 pet.poke()
                 pet.clicked()
+            }
+        }
+        onWheel: (wheel) => {
+            var up = wheel.angleDelta.y > 0
+            if (pet.musicPlaying) {
+                Quickshell.execDetached(["wpctl", "set-volume", "-l", "1.0", "@DEFAULT_AUDIO_SINK@", up ? "5%+" : "5%-"])
+                pet.currentCuteWord = up ? "louder" : "softer"
+            } else {
+                Quickshell.execDetached(["brightnessctl", "set", up ? "+5%" : "5%-"])
+                pet.currentCuteWord = up ? "brighter" : "dimmer"
+            }
+            pet.showCuteWord = true
+            pet.idleSeconds = 0
+        }
+    }
+
+    // ── Right-Click Companion Quick-Tools Strip (Borderless, M3E Spring) ──
+    Rectangle {
+        id: actionsPill
+        z: 28
+        anchors.left: parent.left
+        anchors.leftMargin: pet.baseWidth + 6
+        anchors.verticalCenter: parent.verticalCenter
+        height: 28
+        radius: 14
+        border.width: 0
+        clip: true
+
+        implicitWidth: actionsRow.implicitWidth + 10
+        width: pet.actionsOpen ? implicitWidth : 0
+        opacity: pet.actionsOpen ? 1.0 : 0.0
+        scale: pet.actionsOpen ? 1.0 : 0.85
+        visible: width > 0.5 || opacity > 0.01
+
+        color: Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.10)
+
+        Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
+
+        HoverHandler {
+            onHoveredChanged: pet.actionsHovered = hovered
+        }
+
+        Row {
+            id: actionsRow
+            anchors.centerIn: parent
+            spacing: 4
+
+            Repeater {
+                model: [
+                    { id: "screenshot", icon: "screenshot_monitor", tip: "Screenshot" },
+                    { id: "picker", icon: "colorize", tip: "Color Picker" },
+                    { id: "notes", icon: "edit_note", tip: "Scratchpad Notes" },
+                    { id: "screentime", icon: "monitoring", tip: "Screen Time" },
+                    { id: "github", icon: "code", tip: "GitHub Contributions" }
+                ]
+                delegate: Rectangle {
+                    id: petToolBtn
+                    required property var modelData
+                    width: 24; height: 24; radius: 12
+                    border.width: 0
+                    color: petToolMa.containsMouse
+                        ? root.seal
+                        : Qt.rgba(root.ink.r, root.ink.g, root.ink.b, 0.08)
+                    Behavior on color { ColorAnimation { duration: 140 } }
+
+                    IconText {
+                        anchors.centerIn: parent
+                        text: petToolBtn.modelData.icon
+                        font.pixelSize: 14
+                        color: petToolMa.containsMouse ? root.paper : root.ink
+                    }
+
+                    TooltipMixin {
+                        id: petToolTip
+                        root: pet.root
+                        owner: petToolBtn
+                        text: petToolBtn.modelData.tip
+                    }
+
+                    MouseArea {
+                        id: petToolMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onEntered: petToolTip.show()
+                        onExited: petToolTip.hide()
+                        onClicked: {
+                            petToolTip.hide()
+                            pet.actionsOpen = false
+                            if (petToolBtn.modelData.id === "screenshot") {
+                                if (pet.root) pet.root.dashboardExpanded = false
+                                Quickshell.execDetached(["bash", "-c", "command -v omarchy-cmd-screenshot >/dev/null && omarchy-cmd-screenshot || (grim -g \"$(slurp)\" - | wl-copy)"])
+                            } else if (petToolBtn.modelData.id === "picker") {
+                                if (pet.root) pet.root.dashboardExpanded = false
+                                Quickshell.execDetached(["hyprpicker", "-a"])
+                            } else if (petToolBtn.modelData.id === "notes") {
+                                if (pet.root) pet.root.dashboardDetail = "notes"
+                            } else if (petToolBtn.modelData.id === "screentime") {
+                                if (pet.root) pet.root.dashboardDetail = "screentime"
+                            } else if (petToolBtn.modelData.id === "github") {
+                                if (pet.root) {
+                                    pet.root.dashboardExpanded = true
+                                    pet.root.dashboardDetail = "github"
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -610,16 +752,15 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         height: 24
         radius: 12
+        border.width: 0
         clip: true
 
         implicitWidth: pillRow.implicitWidth + 18
-        width: isHovered ? implicitWidth : 0
-        opacity: isHovered ? 1.0 : 0.0
-        scale: isHovered ? 1.0 : 0.85
+        width: (isHovered && !pet.actionsOpen) ? implicitWidth : 0
+        opacity: (isHovered && !pet.actionsOpen) ? 1.0 : 0.0
+        scale: (isHovered && !pet.actionsOpen) ? 1.0 : 0.85
 
         color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.16)
-        border.width: 1
-        border.color: Qt.rgba(root.seal.r, root.seal.g, root.seal.b, 0.35)
 
         Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
@@ -659,8 +800,8 @@ Item {
         anchors.leftMargin: pet.isHovered ? 6 : 0
         anchors.verticalCenter: parent.verticalCenter
         height: 24
-        width: (pet.showCuteWord && pet.currentCuteWord !== "") ? cuteWordLabel.implicitWidth : 0
-        opacity: (pet.showCuteWord && pet.currentCuteWord !== "") ? 0.75 : 0.0
+        width: (!pet.actionsOpen && pet.showCuteWord && pet.currentCuteWord !== "") ? cuteWordLabel.implicitWidth : 0
+        opacity: (!pet.actionsOpen && pet.showCuteWord && pet.currentCuteWord !== "") ? 0.75 : 0.0
         visible: opacity > 0.01
 
         Behavior on anchors.leftMargin { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }

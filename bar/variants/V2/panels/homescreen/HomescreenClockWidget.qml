@@ -115,18 +115,22 @@ Item {
         Canvas {
             id: dialCanvas
             anchors.fill: parent
-            anchors.margins: -16
+            anchors.margins: -20
             readonly property int curSec: timeDateWidget.timeSeconds
             readonly property color sCol: timeDateWidget.sealCol
             readonly property color iCol: timeDateWidget.inkCol
+            readonly property color c3Col: timeDateWidget.color03Col
             readonly property var vizLevels: timeDateWidget.vizLevels
             readonly property bool vizActive: timeDateWidget.isMediaPlaying
+            readonly property string vizStyle: (timeDateWidget.root && timeDateWidget.root.clockVisualizerStyle) ? timeDateWidget.root.clockVisualizerStyle : "ticks"
             readonly property real ticksProg: timeDateWidget.ticksProgress
             onCurSecChanged: requestPaint()
             onSColChanged: requestPaint()
             onIColChanged: requestPaint()
+            onC3ColChanged: requestPaint()
             onVizLevelsChanged: if (vizActive) requestPaint()
             onVizActiveChanged: requestPaint()
+            onVizStyleChanged: requestPaint()
             onTicksProgChanged: requestPaint()
             onPaint: {
                 if (width <= 40 || height <= 40 || watchDial.width <= 20) return
@@ -137,46 +141,148 @@ Item {
                 var cy = height / 2
                 var outerR = (watchDial.width / 2) - 8
                 var lv = vizLevels || []
+                var useTicksViz = vizActive && vizStyle === "ticks"
 
-                // 60 watch ticks (fade in clockwise one by one on boot, track passed seconds, and pulse outward when playing)
-                for (var i = 0; i < 60; i++) {
-                    var tickT = Math.max(0.0, Math.min(1.0, (ticksProg * 62.0 - i) / 3.0))
-                    if (tickT <= 0.01) continue
+                // 60 watch ticks (only drawn when idle or using the "ticks" visualizer style)
+                if (!vizActive || vizStyle === "ticks") {
+                    for (var i = 0; i < 60; i++) {
+                        var tickT = Math.max(0.0, Math.min(1.0, (ticksProg * 62.0 - i) / 3.0))
+                        if (tickT <= 0.01) continue
 
-                    var angle = (i / 60.0) * Math.PI * 2 - Math.PI / 2
-                    var isMajor = (i % 5 === 0)
-                    var isPassed = (i <= curSec)
-                    var isCurrent = (i === curSec)
-                    var amp = (vizActive && i < lv.length) ? lv[i] : 0.0
-                    var r1 = outerR - (isMajor ? 9 : 4)
-                    var r2 = outerR + (vizActive ? (amp * 18) : 0)
+                        var angle = (i / 60.0) * Math.PI * 2 - Math.PI / 2
+                        var isMajor = (i % 5 === 0)
+                        var isPassed = (i <= curSec)
+                        var isCurrent = (i === curSec)
+                        var amp = (useTicksViz && i < lv.length) ? lv[i] : 0.0
+                        var r1 = outerR - (isMajor ? 9 : 4)
+                        var r2 = outerR + (useTicksViz ? (amp * 18) : 0)
+                        ctx.beginPath()
+                        ctx.moveTo(cx + Math.cos(angle) * r1, cy + Math.sin(angle) * r1)
+                        ctx.lineTo(cx + Math.cos(angle) * r2, cy + Math.sin(angle) * r2)
+
+                        if (isCurrent) {
+                            ctx.strokeStyle = Qt.rgba(sCol.r, sCol.g, sCol.b, 1.0 * tickT)
+                        } else if (isPassed) {
+                            var passedAlpha = useTicksViz ? Math.min(1.0, 0.72 + amp * 0.28) : (isMajor ? 0.90 : 0.72)
+                            ctx.strokeStyle = Qt.rgba(sCol.r, sCol.g, sCol.b, passedAlpha * tickT)
+                        } else if (useTicksViz && amp > 0.06) {
+                            var blend = Math.min(1.0, amp * 1.15)
+                            ctx.strokeStyle = Qt.rgba(
+                                iCol.r * (1 - blend) + sCol.r * blend,
+                                iCol.g * (1 - blend) + sCol.g * blend,
+                                iCol.b * (1 - blend) + sCol.b * blend,
+                                (0.28 + blend * 0.50) * tickT
+                            )
+                        } else {
+                            ctx.strokeStyle = isMajor
+                                ? Qt.rgba(iCol.r, iCol.g, iCol.b, 0.34 * tickT)
+                                : Qt.rgba(iCol.r, iCol.g, iCol.b, 0.14 * tickT)
+                        }
+
+                        var baseW = useTicksViz ? (isMajor ? 2.4 : 1.7) : (isMajor ? 1.8 : 1.1)
+                        ctx.lineWidth = isCurrent ? (baseW + 1.2) : (isPassed ? (baseW + 0.7) : baseW)
+                        ctx.lineCap = "round"
+                        ctx.stroke()
+                    }
+                }
+
+                if (!vizActive || ticksProg < 0.95) return
+
+                // Style 2: WAVEFORM — smooth closed spline audio ring around the dial
+                if (vizStyle === "waveform") {
+                    var pts = []
+                    for (var w = 0; w < 60; w++) {
+                        var wa = (w / 60.0) * Math.PI * 2 - Math.PI / 2
+                        var wAmp = (w < lv.length) ? lv[w] : 0.0
+                        var wr = outerR + 4 + wAmp * 16
+                        pts.push({ x: cx + Math.cos(wa) * wr, y: cy + Math.sin(wa) * wr })
+                    }
                     ctx.beginPath()
-                    ctx.moveTo(cx + Math.cos(angle) * r1, cy + Math.sin(angle) * r1)
-                    ctx.lineTo(cx + Math.cos(angle) * r2, cy + Math.sin(angle) * r2)
+                    for (var p = 0; p < 60; p++) {
+                        var p0 = pts[p]
+                        var p1 = pts[(p + 1) % 60]
+                        var mx = (p0.x + p1.x) / 2
+                        var my = (p0.y + p1.y) / 2
+                        if (p === 0) {
+                            var pLast = pts[59]
+                            ctx.moveTo((pLast.x + p0.x) / 2, (pLast.y + p0.y) / 2)
+                        }
+                        ctx.quadraticCurveTo(p0.x, p0.y, mx, my)
+                    }
+                    ctx.closePath()
+                    ctx.fillStyle = Qt.rgba(sCol.r, sCol.g, sCol.b, 0.08)
+                    ctx.fill()
+                    ctx.strokeStyle = Qt.rgba(sCol.r, sCol.g, sCol.b, 0.88)
+                    ctx.lineWidth = 2.2
+                    ctx.stroke()
+                }
 
-                    if (isCurrent) {
-                        ctx.strokeStyle = Qt.rgba(sCol.r, sCol.g, sCol.b, 1.0 * tickT)
-                    } else if (isPassed) {
-                        var passedAlpha = vizActive ? Math.min(1.0, 0.72 + amp * 0.28) : (isMajor ? 0.90 : 0.72)
-                        ctx.strokeStyle = Qt.rgba(sCol.r, sCol.g, sCol.b, passedAlpha * tickT)
-                    } else if (vizActive && amp > 0.06) {
-                        var blend = Math.min(1.0, amp * 1.15)
-                        ctx.strokeStyle = Qt.rgba(
-                            iCol.r * (1 - blend) + sCol.r * blend,
-                            iCol.g * (1 - blend) + sCol.g * blend,
-                            iCol.b * (1 - blend) + sCol.b * blend,
-                            (0.28 + blend * 0.50) * tickT
-                        )
-                    } else {
-                        ctx.strokeStyle = isMajor
-                            ? Qt.rgba(iCol.r, iCol.g, iCol.b, 0.34 * tickT)
-                            : Qt.rgba(iCol.r, iCol.g, iCol.b, 0.14 * tickT)
+                // Style 3: ORBIT — floating radial frequency beads orbiting the watch face
+                else if (vizStyle === "orbit") {
+                    for (var o = 0; o < 60; o += 2) {
+                        var oa = (o / 60.0) * Math.PI * 2 - Math.PI / 2
+                        var oAmp = (o < lv.length) ? lv[o] : 0.0
+                        var orad = outerR + 5 + oAmp * 15
+                        var dotR = 1.4 + oAmp * 2.6
+                        ctx.beginPath()
+                        ctx.arc(cx + Math.cos(oa) * orad, cy + Math.sin(oa) * orad, dotR, 0, Math.PI * 2)
+                        ctx.fillStyle = oAmp > 0.35
+                            ? Qt.rgba(sCol.r, sCol.g, sCol.b, 0.55 + oAmp * 0.45)
+                            : Qt.rgba(iCol.r, iCol.g, iCol.b, 0.25 + oAmp * 0.55)
+                        ctx.fill()
+                    }
+                }
+
+                // Style 4: STARWEB / CONSTELLATION — reactive polygonal web with glowing star vertices & peak cross-chords
+                else if (vizStyle === "constellation" || vizStyle === "aurora") {
+                    var nNodes = 20
+                    var nodes = []
+                    for (var n = 0; n < nNodes; n++) {
+                        var na = (n / nNodes) * Math.PI * 2 - Math.PI / 2
+                        var bandIdx = Math.floor((n / nNodes) * Math.min(60, lv.length))
+                        var nAmp = (bandIdx < lv.length) ? lv[bandIdx] : 0.0
+                        var nr = outerR + 3 + nAmp * 16
+                        nodes.push({
+                            x: cx + Math.cos(na) * nr,
+                            y: cy + Math.sin(na) * nr,
+                            amp: nAmp
+                        })
                     }
 
-                    var baseW = vizActive ? (isMajor ? 2.4 : 1.7) : (isMajor ? 1.8 : 1.1)
-                    ctx.lineWidth = isCurrent ? (baseW + 1.2) : (isPassed ? (baseW + 0.7) : baseW)
-                    ctx.lineCap = "round"
+                    // Outer polygonal constellation perimeter
+                    ctx.beginPath()
+                    for (var j = 0; j < nNodes; j++) {
+                        if (j === 0) ctx.moveTo(nodes[j].x, nodes[j].y)
+                        else ctx.lineTo(nodes[j].x, nodes[j].y)
+                    }
+                    ctx.closePath()
+                    ctx.strokeStyle = Qt.rgba(sCol.r, sCol.g, sCol.b, 0.55)
+                    ctx.lineWidth = 1.4
                     ctx.stroke()
+
+                    // Cross-chords connecting energetic nodes to their harmonic opposite/neighbor
+                    for (var a = 0; a < nNodes; a++) {
+                        if (nodes[a].amp < 0.22) continue
+                        var b = (a + 3) % nNodes
+                        ctx.beginPath()
+                        ctx.moveTo(nodes[a].x, nodes[a].y)
+                        ctx.lineTo(nodes[b].x, nodes[b].y)
+                        ctx.strokeStyle = Qt.rgba(c3Col.r, c3Col.g, c3Col.b, Math.min(0.65, nodes[a].amp * 0.75))
+                        ctx.lineWidth = 1.0
+                        ctx.stroke()
+                    }
+
+                    // Glowing star vertices
+                    for (var v = 0; v < nNodes; v++) {
+                        var vAmp = nodes[v].amp
+                        var vr = 1.4 + vAmp * 2.4
+                        ctx.beginPath()
+                        ctx.arc(nodes[v].x, nodes[v].y, vr, 0, Math.PI * 2)
+                        ctx.fillStyle = vAmp > 0.35
+                            ? Qt.rgba(sCol.r, sCol.g, sCol.b, 0.95)
+                            : Qt.rgba(iCol.r, iCol.g, iCol.b, 0.35 + vAmp * 0.45)
+                        ctx.fill()
+                    }
                 }
             }
         }

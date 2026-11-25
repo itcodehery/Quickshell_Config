@@ -2,14 +2,14 @@ import QtQuick
 import ".."
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Widgets
 import Quickshell.Services.UPower
 import Quickshell.Services.Mpris
 import "../../modules"
+import "../../motion"
 
 // Docked status pill in the top-right corner of the screen.
-// Integrates hardware privacy indicator dots (mic, camera, screen-share)
-// and battery status (when media is playing) into a single cohesive pill,
-// matching the dimensions and styling of the floating lyrics pill.
+// Borderless live battery-fill progress pill + privacy indicator dots.
 PanelWindow {
     id: privacyWin
     required property var root
@@ -25,8 +25,8 @@ PanelWindow {
         right: true
     }
     margins {
-        top: 4
-        bottom: 4
+        top: root.isBarNotch ? 0 : 4
+        bottom: root.isBarNotch ? 0 : 4
         right: 14
     }
 
@@ -65,28 +65,11 @@ PanelWindow {
     readonly property bool full:     devState === UPowerDeviceState.FullyCharged
     readonly property bool low:      hasBattery && !charging && !full && percent <= 20
 
-    // Time estimate
-    readonly property real timeToEmpty: dev ? dev.timeToEmpty : 0
-    readonly property real timeToFull:  dev ? dev.timeToFull  : 0
-    readonly property string timeText:  charging ? fmtDuration(timeToFull) : fmtDuration(timeToEmpty)
-    function fmtDuration(s) {
-        if (!s || s <= 0) return ""
-        var h = Math.floor(s / 3600)
-        var m = Math.floor((s % 3600) / 60)
-        return h > 0 ? (h + "h " + m + "m") : (m + "m")
-    }
-
-    readonly property string statusText:
-        full ? "Full"
-        : charging ? "Charging"
-        : devState === UPowerDeviceState.Discharging ? "Discharging"
-        : "On battery"
-    readonly property string tooltipText: statusText + " · " + percent + "%"
-                                          + (timeText ? " · " + timeText : "")
+    readonly property real ratio: Math.max(0, Math.min(1, percent / 100.0))
 
     // Media & visibility logic
-    readonly property bool isMediaPlaying: mprisPanel && mprisPanel.active && (mprisPanel.playing || (mprisPanel.player && mprisPanel.player.playbackState === MprisPlaybackState.Playing))
-    readonly property bool showBattery: isMediaPlaying && hasBattery
+    readonly property bool isMediaActive: Boolean(mprisPanel && mprisPanel.active)
+    readonly property bool showBattery: isMediaActive && hasBattery
     readonly property bool showPrivacy: hasPrivacy && dots.length > 0
     readonly property bool shouldShow: showBattery || showPrivacy
 
@@ -98,14 +81,13 @@ PanelWindow {
         anchors.right: parent.right
         height: privacyWin.pillHeight
         radius: height / 2
-        color: root.barBg
+        border.width: 0
+        color: root.isBarVignette ? "transparent" : root.barBg
 
         readonly property real contentWidth: contentRow.implicitWidth
-        width: Math.max(28, contentWidth + 20)
+        width: Math.max(32, contentWidth + 20)
 
-        Behavior on width {
-            NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
-        }
+        Behavior on width { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
 
         opacity: privacyWin.shouldShow ? 1.0 : 0.0
         scale: privacyWin.shouldShow ? 1.0 : 0.92
@@ -113,134 +95,56 @@ PanelWindow {
         Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
         Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack } }
 
-        readonly property color battColor: (privacyWin.charging || privacyWin.full) ? root.indigo : root.seal
+        readonly property color battColor: privacyWin.low
+            ? "#f87171"
+            : ((privacyWin.charging || privacyWin.full) ? root.color03 : root.seal)
+
+        // Live tonal battery level fill inside the pill (hidden in cardless vignette mode)
+        ClippingRectangle {
+            visible: privacyWin.showBattery && !root.isBarVignette
+            anchors.fill: parent
+            radius: parent.radius
+            color: "transparent"
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: parent.width * privacyWin.ratio
+                color: pill.battColor
+                opacity: privacyWin.charging ? 0.24 : 0.16
+                Behavior on width { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+                Behavior on color { ColorAnimation { duration: 220 } }
+            }
+        }
 
         Row {
             id: contentRow
             anchors.centerIn: parent
             spacing: (privacyWin.showBattery && privacyWin.showPrivacy) ? 8 : 0
 
-            // Battery information (shown when media is playing)
+            // Borderless battery readout (bolt/icon + bold %)
             Row {
                 id: battRow
                 visible: privacyWin.showBattery
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 6
+                spacing: 4
 
-                Item {
-                    id: batt
-                    width: 19
-                    height: 10
+                IconText {
                     anchors.verticalCenter: parent.verticalCenter
-
-                    readonly property real ratio: Math.max(0, Math.min(1, privacyWin.percent / 100))
-
-                    property real pulse: 1.0
-                    opacity: privacyWin.low ? pulse : 1.0
-                    SequentialAnimation {
-                        running: privacyWin.visible && privacyWin.low
-                        loops: Animation.Infinite
-                        NumberAnimation { target: batt; property: "pulse"; from: 1.0; to: 0.3; duration: 1100; easing.type: Easing.InOutSine }
-                        NumberAnimation { target: batt; property: "pulse"; from: 0.3; to: 1.0; duration: 1100; easing.type: Easing.InOutSine }
-                    }
-
-                    Rectangle {
-                        id: body
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 16
-                        height: 9
-                        radius: 2.5
-                        color: "transparent"
-                        border.width: 1.2
-                        border.color: pill.battColor
-                        Behavior on border.color { ColorAnimation { duration: 200 } }
-
-                        Rectangle {
-                            visible: privacyWin.charging
-                            anchors.fill: parent
-                            anchors.margins: 1.8
-                            radius: 1.2
-                            color: Qt.rgba(pill.battColor.r, pill.battColor.g, pill.battColor.b, 0.28)
-                        }
-
-                        Rectangle {
-                            id: fill
-                            anchors.left: parent.left
-                            anchors.top: parent.top
-                            anchors.bottom: parent.bottom
-                            anchors.margins: 1.8
-                            width: Math.max(batt.ratio > 0 ? 1.5 : 0, (parent.width - 3.6) * batt.ratio)
-                            radius: 1.2
-                            clip: true
-                            color: pill.battColor
-                            Behavior on width { NumberAnimation { duration: 350; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
-                            Behavior on color { ColorAnimation { duration: 200 } }
-
-                            Rectangle {
-                                visible: privacyWin.charging && !privacyWin.full
-                                anchors.top: parent.top
-                                anchors.bottom: parent.bottom
-                                width: 6
-                                radius: parent.radius
-                                color: Qt.rgba(1, 1, 1, 0.18)
-                                property real pos: 0
-                                x: (parent.width + width) * pos - width
-                                SequentialAnimation on pos {
-                                    running: privacyWin.charging && !privacyWin.full
-                                    loops: Animation.Infinite
-                                    NumberAnimation { from: 0; to: 1; duration: 1100; easing.type: Easing.InOutSine }
-                                    PauseAnimation { duration: 500 }
-                                }
-                            }
-                        }
-
-                        Canvas {
-                            id: bolt
-                            visible: privacyWin.charging || privacyWin.full
-                            anchors.centerIn: parent
-                            width: 6
-                            height: 8
-                            property color boltColor: root.paper
-                            onBoltColorChanged: requestPaint()
-                            onPaint: {
-                                var ctx = getContext("2d")
-                                ctx.clearRect(0, 0, width, height)
-                                ctx.beginPath()
-                                ctx.moveTo(width * 0.55, 0)
-                                ctx.lineTo(width * 0.12, height * 0.55)
-                                ctx.lineTo(width * 0.45, height * 0.55)
-                                ctx.lineTo(width * 0.38, height)
-                                ctx.lineTo(width * 0.88, height * 0.45)
-                                ctx.lineTo(width * 0.55, height * 0.45)
-                                ctx.closePath()
-                                ctx.fillStyle = bolt.boltColor
-                                ctx.fill()
-                            }
-                            Component.onCompleted: requestPaint()
-                        }
-                    }
-
-                    Rectangle {
-                        anchors.left: body.right
-                        anchors.leftMargin: -0.5
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 2.5
-                        height: 5
-                        radius: 1.2
-                        color: pill.battColor
-                        Behavior on color { ColorAnimation { duration: 200 } }
-                    }
+                    text: privacyWin.charging ? "battery_charging_full" : "bolt"
+                    color: pill.battColor
+                    font.pixelSize: 14
+                    Behavior on color { ColorAnimation { duration: 200 } }
                 }
 
                 UiText {
                     anchors.verticalCenter: parent.verticalCenter
                     text: privacyWin.percent + "%"
-                    color: pill.battColor
+                    color: root.ink
                     font.family: root.barFont
                     font.pixelSize: 11
-                    font.weight: Font.DemiBold
-                    Behavior on color { ColorAnimation { duration: 200 } }
+                    font.weight: Font.Bold
                 }
             }
 
@@ -256,16 +160,16 @@ PanelWindow {
                     delegate: Rectangle {
                         id: dot
                         required property var modelData
-                        width: 8
-                        height: 8
-                        radius: 4
+                        width: 7
+                        height: 7
+                        radius: 3.5
                         color: modelData.color
 
                         SequentialAnimation on opacity {
                             running: privacyWin.visible && privacyWin.showPrivacy
                             loops: Animation.Infinite
-                            NumberAnimation { to: 0.5; duration: 1000; easing.type: Easing.InOutSine }
-                            NumberAnimation { to: 1.0; duration: 1000; easing.type: Easing.InOutSine }
+                            NumberAnimation { to: 0.4; duration: 900; easing.type: Easing.InOutSine }
+                            NumberAnimation { to: 1.0; duration: 900; easing.type: Easing.InOutSine }
                         }
                     }
                 }

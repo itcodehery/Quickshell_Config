@@ -16,15 +16,6 @@ Item {
         widgetSaveProc.running = true
     }
 
-    function saveDesktopMenuMode() {
-        if (root.theme._desktopMenuModeLoaded) {
-            desktopMenuModeSaveProc.command = ["bash", "-c",
-                "printf '%s' '" + (root.theme.desktopMenuListMode ? "1" : "0") + "' > '" + root.theme.desktopMenuModeCachePath + "'"]
-            desktopMenuModeSaveProc.running = false
-            desktopMenuModeSaveProc.running = true
-        }
-    }
-
     Process {
         id: widgetLoadProc
         command: ["cat", root.theme.widgetsCachePath]
@@ -37,21 +28,6 @@ Item {
     }
 
     Process { id: widgetSaveProc }
-
-    Process {
-        id: desktopMenuModeLoadProc
-        command: ["cat", root.theme.desktopMenuModeCachePath]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                var t = this.text.trim()
-                if (t === "1" || t === "list") root.theme.desktopMenuListMode = true
-                else if (t === "0" || t === "radial") root.theme.desktopMenuListMode = false
-                root.theme._desktopMenuModeLoaded = true
-            }
-        }
-    }
-    Process { id: desktopMenuModeSaveProc }
 
     function archGateRescan() { archGate.rerun() }
 

@@ -313,6 +313,56 @@ Item {
     }
 
     MprisService { id: theMprisPanel; root: theme }
+
+    // Dedicated blur-free Vignette edge gradient (separate namespace so Hyprland never blurs it)
+    Variants {
+        model: root.barScreens
+
+        delegate: Component {
+            PanelWindow {
+                id: vignetteWin
+                required property var modelData
+                screen: modelData
+                color: "transparent"
+                anchors {
+                    left: true
+                    right: true
+                    top: theme.barPosition !== "bottom"
+                    bottom: theme.barPosition === "bottom"
+                }
+                implicitHeight: theme.v2BarHeight + 8
+                exclusionMode: ExclusionMode.Ignore
+                WlrLayershell.layer: WlrLayer.Bottom
+                WlrLayershell.namespace: "omarchy-vignette-bar"
+                WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+                mask: Region {}
+                visible: theme.isBarVignette && !theme.barHidden && !theme.dashboardExpanded
+
+                Rectangle {
+                    anchors.fill: parent
+                    gradient: Gradient {
+                        GradientStop {
+                            position: 0.0
+                            color: theme.barPosition === "bottom" ? "transparent" : Qt.rgba(0, 0, 0, 0.78)
+                        }
+                        GradientStop {
+                            position: 0.40
+                            color: theme.barPosition === "bottom" ? Qt.rgba(0, 0, 0, 0.14) : Qt.rgba(0, 0, 0, 0.42)
+                        }
+                        GradientStop {
+                            position: 0.75
+                            color: theme.barPosition === "bottom" ? Qt.rgba(0, 0, 0, 0.42) : Qt.rgba(0, 0, 0, 0.14)
+                        }
+                        GradientStop {
+                            position: 1.0
+                            color: theme.barPosition === "bottom" ? Qt.rgba(0, 0, 0, 0.78) : "transparent"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     LyricsPanel { root: theme; mprisPanel: theMprisPanel }
 
     Variants {

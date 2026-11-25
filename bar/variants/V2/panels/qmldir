@@ -10,6 +10,7 @@ DashboardSettingsDetailSection 1.0 details/DashboardSettingsDetailSection.qml
 DashboardTile 1.0 homescreen/DashboardTile.qml
 DesktopContextMenu 1.0 overlays/DesktopContextMenu.qml
 DesktopContextMenuListCard 1.0 overlays/DesktopContextMenuListCard.qml
+GithubDetailSection 1.0 details/GithubDetailSection.qml
 GithubHeatmapPanel 1.0 productivity/GithubHeatmapPanel.qml
 HomescreenClockWidget 1.0 homescreen/HomescreenClockWidget.qml
 HomescreenDashboardContent 1.0 homescreen/HomescreenDashboardContent.qml

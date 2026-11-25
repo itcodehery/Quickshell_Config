@@ -58,6 +58,56 @@ Item {
     readonly property var months: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
     readonly property var days: ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
     readonly property var shortDays: ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
+
+    // Display Projection / Mirroring state (via qs-project-ctl)
+    readonly property string projectctlPath: Quickshell.env("HOME") + "/.config/quickshell/bin/qs-project-ctl"
+    property string projectMode: "extend"
+    property string projectLabel: "Extend"
+    property string projectIcon: "splitscreen"
+    property bool projectActive: false
+
+    function applyProjectPayload(rawText) {
+        try {
+            var data = JSON.parse(rawText.trim())
+            projectMode = data.mode || "extend"
+            projectLabel = data.label || "Extend"
+            projectIcon = data.icon || "splitscreen"
+            projectActive = (data.active === true)
+        } catch (e) {}
+    }
+
+    Process {
+        id: projectStatusProc
+        command: [expandedDashboardContainer.projectctlPath, "status"]
+        stdout: StdioCollector {
+            onStreamFinished: expandedDashboardContainer.applyProjectPayload(this.text)
+        }
+    }
+    Process {
+        id: projectCycleProc
+        command: [expandedDashboardContainer.projectctlPath, "cycle"]
+        stdout: StdioCollector {
+            onStreamFinished: expandedDashboardContainer.applyProjectPayload(this.text)
+        }
+    }
+    Process {
+        id: projectPrevProc
+        command: [expandedDashboardContainer.projectctlPath, "prev"]
+        stdout: StdioCollector {
+            onStreamFinished: expandedDashboardContainer.applyProjectPayload(this.text)
+        }
+    }
+
+    Connections {
+        target: expandedDashboardContainer.barSlot
+        function onIsDashboardActiveChanged() {
+            if (expandedDashboardContainer.barSlot.isDashboardActive) {
+                projectStatusProc.running = false
+                projectStatusProc.running = true
+            }
+        }
+    }
+    Component.onCompleted: projectStatusProc.running = true
     readonly property string dateStr: days[now.getDay()] + ", " + now.getDate() + " " + months[now.getMonth()]
     readonly property string dateShortStr: shortDays[now.getDay()] + ", " + months[now.getMonth()] + " " + now.getDate()
 
@@ -153,6 +203,7 @@ Item {
             { id: "notifications", name: "Notifications",  icon: "notifications" },
             { id: "calendar",      name: "Calendar",       icon: "calendar_month" },
             { id: "notes",         name: "Notes",          icon: "edit_note" },
+            { id: "github",        name: "GitHub",         icon: "code" },
             { id: "theme",         name: "Themes",         icon: "palette" },
             { id: "wallpaper",     name: "Wallpapers",     icon: "wallpaper" },
             { id: "plugins",       name: "Plugins",        icon: "extension" },
@@ -485,6 +536,78 @@ Item {
                                     expandedDashboardContainer.barSlot.root.dashboardExpanded = false
                                     Quickshell.execDetached(["omarchy-shell", "shell", "summon", modelData.id])
                                 }
+                            }
+                        }
+                    }
+                }
+
+                // Display Projection / Screen Mirror Pill
+                Rectangle {
+                    id: projectHeaderPill
+                    height: 28
+                    width: projectPillRow.implicitWidth + 20
+                    radius: 14
+                    anchors.verticalCenter: parent.verticalCenter
+                    readonly property color onSealCol: {
+                        var s = expandedDashboardContainer.barSlot.root.seal
+                        var l = 0.299 * s.r + 0.587 * s.g + 0.114 * s.b
+                        return l > 0.55 ? "#121212" : "#ffffff"
+                    }
+                    color: expandedDashboardContainer.projectActive
+                        ? (projectPillMa.containsMouse ? Qt.lighter(expandedDashboardContainer.barSlot.root.seal, 1.1) : expandedDashboardContainer.barSlot.root.seal)
+                        : (projectPillMa.containsMouse ? expandedDashboardContainer.barSlot.root.fillHover : expandedDashboardContainer.barSlot.root.fillIdle)
+                    border.width: 0
+                    scale: projectPillMa.pressed ? 0.94 : (projectPillMa.containsMouse ? 1.03 : 1.0)
+                    Behavior on scale { NumberAnimation { duration: 120 } }
+                    Behavior on color { ColorAnimation { duration: 150 } }
+
+                    Row {
+                        id: projectPillRow
+                        anchors.centerIn: parent
+                        spacing: 5
+
+                        IconText {
+                            text: expandedDashboardContainer.projectIcon || "cast"
+                            color: expandedDashboardContainer.projectActive ? projectHeaderPill.onSealCol : expandedDashboardContainer.barSlot.root.ink
+                            font.pixelSize: 13
+                            opacity: expandedDashboardContainer.projectActive ? 1.0 : 0.78
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        Text {
+                            text: expandedDashboardContainer.projectLabel || "Extend"
+                            color: expandedDashboardContainer.projectActive ? projectHeaderPill.onSealCol : expandedDashboardContainer.barSlot.root.ink
+                            opacity: expandedDashboardContainer.projectActive ? 1.0 : 0.85
+                            font.family: expandedDashboardContainer.barSlot.root.barFont
+                            font.pixelSize: 11
+                            font.weight: expandedDashboardContainer.projectActive ? Font.Bold : Font.Medium
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+
+                    TooltipMixin {
+                        id: projectPillTip
+                        root: expandedDashboardContainer.barSlot.root
+                        owner: projectHeaderPill
+                        text: "Display: " + expandedDashboardContainer.projectLabel + " (Left-click: next · Right-click: prev)"
+                    }
+
+                    MouseArea {
+                        id: projectPillMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        cursorShape: Qt.PointingHandCursor
+                        onEntered: projectPillTip.show()
+                        onExited: projectPillTip.hide()
+                        onClicked: (mouse) => {
+                            projectPillTip.hide()
+                            if (mouse.button === Qt.RightButton) {
+                                projectPrevProc.running = false
+                                projectPrevProc.running = true
+                            } else {
+                                projectCycleProc.running = false
+                                projectCycleProc.running = true
                             }
                         }
                     }

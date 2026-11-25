@@ -329,25 +329,45 @@ Item {
             anchors.centerIn: parent
             spacing: 8
 
-            // Album Art
+            // Spinning Vinyl Album Art Disc
             ClippingRectangle {
+                id: islandVinyl
                 width: 20; height: 20; radius: 10
                 anchors.verticalCenter: parent.verticalCenter
-                color: Qt.rgba(rootMod.accentColor.r, rootMod.accentColor.g, rootMod.accentColor.b, 0.2)
+                color: Qt.rgba(rootMod.accentColor.r, rootMod.accentColor.g, rootMod.accentColor.b, 0.22)
+
                 Image {
                     id: islandArt
                     anchors.fill: parent
                     source: artwork.source
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
+                    smooth: true
                     visible: status === Image.Ready
                 }
+
+                // Vinyl center spindle hole
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 4; height: 4; radius: 2
+                    color: root.barBg
+                    visible: islandArt.status === Image.Ready
+                }
+
                 IconText {
                     anchors.centerIn: parent
                     visible: islandArt.status !== Image.Ready
                     text: ""
                     font.pixelSize: 12
                     color: rootMod.accentColor
+                }
+
+                NumberAnimation on rotation {
+                    from: 0
+                    to: 360
+                    duration: 5500
+                    loops: Animation.Infinite
+                    running: rootMod.visible && rootMod.islandMode && rootMod.playing
                 }
             }
             // Title
@@ -363,7 +383,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     text: rootMod.player ? (rootMod.player.trackTitle || "Unknown") : ""
                     color: rootMod.contentColor
-                    font.family: root.barFont; font.pixelSize: 12; font.weight: Font.Medium
+                    font.family: root.barFont; font.pixelSize: 11; font.weight: Font.Bold
                     x: 0
                     
                     onTextChanged: { islandMarqueeClip.resetMarquee(); }

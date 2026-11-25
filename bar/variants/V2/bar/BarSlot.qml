@@ -58,33 +58,28 @@ PanelWindow {
         ? (island.notifPeekBody !== "" ? Math.min(94, Math.max(70, islandNotifPeekItem.desiredCardHeight)) : 46)
         : barSlot.root.v2BarHeight
     readonly property int chargingTargetHeight: barSlot.root.v2BarHeight
-    readonly property int barExpandedHeight: (typeof island !== "undefined" && island && island.hoverQuickPanel && island.hoverQuickPanel.omarchyTab === 1) ? 120 : 56
-    readonly property bool isHoverExpanded: !isDashboardActive && (typeof island !== "undefined" && island) && !island.isIslandHidden
-    readonly property real hoverMaskHeight: Math.max(continuousBarSurface.height, barExpandedHeight)
-    readonly property real hoverMaskWidth: (typeof island !== "undefined" && island) ? Math.max(continuousBarSurface.width, island.expandedContainerWidth) : continuousBarSurface.width
     readonly property int shellVisibleHeight: isDashboardActive
         ? Math.round(dashboardExpandedHeight)
-        : (isHoverExpanded
-            ? barExpandedHeight
-            : (island && island.powerPeekProgress > 0
-                ? Math.round(barSlot.root.v2BarHeight + (152 - barSlot.root.v2BarHeight) * island.powerPeekProgress)
-                : (island && island.chargingProgress > 0
-                    ? Math.round(barSlot.root.v2BarHeight + (chargingTargetHeight - barSlot.root.v2BarHeight) * island.chargingProgress)
-                    : (island && island.notifPeekActive
-                        ? Math.round(barSlot.root.v2BarHeight + (notifTargetHeight - barSlot.root.v2BarHeight) * island.notifPeekProgress)
-                        : barSlot.root.v2BarHeight))))
+        : (island && island.powerPeekProgress > 0
+            ? Math.round(barSlot.root.v2BarHeight + (192 - barSlot.root.v2BarHeight) * island.powerPeekProgress)
+            : (island && island.chargingProgress > 0
+                ? Math.round(barSlot.root.v2BarHeight + (chargingTargetHeight - barSlot.root.v2BarHeight) * island.chargingProgress)
+                : (island && island.notifPeekActive
+                    ? Math.round(barSlot.root.v2BarHeight + (notifTargetHeight - barSlot.root.v2BarHeight) * island.notifPeekProgress)
+                    : barSlot.root.v2BarHeight)))
     readonly property int shellRadius: isDashboardActive
         ? 28
         : ((island && island.powerPeekProgress > 0)
             ? 24
             : ((island && island.notifPeekActive && island.notifPeekBody !== "")
                 ? 20
-                : (isHoverExpanded ? 24 : Math.round(shellVisibleHeight / 2))))
+                : Math.round(shellVisibleHeight / 2)))
+    readonly property real notchSlantExtra: (!isDashboardActive && barSlot.root.isBarNotch) ? 44 : 0
     readonly property real shellTargetWidth: isDashboardActive
         ? dashboardExpandedWidth
         : Math.max(80,
             Math.min(barSlot.width - 2 * shellOuterMargin,
-                isHoverExpanded ? island.expandedContainerWidth : island.collapsedIslandWidth))
+                island.collapsedIslandWidth + notchSlantExtra))
 
     visible: !barSlot.root.barHidden
     color: "transparent"
@@ -109,22 +104,18 @@ PanelWindow {
 
     mask: Region {
         x: (barSlot.root.barUnlocked || barSlot.isDashboardActive || barSlot.isPowerPeekActive) ? 0
-           : (barSlot.isHoverExpanded
-               ? Math.round((barSlot.width - barSlot.hoverMaskWidth) / 2)
-               : Math.round(continuousBarSurface.x))
+           : Math.round(continuousBarSurface.x)
         y: (barSlot.root.barUnlocked || barSlot.isDashboardActive || barSlot.isPowerPeekActive) ? 0
            : barSlot.effectivelyHidden
                ? (barSlot.root.barPosition === "bottom" ? barSlot.height - 1 : 0)
                : (barSlot.root.barPosition === "bottom"
-                   ? (barSlot.isHoverExpanded
-                       ? barSlot.height - Math.round(barSlot.hoverMaskHeight) - barSlot.barEdgeOffset
-                       : barSlot.height - Math.round(continuousBarSurface.height) - barSlot.barEdgeOffset)
+                   ? (barSlot.height - Math.round(continuousBarSurface.height) - barSlot.barEdgeOffset)
                    : barSlot.barEdgeOffset)
         width: (barSlot.root.barUnlocked || barSlot.isDashboardActive || barSlot.isPowerPeekActive) ? barSlot.width
-           : (barSlot.isHoverExpanded ? Math.round(barSlot.hoverMaskWidth) : Math.round(continuousBarSurface.width))
+           : Math.round(continuousBarSurface.width)
         height: (barSlot.root.barUnlocked || barSlot.isDashboardActive || barSlot.isPowerPeekActive) ? barSlot.height
            : barSlot.effectivelyHidden ? 1
-           : (barSlot.isHoverExpanded ? Math.round(barSlot.hoverMaskHeight) : Math.round(continuousBarSurface.height))
+           : Math.round(continuousBarSurface.height)
     }
     // grab keyboard while unlocked, dashboard is expanded, or power peek is active
     WlrLayershell.keyboardFocus: (barSlot.root.barUnlocked || barSlot.isDashboardActive || barSlot.isPowerPeekActive) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
@@ -213,16 +204,16 @@ PanelWindow {
         width: barSlot.shellTargetWidth
         Behavior on width {
             NumberAnimation {
-                duration: (barSlot.isDashboardActive || barSlot.isHoverExpanded) ? 240 : 200
-                easing.type: (barSlot.isDashboardActive || barSlot.isHoverExpanded) ? Easing.OutBack : Easing.OutCubic
+                duration: barSlot.isDashboardActive ? 240 : 200
+                easing.type: barSlot.isDashboardActive ? Easing.OutBack : Easing.OutCubic
                 easing.overshoot: 1.08
             }
         }
         height: barSlot.shellVisibleHeight
         Behavior on height {
             NumberAnimation {
-                duration: (barSlot.isDashboardActive || barSlot.isHoverExpanded) ? 240 : 200
-                easing.type: (barSlot.isDashboardActive || barSlot.isHoverExpanded) ? Easing.OutBack : Easing.OutCubic
+                duration: barSlot.isDashboardActive ? 240 : 200
+                easing.type: barSlot.isDashboardActive ? Easing.OutBack : Easing.OutCubic
                 easing.overshoot: 1.08
             }
         }
@@ -251,7 +242,7 @@ PanelWindow {
         Shape {
             id: islandSurfaceBorder
             anchors.fill: parent
-            visible: (!barSlot.isDashboardActive) && barSlot.root.barBorderEnabled
+            visible: false
             antialiasing: true
             preferredRendererType: Shape.CurveRenderer
             z: 15
@@ -318,34 +309,79 @@ PanelWindow {
             antialiasing: true
             preferredRendererType: Shape.CurveRenderer
 
+            readonly property bool useSlantNotch: !barSlot.isDashboardActive && barSlot.root.isBarNotch
+            readonly property bool isBottomNotch: useSlantNotch && barSlot.root.barPosition === "bottom"
+            readonly property real ear: 24
+            readonly property real topR: continuousBarSurface.topCornerRadius
+            readonly property real botR: continuousBarSurface.bottomCornerRadius
+            readonly property real w: width
+            readonly property real h: height
+
+            readonly property bool hideSurfaceForVignette: barSlot.root.isBarVignette
+                && !barSlot.isDashboardActive
+                && !barSlot.isPowerPeekActive
+                && !(island && (island.osdActive || island.notifPeekActive || island.dictationActive || island.chargingActive))
+            readonly property color activeSurfaceColor: hideSurfaceForVignette
+                ? "transparent"
+                : (barSlot.isSubPageOpen ? barSlot.root.sidebarBg : barSlot.root.barBg)
+
+            // Rounded-rect path (Pill Mode & Dashboard)
             ShapePath {
                 strokeColor: "transparent"
-                fillColor: barSlot.isSubPageOpen ? barSlot.root.sidebarBg : barSlot.root.barBg
-                startX: continuousBarSurface.topCornerRadius
+                fillColor: surfaceFill.useSlantNotch
+                    ? "transparent"
+                    : surfaceFill.activeSurfaceColor
+                startX: surfaceFill.topR
                 startY: 0
-                PathLine { x: surfaceFill.width - continuousBarSurface.topCornerRadius; y: 0 }
-                PathQuad {
-                    x: surfaceFill.width; y: continuousBarSurface.topCornerRadius
-                    controlX: surfaceFill.width; controlY: 0
+                PathLine { x: surfaceFill.w - surfaceFill.topR; y: 0 }
+                PathQuad { x: surfaceFill.w; y: surfaceFill.topR; controlX: surfaceFill.w; controlY: 0 }
+                PathLine { x: surfaceFill.w; y: surfaceFill.h - surfaceFill.botR }
+                PathQuad { x: surfaceFill.w - surfaceFill.botR; y: surfaceFill.h; controlX: surfaceFill.w; controlY: surfaceFill.h }
+                PathLine { x: surfaceFill.botR; y: surfaceFill.h }
+                PathQuad { x: 0; y: surfaceFill.h - surfaceFill.botR; controlX: 0; controlY: surfaceFill.h }
+                PathLine { x: 0; y: surfaceFill.topR }
+                PathQuad { x: surfaceFill.topR; y: 0; controlX: 0; controlY: 0 }
+            }
+
+            // Smooth C1-continuous slanted S-curve Notch Path (Top or Bottom)
+            ShapePath {
+                strokeColor: "transparent"
+                fillColor: surfaceFill.useSlantNotch
+                    ? (barSlot.isSubPageOpen ? barSlot.root.sidebarBg : barSlot.root.barBg)
+                    : "transparent"
+                startX: surfaceFill.isBottomNotch ? surfaceFill.ear : 0
+                startY: 0
+                PathLine {
+                    x: surfaceFill.isBottomNotch ? (surfaceFill.w - surfaceFill.ear) : surfaceFill.w
+                    y: 0
+                }
+                PathCubic {
+                    x: surfaceFill.isBottomNotch ? surfaceFill.w : (surfaceFill.w - surfaceFill.ear)
+                    y: surfaceFill.h
+                    control1X: surfaceFill.isBottomNotch
+                        ? (surfaceFill.w - surfaceFill.ear * 0.45)
+                        : (surfaceFill.w - surfaceFill.ear * 0.55)
+                    control1Y: 0
+                    control2X: surfaceFill.isBottomNotch
+                        ? (surfaceFill.w - surfaceFill.ear * 0.55)
+                        : (surfaceFill.w - surfaceFill.ear * 0.45)
+                    control2Y: surfaceFill.h
                 }
                 PathLine {
-                    x: surfaceFill.width
-                    y: surfaceFill.height - continuousBarSurface.bottomCornerRadius
+                    x: surfaceFill.isBottomNotch ? 0 : surfaceFill.ear
+                    y: surfaceFill.h
                 }
-                PathQuad {
-                    x: surfaceFill.width - continuousBarSurface.bottomCornerRadius
-                    y: surfaceFill.height
-                    controlX: surfaceFill.width; controlY: surfaceFill.height
-                }
-                PathLine { x: continuousBarSurface.bottomCornerRadius; y: surfaceFill.height }
-                PathQuad {
-                    x: 0; y: surfaceFill.height - continuousBarSurface.bottomCornerRadius
-                    controlX: 0; controlY: surfaceFill.height
-                }
-                PathLine { x: 0; y: continuousBarSurface.topCornerRadius }
-                PathQuad {
-                    x: continuousBarSurface.topCornerRadius; y: 0
-                    controlX: 0; controlY: 0
+                PathCubic {
+                    x: surfaceFill.isBottomNotch ? surfaceFill.ear : 0
+                    y: 0
+                    control1X: surfaceFill.isBottomNotch
+                        ? (surfaceFill.ear * 0.55)
+                        : (surfaceFill.ear * 0.45)
+                    control1Y: surfaceFill.h
+                    control2X: surfaceFill.isBottomNotch
+                        ? (surfaceFill.ear * 0.45)
+                        : (surfaceFill.ear * 0.55)
+                    control2Y: 0
                 }
             }
         }
